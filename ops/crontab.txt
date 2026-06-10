@@ -1,0 +1,20 @@
+# Установка: crontab -e и вставить строки (пути поправить под машину; ORACLE=/путь/к/oracle)
+# Рутина идёт НАПРЯМУЮ через python — дешевле и воспроизводимо. Claude Code — для разработки и разбора.
+
+# Калибровочный режим: вторник и пятница 08:00
+0 8 * * 2,5  cd $ORACLE && python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
+
+# Тематический режим Brent: ежедневно по будням 07:30
+30 7 * * 1-5 cd $ORACLE && python orchestrator/run.py --mode theme --asset brent >> journal/cron.log 2>&1
+
+# Разрешение прогнозов с вышедшим сроком: ежедневно 21:00
+0 21 * * *   cd $ORACLE && python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
+
+# Боевой прогон воронки: понедельник 09:00
+0 9 * * 1    cd $ORACLE && python orchestrator/run.py --mode funnel >> journal/cron.log 2>&1
+
+# Напоминание о еженедельном разборе (сам разбор — в Claude Code: /review-week): пятница 18:00
+0 18 * * 5   echo "$(date): пора /review-week в Claude Code" >> $ORACLE/journal/reminders.log
+
+# Панель бюджета: пересборка каждое утро 07:00; код выхода 3 = превышение
+0 7 * * *    cd $ORACLE && python3 ops/budget.py >> journal/cron.log 2>&1
