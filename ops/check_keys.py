@@ -49,7 +49,7 @@ if not nk:
     results.append(("NewsAPI.ai", False, "NEWSAPI_AI_KEY не задан"))
 else:
     try:
-        q = urllib.parse.quote(json.dumps({"keyword": "oil", "lang": "eng"}))
+        q = urllib.parse.quote(json.dumps({"$query": {"keyword": "oil", "lang": "eng"}}))
         st, body = get(f"https://eventregistry.org/api/v1/article/getArticles?query={q}"
                        f"&resultType=articles&articlesCount=1&apiKey={nk}")
         n = json.loads(body).get("articles", {}).get("totalResults", 0)
