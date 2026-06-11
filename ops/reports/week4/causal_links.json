@@ -1,0 +1,182 @@
+[
+  {
+    "insufficient": false,
+    "x": "USO.US",
+    "y": "BNO.US",
+    "best_lag_days": 0,
+    "best_r": 0.5482,
+    "best_r_ci95": [
+      0.5221,
+      0.5733
+    ],
+    "contemporaneous_r": 0.5482,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "WTI и Brent — один нефтяной комплекс; проверяем синхронность/опережение"
+  },
+  {
+    "insufficient": false,
+    "x": "BNO.US",
+    "y": "USO.US",
+    "best_lag_days": 0,
+    "best_r": 0.5482,
+    "best_r_ci95": [
+      0.5221,
+      0.5733
+    ],
+    "contemporaneous_r": 0.5482,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "Brent → WTI обратное направление переноса"
+  },
+  {
+    "insufficient": false,
+    "x": "USO.US",
+    "y": "DBC.US",
+    "best_lag_days": 0,
+    "best_r": 0.4807,
+    "best_r_ci95": [
+      0.4521,
+      0.5084
+    ],
+    "contemporaneous_r": 0.4807,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "нефть — крупнейший вес товарного индекса; перенос в индекс"
+  },
+  {
+    "insufficient": false,
+    "x": "CPER.US",
+    "y": "DBC.US",
+    "best_lag_days": 0,
+    "best_r": 0.3372,
+    "best_r_ci95": [
+      0.3044,
+      0.3692
+    ],
+    "contemporaneous_r": 0.3372,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "медь в составе индустриальных металлов товарного индекса"
+  },
+  {
+    "insufficient": false,
+    "x": "SPY.US",
+    "y": "DBC.US",
+    "best_lag_days": 0,
+    "best_r": 0.3213,
+    "best_r_ci95": [
+      0.2881,
+      0.3537
+    ],
+    "contemporaneous_r": 0.3213,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "риск-аппетит акций → спрос на сырьё"
+  },
+  {
+    "insufficient": false,
+    "x": "DBC.US",
+    "y": "SPY.US",
+    "best_lag_days": 0,
+    "best_r": 0.3213,
+    "best_r_ci95": [
+      0.2881,
+      0.3537
+    ],
+    "contemporaneous_r": 0.3213,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "сырьевая инфляция → давление на акции (обратный канал)"
+  },
+  {
+    "insufficient": false,
+    "x": "CPER.US",
+    "y": "COPX.US",
+    "best_lag_days": 0,
+    "best_r": 0.4138,
+    "best_r_ci95": [
+      0.383,
+      0.4436
+    ],
+    "contemporaneous_r": 0.4138,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "цена меди → выручка/маржа медников (операционный рычаг)"
+  },
+  {
+    "insufficient": false,
+    "x": "COPX.US",
+    "y": "CPER.US",
+    "best_lag_days": 0,
+    "best_r": 0.4138,
+    "best_r_ci95": [
+      0.383,
+      0.4436
+    ],
+    "contemporaneous_r": 0.4138,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "медники как опережающий индикатор цены меди"
+  },
+  {
+    "insufficient": false,
+    "x": "USO.US",
+    "y": "COPX.US",
+    "best_lag_days": 0,
+    "best_r": 0.1682,
+    "best_r_ci95": [
+      0.1325,
+      0.2035
+    ],
+    "contemporaneous_r": 0.1682,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "энергозатраты добычи и общий сырьевой цикл → медники"
+  },
+  {
+    "insufficient": false,
+    "x": "USO.US",
+    "y": "CPER.US",
+    "best_lag_days": 0,
+    "best_r": 0.1177,
+    "best_r_ci95": [
+      0.0815,
+      0.1536
+    ],
+    "contemporaneous_r": 0.1177,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "нефть как прокси глобального спроса → медь"
+  },
+  {
+    "insufficient": false,
+    "x": "SPY.US",
+    "y": "COPX.US",
+    "best_lag_days": 0,
+    "best_r": 0.4715,
+    "best_r_ci95": [
+      0.4426,
+      0.4995
+    ],
+    "contemporaneous_r": 0.4715,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "бета медников к широкому рынку"
+  },
+  {
+    "insufficient": false,
+    "x": "SPY.US",
+    "y": "CPER.US",
+    "best_lag_days": 0,
+    "best_r": 0.2934,
+    "best_r_ci95": [
+      0.2596,
+      0.3264
+    ],
+    "contemporaneous_r": 0.2934,
+    "n": 2875,
+    "max_lag_scanned": 15,
+    "mechanism": "цикл рынка акций → промышленный спрос на медь"
+  }
+]

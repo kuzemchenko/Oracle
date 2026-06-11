@@ -1,0 +1,481 @@
+# СГЕНЕРИРОВАНО ops/calibrate_week4.py (программа §23.1, честная зона walk-forward).
+# Правки руками будут перезаписаны при следующем прогоне калибровки.
+# Дата генерации: 2026-06-11T11:52:27Z
+
+version: 1
+generated_at: '2026-06-11T11:52:27Z'
+spec_ref: §23.1 п.2
+n_links: 36
+n_empirical: 12
+n_domain: 24
+honesty_note: эмпирические связи измерены на истории (код не помнит будущее, §23.1);
+  доменные — гипотезы с лагами из литературы, подтверждаются только форвардом (П16).
+links:
+- cause: USO.US
+  effect: BNO.US
+  mechanism: WTI и Brent — один нефтяной комплекс; проверяем синхронность/опережение
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.5482
+  correlation_ci95:
+  - 0.5221
+  - 0.5733
+  contemporaneous_correlation: 0.5482
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: BNO.US
+  effect: USO.US
+  mechanism: Brent → WTI обратное направление переноса
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.5482
+  correlation_ci95:
+  - 0.5221
+  - 0.5733
+  contemporaneous_correlation: 0.5482
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: USO.US
+  effect: DBC.US
+  mechanism: нефть — крупнейший вес товарного индекса; перенос в индекс
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.4807
+  correlation_ci95:
+  - 0.4521
+  - 0.5084
+  contemporaneous_correlation: 0.4807
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: CPER.US
+  effect: DBC.US
+  mechanism: медь в составе индустриальных металлов товарного индекса
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.3372
+  correlation_ci95:
+  - 0.3044
+  - 0.3692
+  contemporaneous_correlation: 0.3372
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: SPY.US
+  effect: DBC.US
+  mechanism: риск-аппетит акций → спрос на сырьё
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.3213
+  correlation_ci95:
+  - 0.2881
+  - 0.3537
+  contemporaneous_correlation: 0.3213
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: DBC.US
+  effect: SPY.US
+  mechanism: сырьевая инфляция → давление на акции (обратный канал)
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.3213
+  correlation_ci95:
+  - 0.2881
+  - 0.3537
+  contemporaneous_correlation: 0.3213
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: CPER.US
+  effect: COPX.US
+  mechanism: цена меди → выручка/маржа медников (операционный рычаг)
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.4138
+  correlation_ci95:
+  - 0.383
+  - 0.4436
+  contemporaneous_correlation: 0.4138
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: COPX.US
+  effect: CPER.US
+  mechanism: медники как опережающий индикатор цены меди
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.4138
+  correlation_ci95:
+  - 0.383
+  - 0.4436
+  contemporaneous_correlation: 0.4138
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: USO.US
+  effect: COPX.US
+  mechanism: энергозатраты добычи и общий сырьевой цикл → медники
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.1682
+  correlation_ci95:
+  - 0.1325
+  - 0.2035
+  contemporaneous_correlation: 0.1682
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: USO.US
+  effect: CPER.US
+  mechanism: нефть как прокси глобального спроса → медь
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.1177
+  correlation_ci95:
+  - 0.0815
+  - 0.1536
+  contemporaneous_correlation: 0.1177
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: SPY.US
+  effect: COPX.US
+  mechanism: бета медников к широкому рынку
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.4715
+  correlation_ci95:
+  - 0.4426
+  - 0.4995
+  contemporaneous_correlation: 0.4715
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: SPY.US
+  effect: CPER.US
+  mechanism: цикл рынка акций → промышленный спрос на медь
+  source: empirical
+  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  lag_days: 0
+  lag_note: положительный лаг = cause опережает effect (в торговых днях)
+  correlation_at_best_lag: 0.2934
+  correlation_ci95:
+  - 0.2596
+  - 0.3264
+  contemporaneous_correlation: 0.2934
+  n_observations: 2875
+  max_lag_scanned: 15
+  calibrated: true
+  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
+    доменные лаги ниже
+- cause: засуха в зернопоясе
+  effect: рост цен на пшеницу/кукурузу
+  cascade_order: 2
+  mechanism: потеря урожая → дефицит предложения
+  source: domain_knowledge
+  lag_human: 4-12 недель
+  lag_days_range: 20-60 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: обильные дожди / высокая водность
+  effect: падение спроса на газ и уголь
+  cascade_order: 2
+  mechanism: загрузка ГЭС → вытеснение тепловой генерации
+  source: domain_knowledge
+  lag_human: 2-8 недель
+  lag_days_range: 14-56 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: повышение ставки ЦБ
+  effect: падение акций девелоперов
+  cascade_order: 3
+  mechanism: ставка → ипотечные ставки → спрос на жильё → выручка девелоперов
+  source: domain_knowledge
+  lag_human: 1-6 месяцев
+  lag_days_range: 30-180 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цены нефти
+  effect: падение маржи авиакомпаний
+  cascade_order: 2
+  mechanism: топливо — крупнейшая статья затрат перевозчика
+  source: domain_knowledge
+  lag_human: 2-6 недель
+  lag_days_range: 14-42 дня
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цены нефти
+  effect: расширение/сжатие крек-спреда НПЗ
+  cascade_order: 2
+  mechanism: разница цен сырой нефти и нефтепродуктов
+  source: domain_knowledge
+  lag_human: 1-3 недели
+  lag_days_range: 5-21 день
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цены нефти
+  effect: рост затрат нефтехимии и пластиков
+  cascade_order: 3
+  mechanism: нефть → нафта/этан → полимеры
+  source: domain_knowledge
+  lag_human: 3-8 недель
+  lag_days_range: 21-56 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цены меди
+  effect: рост издержек строительства и электросетей
+  cascade_order: 3
+  mechanism: медь → провод/кабель → капзатраты
+  source: domain_knowledge
+  lag_human: 4-12 недель
+  lag_days_range: 30-90 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цены газа
+  effect: рост цен азотных удобрений
+  cascade_order: 2
+  mechanism: газ — сырьё для аммиака/карбамида
+  source: domain_knowledge
+  lag_human: 2-6 недель
+  lag_days_range: 14-42 дня
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цен удобрений
+  effect: рост себестоимости и цен зерна
+  cascade_order: 3
+  mechanism: удобрения → затраты посевной → предложение зерна
+  source: domain_knowledge
+  lag_human: 1-2 сезона
+  lag_days_range: 60-180 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: укрепление доллара (DXY)
+  effect: снижение долларовых цен сырья
+  cascade_order: 2
+  mechanism: сырьё номинировано в USD; обратная связь
+  source: domain_knowledge
+  lag_human: 1-4 недели
+  lag_days_range: 5-30 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост PMI промышленности Китая
+  effect: рост спроса на промышленные металлы
+  cascade_order: 2
+  mechanism: Китай — крупнейший потребитель меди/железа
+  source: domain_knowledge
+  lag_human: 2-8 недель
+  lag_days_range: 14-56 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост Baltic Dry Index
+  effect: рост затрат на доставку насыпных грузов
+  cascade_order: 2
+  mechanism: ставки фрахта → стоимость поставки сырья
+  source: domain_knowledge
+  lag_human: 1-4 недели
+  lag_days_range: 7-30 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: сокращение добычи ОПЕК+
+  effect: рост цены нефти и валют экспортёров
+  cascade_order: 2
+  mechanism: сжатие предложения → цена → платёжный баланс экспортёров
+  source: domain_knowledge
+  lag_human: несколько дней
+  lag_days_range: 1-10 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: дефицит полупроводников
+  effect: снижение автопроизводства
+  cascade_order: 2
+  mechanism: чипы — узкое место сборки авто
+  source: domain_knowledge
+  lag_human: 2-6 месяцев
+  lag_days_range: 60-180 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: ускорение перехода на электромобили
+  effect: рост спроса на медь и литий
+  cascade_order: 3
+  mechanism: EV содержит ~4x меди ДВС; батареи — литий
+  source: domain_knowledge
+  lag_human: кварталы
+  lag_days_range: 90-365 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост цены на углерод (ETS)
+  effect: переключение генерации с угля на газ
+  cascade_order: 2
+  mechanism: цена CO2 меняет относительную экономику топлива
+  source: domain_knowledge
+  lag_human: 2-6 недель
+  lag_days_range: 14-42 дня
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: аномальный холод
+  effect: рост спроса на газ/мазут отопления
+  cascade_order: 1
+  mechanism: погодный спрос на топливо (1-й порядок, для каскадной ветки далее)
+  source: domain_knowledge
+  lag_human: несколько дней
+  lag_days_range: 1-10 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: ураган в Мексиканском заливе
+  effect: перебой добычи/НПЗ → рост цен нефтепродуктов
+  cascade_order: 2
+  mechanism: остановка платформ и заводов залива
+  source: domain_knowledge
+  lag_human: дни-недели
+  lag_days_range: 1-21 день
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: снижение ставки ФРС
+  effect: рост золота
+  cascade_order: 2
+  mechanism: реальные ставки ↓ → альтернативная стоимость золота ↓
+  source: domain_knowledge
+  lag_human: 2-8 недель
+  lag_days_range: 14-56 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: всплеск VIX / risk-off
+  effect: распродажа сырьевых активов
+  cascade_order: 2
+  mechanism: сжатие плеча и risk-parity → продажи сырья
+  source: domain_knowledge
+  lag_human: дни
+  lag_days_range: 1-10 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост дизельного крек-спреда
+  effect: рост издержек логистики и инфляции товаров
+  cascade_order: 3
+  mechanism: дизель → автоперевозки → цена товаров на полке
+  source: domain_knowledge
+  lag_human: 1-3 месяца
+  lag_days_range: 30-90 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: забастовка/авария на руднике
+  effect: сжатие предложения меди → рост цены
+  cascade_order: 2
+  mechanism: выпадение объёмов добычи
+  source: domain_knowledge
+  lag_human: дни-недели
+  lag_days_range: 3-30 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: сильные draws запасов EIA
+  effect: рост цены нефти
+  cascade_order: 1
+  mechanism: сюрприз баланса спрос/предложение (1-й порядок → каскад в нефтехимию)
+  source: domain_knowledge
+  lag_human: дни
+  lag_days_range: 1-7 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)
+- cause: рост отношения медь/золото
+  effect: рост доходностей гособлигаций
+  cascade_order: 2
+  mechanism: прокси промышленного цикла опережает ставки
+  source: domain_knowledge
+  lag_human: 2-8 недель
+  lag_days_range: 14-56 дней
+  calibrated: false
+  needs_forward_validation: true
+  note: лаг из рыночной механики/литературы; инструмент для эмпирической сверки появится
+    по мере расширения универсума (§23, П16)

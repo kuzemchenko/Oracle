@@ -1,0 +1,113 @@
+# СГЕНЕРИРОВАНО ops/calibrate_week4.py (программа §23.1, честная зона walk-forward).
+# Правки руками будут перезаписаны при следующем прогоне калибровки.
+# Дата генерации: 2026-06-11T11:52:27Z
+
+version: 1
+calibrated_at: '2026-06-11T11:52:27Z'
+spec_ref: §23.1 п.8, §7 «Асимметрия net»
+capital_anchor_usd: 100000.0
+idea_fraction: 0.005
+order_usd_assumed: 500.0
+model: round_trip_bps = 2*(half_spread_bps + slippage_bps + commission_bps)
+provenance_note: дневной фид EODHD НЕ содержит bid/ask → истинный спред измерить нельзя;
+  half_spread оценён по тиру ликвидности (ADV), slippage — линейная импакт-модель,
+  commission — допущение тарифа. ADV (медианный $-оборот) посчитан из данных.
+instruments:
+  SPY.US:
+    symbol: SPY.US
+    adv_usd_median: 38808035752.0
+    adv_window_days: 60
+    order_usd: 500.0
+    participation_pct: 1.0e-06
+    half_spread_bps: 1.0
+    half_spread_provenance: assumed (тир по ADV; дневные бары не содержат bid/ask)
+    slippage_bps: 0.0
+    slippage_provenance: model (линейный импакт k=10бп/участие)
+    commission_bps: 1.0
+    commission_provenance: assumed (тариф брокера)
+    round_trip_bps: 4.0
+    short_borrow_fee_bps: null
+    short_borrow_provenance: нет данных (ставка заёмных бумаг отсутствует в фиде)
+      — П8
+  DBC.US:
+    symbol: DBC.US
+    adv_usd_median: 32513365.0
+    adv_window_days: 60
+    order_usd: 500.0
+    participation_pct: 0.001538
+    half_spread_bps: 4.0
+    half_spread_provenance: assumed (тир по ADV; дневные бары не содержат bid/ask)
+    slippage_bps: 0.0154
+    slippage_provenance: model (линейный импакт k=10бп/участие)
+    commission_bps: 1.0
+    commission_provenance: assumed (тариф брокера)
+    round_trip_bps: 10.031
+    short_borrow_fee_bps: null
+    short_borrow_provenance: нет данных (ставка заёмных бумаг отсутствует в фиде)
+      — П8
+  BNO.US:
+    symbol: BNO.US
+    adv_usd_median: 239095593.0
+    adv_window_days: 60
+    order_usd: 500.0
+    participation_pct: 0.000209
+    half_spread_bps: 2.0
+    half_spread_provenance: assumed (тир по ADV; дневные бары не содержат bid/ask)
+    slippage_bps: 0.0021
+    slippage_provenance: model (линейный импакт k=10бп/участие)
+    commission_bps: 1.0
+    commission_provenance: assumed (тариф брокера)
+    round_trip_bps: 6.004
+    short_borrow_fee_bps: null
+    short_borrow_provenance: нет данных (ставка заёмных бумаг отсутствует в фиде)
+      — П8
+  USO.US:
+    symbol: USO.US
+    adv_usd_median: 1702781860.0
+    adv_window_days: 60
+    order_usd: 500.0
+    participation_pct: 2.9e-05
+    half_spread_bps: 1.0
+    half_spread_provenance: assumed (тир по ADV; дневные бары не содержат bid/ask)
+    slippage_bps: 0.0003
+    slippage_provenance: model (линейный импакт k=10бп/участие)
+    commission_bps: 1.0
+    commission_provenance: assumed (тариф брокера)
+    round_trip_bps: 4.001
+    short_borrow_fee_bps: null
+    short_borrow_provenance: нет данных (ставка заёмных бумаг отсутствует в фиде)
+      — П8
+  CPER.US:
+    symbol: CPER.US
+    adv_usd_median: 26612379.0
+    adv_window_days: 60
+    order_usd: 500.0
+    participation_pct: 0.001879
+    half_spread_bps: 4.0
+    half_spread_provenance: assumed (тир по ADV; дневные бары не содержат bid/ask)
+    slippage_bps: 0.0188
+    slippage_provenance: model (линейный импакт k=10бп/участие)
+    commission_bps: 1.0
+    commission_provenance: assumed (тариф брокера)
+    round_trip_bps: 10.038
+    short_borrow_fee_bps: null
+    short_borrow_provenance: нет данных (ставка заёмных бумаг отсутствует в фиде)
+      — П8
+  COPX.US:
+    symbol: COPX.US
+    adv_usd_median: 315284302.0
+    adv_window_days: 60
+    order_usd: 500.0
+    participation_pct: 0.000159
+    half_spread_bps: 2.0
+    half_spread_provenance: assumed (тир по ADV; дневные бары не содержат bid/ask)
+    slippage_bps: 0.0016
+    slippage_provenance: model (линейный импакт k=10бп/участие)
+    commission_bps: 1.0
+    commission_provenance: assumed (тариф брокера)
+    round_trip_bps: 6.003
+    short_borrow_fee_bps: null
+    short_borrow_provenance: нет данных (ставка заёмных бумаг отсутствует в фиде)
+      — П8
+short_borrow_note: 'нет данных (П8): ставка заёмных бумаг для шорта отсутствует в
+  фиде — для шорт-идей издержки занижены, помечать в риск-агенте'

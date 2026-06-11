@@ -1,44 +1,273 @@
-# config/thresholds.yaml — пороги тайминга / FDR / манипуляций (MASTER_SPEC §6, §23.1, П16)
-# ВНИМАНИЕ: значения ниже — АПРИОРНЫЕ ПЛЕЙСХОЛДЕРЫ из текста спецификации.
-# Они НЕ откалиброваны. Калибровка walk-forward на истории — задача Недели 4 (§23.1),
-# она ЛЕГАЛЬНА: детерминированный код «не помнит будущее» (в отличие от LLM-прогнозов, П16).
-# До прохождения Недели 4 поле calibrated=false; оркестратор обязан помечать вердикты как «пороги неоткалиброваны».
+# СГЕНЕРИРОВАНО ops/calibrate_week4.py (программа §23.1, честная зона walk-forward).
+# Правки руками будут перезаписаны при следующем прогоне калибровки.
+# Дата генерации: 2026-06-11T11:52:27Z
 
-version: 1
-calibrated: false
-calibration_week: 4              # §24: walk-forward-отчёты по всем детекторам появляются здесь
-
-# --- FDR-контроль скана сигналов (§6, §23.1 п.6) ---
+version: 2
+calibrated: true
+calibration_week: 4
+calibrated_at: '2026-06-11T11:52:27Z'
+calibration_method: детерминированный walk-forward на истории (§23.1, честная зона;
+  П16 не нарушён — код не помнит будущее)
+train_window:
+  from: '2015-01-02'
+  to: '2026-06-10'
+  symbols: 8
+reports: ops/reports/week4/
 fdr:
   procedure: benjamini_hochberg
-  q_value_max: 0.10              # аномалия = сигнал только при q < 0.1 относительно фоновой дисперсии
-  background_variance_source: "история, считается в Неделю 4 (§23.1 п.6)"
-
-# --- Тайминг-детектор (§4 агент своевременности, §23.1 п.1) ---
+  q_value_max: 0.1
+  note: q-порог зафиксирован спецификацией §6; калибруется ФОН (дисперсии метрик),
+    не q.
+  background_variance_source: computed on history (см. background_metrics ниже и backgrounds.json)
+  p_value_method: двусторонний эмпирический survival относительно фона (mathlib.calibration.backgrounds.empirical_p_two_sided)
+  word_frequency_background: null
+  word_frequency_provenance: 'нет данных (П8): история новостей ≈ 1 мес. < минимума
+    для фоновых дисперсий частот слов'
+  background_metrics:
+    SPY.US:
+      ret:
+        std: 0.011189
+        mad_sigma: 0.007217
+        q99: 0.025896
+        q01: -0.03227
+        n: 2875
+      absret:
+        std: 0.008467
+        mad_sigma: 0.005074
+        q99: 0.037819
+        q01: 8.2e-05
+        n: 2875
+      dvol:
+        std: 0.314219
+        mad_sigma: 0.30333
+        q99: 0.776836
+        q01: -0.703981
+        n: 2875
+    DBC.US:
+      ret:
+        std: 0.011393
+        mad_sigma: 0.00935
+        q99: 0.026204
+        q01: -0.031626
+        n: 2875
+      absret:
+        std: 0.007656
+        mad_sigma: 0.005766
+        q99: 0.035481
+        q01: 0.0
+        n: 2875
+      dvol:
+        std: 0.556074
+        mad_sigma: 0.50628
+        q99: 1.423284
+        q01: -1.378355
+        n: 2875
+    BNO.US:
+      ret:
+        std: 0.023773
+        mad_sigma: 0.01815
+        q99: 0.060656
+        q01: -0.065141
+        n: 2875
+      absret:
+        std: 0.016926
+        mad_sigma: 0.011517
+        q99: 0.077944
+        q01: 0.0
+        n: 2875
+      dvol:
+        std: 0.579797
+        mad_sigma: 0.543046
+        q99: 1.442982
+        q01: -1.392292
+        n: 2875
+    USO.US:
+      ret:
+        std: 0.047189
+        mad_sigma: 0.018984
+        q99: 0.060542
+        q01: -0.07048
+        n: 2875
+      absret:
+        std: 0.043529
+        mad_sigma: 0.011943
+        q99: 0.082088
+        q01: 0.000144
+        n: 2875
+      dvol:
+        std: 0.41004
+        mad_sigma: 0.388773
+        q99: 1.021037
+        q01: -0.937991
+        n: 2875
+    CPER.US:
+      ret:
+        std: 0.018333
+        mad_sigma: 0.012246
+        q99: 0.036947
+        q01: -0.041805
+        n: 2875
+      absret:
+        std: 0.014475
+        mad_sigma: 0.008169
+        q99: 0.047635
+        q01: 0.0
+        n: 2875
+      dvol:
+        std: 1.105709
+        mad_sigma: 0.912372
+        q99: 2.848241
+        q01: -2.931802
+        n: 2682
+    COPX.US:
+      ret:
+        std: 0.031165
+        mad_sigma: 0.01913
+        q99: 0.061085
+        q01: -0.062382
+        n: 2875
+      absret:
+        std: 0.025861
+        mad_sigma: 0.012064
+        q99: 0.07232
+        q01: 0.000192
+        n: 2875
+      dvol:
+        std: 0.812972
+        mad_sigma: 0.720549
+        q99: 2.184661
+        q01: -2.022265
+        n: 2875
+    BCOM.INDX:
+      ret:
+        std: 0.009372
+        mad_sigma: 0.00764
+        q99: 0.021773
+        q01: -0.026416
+        n: 2893
+      absret:
+        std: 0.006358
+        mad_sigma: 0.004781
+        q99: 0.030072
+        q01: 0.000127
+        n: 2893
+      dvol:
+        insufficient: true
+        n: 0
+    BCOMTR.INDX:
+      ret:
+        std: 0.009399
+        mad_sigma: 0.007673
+        q99: 0.021915
+        q01: -0.026521
+        n: 2878
+      absret:
+        std: 0.006369
+        mad_sigma: 0.004789
+        q99: 0.030103
+        q01: 0.000109
+        n: 2878
+      dvol:
+        insufficient: true
+        n: 0
 timing:
-  spent_move_sigma: 1.5         # >1.5σ дневного хода с момента ПЕРВОисточника → игра 1-го порядка мертва
-  volume_spike_z: null          # порог всплеска объёма — откалибровать walk-forward
-  open_interest_jump_z: null    # рост OI = позиции профи заполнены — откалибровать
-  iv_spike_pct: null            # взлёт подразумеваемой волатильности — откалибровать
-  verdicts: [РАНО, ВОВРЕМЯ, ПОЗДНО, ЛОВУШКА]
-  cascade_transfer_lag_source: knowledge/causal_links.yaml  # лаги переноса (§23.1 п.2)
-
-# --- Детекторы манипуляций (§4 антиманипулятор, §23.1 п.4) ---
+  spent_move_sigma: 0.75
+  spent_move_sigma_provenance: 'пул событий по инструментам ядра (10k+): наименьший
+    σ, выше которого среднее продолжение ≤ 0; per-instrument walk-forward подтверждает
+    обобщаемость'
+  spent_move_sigma_finding: '1-й порядок слаб: среднее продолжение ≈ 0 уже за ~0.75σ,
+    надёжный разворот только в хвосте >2.5σ — подтверждает П5 (не играем 1-й порядок,
+    играем каскады)'
+  volume_spike_z: 3.5
+  volume_spike_z_provenance: пул событий по инструментам ядра; всплеск как сигнал
+    исчерпания слаб — продолжение не положительно лишь при z≥порога
+  open_interest_jump_z: null
+  open_interest_provenance: 'нет данных (П8): OI отсутствует в дневном фиде EODHD'
+  iv_spike_pct: null
+  iv_provenance: 'нет данных (П8): подразумеваемая волатильность опционов не подключена'
+  verdicts:
+  - РАНО
+  - ВОВРЕМЯ
+  - ПОЗДНО
+  - ЛОВУШКА
+  cascade_transfer_lag_source: knowledge/causal_links.yaml
+  per_instrument:
+    SPY.US:
+      spent_move_sigma: 1.25
+      volume_spike_z: 0.5
+      spent_sigma_test_separation_rate: 0.25
+    DBC.US:
+      spent_move_sigma: 0.5
+      volume_spike_z: 0.5
+      spent_sigma_test_separation_rate: 0.6666666666666666
+    BNO.US:
+      spent_move_sigma: 1.125
+      volume_spike_z: 1.75
+      spent_sigma_test_separation_rate: 0.6666666666666666
+    USO.US:
+      spent_move_sigma: 0.5
+      volume_spike_z: 0.5
+      spent_sigma_test_separation_rate: 0.6666666666666666
+    CPER.US:
+      spent_move_sigma: 0.5
+      volume_spike_z: 1.0
+      spent_sigma_test_separation_rate: 0.5714285714285714
+    COPX.US:
+      spent_move_sigma: 0.5
+      volume_spike_z: 0.5
+      spent_sigma_test_separation_rate: 0.25
 manipulation:
-  score_block_threshold: 7.0    # манип-балл 0–10; выше порога → блок ИЛИ переворот идеи
-  detectors:                    # параметры подбираются walk-forward по размеченным историческим ловушкам
-    false_breakout: {revert_bars: null, enabled: true}
-    stop_hunt: {enabled: true}
-    narrative_similarity_max: null   # аномальная согласованность мелких источников (метрика от сантимент-аналитика)
+  score_block_threshold: 7.0
+  score_block_provenance: априорный порог §4 (0–10); калибруется форвардом по журналу
+    ловушек §14
+  detectors:
+    false_breakout:
+      lookback: 20
+      horizon: 20
+      revert_bars: 1
+      provenance: 'walk-forward: наименьшее окно реверта, на котором помеченные ложными
+        пробои уже имеют отрицательное среднее форвардное продолжение (и ниже истинных)'
+      enabled: true
+    stop_hunt:
+      lookback: 20
+      atr_window: 14
+      max_pen_atr: 3.0
+      provenance: наибольшая глубина прокола опоры (в ATR), при которой отвержение
+        ещё даёт бычий отскок
+      calibration_strength: 'слабая: n<110 событий/инструмент, параметр плохо идентифицируется
+        — уточнить форвардом по журналу ловушек §14'
+      enabled: true
+    narrative_similarity_max: null
+    narrative_provenance: 'нет данных (П8): сантимент-метрика похожести нарративов
+      требует длинной истории новостей'
     single_source_quarantine: true
-    pump_dump_small_caps: {depth_drop_pct: null, enabled: true}
-
-# --- Карантин сенсаций по классам активов (§14) ---
+    pump_dump_small_caps:
+      depth_drop_pct: null
+      enabled: false
+      provenance: 'нет данных (П8): глубина стакана недоступна; активы ядра — ликвидные
+        ETF, не малые активы'
+  per_instrument:
+    SPY.US:
+      false_breakout_revert_bars: 1.0
+      stop_hunt_max_pen_atr: 3.0
+    DBC.US:
+      false_breakout_revert_bars: 1.0
+      stop_hunt_max_pen_atr: 1.625
+    BNO.US:
+      false_breakout_revert_bars: 1.0
+      stop_hunt_max_pen_atr: 3.0
+    USO.US:
+      false_breakout_revert_bars: 1.0
+      stop_hunt_max_pen_atr: 3.0
+    CPER.US:
+      false_breakout_revert_bars: 1.0
+      stop_hunt_max_pen_atr: 3.0
+    COPX.US:
+      false_breakout_revert_bars: 1.0
+      stop_hunt_max_pen_atr: 3.0
 sensation_quarantine_hours:
-  liquid_macro: 6              # ликвидные макро-активы: 2–6 ч (берём верхнюю границу)
+  liquid_macro: 6
   single_stock: 24
   small_exotic: 48
-
-# --- Неочевидность / своевременность каскадов ---
 non_obviousness:
-  reject_if_public: true       # очевидное / уже сформулированное публично — отказ или штраф
+  reject_if_public: true
