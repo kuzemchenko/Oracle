@@ -1,0 +1,23 @@
+{
+  "SPY.US": [],
+  "DBC.US": [],
+  "BNO.US": [],
+  "USO.US": [],
+  "CPER.US": [
+    {
+      "date": "2015-02-02",
+      "ret": -0.3377,
+      "next_ret": 0.3765,
+      "roundtrip_logret": 0.0388,
+      "peer_max_abs_ret": 0.0227,
+      "peers": [
+        "COPX.US",
+        "DBC.US"
+      ],
+      "reason": "однодневный выброс -33.8% с полным откатом (round-trip +3.9%) при спокойных пирах (max|пир|=2.3% < 8%) → битый тик"
+    }
+  ],
+  "COPX.US": [],
+  "BCOM.INDX": [],
+  "BCOMTR.INDX": []
+}

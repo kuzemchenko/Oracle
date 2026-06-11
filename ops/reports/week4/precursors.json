@@ -2,25 +2,14 @@
   "catalog": [
     {
       "symbol": "USO.US",
-      "start_idx": 1338,
-      "end_idx": 1358,
-      "start_date": "2020-04-28",
-      "end_date": "2020-05-27",
+      "start_idx": 1322,
+      "end_idx": 1342,
+      "start_date": "2020-04-03",
+      "end_date": "2020-05-04",
       "horizon_days": 20,
-      "magnitude_log": 2.4628,
-      "magnitude_pct": 1073.71,
-      "direction": "up"
-    },
-    {
-      "symbol": "COPX.US",
-      "start_idx": 221,
-      "end_idx": 241,
-      "start_date": "2015-11-17",
-      "end_date": "2015-12-16",
-      "horizon_days": 20,
-      "magnitude_log": 0.9896,
-      "magnitude_pct": 169.01,
-      "direction": "up"
+      "magnitude_log": -0.8753,
+      "magnitude_pct": -58.33,
+      "direction": "down"
     },
     {
       "symbol": "USO.US",
@@ -45,17 +34,6 @@
       "direction": "down"
     },
     {
-      "symbol": "USO.US",
-      "start_idx": 1317,
-      "end_idx": 1337,
-      "start_date": "2020-03-27",
-      "end_date": "2020-04-27",
-      "horizon_days": 20,
-      "magnitude_log": -0.7135,
-      "magnitude_pct": -51.01,
-      "direction": "down"
-    },
-    {
       "symbol": "COPX.US",
       "start_idx": 1288,
       "end_idx": 1308,
@@ -64,17 +42,6 @@
       "horizon_days": 20,
       "magnitude_log": -0.5703,
       "magnitude_pct": -43.46,
-      "direction": "down"
-    },
-    {
-      "symbol": "CPER.US",
-      "start_idx": 0,
-      "end_idx": 20,
-      "start_date": "2015-01-02",
-      "end_date": "2015-02-02",
-      "horizon_days": 20,
-      "magnitude_log": -0.469,
-      "magnitude_pct": -37.43,
       "direction": "down"
     },
     {
@@ -111,17 +78,6 @@
       "direction": "up"
     },
     {
-      "symbol": "CPER.US",
-      "start_idx": 20,
-      "end_idx": 40,
-      "start_date": "2015-02-02",
-      "end_date": "2015-03-03",
-      "horizon_days": 20,
-      "magnitude_log": 0.4127,
-      "magnitude_pct": 51.09,
-      "direction": "up"
-    },
-    {
       "symbol": "COPX.US",
       "start_idx": 279,
       "end_idx": 299,
@@ -133,25 +89,25 @@
       "direction": "up"
     },
     {
-      "symbol": "COPX.US",
-      "start_idx": 1869,
-      "end_idx": 1889,
-      "start_date": "2022-06-06",
-      "end_date": "2022-07-06",
-      "horizon_days": 20,
-      "magnitude_log": -0.3796,
-      "magnitude_pct": -31.59,
-      "direction": "down"
-    },
-    {
       "symbol": "SPY.US",
       "start_idx": 1292,
       "end_idx": 1312,
       "start_date": "2020-02-21",
       "end_date": "2020-03-20",
       "horizon_days": 20,
-      "magnitude_log": -0.3767,
-      "magnitude_pct": -31.39,
+      "magnitude_log": -0.3709,
+      "magnitude_pct": -30.99,
+      "direction": "down"
+    },
+    {
+      "symbol": "COPX.US",
+      "start_idx": 1869,
+      "end_idx": 1889,
+      "start_date": "2022-06-06",
+      "end_date": "2022-07-06",
+      "horizon_days": 20,
+      "magnitude_log": -0.3574,
+      "magnitude_pct": -30.05,
       "direction": "down"
     },
     {
@@ -163,6 +119,17 @@
       "horizon_days": 20,
       "magnitude_log": 0.3535,
       "magnitude_pct": 42.4,
+      "direction": "up"
+    },
+    {
+      "symbol": "USO.US",
+      "start_idx": 1345,
+      "end_idx": 1365,
+      "start_date": "2020-05-07",
+      "end_date": "2020-06-05",
+      "horizon_days": 20,
+      "magnitude_log": 0.3438,
+      "magnitude_pct": 41.04,
       "direction": "up"
     },
     {
@@ -232,17 +199,6 @@
       "direction": "up"
     },
     {
-      "symbol": "COPX.US",
-      "start_idx": 246,
-      "end_idx": 266,
-      "start_date": "2015-12-23",
-      "end_date": "2016-01-25",
-      "horizon_days": 20,
-      "magnitude_log": -0.2779,
-      "magnitude_pct": -24.26,
-      "direction": "down"
-    },
-    {
       "symbol": "USO.US",
       "start_idx": 246,
       "end_idx": 266,
@@ -285,6 +241,28 @@
       "magnitude_log": -0.2663,
       "magnitude_pct": -23.38,
       "direction": "down"
+    },
+    {
+      "symbol": "COPX.US",
+      "start_idx": 246,
+      "end_idx": 266,
+      "start_date": "2015-12-23",
+      "end_date": "2016-01-25",
+      "horizon_days": 20,
+      "magnitude_log": -0.2661,
+      "magnitude_pct": -23.36,
+      "direction": "down"
+    },
+    {
+      "symbol": "COPX.US",
+      "start_idx": 2764,
+      "end_idx": 2784,
+      "start_date": "2025-12-30",
+      "end_date": "2026-01-29",
+      "horizon_days": 20,
+      "magnitude_log": 0.2622,
+      "magnitude_pct": 29.97,
+      "direction": "up"
     },
     {
       "symbol": "BNO.US",
@@ -419,6 +397,28 @@
       "direction": "up"
     },
     {
+      "symbol": "CPER.US",
+      "start_idx": 1579,
+      "end_idx": 1599,
+      "start_date": "2021-04-13",
+      "end_date": "2021-05-11",
+      "horizon_days": 20,
+      "magnitude_log": 0.1725,
+      "magnitude_pct": 18.83,
+      "direction": "up"
+    },
+    {
+      "symbol": "CPER.US",
+      "start_idx": 866,
+      "end_idx": 886,
+      "start_date": "2018-06-12",
+      "end_date": "2018-07-11",
+      "horizon_days": 20,
+      "magnitude_log": -0.1695,
+      "magnitude_pct": -15.59,
+      "direction": "down"
+    },
+    {
       "symbol": "SPY.US",
       "start_idx": 2589,
       "end_idx": 2609,
@@ -441,28 +441,6 @@
       "direction": "up"
     },
     {
-      "symbol": "SPY.US",
-      "start_idx": 987,
-      "end_idx": 1007,
-      "start_date": "2018-12-03",
-      "end_date": "2019-01-03",
-      "horizon_days": 20,
-      "magnitude_log": -0.1343,
-      "magnitude_pct": -12.56,
-      "direction": "down"
-    },
-    {
-      "symbol": "SPY.US",
-      "start_idx": 1936,
-      "end_idx": 1956,
-      "start_date": "2022-09-12",
-      "end_date": "2022-10-10",
-      "horizon_days": 20,
-      "magnitude_log": -0.1324,
-      "magnitude_pct": -12.4,
-      "direction": "down"
-    },
-    {
       "symbol": "DBC.US",
       "start_idx": 1927,
       "end_idx": 1947,
@@ -475,13 +453,35 @@
     },
     {
       "symbol": "SPY.US",
+      "start_idx": 987,
+      "end_idx": 1007,
+      "start_date": "2018-12-03",
+      "end_date": "2019-01-03",
+      "horizon_days": 20,
+      "magnitude_log": -0.1284,
+      "magnitude_pct": -12.05,
+      "direction": "down"
+    },
+    {
+      "symbol": "SPY.US",
+      "start_idx": 1936,
+      "end_idx": 1956,
+      "start_date": "2022-09-12",
+      "end_date": "2022-10-10",
+      "horizon_days": 20,
+      "magnitude_log": -0.1283,
+      "magnitude_pct": -12.04,
+      "direction": "down"
+    },
+    {
+      "symbol": "SPY.US",
       "start_idx": 2559,
       "end_idx": 2579,
       "start_date": "2025-03-07",
       "end_date": "2025-04-04",
       "horizon_days": 20,
-      "magnitude_log": -0.1309,
-      "magnitude_pct": -12.27,
+      "magnitude_log": -0.1279,
+      "magnitude_pct": -12.0,
       "direction": "down"
     },
     {
@@ -530,65 +530,84 @@
     }
   ],
   "n_moves": 48,
+  "excluded_bad_ticks": [
+    {
+      "symbol": "CPER.US",
+      "start_date": "2015-01-02",
+      "end_date": "2015-02-02",
+      "magnitude_pct": -37.43,
+      "excluded_due_to_bad_tick": "2015-02-02",
+      "reason": "конечная/начальная дата движения — битый тик 2015-02-02; величина искажена, движение исключено из каталога"
+    },
+    {
+      "symbol": "CPER.US",
+      "start_date": "2015-02-02",
+      "end_date": "2015-03-03",
+      "magnitude_pct": 51.09,
+      "excluded_due_to_bad_tick": "2015-02-02",
+      "reason": "конечная/начальная дата движения — битый тик 2015-02-02; величина искажена, движение исключено из каталога"
+    }
+  ],
+  "n_excluded": 2,
   "pooled_all": {
     "volume_buildup": {
       "feature": "vol_z_buildup",
       "side": "high",
       "description": "объём набирал темп перед движением (средний z > порога)",
-      "freq_before_move": 0.63,
+      "freq_before_move": 0.625,
       "base_rate": 0.3,
-      "lift": 2.1,
-      "n_moves": 46,
+      "lift": 2.08,
+      "n_moves": 48,
       "n_base_days": 16896
     },
     "elevated_volatility": {
       "feature": "realized_vol",
       "side": "high",
       "description": "повышенная реализованная волатильность перед движением",
-      "freq_before_move": 0.553,
+      "freq_before_move": 0.521,
       "base_rate": 0.3,
-      "lift": 1.84,
-      "n_moves": 47,
+      "lift": 1.74,
+      "n_moves": 48,
       "n_base_days": 16896
     },
     "rsi_overbought": {
       "feature": "rsi14",
       "side": "high",
       "description": "RSI(14) в зоне перекупленности",
-      "freq_before_move": 0.234,
+      "freq_before_move": 0.25,
       "base_rate": 0.3,
-      "lift": 0.78,
-      "n_moves": 47,
+      "lift": 0.83,
+      "n_moves": 48,
       "n_base_days": 16896
     },
     "rsi_oversold": {
       "feature": "rsi14",
       "side": "low",
       "description": "RSI(14) в зоне перепроданности",
-      "freq_before_move": 0.426,
+      "freq_before_move": 0.396,
       "base_rate": 0.3,
-      "lift": 1.42,
-      "n_moves": 47,
+      "lift": 1.32,
+      "n_moves": 48,
       "n_base_days": 16896
     },
     "prior_uptrend": {
       "feature": "prior_trend_log",
       "side": "high",
       "description": "восходящий тренд перед движением",
-      "freq_before_move": 0.277,
+      "freq_before_move": 0.312,
       "base_rate": 0.3,
-      "lift": 0.92,
-      "n_moves": 47,
+      "lift": 1.04,
+      "n_moves": 48,
       "n_base_days": 16896
     },
     "deep_drawdown": {
       "feature": "drawdown_from_peak",
       "side": "low",
       "description": "глубокая просадка от пика перед движением",
-      "freq_before_move": 0.587,
+      "freq_before_move": 0.562,
       "base_rate": 0.3,
-      "lift": 1.96,
-      "n_moves": 46,
+      "lift": 1.87,
+      "n_moves": 48,
       "n_base_days": 16896
     }
   },
@@ -597,19 +616,19 @@
       "feature": "vol_z_buildup",
       "side": "high",
       "description": "объём набирал темп перед движением (средний z > порога)",
-      "freq_before_move": 0.7,
+      "freq_before_move": 0.667,
       "base_rate": 0.3,
-      "lift": 2.33,
-      "n_moves": 20,
+      "lift": 2.22,
+      "n_moves": 21,
       "n_base_days": 16896
     },
     "elevated_volatility": {
       "feature": "realized_vol",
       "side": "high",
       "description": "повышенная реализованная волатильность перед движением",
-      "freq_before_move": 0.619,
+      "freq_before_move": 0.571,
       "base_rate": 0.3,
-      "lift": 2.06,
+      "lift": 1.9,
       "n_moves": 21,
       "n_base_days": 16896
     },
@@ -617,9 +636,9 @@
       "feature": "rsi14",
       "side": "high",
       "description": "RSI(14) в зоне перекупленности",
-      "freq_before_move": 0.19,
+      "freq_before_move": 0.238,
       "base_rate": 0.3,
-      "lift": 0.63,
+      "lift": 0.79,
       "n_moves": 21,
       "n_base_days": 16896
     },
@@ -627,9 +646,9 @@
       "feature": "rsi14",
       "side": "low",
       "description": "RSI(14) в зоне перепроданности",
-      "freq_before_move": 0.476,
+      "freq_before_move": 0.429,
       "base_rate": 0.3,
-      "lift": 1.59,
+      "lift": 1.43,
       "n_moves": 21,
       "n_base_days": 16896
     },
@@ -637,9 +656,9 @@
       "feature": "prior_trend_log",
       "side": "high",
       "description": "восходящий тренд перед движением",
-      "freq_before_move": 0.238,
+      "freq_before_move": 0.286,
       "base_rate": 0.3,
-      "lift": 0.79,
+      "lift": 0.95,
       "n_moves": 21,
       "n_base_days": 16896
     },
@@ -647,10 +666,10 @@
       "feature": "drawdown_from_peak",
       "side": "low",
       "description": "глубокая просадка от пика перед движением",
-      "freq_before_move": 0.65,
+      "freq_before_move": 0.571,
       "base_rate": 0.3,
-      "lift": 2.17,
-      "n_moves": 20,
+      "lift": 1.9,
+      "n_moves": 21,
       "n_base_days": 16896
     }
   },
@@ -659,60 +678,60 @@
       "feature": "vol_z_buildup",
       "side": "high",
       "description": "объём набирал темп перед движением (средний z > порога)",
-      "freq_before_move": 0.577,
+      "freq_before_move": 0.593,
       "base_rate": 0.3,
-      "lift": 1.92,
-      "n_moves": 26,
+      "lift": 1.97,
+      "n_moves": 27,
       "n_base_days": 16896
     },
     "elevated_volatility": {
       "feature": "realized_vol",
       "side": "high",
       "description": "повышенная реализованная волатильность перед движением",
-      "freq_before_move": 0.5,
+      "freq_before_move": 0.481,
       "base_rate": 0.3,
-      "lift": 1.67,
-      "n_moves": 26,
+      "lift": 1.6,
+      "n_moves": 27,
       "n_base_days": 16896
     },
     "rsi_overbought": {
       "feature": "rsi14",
       "side": "high",
       "description": "RSI(14) в зоне перекупленности",
-      "freq_before_move": 0.269,
+      "freq_before_move": 0.259,
       "base_rate": 0.3,
-      "lift": 0.9,
-      "n_moves": 26,
+      "lift": 0.86,
+      "n_moves": 27,
       "n_base_days": 16896
     },
     "rsi_oversold": {
       "feature": "rsi14",
       "side": "low",
       "description": "RSI(14) в зоне перепроданности",
-      "freq_before_move": 0.385,
+      "freq_before_move": 0.37,
       "base_rate": 0.3,
-      "lift": 1.28,
-      "n_moves": 26,
+      "lift": 1.23,
+      "n_moves": 27,
       "n_base_days": 16896
     },
     "prior_uptrend": {
       "feature": "prior_trend_log",
       "side": "high",
       "description": "восходящий тренд перед движением",
-      "freq_before_move": 0.308,
+      "freq_before_move": 0.333,
       "base_rate": 0.3,
-      "lift": 1.03,
-      "n_moves": 26,
+      "lift": 1.11,
+      "n_moves": 27,
       "n_base_days": 16896
     },
     "deep_drawdown": {
       "feature": "drawdown_from_peak",
       "side": "low",
       "description": "глубокая просадка от пика перед движением",
-      "freq_before_move": 0.538,
+      "freq_before_move": 0.556,
       "base_rate": 0.3,
-      "lift": 1.79,
-      "n_moves": 26,
+      "lift": 1.85,
+      "n_moves": 27,
       "n_base_days": 16896
     }
   },

@@ -1,220 +1,210 @@
 # СГЕНЕРИРОВАНО ops/calibrate_week4.py (программа §23.1, честная зона walk-forward).
 # Правки руками будут перезаписаны при следующем прогоне калибровки.
-# Дата генерации: 2026-06-11T11:52:27Z
+# Дата генерации: 2026-06-11T12:51:16Z
 
 version: 1
-generated_at: '2026-06-11T11:52:27Z'
+generated_at: '2026-06-11T12:51:16Z'
 spec_ref: §23.1 п.2
-n_links: 36
-n_empirical: 12
+n_links: 33
+n_empirical: 9
 n_domain: 24
 honesty_note: эмпирические связи измерены на истории (код не помнит будущее, §23.1);
   доменные — гипотезы с лагами из литературы, подтверждаются только форвардом (П16).
+dedup_note: зеркальные пары схлопнуты в одну неориентированную связь (undirected=true);
+  на дневных данных лучший лаг=0, направление эмпирически не установлено.
+empirical_lag_finding: ВСЕ эмпирические лаги = 0 (дневные ETF синхронны). Каскадные
+  лаги недель/месяцев на 8 ETF не измеримы — нужны товарные ряды (пшеница, газ, удобрения
+  и т.п.); до тех пор доменные лаги калибруются только форвардом.
 links:
-- cause: USO.US
-  effect: BNO.US
-  mechanism: WTI и Brent — один нефтяной комплекс; проверяем синхронность/опережение
+- pair:
+  - USO.US
+  - BNO.US
+  mechanism: WTI↔Brent — один нефтяной комплекс (двунаправленно)
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.5482
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.9467
   correlation_ci95:
-  - 0.5221
-  - 0.5733
-  contemporaneous_correlation: 0.5482
+  - 0.9428
+  - 0.9504
+  contemporaneous_correlation: 0.9467
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: BNO.US
-  effect: USO.US
-  mechanism: Brent → WTI обратное направление переноса
-  source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
-  lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.5482
-  correlation_ci95:
-  - 0.5221
-  - 0.5733
-  contemporaneous_correlation: 0.5482
-  n_observations: 2875
-  max_lag_scanned: 15
-  calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: USO.US
-  effect: DBC.US
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - USO.US
+  - DBC.US
   mechanism: нефть — крупнейший вес товарного индекса; перенос в индекс
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.4807
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.8576
   correlation_ci95:
-  - 0.4521
-  - 0.5084
-  contemporaneous_correlation: 0.4807
+  - 0.8476
+  - 0.867
+  contemporaneous_correlation: 0.8576
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: CPER.US
-  effect: DBC.US
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - CPER.US
+  - DBC.US
   mechanism: медь в составе индустриальных металлов товарного индекса
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.3372
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.3393
   correlation_ci95:
-  - 0.3044
-  - 0.3692
-  contemporaneous_correlation: 0.3372
+  - 0.3066
+  - 0.3713
+  contemporaneous_correlation: 0.3393
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: SPY.US
-  effect: DBC.US
-  mechanism: риск-аппетит акций → спрос на сырьё
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - SPY.US
+  - DBC.US
+  mechanism: риск-аппетит акций ↔ спрос на сырьё (двунаправленно)
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.3213
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.3255
   correlation_ci95:
-  - 0.2881
-  - 0.3537
-  contemporaneous_correlation: 0.3213
+  - 0.2924
+  - 0.3578
+  contemporaneous_correlation: 0.3255
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: DBC.US
-  effect: SPY.US
-  mechanism: сырьевая инфляция → давление на акции (обратный канал)
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - CPER.US
+  - COPX.US
+  mechanism: цена меди ↔ выручка/маржа медников (двунаправленно)
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.3213
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.5774
   correlation_ci95:
-  - 0.2881
-  - 0.3537
-  contemporaneous_correlation: 0.3213
+  - 0.5525
+  - 0.6012
+  contemporaneous_correlation: 0.5774
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: CPER.US
-  effect: COPX.US
-  mechanism: цена меди → выручка/маржа медников (операционный рычаг)
-  source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
-  lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.4138
-  correlation_ci95:
-  - 0.383
-  - 0.4436
-  contemporaneous_correlation: 0.4138
-  n_observations: 2875
-  max_lag_scanned: 15
-  calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: COPX.US
-  effect: CPER.US
-  mechanism: медники как опережающий индикатор цены меди
-  source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
-  lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.4138
-  correlation_ci95:
-  - 0.383
-  - 0.4436
-  contemporaneous_correlation: 0.4138
-  n_observations: 2875
-  max_lag_scanned: 15
-  calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: USO.US
-  effect: COPX.US
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - USO.US
+  - COPX.US
   mechanism: энергозатраты добычи и общий сырьевой цикл → медники
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.1682
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.3387
   correlation_ci95:
-  - 0.1325
-  - 0.2035
-  contemporaneous_correlation: 0.1682
+  - 0.3059
+  - 0.3706
+  contemporaneous_correlation: 0.3387
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: USO.US
-  effect: CPER.US
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - USO.US
+  - CPER.US
   mechanism: нефть как прокси глобального спроса → медь
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.1177
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.1974
   correlation_ci95:
-  - 0.0815
-  - 0.1536
-  contemporaneous_correlation: 0.1177
+  - 0.162
+  - 0.2323
+  contemporaneous_correlation: 0.1974
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: SPY.US
-  effect: COPX.US
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - SPY.US
+  - COPX.US
   mechanism: бета медников к широкому рынку
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.4715
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.6121
   correlation_ci95:
-  - 0.4426
-  - 0.4995
-  contemporaneous_correlation: 0.4715
+  - 0.5887
+  - 0.6345
+  contemporaneous_correlation: 0.6121
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
-- cause: SPY.US
-  effect: CPER.US
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
+- pair:
+  - SPY.US
+  - CPER.US
   mechanism: цикл рынка акций → промышленный спрос на медь
   source: empirical
-  method: кросс-корреляция дневных log-доходностей на синхронных рядах
+  method: кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных
+    рядах
+  undirected: true
   lag_days: 0
-  lag_note: положительный лаг = cause опережает effect (в торговых днях)
-  correlation_at_best_lag: 0.2934
+  lag_note: положительный лаг = первый опережает второй (в торговых днях)
+  correlation_at_best_lag: 0.2939
   correlation_ci95:
-  - 0.2596
-  - 0.3264
-  contemporaneous_correlation: 0.2934
+  - 0.2602
+  - 0.327
+  contemporaneous_correlation: 0.2939
   n_observations: 2875
   max_lag_scanned: 15
   calibrated: true
-  caveat: связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее
-    доменные лаги ниже
+  direction_caveat: лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); направление
+    переноса — экономическая гипотеза в mechanism, эмпирически на дневных данных НЕ
+    установлено
 - cause: засуха в зернопоясе
   effect: рост цен на пшеницу/кукурузу
   cascade_order: 2

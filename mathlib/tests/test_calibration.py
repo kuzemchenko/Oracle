@@ -13,7 +13,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from mathlib.calibration import (  # noqa: E402
     loader, walkforward as wf, backgrounds as bg, costs, timing,
-    manipulation as mp, causal, precursors as pc,
+    manipulation as mp, causal, precursors as pc, dataquality as dq,
 )
 
 
@@ -182,12 +182,68 @@ def test_measure_pair_insufficient_on_short():
 
 # ---------- precursors ----------
 
+def _flat_series(symbol, level=100.0, n=30, spike_at=None, spike_ret=None):
+    c = np.full(n, level, dtype=float)
+    if spike_at is not None:
+        c[spike_at] = level * (1.0 + spike_ret)   # выброс на день spike_at, день spike_at+1 возвращается к level
+    rows = [(f"2020-01-{i + 1:02d}", c[i], c[i] * 1.001, c[i] * 0.999, c[i], c[i], 1e6)
+            for i in range(n)]
+    return loader.Series(symbol, rows)
+
+
+def test_detect_bad_tick_idiosyncratic():
+    # У X выброс −30% с откатом, пиры спокойны → битый тик
+    x = _flat_series("X", spike_at=10, spike_ret=-0.30)
+    p1 = _flat_series("P1")
+    p2 = _flat_series("P2")
+    aligned = {"X": x, "P1": p1, "P2": p2}
+    res = dq.detect_bad_ticks(aligned, {"X": ["P1", "P2"], "P1": [], "P2": []})
+    assert len(res["X"]) == 1
+    assert res["X"][0]["date"] == "2020-01-11"        # индекс 10 → 11-е
+
+
+def test_bad_tick_not_flagged_when_peers_move():
+    # Тот же выброс, но пиры тоже падают в этот день → рыночное событие, НЕ битый тик
+    x = _flat_series("X", spike_at=10, spike_ret=-0.30)
+    p1 = _flat_series("P1", spike_at=10, spike_ret=-0.28)
+    aligned = {"X": x, "P1": p1}
+    res = dq.detect_bad_ticks(aligned, {"X": ["P1"], "P1": []})
+    assert res["X"] == []
+
+
+def test_bad_tick_needs_reversal():
+    # Выброс БЕЗ отката (ступень, как сплит) → не битый тик
+    c = [100.0] * 10 + [70.0] * 10            # шаг вниз без возврата
+    rows = [(f"2020-01-{i + 1:02d}", c[i], c[i] * 1.001, c[i] * 0.999, c[i], c[i], 1e6) for i in range(20)]
+    x = loader.Series("X", rows)
+    p1 = _flat_series("P1", n=20)
+    res = dq.detect_bad_ticks({"X": x, "P1": p1}, {"X": ["P1"], "P1": []})
+    assert res["X"] == []
+
+
+def test_adjusted_view_removes_split_artifact():
+    # raw close удваивается на «сплите» (индекс 5), adjusted_close непрерывен
+    close = [10.0] * 5 + [20.0] * 5
+    adj = [10.0] * 10
+    rows = [(f"2020-01-{i + 1:02d}", close[i], close[i] * 1.01, close[i] * 0.99,
+             close[i], adj[i], 1e6) for i in range(10)]
+    s = loader.Series("SPLIT", rows)
+    av = loader.adjusted_view(s)
+    assert np.allclose(av.close, adj)                       # close переведён на adjusted
+    assert (close[5] / close[4] - 1) > 0.9                  # raw-доходность на сплите огромна
+    assert abs(av.close[5] / av.close[4] - 1) < 1e-9        # adjusted-доходность ≈ 0
+    assert np.all(av.high >= av.close * 0.999)              # OHLC остались согласованными
+    # biggest_moves на adjusted не считает сплит-день большим движением
+    moves, _excluded = pc.biggest_moves(av, window=1, top_n=1, min_gap=1)
+    assert abs(moves[0]["magnitude_pct"]) < 1.0
+
+
 def test_biggest_moves_finds_largest_and_dedups():
     close = np.full(200, 100.0)
     close[100:120] = np.linspace(100, 160, 20)    # крупный рост
     close[120:] = 160.0
     s = make_series("M", close)
-    moves = pc.biggest_moves(s, window=20, top_n=3, min_gap=20)
+    moves, _excluded = pc.biggest_moves(s, window=20, top_n=3, min_gap=20)
     assert moves[0]["direction"] == "up"
     assert moves[0]["magnitude_pct"] > 30
     idxs = [m["end_idx"] for m in moves]          # дедуп: события не ближе min_gap

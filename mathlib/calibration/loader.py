@@ -62,6 +62,32 @@ def load_series(symbol, db=DB):
     return Series(symbol, rows)
 
 
+def adjusted_view(series):
+    """Вернуть копию Series, где цены переведены на adjusted_close (сплиты/дивиденды).
+
+    close ← adj; open/high/low масштабируются на тот же фактор f=adj/close (OHLC остаются
+    согласованными для ATR/пробоев). volume не трогаем (raw). Для инструментов, где
+    adjusted_close==close (нет данных корпдействий), результат идентичен исходному.
+    Использовать ВЕЗДЕ, где считаются доходности/движения; в costs (долларовый оборот)
+    нужен RAW close*volume — там adjusted_view НЕ применять.
+    """
+    c = series.close
+    a = series.adj
+    f = np.ones_like(c)
+    ok = np.isfinite(c) & (c > 0) & np.isfinite(a)
+    f[ok] = a[ok] / c[ok]
+    new = Series.__new__(Series)
+    new.symbol = series.symbol
+    new.dates = series.dates
+    new.close = a.copy()
+    new.adj = a.copy()
+    new.open = series.open * f
+    new.high = series.high * f
+    new.low = series.low * f
+    new.volume = series.volume
+    return new
+
+
 def list_symbols(db=DB):
     con = connect(db)
     try:

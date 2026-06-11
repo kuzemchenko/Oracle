@@ -29,7 +29,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from mathlib.calibration import (  # noqa: E402
     loader, walkforward as wf, backgrounds as bg, costs, timing,
-    manipulation as mp, causal, precursors as pc,
+    manipulation as mp, causal, precursors as pc, dataquality as dq,
 )
 
 REPORTS = ROOT / "ops" / "reports" / "week4"
@@ -160,15 +160,16 @@ def run_manipulation(series_map):
 
 # ===================== §23.1 п.2 — причинные связи =====================
 
+# УНИКАЛЬНЫЕ неориентированные пары (без зеркального двойного счёта — аудит Нед.4 п.3).
+# На дневных данных лучший лаг = 0 ⇒ corr(x,y)=corr(y,x); направление переноса — экономическая
+# гипотеза в mechanism, а НЕ эмпирический вывод. Зеркальные пары (USO↔BNO, CPER↔COPX, SPY↔DBC)
+# схлопнуты в одну связь каждая.
 EMPIRICAL_PAIRS = [
-    ("USO.US", "BNO.US", "WTI и Brent — один нефтяной комплекс; проверяем синхронность/опережение"),
-    ("BNO.US", "USO.US", "Brent → WTI обратное направление переноса"),
+    ("USO.US", "BNO.US", "WTI↔Brent — один нефтяной комплекс (двунаправленно)"),
     ("USO.US", "DBC.US", "нефть — крупнейший вес товарного индекса; перенос в индекс"),
     ("CPER.US", "DBC.US", "медь в составе индустриальных металлов товарного индекса"),
-    ("SPY.US", "DBC.US", "риск-аппетит акций → спрос на сырьё"),
-    ("DBC.US", "SPY.US", "сырьевая инфляция → давление на акции (обратный канал)"),
-    ("CPER.US", "COPX.US", "цена меди → выручка/маржа медников (операционный рычаг)"),
-    ("COPX.US", "CPER.US", "медники как опережающий индикатор цены меди"),
+    ("SPY.US", "DBC.US", "риск-аппетит акций ↔ спрос на сырьё (двунаправленно)"),
+    ("CPER.US", "COPX.US", "цена меди ↔ выручка/маржа медников (двунаправленно)"),
     ("USO.US", "COPX.US", "энергозатраты добычи и общий сырьевой цикл → медники"),
     ("USO.US", "CPER.US", "нефть как прокси глобального спроса → медь"),
     ("SPY.US", "COPX.US", "бета медников к широкому рынку"),
@@ -177,7 +178,9 @@ EMPIRICAL_PAIRS = [
 
 
 def run_causal(series_for_align):
-    _, aligned = loader.load_aligned(list({s for p in EMPIRICAL_PAIRS for s in p[:2]}))
+    syms = sorted({s for p in EMPIRICAL_PAIRS for s in p[:2]})
+    _, aligned_raw = loader.load_aligned(syms)
+    aligned = {s: loader.adjusted_view(ser) for s, ser in aligned_raw.items()}  # доходности на adjusted_close
     measured = []
     for x, y, mech in EMPIRICAL_PAIRS:
         res = causal.measure_pair(aligned[x], aligned[y], max_lag=15)
@@ -189,14 +192,36 @@ def run_causal(series_for_align):
 
 # ===================== §23.1 п.3 — предвестники =====================
 
-def run_precursors(series_map):
+# родственные инструменты для проверки идиосинкразии битого тика (аудит п.1)
+PEER_MAP = {
+    "USO.US": ["BNO.US", "DBC.US"], "BNO.US": ["USO.US", "DBC.US"],
+    "CPER.US": ["COPX.US", "DBC.US"], "COPX.US": ["CPER.US", "DBC.US"],
+    "DBC.US": ["BCOM.INDX", "BCOMTR.INDX", "USO.US"],
+    "BCOM.INDX": ["BCOMTR.INDX", "DBC.US"], "BCOMTR.INDX": ["BCOM.INDX", "DBC.US"],
+    "SPY.US": [],   # нет родственного инструмента в универсуме → консервативно не флагуем
+}
+
+
+def run_dataquality():
+    """Детектор битых тиков по всем 8 инструментам (на выровненных adjusted-рядах)."""
+    syms = CORE_TRADEABLE + REFERENCE
+    _, aligned_raw = loader.load_aligned(syms)
+    aligned = {s: loader.adjusted_view(ser) for s, ser in aligned_raw.items()}
+    bad = dq.detect_bad_ticks(aligned, PEER_MAP)
+    dump_json("bad_ticks.json", bad)
+    return bad, dq.flagged_dates(bad)
+
+
+def run_precursors(series_map, flagged):
     series_list = [series_map[s] for s in CORE_TRADEABLE]
     moves_by_symbol = {}
-    catalog = []
+    catalog, excluded = [], []
     for ser in series_list:
-        mv = pc.biggest_moves(ser, window=20, top_n=8, min_gap=20)
+        mv, exc = pc.biggest_moves(ser, window=20, top_n=8, min_gap=20,
+                                   exclude_dates=flagged.get(ser.symbol, set()))
         moves_by_symbol[ser.symbol] = mv
         catalog.extend(mv)
+        excluded.extend(exc)
     # сортировка каталога по величине
     catalog.sort(key=lambda m: abs(m["magnitude_log"]), reverse=True)
 
@@ -209,6 +234,7 @@ def run_precursors(series_map):
 
     obj = {
         "catalog": catalog, "n_moves": len(catalog),
+        "excluded_bad_ticks": excluded, "n_excluded": len(excluded),
         "pooled_all": pooled_all, "pooled_up": pooled_up, "pooled_down": pooled_dn,
         "n_up": n_up, "n_down": n_dn, "n_base_days": n_days,
     }
@@ -271,10 +297,24 @@ def write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_
 
         "timing": {
             "spent_move_sigma": round(sig_def, 3) if sig_def is not None else 1.5,
-            "spent_move_sigma_provenance": "пул событий по инструментам ядра (10k+): наименьший σ, выше которого среднее продолжение ≤ 0; per-instrument walk-forward подтверждает обобщаемость",
-            "spent_move_sigma_finding": "1-й порядок слаб: среднее продолжение ≈ 0 уже за ~0.75σ, надёжный разворот только в хвосте >2.5σ — подтверждает П5 (не играем 1-й порядок, играем каскады)",
+            "spent_move_sigma_pinned": sig_def is not None,
+            "spent_move_sigma_provenance": (
+                "пул событий по инструментам ядра (10k+): наименьший σ, выше которого среднее продолжение ≤ 0"
+                if sig_def is not None else
+                "ЭМПИРИЧЕСКИ НЕ ПИНИТСЯ: на adjusted_close (сплиты убраны) пул НЕ нашёл порога смерти в ≤2.5σ — "
+                "среднее форвардное продолжение слабо ПОЛОЖИТЕЛЬНО на всех размерах хода. Удержан консервативный "
+                "ориентир спецификации 1.5σ; per-instrument walk-forward шумен и липнет к краю сетки (см. per_instrument). "
+                "Уточняется только форвардом."),
+            "spent_move_sigma_finding": (
+                "После очистки от сплитов (USO 1:8, COPX) знак сменился: 1-й порядок не «умирает» в ≤2.5σ, "
+                "продолжение слабо положительно (total-return дрейф). Момент-эджа нет, но и явного исчерпания "
+                "по σ-порогу не видно — играем каскады по неочевидности (П5), не по σ-порогу хода."),
             "volume_spike_z": round(vol_def, 3) if vol_def is not None else None,
-            "volume_spike_z_provenance": "пул событий по инструментам ядра; всплеск как сигнал исчерпания слаб — продолжение не положительно лишь при z≥порога",
+            "volume_spike_z_pinned": vol_def is not None,
+            "volume_spike_z_provenance": (
+                "пул событий по инструментам ядра; продолжение не положительно лишь при z≥порога"
+                if vol_def is not None else
+                "ЭМПИРИЧЕСКИ НЕ ПИНИТСЯ: пул не нашёл порога; как сигнал исчерпания всплеск объёма слаб (null до форварда)"),
             "open_interest_jump_z": None,
             "open_interest_provenance": "нет данных (П8): OI отсутствует в дневном фиде EODHD",
             "iv_spike_pct": None,
@@ -374,19 +414,24 @@ def write_causal(measured):
             links.append({"source": "empirical", "status": "insufficient_data",
                           "n": r.get("n"), "mechanism": r.get("mechanism")})
             continue
-        links.append({
-            "cause": r["x"], "effect": r["y"], "mechanism": r["mechanism"],
+        link = {
+            "pair": [r["x"], r["y"]], "mechanism": r["mechanism"],
             "source": "empirical",
-            "method": "кросс-корреляция дневных log-доходностей на синхронных рядах",
+            "method": "кросс-корреляция дневных log-доходностей (adjusted_close) на синхронных рядах",
+            "undirected": True,
             "lag_days": r["best_lag_days"],
-            "lag_note": "положительный лаг = cause опережает effect (в торговых днях)",
+            "lag_note": "положительный лаг = первый опережает второй (в торговых днях)",
             "correlation_at_best_lag": r["best_r"],
             "correlation_ci95": r["best_r_ci95"],
             "contemporaneous_correlation": r["contemporaneous_r"],
             "n_observations": r["n"], "max_lag_scanned": r["max_lag_scanned"],
             "calibrated": True,
-            "caveat": "связь дневная и часто синхронная (лаг≈0) — для каскадного тайминга важнее доменные лаги ниже",
-        })
+        }
+        if r["best_lag_days"] == 0:
+            link["direction_caveat"] = ("лаг=0 ⇒ корреляция симметрична (corr(x,y)=corr(y,x)); "
+                                        "направление переноса — экономическая гипотеза в mechanism, "
+                                        "эмпирически на дневных данных НЕ установлено")
+        links.append(link)
     for cause, effect, order, mech, lag_h, lag_days in DOMAIN_LINKS:
         links.append({
             "cause": cause, "effect": effect, "cascade_order": order, "mechanism": mech,
@@ -403,18 +448,31 @@ def write_causal(measured):
         "n_domain": sum(1 for l in links if l.get("source") == "domain_knowledge"),
         "honesty_note": ("эмпирические связи измерены на истории (код не помнит будущее, §23.1); "
                          "доменные — гипотезы с лагами из литературы, подтверждаются только форвардом (П16)."),
+        "dedup_note": ("зеркальные пары схлопнуты в одну неориентированную связь (undirected=true); "
+                       "на дневных данных лучший лаг=0, направление эмпирически не установлено."),
+        "empirical_lag_finding": ("ВСЕ эмпирические лаги = 0 (дневные ETF синхронны). Каскадные лаги "
+                                  "недель/месяцев на 8 ETF не измеримы — нужны товарные ряды (пшеница, газ, "
+                                  "удобрения и т.п.); до тех пор доменные лаги калибруются только форвардом."),
         "links": links,
     }
     dump_yaml(KNOWLEDGE / "causal_links.yaml", GEN_HEADER, obj)
     return obj
 
 
-def write_precursors(prec):
+def write_precursors(prec, bad_ticks):
+    n_ticks = sum(len(v) for v in bad_ticks.values())
     obj = {
-        "version": 1, "generated_at": NOW, "spec_ref": "§23.1 п.3 (Историк-2)",
+        "version": 2, "generated_at": NOW, "spec_ref": "§23.1 п.3 (Историк-2)",
+        "price_basis": "adjusted_close",
         "method": ("крупнейшие 20-дневные движения по инструментам ядра; предвестники — ценовые/объёмные "
                    "прокси, измеренные СТРОГО на момент начала движения (без заглядывания внутрь). "
                    "lift = P(предвестник|большое движение) / P(предвестник|случайный день); база ≈ ложные срабатывания."),
+        "bad_tick_filter": ("каталог очищен точечным детектором битых тиков (mathlib.calibration.dataquality): "
+                            "однодневный выброс с полным откатом при спокойных пирах. Каждое исключение — с причиной."),
+        "n_bad_ticks_detected": n_ticks,
+        "bad_ticks_detected": bad_ticks,
+        "n_moves_excluded": prec["n_excluded"],
+        "moves_excluded": prec["excluded_bad_ticks"],
         "news_precursors": None,
         "news_precursors_provenance": "нет данных (П8): история новостей ≈ 1 мес. — событийные предвестники не измеримы",
         "n_moves": prec["n_moves"], "n_up": prec["n_up"], "n_down": prec["n_down"],
@@ -457,11 +515,13 @@ def write_markdown(train_window, bg_grid, cost_rows, timing_pi, sig_def, vol_def
     L.append("\n> Спред — допущение по тиру ликвидности (фид без bid/ask). "
              "Ставка шорта — **нет данных** (П8).\n")
 
-    L.append("\n## 3. Пороги тайминга walk-forward (§23.1 п.1)\n")
-    L.append(f"**Системный порог пройденного хода (пул): {sig_def:.3f}σ** (плейсхолдер спецификации был 1.5σ). "
-             f"**Порог z-всплеска объёма (пул): {vol_def}.**\n")
-    L.append("> Ключевой честный вывод: среднее продолжение хода ≈ 0 уже за ~0.75σ, "
-             "надёжный разворот — только в хвосте >2.5σ. 1-й порядок слаб → подтверждает П5.\n")
+    L.append("\n## 3. Пороги тайминга walk-forward (§23.1 п.1) — на adjusted_close\n")
+    sig_txt = f"{sig_def:.3f}σ (пул)" if sig_def is not None else "ЭМПИРИЧЕСКИ НЕ ПИНИТСЯ → удержан ориентир 1.5σ"
+    vol_txt = f"{vol_def}" if vol_def is not None else "ЭМПИРИЧЕСКИ НЕ ПИНИТСЯ → null"
+    L.append(f"**Порог пройденного хода: {sig_txt}. Порог z-всплеска объёма: {vol_txt}.**\n")
+    L.append("> Ключевой честный вывод (после очистки сплитов USO/COPX): на adjusted_close среднее форвардное "
+             "продолжение слабо ПОЛОЖИТЕЛЬНО на всех размерах хода ≤2.5σ — порога «смерти» 1-го порядка пул не находит "
+             "(на raw-данных мнимый порог 0.75σ был артефактом сплитов). Момент-эджа нет; играем каскады по П5.\n")
     L.append("Пул spent_σ (продолжение по кумулятивным корзинам, n≥200):\n")
     L.append("| σ ≥ | n | среднее продолжение |\n|---|---|---|")
     for g, n, mc in timing_pooled["spent_sigma_table"]:
@@ -491,15 +551,20 @@ def write_markdown(train_window, bg_grid, cost_rows, timing_pi, sig_def, vol_def
     L.append("\n## 5. Причинные связи (§23.1 п.2)\n")
     L.append(f"Всего связей: **{causal_obj['n_links']}** "
              f"(эмпирических измеренных: {causal_obj['n_empirical']}, доменных гипотез: {causal_obj['n_domain']}).\n")
-    L.append("Эмпирические лаги (топ по |r|):\n")
-    L.append("| cause → effect | лаг, дн | r | CI95 |\n|---|---|---|---|")
+    L.append("Эмпирические связи (неориентированные, топ по |r|; все лаги=0 — направление не установлено):\n")
+    L.append("| пара | лаг, дн | r | CI95 |\n|---|---|---|---|")
     emp = [l for l in causal_obj["links"] if l.get("source") == "empirical" and l.get("calibrated")]
     for l in sorted(emp, key=lambda x: abs(x["correlation_at_best_lag"]), reverse=True):
-        L.append(f"| {l['cause']} → {l['effect']} | {l['lag_days']} | {l['correlation_at_best_lag']} | {l['correlation_ci95']} |")
+        L.append(f"| {l['pair'][0]} ↔ {l['pair'][1]} | {l['lag_days']} | {l['correlation_at_best_lag']} | {l['correlation_ci95']} |")
 
     L.append("\n## 6. Предвестники (§23.1 п.3)\n")
     L.append(f"Каталог движений: **{prec['n_moves']}** (вверх {prec['n_up']}, вниз {prec['n_down']}); "
-             f"база {prec['n_base_days']} дней.\n")
+             f"база {prec['n_base_days']} дней. Исключено битых тиков: {prec['n_excluded']}.\n")
+    if prec["excluded_bad_ticks"]:
+        L.append("Исключённые из каталога движения (битые тики):\n")
+        L.append("| инструмент | окно | величина | причина |\n|---|---|---|---|")
+        for e in prec["excluded_bad_ticks"]:
+            L.append(f"| {e['symbol']} | {e['start_date']}→{e['end_date']} | {e['magnitude_pct']}% | тик {e['excluded_due_to_bad_tick']} |")
     L.append("Lift предвестников (все движения):\n")
     L.append("| предвестник | freq до движения | база | lift |\n|---|---|---|---|")
     for name, st in prec["pooled_all"].items():
@@ -515,33 +580,40 @@ def write_markdown(train_window, bg_grid, cost_rows, timing_pi, sig_def, vol_def
 def main():
     print("§23.1 калибровка: загрузка котировок…")
     all_syms = CORE_TRADEABLE + REFERENCE
-    series_map = {s: loader.load_series(s) for s in all_syms}
+    series_map = {s: loader.load_series(s) for s in all_syms}                 # RAW (для costs)
+    adj_map = {s: loader.adjusted_view(ser) for s, ser in series_map.items()}  # adjusted_close (доходности/движения)
     dates_all = sorted({d for ser in series_map.values() for d in ser.dates.tolist()})
-    train_window = {"from": dates_all[0], "to": dates_all[-1], "symbols": len(all_syms)}
+    train_window = {"from": dates_all[0], "to": dates_all[-1], "symbols": len(all_syms),
+                    "price_basis": "adjusted_close для доходностей/движений; raw close*volume для издержек"}
 
     print("  п.6 фоновые дисперсии…")
-    bg_grid = run_backgrounds(series_map)
+    bg_grid = run_backgrounds(adj_map)
     print("  п.8 издержки…")
-    cost_rows, order_usd = run_costs(series_map)
+    cost_rows, order_usd = run_costs(series_map)   # RAW: долларовый оборот не корректируется
     print("  п.1 тайминг walk-forward…")
-    timing_pi, sig_def, vol_def, timing_pooled = run_timing(series_map)
+    timing_pi, sig_def, vol_def, timing_pooled = run_timing(adj_map)
     print("  п.4 манипуляции walk-forward…")
-    manip_pi, fb_def, sh_def = run_manipulation(series_map)
+    manip_pi, fb_def, sh_def = run_manipulation(adj_map)
     print("  п.2 причинные связи…")
-    measured = run_causal(series_map)
+    measured = run_causal(series_map)              # adjusted_view применяется внутри после выравнивания
+    print("  контроль качества: битые тики…")
+    bad_ticks, flagged = run_dataquality()
     print("  п.3 предвестники…")
-    prec = run_precursors(series_map)
+    prec = run_precursors(adj_map, flagged)
 
     print("Запись конфигов и отчётов…")
     write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_def, train_window)
     write_costs(cost_rows, order_usd)
     causal_obj = write_causal(measured)
-    write_precursors(prec)
+    write_precursors(prec, bad_ticks)
     write_markdown(train_window, bg_grid, cost_rows, timing_pi, sig_def, vol_def,
                    manip_pi, fb_def, sh_def, causal_obj, prec, timing_pooled)
 
-    print(f"Готово. spent_move_sigma={sig_def:.3f} volume_spike_z={vol_def} "
-          f"revert_bars={int(round(fb_def))} max_pen_atr={sh_def:.3f}")
+    sig_s = f"{sig_def:.3f}" if sig_def is not None else "None→1.5(не пинится)"
+    sh_s = f"{sh_def:.3f}" if sh_def is not None else "None"
+    print(f"Готово. spent_move_sigma={sig_s} volume_spike_z={vol_def} "
+          f"revert_bars={int(round(fb_def)) if fb_def is not None else None} max_pen_atr={sh_s}")
+    print(f"Битых тиков поймано: {sum(len(v) for v in bad_ticks.values())}; движений исключено: {prec['n_excluded']}")
     print(f"Причинных связей: {causal_obj['n_links']} (эмп {causal_obj['n_empirical']} / домен {causal_obj['n_domain']})")
     print(f"Движений в каталоге предвестников: {prec['n_moves']}")
 

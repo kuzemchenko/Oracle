@@ -19,8 +19,14 @@ def _logc(series):
     return np.log(np.where(c > 0, c, np.nan))
 
 
-def biggest_moves(series, window=20, top_n=8, min_gap=20):
-    """Крупнейшие |движения| за `window` дней с дедупликацией пересечений (жадно)."""
+def biggest_moves(series, window=20, top_n=8, min_gap=20, exclude_dates=None):
+    """Крупнейшие |движения| за `window` дней с дедупликацией пересечений (жадно).
+
+    exclude_dates: множество дат битых тиков (mathlib.calibration.dataquality). Движение,
+    чья дата НАЧАЛА или КОНЦА — битый тик, отбраковывается (его величина искажена тиком);
+    причина пишется в возвращаемый список excluded. Возвращает (moves, excluded).
+    """
+    exclude_dates = exclude_dates or set()
     logc = _logc(series)
     n = logc.size
     moves = []
@@ -28,9 +34,17 @@ def biggest_moves(series, window=20, top_n=8, min_gap=20):
         if np.isfinite(logc[t]) and np.isfinite(logc[t - window]):
             moves.append((t, logc[t] - logc[t - window]))
     moves.sort(key=lambda x: abs(x[1]), reverse=True)
-    picked = []
+    picked, excluded = [], []
     for t, m in moves:
         if all(abs(t - p[0]) >= min_gap for p in picked):
+            sd, ed = str(series.dates[t - window]), str(series.dates[t])
+            if sd in exclude_dates or ed in exclude_dates:
+                bad = ed if ed in exclude_dates else sd
+                excluded.append({"symbol": series.symbol, "start_date": sd, "end_date": ed,
+                                 "magnitude_pct": round(float(np.expm1(m) * 100), 2),
+                                 "excluded_due_to_bad_tick": bad,
+                                 "reason": f"конечная/начальная дата движения — битый тик {bad}; величина искажена, движение исключено из каталога"})
+                continue
             picked.append((t, m))
         if len(picked) >= top_n:
             break
@@ -47,7 +61,7 @@ def biggest_moves(series, window=20, top_n=8, min_gap=20):
             "magnitude_pct": round(float(np.expm1(m) * 100), 2),
             "direction": "up" if m > 0 else "down",
         })
-    return out
+    return out, excluded
 
 
 def precursor_features(series, s, pre_window=20, vol_window=60, dd_window=60):

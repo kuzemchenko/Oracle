@@ -25,7 +25,11 @@ themes:
   brent:                           # тема №1 — ежедневная сверка
     proxy_etf: BNO.US              # United States Brent Oil Fund — торгуемый прокси Brent, 11 лет истории
     related: [USO.US]              # WTI-прокси для смежных каскадов
-    brent_canonical_source: PENDING_USER  # источник цены Brent для §9 — ждёт решения пользователя
+    brent_canonical_source: BNO.US        # РЕШЕНИЕ ПОЛЬЗОВАТЕЛЯ (Нед.4): источник цены Brent для §9-разрешимости
+    brent_canonical_source_note: "ETF-прокси Brent; известные искажения — roll/contango, трекинг-ошибка; риск-агент и синтезатор отчёта ОБЯЗАНЫ указывать это в идеях по Brent"
+    # Обоснование выбора (аудит Нед.4): тариф EODHD НЕ отдаёт фьючерс Brent ближайшей серии — биржа COMM = 404
+    #   (не в подписке), символы BRN.COMM/BZ.COMM/BRN.ICE и пр. = 404; search 'brent' даёт только ETF.
+    #   Фьючерса нет → канонический источник = ликвидный ETF-прокси BNO.US (11 лет истории). PENDING_USER ЗАКРЫТ.
     drift_warning: "ETF-прокси имеет roll/contango-дрейф vs спот Brent — учитывать в тайминге и сверке"
   copper:                          # тема №2 — со 2-го месяца
     proxy_etf: CPER.US             # United States Copper Index Fund — прокси цены меди

@@ -1,17 +1,18 @@
 # СГЕНЕРИРОВАНО ops/calibrate_week4.py (программа §23.1, честная зона walk-forward).
 # Правки руками будут перезаписаны при следующем прогоне калибровки.
-# Дата генерации: 2026-06-11T11:52:27Z
+# Дата генерации: 2026-06-11T12:51:16Z
 
 version: 2
 calibrated: true
 calibration_week: 4
-calibrated_at: '2026-06-11T11:52:27Z'
+calibrated_at: '2026-06-11T12:51:16Z'
 calibration_method: детерминированный walk-forward на истории (§23.1, честная зона;
   П16 не нарушён — код не помнит будущее)
 train_window:
   from: '2015-01-02'
   to: '2026-06-10'
   symbols: 8
+  price_basis: adjusted_close для доходностей/движений; raw close*volume для издержек
 reports: ops/reports/week4/
 fdr:
   procedure: benjamini_hochberg
@@ -26,15 +27,15 @@ fdr:
   background_metrics:
     SPY.US:
       ret:
-        std: 0.011189
-        mad_sigma: 0.007217
+        std: 0.011145
+        mad_sigma: 0.007098
         q99: 0.025896
         q01: -0.03227
         n: 2875
       absret:
-        std: 0.008467
-        mad_sigma: 0.005074
-        q99: 0.037819
+        std: 0.008446
+        mad_sigma: 0.005013
+        q99: 0.03782
         q01: 8.2e-05
         n: 2875
       dvol:
@@ -45,15 +46,15 @@ fdr:
         n: 2875
     DBC.US:
       ret:
-        std: 0.011393
-        mad_sigma: 0.00935
-        q99: 0.026204
-        q01: -0.031626
+        std: 0.011312
+        mad_sigma: 0.009325
+        q99: 0.026205
+        q01: -0.030005
         n: 2875
       absret:
-        std: 0.007656
-        mad_sigma: 0.005766
-        q99: 0.035481
+        std: 0.007584
+        mad_sigma: 0.005758
+        q99: 0.03511
         q01: 0.0
         n: 2875
       dvol:
@@ -83,15 +84,15 @@ fdr:
         n: 2875
     USO.US:
       ret:
-        std: 0.047189
+        std: 0.025364
         mad_sigma: 0.018984
-        q99: 0.060542
+        q99: 0.059125
         q01: -0.07048
         n: 2875
       absret:
-        std: 0.043529
+        std: 0.018351
         mad_sigma: 0.011943
-        q99: 0.082088
+        q99: 0.081322
         q01: 0.000144
         n: 2875
       dvol:
@@ -121,16 +122,16 @@ fdr:
         n: 2682
     COPX.US:
       ret:
-        std: 0.031165
-        mad_sigma: 0.01913
-        q99: 0.061085
-        q01: -0.062382
+        std: 0.023218
+        mad_sigma: 0.019125
+        q99: 0.060512
+        q01: -0.062381
         n: 2875
       absret:
-        std: 0.025861
-        mad_sigma: 0.012064
-        q99: 0.07232
-        q01: 0.000192
+        std: 0.015821
+        mad_sigma: 0.012059
+        q99: 0.071944
+        q01: 0.000179
         n: 2875
       dvol:
         std: 0.812972
@@ -171,16 +172,21 @@ fdr:
         insufficient: true
         n: 0
 timing:
-  spent_move_sigma: 0.75
-  spent_move_sigma_provenance: 'пул событий по инструментам ядра (10k+): наименьший
-    σ, выше которого среднее продолжение ≤ 0; per-instrument walk-forward подтверждает
-    обобщаемость'
-  spent_move_sigma_finding: '1-й порядок слаб: среднее продолжение ≈ 0 уже за ~0.75σ,
-    надёжный разворот только в хвосте >2.5σ — подтверждает П5 (не играем 1-й порядок,
-    играем каскады)'
-  volume_spike_z: 3.5
-  volume_spike_z_provenance: пул событий по инструментам ядра; всплеск как сигнал
-    исчерпания слаб — продолжение не положительно лишь при z≥порога
+  spent_move_sigma: 1.5
+  spent_move_sigma_pinned: false
+  spent_move_sigma_provenance: 'ЭМПИРИЧЕСКИ НЕ ПИНИТСЯ: на adjusted_close (сплиты
+    убраны) пул НЕ нашёл порога смерти в ≤2.5σ — среднее форвардное продолжение слабо
+    ПОЛОЖИТЕЛЬНО на всех размерах хода. Удержан консервативный ориентир спецификации
+    1.5σ; per-instrument walk-forward шумен и липнет к краю сетки (см. per_instrument).
+    Уточняется только форвардом.'
+  spent_move_sigma_finding: 'После очистки от сплитов (USO 1:8, COPX) знак сменился:
+    1-й порядок не «умирает» в ≤2.5σ, продолжение слабо положительно (total-return
+    дрейф). Момент-эджа нет, но и явного исчерпания по σ-порогу не видно — играем
+    каскады по неочевидности (П5), не по σ-порогу хода.'
+  volume_spike_z: null
+  volume_spike_z_pinned: false
+  volume_spike_z_provenance: 'ЭМПИРИЧЕСКИ НЕ ПИНИТСЯ: пул не нашёл порога; как сигнал
+    исчерпания всплеск объёма слаб (null до форварда)'
   open_interest_jump_z: null
   open_interest_provenance: 'нет данных (П8): OI отсутствует в дневном фиде EODHD'
   iv_spike_pct: null
@@ -193,13 +199,13 @@ timing:
   cascade_transfer_lag_source: knowledge/causal_links.yaml
   per_instrument:
     SPY.US:
-      spent_move_sigma: 1.25
+      spent_move_sigma: 1.375
       volume_spike_z: 0.5
       spent_sigma_test_separation_rate: 0.25
     DBC.US:
       spent_move_sigma: 0.5
       volume_spike_z: 0.5
-      spent_sigma_test_separation_rate: 0.6666666666666666
+      spent_sigma_test_separation_rate: 0.7142857142857143
     BNO.US:
       spent_move_sigma: 1.125
       volume_spike_z: 1.75
@@ -207,7 +213,7 @@ timing:
     USO.US:
       spent_move_sigma: 0.5
       volume_spike_z: 0.5
-      spent_sigma_test_separation_rate: 0.6666666666666666
+      spent_sigma_test_separation_rate: 0.8333333333333334
     CPER.US:
       spent_move_sigma: 0.5
       volume_spike_z: 1.0
@@ -215,7 +221,7 @@ timing:
     COPX.US:
       spent_move_sigma: 0.5
       volume_spike_z: 0.5
-      spent_sigma_test_separation_rate: 0.25
+      spent_sigma_test_separation_rate: 0.0
 manipulation:
   score_block_threshold: 7.0
   score_block_provenance: априорный порог §4 (0–10); калибруется форвардом по журналу
@@ -263,7 +269,7 @@ manipulation:
       false_breakout_revert_bars: 1.0
       stop_hunt_max_pen_atr: 3.0
     COPX.US:
-      false_breakout_revert_bars: 1.0
+      false_breakout_revert_bars: 2.0
       stop_hunt_max_pen_atr: 3.0
 sensation_quarantine_hours:
   liquid_macro: 6
