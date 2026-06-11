@@ -35,6 +35,14 @@ from .indicators import (
     macd,
     max_drawdown,
 )
+from .waves import (
+    zigzag_pivots,
+    fib_retracement,
+    nearest_fib,
+    label_impulse,
+    label_correction,
+    wave_markup,
+)
 from .kelly import shrink_probability, kelly_fraction, position_size
 from .limits import (
     load_limits,
@@ -58,6 +66,9 @@ __all__ = [
     # индикаторы (§4, §23.1 п.1)
     "returns", "log_returns", "sma", "ema", "rolling_std", "realized_vol",
     "zscore", "rsi", "atr", "bollinger", "macd", "max_drawdown",
+    # разметка волн Эллиотта (§4 «Волновик», §21)
+    "zigzag_pivots", "fib_retracement", "nearest_fib", "label_impulse",
+    "label_correction", "wave_markup",
     # Келли (§4 портфель, §11)
     "shrink_probability", "kelly_fraction", "position_size",
     # лимиты (§11, §12, инвариант 5)

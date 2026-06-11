@@ -79,6 +79,64 @@ roles:
     fallbacks: [anthropic/claude-haiku-4.5, google/gemini-3.5-flash]
     family:    anthropic
 
+# --- Роли школ блока B и контроля блока G (заполнение пробела §26) ---------------
+# §26 перечисляет АРХЕТИПЫ ролей, а не каждую из 10 школ реестра §4 поимённо. Эти роли
+# назначены инженерно при сборке Недели 5–6; ID — из того же сверенного каталога (meta выше).
+# СЕМЬИ РАЗНЕСЕНЫ НАМЕРЕННО: независимость голосов нужна для синтеза §5.5 (высокая
+# корреляция оценок → ложная уверенность). Это НЕ §26-канон — состав/семьи школ
+# меняются только с явного согласия пользователя (CLAUDE.md «Стиль работы»).
+# temperature по умолчанию 0.7; роли с reasoning/low помечены.
+school_roles:
+  causal_school:             # Агент жизненных взаимосвязей — каскадное ядро (§26 «агент каскадов» = opus)
+    primary:   anthropic/claude-opus-4.8
+    fallbacks: [anthropic/claude-sonnet-4.6, google/gemini-3.1-pro-preview]
+    family:    anthropic
+  fundamental_school:        # Фундаментальный аналитик — отчётность/мультипликаторы/макро
+    primary:   openai/gpt-5.5
+    fallbacks: [google/gemini-3.1-pro-preview, anthropic/claude-sonnet-4.6]
+    family:    openai
+  technical_school:          # Технический аналитик — ТОЛЬКО поверх числового тулкита (mathlib.indicators)
+    primary:   google/gemini-3.1-pro-preview
+    fallbacks: [anthropic/claude-sonnet-4.6, openai/gpt-5-mini]
+    family:    google
+    temperature: 0.3
+  elliott_school:            # Волновик — интерпретация числовой разметки волн
+    primary:   x-ai/grok-4.3
+    fallbacks: [google/gemini-3.1-pro-preview, anthropic/claude-sonnet-4.6]
+    family:    x-ai
+  game_theory_school:        # Теоретик игр — стратегии/равновесия (reasoning)
+    primary:   deepseek/deepseek-r1
+    fallbacks: [openai/gpt-5.5, anthropic/claude-opus-4.8]
+    family:    deepseek
+    reasoning: true
+  cyclist_school:            # Циклист — поверх кода-проверки циклов на истории (§23)
+    primary:   qwen/qwen3-max
+    fallbacks: [google/gemini-3.1-pro-preview, openai/gpt-5-mini]
+    family:    qwen
+  omens_school:              # Агент примет — В КАРАНТИНЕ (журнал, не в консенсус); дёшево
+    primary:   google/gemini-3.5-flash
+    fallbacks: [deepseek/deepseek-chat-v3.1, anthropic/claude-haiku-4.5]
+    family:    google
+    temperature: 0.2
+  cascade_school:            # Агент каскадов C — цепочки 2–4 порядка (§26 «агент каскадов» = opus)
+    primary:   anthropic/claude-opus-4.8
+    fallbacks: [openai/gpt-5.5, google/gemini-3.1-pro-preview]
+    family:    anthropic
+  adjacent_school:           # Агент смежных областей — неочевидные переносы
+    primary:   anthropic/claude-sonnet-4.6
+    fallbacks: [google/gemini-3.1-pro-preview, openai/gpt-5-mini]
+    family:    anthropic
+  non_obviousness:           # Оценщик неочевидности — отыграна ли идея публично
+    primary:   openai/gpt-5.5
+    fallbacks: [anthropic/claude-sonnet-4.6, google/gemini-3.5-flash]
+    family:    openai
+    temperature: 0.2
+  outcome_analyst:           # Разборщик результатов G — читает протокол прогона, объясняет промах
+    primary:   anthropic/claude-opus-4.8
+    fallbacks: [openai/gpt-5.5, google/gemini-3.1-pro-preview]
+    family:    anthropic
+    reasoning: true
+
 # Правила фолбеков (§26): автопереход при недоступности/таймауте/отказе; любая смена модели
 # пишется в протокол прогона journal/funnel_logs/ (для разбора важно, кто судил).
 fallback_policy:
