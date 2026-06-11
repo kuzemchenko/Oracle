@@ -9,3 +9,8 @@ storage/*.db-shm
 
 # Генерируемый вывод дашборда
 dashboard/*.html
+
+# Регенерируемые операционные логи (не запечатанные журналы прогнозов)
+journal/news_ingest.log
+journal/cron.log
+journal/reminders.log

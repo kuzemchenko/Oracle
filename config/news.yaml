@@ -1,0 +1,43 @@
+# config/news.yaml — конфигурация суточного новостного сборщика (MASTER_SPEC §4, §30 п.1, П1).
+#
+# Источники: GDELT (основа, бесплатно, мультиязычность) + NewsAPI.ai (тегированный поток) + pytrends.
+# Запросы и параметры здесь, чтобы тегирование шло БЕЗ РУЧНОЙ ПРАВКИ статей (П1):
+# меняем охват тут — не редактируем данные. Темы соответствуют config/universe.yaml.
+#
+# Мультиязычность (П1): локальные источники опережают мейнстрим. По нефти ключевые регионы —
+# англо-, русско- и арабоязычный; добавлены es/zh для широты. Расширять списком langs.
+
+themes:
+  - name: brent
+    # Тема №1 (§30 п.5): нефть Brent, ежедневная сверка.
+    # БЕЗ внешних скобок: коннектор сам обернёт в (...) + sourcelang. Двойные скобки GDELT
+    # парсит как пустой запрос (возвращает 0 статей без ошибки) — проверено.
+    gdelt_query: 'oil OR crude OR brent OR petroleum OR OPEC'
+    newsapi_keyword: oil
+    trends_keywords: ["brent oil", "crude oil", "oil price", "OPEC"]
+  - name: copper
+    # Тема №2 (§30 п.5): медь.
+    gdelt_query: 'copper OR "base metals"'
+    newsapi_keyword: copper
+    trends_keywords: ["copper price", "copper"]
+
+# --- GDELT DOC 2.0 (без ключа) ---
+gdelt:
+  timespan: "1d"          # суточный поток (gate Недели 2)
+  maxrecords: 250         # максимум GDELT на запрос
+  pause_sec: 7.0          # GDELT free API терпит ~1 запрос/5с; меньше — массовый 429 (блок IP)
+  langs: ["en", "ru", "ar", "zh"]   # ISO 639-1; ключевые регионы по нефти/металлам, переводится в имена для GDELT
+
+# --- NewsAPI.ai / EventRegistry (нужен NEWSAPI_AI_KEY) ---
+newsapi_ai:
+  langs: ["eng", "rus", "ara"]   # ISO 639-3; шире = дороже (бюджет токенов/запросов §30)
+  pages: 1                       # страниц по 100 статей на (тему, язык) в сутки
+  count: 100
+  pause_sec: 1.0
+
+# --- Google Trends (pytrends, бесплатно) ---
+trends:
+  timeframe: "today 3-m"   # окно ряда интереса
+  geos: [""]               # '' = весь мир; можно добавить ["US","RU"]
+  pause_sec: 12.0          # Google жёстко лимитирует (429) — большая пауза
+  extra_keywords: []

@@ -1,6 +1,10 @@
 # Установка: crontab -e и вставить строки (пути поправить под машину; ORACLE=/путь/к/oracle)
 # Рутина идёт НАПРЯМУЮ через python — дешевле и воспроизводимо. Claude Code — для разработки и разбора.
 
+# Суточный новостной сбор (GDELT + NewsAPI.ai + pytrends → нормализация/теги/дедуп): ежедневно 06:45
+# Детерминированный код, без LLM. Тренды best-effort (Google 429 не валит поток). Отчёт → journal/news_ingest.log
+45 6 * * *   cd $ORACLE && set -a && . ./.env && set +a && .venv/bin/python data/news_ingest.py >> journal/cron.log 2>&1
+
 # Калибровочный режим: вторник и пятница 08:00
 0 8 * * 2,5  cd $ORACLE && python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
 
