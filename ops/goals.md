@@ -1,7 +1,7 @@
 # Готовые /goal по плану §24 — копируй в Claude Code построчно, по одной цели на сессию.
 # После достижения: /gate-check → если ПРОЙДЕН: git tag, /goal clear, /clear, следующая строка.
 
-[ ] Нед.1: /goal Каркас репозитория по §28 создан, config/models.yaml limits.yaml weights.yaml thresholds.yaml заполнены из §26 и §30, коннектор EODHD качает дневные котировки Brent, меди, SPY, DBC с историей 10 лет в storage/oracle.db
+[x] Нед.1: /goal Каркас репозитория по §28 создан, config/models.yaml limits.yaml weights.yaml thresholds.yaml заполнены из §26 и §30, коннектор EODHD качает дневные котировки Brent, меди, SPY, DBC с историей 10 лет в storage/oracle.db
 [ ] Нед.2: /goal Коннекторы GDELT и NewsAPI.ai работают, pytrends подключен, суточный новостной поток нормализуется и тегируется (язык, страна, тип, время) без ручной правки, дедупликация работает
 [ ] Нед.3: /goal mathlib собран целиком (Brier по корзинам, FDR Бенджамини-Хохберга, запечатывание hash, сверка исходов, индикаторы, Келли с shrinkage, проверка лимитов) и все pytest в mathlib/tests зелёные, запись в predictions.jsonl только append через mathlib.seal()
 [ ] Нед.4: /goal Программа §23.1 выполнена: фоновые дисперсии и FDR-порог в thresholds.yaml, издержки по инструментам ядра, пороги тайминга и детекторы манипуляций откалиброваны walk-forward c отчётами, knowledge/causal_links.yaml содержит 30+ связей с лагами и интервалами, knowledge/precursors.yaml построен по 30+ большим движениям

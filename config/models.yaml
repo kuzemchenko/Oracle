@@ -1,0 +1,87 @@
+# config/models.yaml — назначение моделей по ролям (MASTER_SPEC §26, П10 состязательность)
+# ID сверены с каталогом OpenRouter при сборке (Неделя 1). Версии пиннятся на квартал.
+# ИНВАРИАНТ П10: для одной идеи Генератор, Критик и Судья — РАЗНЫХ семейств.
+#   Генератор=anthropic · Критик=openai · Судья=google → семейства различны.
+#   Фолбек судьи НИКОГДА не из семейства генератора текущей идеи (проверяется в коде оркестратора).
+# Все вызовы — через OpenRouter, выделенный ключ "oracle" (см. README_КОМАНДЫ.md).
+
+meta:
+  pinned_quarter: "2026-Q2"          # обновление pinned-моделей — ежеквартально, с regression на masked_cases (§25)
+  catalog_synced: "2026-06-11"
+  provider: openrouter
+  # Замены относительно текста §26 (каталог на 2026-06-11):
+  substitutions:
+    - role_note: "«Grok 4» → x-ai/grok-4.3 (чистого grok-4 в каталоге нет; 4.3 — актуальный стабильный)"
+    - role_note: "«GPT-5.5-mini» → openai/gpt-5-mini (отдельного gpt-5.5-mini нет)"
+    - role_note: "«Qwen3 (макс.)» → qwen/qwen3-max"
+    - role_note: "«Gemini 2.5 Pro» → google/gemini-2.5-pro; «Gemini 3.1 Pro» → google/gemini-3.1-pro-preview"
+
+# temperature по умолчанию 0.7; роли с пометкой low/reasoning переопределяют.
+roles:
+  generator:                 # Генератор / агент каскадов
+    primary:   anthropic/claude-opus-4.8
+    fallbacks: [anthropic/claude-sonnet-4.6, openai/gpt-5.5]
+    family:    anthropic
+  behavioral_economist:      # Поведенческий экономист — сильнейший голос
+    primary:   anthropic/claude-opus-4.8
+    fallbacks: [openai/gpt-5.5, google/gemini-3.1-pro-preview]
+    family:    anthropic
+  critic:                    # Критик / Red Team
+    primary:   openai/gpt-5.5
+    fallbacks: [openai/gpt-5.1, x-ai/grok-4.3]
+    family:    openai
+  judge:                     # Судья (слепой, рандомизированный порядок, рубрика)
+    primary:   google/gemini-3.1-pro-preview
+    fallbacks: [google/gemini-2.5-pro, qwen/qwen3-max]
+    family:    google
+    temperature: 0.3
+  advocate:                  # Адвокат
+    primary:   anthropic/claude-sonnet-4.6
+    fallbacks: [openai/gpt-5-mini, deepseek/deepseek-r1]
+    family:    anthropic
+  data_reviewer:             # Reviewer данных / валидатор (анти-галлюцинации)
+    primary:   openai/gpt-5.5
+    fallbacks: [anthropic/claude-sonnet-4.6, google/gemini-3.1-pro-preview]
+    family:    openai
+    temperature: 0.1
+  timeliness:                # Агент своевременности
+    primary:   anthropic/claude-sonnet-4.6
+    fallbacks: [openai/gpt-5-mini, google/gemini-3.5-flash]
+    family:    anthropic
+  anti_manipulation:         # Антиманипулятор
+    primary:   openai/gpt-5.5
+    fallbacks: [anthropic/claude-opus-4.8, x-ai/grok-4.3]
+    family:    openai
+  historian:                 # Историки 1–2 (контекст)
+    primary:   google/gemini-3.1-pro-preview
+    fallbacks: [anthropic/claude-sonnet-4.6, moonshotai/kimi-k2.5]
+    family:    google
+  sentiment_mass:            # Сантимент / классификация (массово, дёшево)
+    primary:   google/gemini-3.5-flash
+    fallbacks: [deepseek/deepseek-chat-v3.1, anthropic/claude-haiku-4.5]
+    family:    google
+    temperature: 0.2
+  context_scoring:           # Фильтр контекста, скоринг-комментарии
+    primary:   anthropic/claude-haiku-4.5
+    fallbacks: [google/gemini-3.5-flash, openai/gpt-5-mini]
+    family:    anthropic
+  risk_agent:                # Риск-агент (reasoning)
+    primary:   openai/gpt-5.5
+    fallbacks: [anthropic/claude-opus-4.8, deepseek/deepseek-r1]
+    family:    openai
+    reasoning: true
+  conductor:                 # ДИРИЖЁР — в Claude Code это сам Claude; для cron-оркестратора:
+    primary:   anthropic/claude-opus-4.8
+    fallbacks: [anthropic/claude-sonnet-4.6]
+    family:    anthropic
+  report_synthesizer:        # Синтезатор отчёта
+    primary:   anthropic/claude-sonnet-4.6
+    fallbacks: [anthropic/claude-haiku-4.5, google/gemini-3.5-flash]
+    family:    anthropic
+
+# Правила фолбеков (§26): автопереход при недоступности/таймауте/отказе; любая смена модели
+# пишется в протокол прогона journal/funnel_logs/ (для разбора важно, кто судил).
+fallback_policy:
+  trigger_on: [unavailable, timeout, refusal, rate_limit]
+  judge_constraint: "фолбек судьи не из семейства генератора текущей идеи"
+  log_to: journal/funnel_logs

@@ -1,3 +1,11 @@
 .env
 __pycache__/
 .venv/
+
+# Перекачиваемый кэш котировок (источник истины — EODHD; запечатанные журналы остаются в git)
+storage/*.db
+storage/*.db-wal
+storage/*.db-shm
+
+# Генерируемый вывод дашборда
+dashboard/*.html

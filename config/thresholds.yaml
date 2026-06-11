@@ -1,0 +1,44 @@
+# config/thresholds.yaml — пороги тайминга / FDR / манипуляций (MASTER_SPEC §6, §23.1, П16)
+# ВНИМАНИЕ: значения ниже — АПРИОРНЫЕ ПЛЕЙСХОЛДЕРЫ из текста спецификации.
+# Они НЕ откалиброваны. Калибровка walk-forward на истории — задача Недели 4 (§23.1),
+# она ЛЕГАЛЬНА: детерминированный код «не помнит будущее» (в отличие от LLM-прогнозов, П16).
+# До прохождения Недели 4 поле calibrated=false; оркестратор обязан помечать вердикты как «пороги неоткалиброваны».
+
+version: 1
+calibrated: false
+calibration_week: 4              # §24: walk-forward-отчёты по всем детекторам появляются здесь
+
+# --- FDR-контроль скана сигналов (§6, §23.1 п.6) ---
+fdr:
+  procedure: benjamini_hochberg
+  q_value_max: 0.10              # аномалия = сигнал только при q < 0.1 относительно фоновой дисперсии
+  background_variance_source: "история, считается в Неделю 4 (§23.1 п.6)"
+
+# --- Тайминг-детектор (§4 агент своевременности, §23.1 п.1) ---
+timing:
+  spent_move_sigma: 1.5         # >1.5σ дневного хода с момента ПЕРВОисточника → игра 1-го порядка мертва
+  volume_spike_z: null          # порог всплеска объёма — откалибровать walk-forward
+  open_interest_jump_z: null    # рост OI = позиции профи заполнены — откалибровать
+  iv_spike_pct: null            # взлёт подразумеваемой волатильности — откалибровать
+  verdicts: [РАНО, ВОВРЕМЯ, ПОЗДНО, ЛОВУШКА]
+  cascade_transfer_lag_source: knowledge/causal_links.yaml  # лаги переноса (§23.1 п.2)
+
+# --- Детекторы манипуляций (§4 антиманипулятор, §23.1 п.4) ---
+manipulation:
+  score_block_threshold: 7.0    # манип-балл 0–10; выше порога → блок ИЛИ переворот идеи
+  detectors:                    # параметры подбираются walk-forward по размеченным историческим ловушкам
+    false_breakout: {revert_bars: null, enabled: true}
+    stop_hunt: {enabled: true}
+    narrative_similarity_max: null   # аномальная согласованность мелких источников (метрика от сантимент-аналитика)
+    single_source_quarantine: true
+    pump_dump_small_caps: {depth_drop_pct: null, enabled: true}
+
+# --- Карантин сенсаций по классам активов (§14) ---
+sensation_quarantine_hours:
+  liquid_macro: 6              # ликвидные макро-активы: 2–6 ч (берём верхнюю границу)
+  single_stock: 24
+  small_exotic: 48
+
+# --- Неочевидность / своевременность каскадов ---
+non_obviousness:
+  reject_if_public: true       # очевидное / уже сформулированное публично — отказ или штраф

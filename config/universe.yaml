@@ -1,0 +1,47 @@
+# config/universe.yaml — торговый универсум и источники котировок (MASTER_SPEC §14, §30)
+# Котировки тянет data/eodhd.py в storage/oracle.db (таблица quotes).
+#
+# ВАЖНО (решение Недели 1, не покрытое спецификацией):
+#   Подписка EODHD на этом тарифе НЕ содержит фьючерсной/товарной биржи (.COMM) и спот-индексов
+#   Brent/меди. Доступны: акции/ETF (.US и др.), индексы (.INDX), FOREX, виртуальные биржи.
+#   Поэтому сырьевые активы ядра представлены ЛИКВИДНЫМИ ETF-прокси (они же — то, что реально
+#   торгуется по §14: «ликвидные ETF на сырьё»). Канонический источник цены Brent для §9-разрешимости
+#   тематических прогнозов — ОТКРЫТЫЙ ВОПРОС к пользователю (см. поле brent_canonical_source).
+#   Все proxy помечены, чтобы тайминг/сверка учитывали roll/contango-дрейф vs спот.
+
+quote_source: eodhd
+history_from: "2015-01-01"        # ≥10 лет (gate Недели 1)
+
+# --- Бенчмарк (§30 п.4): 60% SPY + 40% BCOM(прокси DBC) ---
+benchmark:
+  components:
+    - {symbol: SPY.US,  weight: 0.60, role: equity}
+    - {symbol: DBC.US,  weight: 0.40, role: commodity_proxy}  # торгуемый прокси BCOM
+  bcom_index_ref: BCOM.INDX        # сам индекс BCOM (price) — доступен, тянем для честной сверки прокси
+  bcom_tr_ref:    BCOMTR.INDX      # BCOM total return — тянем как референс
+
+# --- Тематические активы (§30 п.5) ---
+themes:
+  brent:                           # тема №1 — ежедневная сверка
+    proxy_etf: BNO.US              # United States Brent Oil Fund — торгуемый прокси Brent, 11 лет истории
+    related: [USO.US]              # WTI-прокси для смежных каскадов
+    brent_canonical_source: PENDING_USER  # источник цены Brent для §9 — ждёт решения пользователя
+    drift_warning: "ETF-прокси имеет roll/contango-дрейф vs спот Brent — учитывать в тайминге и сверке"
+  copper:                          # тема №2 — со 2-го месяца
+    proxy_etf: CPER.US             # United States Copper Index Fund — прокси цены меди
+    related: [COPX.US, FCX.US, SCCO.US]  # медники (equity) для каскадов смежных областей
+
+# --- Активы ядра, котировки которых тянем с Недели 1 ---
+core_symbols:
+  - SPY.US        # бенчмарк equity
+  - DBC.US        # бенчмарк commodity (прокси BCOM)
+  - BCOM.INDX     # индекс BCOM (референс)
+  - BCOMTR.INDX   # BCOM total return (референс бенчмарка)
+  - BNO.US        # Brent (прокси) — тема №1
+  - USO.US        # WTI (прокси) — смежное
+  - CPER.US       # медь (прокси) — тема №2
+  - COPX.US       # медники (equity) — смежное
+
+liquidity_filter:                  # §14: наш объём незаметен в стакане; тонкие рынки запрещены
+  min_avg_daily_volume: 100000     # стартовый порог; уточняется при скоринге контролируемости риска
+nft_excluded: true                 # §14: NFT исключены
