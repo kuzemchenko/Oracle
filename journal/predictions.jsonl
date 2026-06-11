@@ -1,0 +1,1 @@
+{"tag": "test", "note": "демонстрация запечатывания (не реальный прогноз)", "asset": "Brent front-month", "direction": "above", "threshold": 90.0, "resolve_by": "2026-06-30T20:00:00+00:00", "price_source": "EODHD continuous front future", "probability": 0.55, "sealed_at": "2026-06-11T10:23:08+00:00", "hash": "d99a741cb5c2888b3a52d94951cd82a48e55020b10baaf040313e762e18607b4"}
