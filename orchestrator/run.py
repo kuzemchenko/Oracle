@@ -47,6 +47,34 @@ def _run_masked(args):
     return 0 if agg["gate_пройден"] else 2
 
 
+def _run_calibrate(args):
+    from orchestrator import calibrate as CAL
+    mode = "mock" if args.mock else "auto"
+    s = CAL.run_calibrate(mode=mode, write=not args.no_write)
+    if "ОТКАЗ" in s:
+        print(f"[{s['run_id']}] {s['ОТКАЗ']}")
+        return 1
+    print(f"[{s['run_id']}] режим={s['mode']} · калибровка §17.3")
+    print(f"  сгенерировано: {s['сгенерировано']} · разрешимо §9: {s['разрешимо_§9']} · "
+          f"запечатано: {s['запечатано']} ({s['запечатывание']})")
+    print(f"  всего в журнале: {s['всего_в_журнале']} · разрешено исходов: {s['разрешено_исходов']} · "
+          f"Brier: {s['текущий_brier']} · до ворот 270: {s['до_ворот_270']}")
+    print(f"  честность: {s['честность']}")
+    return 0
+
+
+def _run_resolve(args):
+    from orchestrator import resolve as RES
+    s = RES.run_resolve(write=not args.no_write)
+    print(f"[resolve §10.10] прогнозов в журнале: {s['прогнозов_в_журнале']} · "
+          f"сверено сейчас: {s['сверено_сейчас']} · ещё pending: {s['ещё_pending']}")
+    print(f"  всего исходов: {s['всего_исходов']} · Brier: {s['brier']} · "
+          f"калибровка band: {s['калибровка_band_пп']} п.п. · до ворот 270: {s['до_ворот_270']}")
+    if s["ошибок"]:
+        print(f"  ⚠ ошибок сверки: {s['ошибок']}")
+    return 0
+
+
 def _run_ablation(args):
     from orchestrator import ablation as A
     s = A.run_ablation(write=not args.no_write)
@@ -65,12 +93,18 @@ def _run_ablation(args):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Прогон «Оракула»: воронка §6 / масккейсы §23.2 / абляция §11.1")
-    ap.add_argument("--mode", choices=["auto", "live", "mock", "masked", "ablation"], default="auto",
-                    help="auto/live/mock — воронка; masked — маскированные кейсы §23.2(б); "
+    ap.add_argument("--mode",
+                    choices=["auto", "live", "mock", "funnel", "theme", "calibrate", "resolve",
+                             "masked", "ablation"],
+                    default="auto",
+                    help="auto/live/mock/funnel — полная воронка §6; theme — тематический режим §17.2 "
+                         "(полный цикл по --asset, запечатывание прогноза); calibrate — калибровка §17.3; "
+                         "resolve — сверка исходов §10.10; masked — маскированные кейсы §23.2(б); "
                          "ablation — абляция вкладов §11.1")
     ap.add_argument("--mock", action="store_true",
-                    help="для --mode masked: принудительно mock (дымовой тест конвейера)")
+                    help="для masked/calibrate: принудительно mock (дымовой тест конвейера, без seal)")
     ap.add_argument("--theme", default="brent")
+    ap.add_argument("--asset", default=None, help="актив тематического режима (алиас --theme; §17.2)")
     ap.add_argument("--agents", default=None,
                     help="список id через запятую (по умолчанию все B/C/D/G)")
     ap.add_argument("--no-write", action="store_true", help="не писать протокол на диск")
@@ -82,9 +116,19 @@ def main(argv=None):
         return _run_masked(args)
     if args.mode == "ablation":
         return _run_ablation(args)
+    if args.mode == "calibrate":
+        return _run_calibrate(args)
+    if args.mode == "resolve":
+        return _run_resolve(args)
+
+    # funnel/theme — синонимы боевого прогона: 'auto' (live при ключе, иначе mock).
+    # theme §17.2 — тематический фокус на --asset (по умолчанию brent) с полным циклом и
+    # запечатыванием прогноза; funnel §17.1 — свободная генерация (тоже стартует с темы brent).
+    theme = args.asset or args.theme
+    funnel_mode = "auto" if args.mode in ("funnel", "theme") else args.mode
 
     agent_ids = args.agents.split(",") if args.agents else None
-    p = run_funnel(theme=args.theme, mode=args.mode, agent_ids=agent_ids,
+    p = run_funnel(theme=theme, mode=funnel_mode, agent_ids=agent_ids,
                    write=not args.no_write, full=not args.field_only)
 
     print(f"[{p['run_id']}] режим={p['mode']} тема={p['theme']}")

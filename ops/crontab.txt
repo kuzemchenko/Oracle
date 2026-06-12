@@ -1,24 +1,44 @@
-# Установка: crontab -e и вставить строки (пути поправить под машину; ORACLE=/путь/к/oracle)
-# Рутина идёт НАПРЯМУЮ через python — дешевле и воспроизводимо. Claude Code — для разработки и разбора.
+# ════════════════════════════════════════════════════════════════════════════════
+# Оракул — расписание cron (рутина §27). АДАПТИРОВАНО ПОД ЭТУ МАШИНУ (Нед.9):
+#   • голого `python` на PATH НЕТ → везде АБСОЛЮТНЫЙ путь /root/oracle/.venv/bin/python
+#     (в нём установлены зависимости; /usr/bin/python3 их НЕ видит — использовать нельзя);
+#   • cron НЕ читает .env → строки, которым нужны ключи (OpenRouter/EODHD/NewsAPI),
+#     сами делают `. ./.env` (файл из export-строк) ПЕРЕД запуском python;
+#   • каждая строка проверена ручным запуском перед установкой (см. журнал Нед.9).
+# Рутина идёт НАПРЯМУЮ через python — дешевле и воспроизводимо. Claude Code — для разработки/разбора.
+#
+# Установка:  crontab /root/oracle/ops/crontab.txt   (или crontab -e и вставить строки)
+# Проверка:   crontab -l
+# ════════════════════════════════════════════════════════════════════════════════
+
+SHELL=/bin/bash
+ORACLE=/root/oracle
+PY=/root/oracle/.venv/bin/python
+MAILTO=""
 
 # Суточный новостной сбор (GDELT + NewsAPI.ai + pytrends → нормализация/теги/дедуп): ежедневно 06:45
-# Детерминированный код, без LLM. Тренды best-effort (Google 429 не валит поток). Отчёт → journal/news_ingest.log
-45 6 * * *   cd $ORACLE && set -a && . ./.env && set +a && .venv/bin/python data/news_ingest.py >> journal/cron.log 2>&1
+# Детерминированный код, без LLM. Нужны ключи EODHD/NewsAPI → source .env. Отчёт → journal/cron.log
+45 6 * * *   cd $ORACLE && set -a && . ./.env && set +a && $PY data/news_ingest.py >> journal/cron.log 2>&1
 
-# Калибровочный режим: вторник и пятница 08:00
-0 8 * * 2,5  cd $ORACLE && python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
+# Калибровочный режим §17.3 (мелкие недельные §9-прогнозы, запечатывание): вторник и пятница 08:00
+# Сейчас детерминированная базовая линия (без LLM) — ключи не нужны, но .env source оставлен на
+# случай апгрейда до LLM-калибровки §23.2(в) (бюджет calibrate=$2 уже заложен в limits.yaml).
+0 8 * * 2,5  cd $ORACLE && set -a && . ./.env && set +a && $PY orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
 
-# Тематический режим Brent: ежедневно по будням 07:30
-30 7 * * 1-5 cd $ORACLE && python orchestrator/run.py --mode theme --asset brent >> journal/cron.log 2>&1
+# Тематический режим Brent §17.2 (полный цикл по теме + запечатанный прогноз): будни 07:30
+# Вызывает OpenRouter (LLM-контур) → ОБЯЗАТЕЛЬНО source .env (OPENROUTER_API_KEY).
+30 7 * * 1-5 cd $ORACLE && set -a && . ./.env && set +a && $PY orchestrator/run.py --mode theme --asset brent >> journal/cron.log 2>&1
 
-# Разрешение прогнозов с вышедшим сроком: ежедневно 21:00
-0 21 * * *   cd $ORACLE && python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
+# Сверка исходов §10.10 (дозревшие прогнозы → close из oracle.db → outcomes.jsonl): ежедневно 21:00
+# Только локальная БД, ключи НЕ нужны.
+0 21 * * *   cd $ORACLE && $PY orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
 
-# Боевой прогон воронки: понедельник 09:00
-0 9 * * 1    cd $ORACLE && python orchestrator/run.py --mode funnel >> journal/cron.log 2>&1
+# Боевой прогон полной воронки §6 (свободная генерация идей): понедельник 09:00
+# Вызывает OpenRouter → source .env. Пред-проверка бюджета (§24) рвёт прогон при превышении.
+0 9 * * 1    cd $ORACLE && set -a && . ./.env && set +a && $PY orchestrator/run.py --mode funnel >> journal/cron.log 2>&1
 
 # Напоминание о еженедельном разборе (сам разбор — в Claude Code: /review-week): пятница 18:00
 0 18 * * 5   echo "$(date): пора /review-week в Claude Code" >> $ORACLE/journal/reminders.log
 
-# Панель бюджета: пересборка каждое утро 07:00; код выхода 3 = превышение
-0 7 * * *    cd $ORACLE && python3 ops/budget.py >> journal/cron.log 2>&1
+# Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
+0 7 * * *    cd $ORACLE && $PY ops/budget.py >> journal/cron.log 2>&1

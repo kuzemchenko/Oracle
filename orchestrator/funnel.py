@@ -28,6 +28,7 @@ from orchestrator import openrouter as OR                     # noqa: E402
 from orchestrator import debate as DBT                        # noqa: E402
 from orchestrator import synthesis as SY                      # noqa: E402
 from orchestrator import run_budget as RB                      # noqa: E402
+from orchestrator import forecast as FC                         # noqa: E402
 from mathlib import portfolio as PF                            # noqa: E402
 
 QUARANTINE_SCHOOLS = {"b_omens"}   # §4: агент примет — в карантин, в консенсус не входит
@@ -320,7 +321,9 @@ def stage5_debates(top, ctx, client, run_id, costs):
 
 
 # ── Этап 6. Риск + портфель + синтез отчёта → выдача топ-3 (§6, §7, §8) ───────────
-def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits):
+def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits,
+                     *, run_id="funnel", seal_predictions=False, predictions_path=None,
+                     now_dt=None):
     rescored = []
     for c in debate_survivors:
         sc = SY.score_candidate(c, records_by_id, ctx, costs, judge_prob=c.get("вероятность_судьи"))
@@ -351,6 +354,27 @@ def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits
     portfolio = PF.build_portfolio(portfolio_ideas, capital=limits.get("capital_anchor_usd", 100000),
                                    gate_passed=gate_passed, limits=limits)
 
+    # ── Запечатывание §9 ДО синтеза отчёта (инвариант 3, скилл run-funnel п.6) ───────
+    # Прогноз каждой выдаваемой идеи запечатывается mathlib.seal ПРЕЖДЕ, чем собран и показан
+    # отчёт. Запечатываем ТОЛЬКО на боевом прогоне (seal_predictions=True) — mock/masked журнал
+    # форвард-прогнозов НЕ трогают (П16). Неразрешимую идею честно не запечатываем (П8).
+    for c in chosen:
+        pred, reason = FC.build_forward_prediction(
+            c, ctx, run_id=run_id, kind="funnel_forward", now_dt=now_dt,
+            probability=c.get("вероятность_судьи"))
+        if pred is None:
+            c["_seal"] = {"sealed": False, "причина": reason}
+            continue
+        if seal_predictions:
+            sealed = FC.seal_prediction(pred, path=predictions_path)
+            c["_seal"] = {"sealed": True, "hash": sealed["hash"], "sealed_at": sealed["sealed_at"],
+                          "asset": sealed["asset"], "direction": sealed["direction"],
+                          "threshold": sealed["threshold"], "resolve_by": sealed["resolve_by"],
+                          "price_source": sealed["price_source"], "probability": sealed["probability"]}
+        else:
+            c["_seal"] = {"sealed": False, "причина": "не боевой прогон (mock/masked) — не запечатываем",
+                          "прогноз_§9_preview": pred}
+
     # синтез отчёта §8 по каждой идее
     reports = []
     for c in chosen:
@@ -368,7 +392,8 @@ def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits
         }
         rep = SY.synthesize_report(bundle, ctx, client)
         reports.append({"актив": c["актив"], "направление": c.get("направление"),
-                        "балл": c["балл"], "отчёт": rep, "позиция": pos})
+                        "балл": c["балл"], "отчёт": rep, "позиция": pos,
+                        "запечатанный_прогноз_§9": c.get("_seal")})
     return {"топ_идеи": chosen, "переоценка": rescored, "портфель": portfolio, "отчёты": reports,
             "gate_калибровки_пройден": gate_passed}
 
@@ -466,7 +491,8 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     top4, scored4 = stage4_scoring(kept3, records_by_id, ctx, costs)
     deb_survivors, debates, dropped5 = stage5_debates(top4, ctx, client, run_id, costs)
     if deb_survivors:
-        synth = stage6_synthesis(deb_survivors, records_by_id, ctx, client, costs, limits)
+        synth = stage6_synthesis(deb_survivors, records_by_id, ctx, client, costs, limits,
+                                 run_id=run_id, seal_predictions=(client.mode == "live"))
     else:
         synth = {"топ_идеи": [], "переоценка": [], "портфель": None, "отчёты": [],
                  "gate_калибровки_пройден": False}
@@ -647,6 +673,31 @@ def _render_md(p):
             L.append(f"| {i} | {rep['актив']} {rep.get('направление','')} | {rep.get('балл')} | "
                      f"{cand.get('вероятность_судьи')} | {pos.get('макро_драйвер')} | {pos.get('amount_usd')} |")
         L.append("")
+
+        # Полный отчёт §8 (13 обязательных полей) + запечатанный §9-прогноз по каждой идее
+        for i, rep in enumerate(synth["отчёты"], 1):
+            L.append(f"### Идея {i}: {rep['актив']} {rep.get('направление','')} — отчёт §8 (13 полей)")
+            sd = rep.get("запечатанный_прогноз_§9") or {}
+            if sd.get("sealed"):
+                L.append(f"- 🔒 **Запечатан §9 ДО показа** · `{sd['hash'][:16]}…` @ {sd['sealed_at']}")
+                L.append(f"  - прогноз: **{sd['asset']} {sd['direction']} {sd['threshold']}** "
+                         f"(P={sd['probability']}) до {sd['resolve_by']} по {sd['price_source']}")
+            else:
+                L.append(f"- ⚠ НЕ запечатан (§9/П8): {sd.get('причина','—')}")
+            j = (rep.get("отчёт") or {}).get("judgment") or {}
+            fields = j.get("поля") or {}
+            if fields:
+                for k in sorted(fields, key=lambda x: int(str(x).split("_")[0]) if str(x).split("_")[0].isdigit() else 99):
+                    v = fields[k]
+                    if isinstance(v, list):
+                        L.append(f"- **{k}:**")
+                        for item in v:
+                            L.append(f"  - {item}")
+                    else:
+                        L.append(f"- **{k}:** {v}")
+            else:
+                L.append("- ⚠ синтезатор не вернул 13 полей §8 (см. JSON-протокол)")
+            L.append("")
     elif synth is not None:
         L.append("## Выдача")
         L.append(f"- {(p.get('воронка_отсева') or {}).get('вывод', 'стоящих идей нет (§6)')}")
