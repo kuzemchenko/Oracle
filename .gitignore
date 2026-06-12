@@ -14,3 +14,7 @@ dashboard/*.html
 journal/news_ingest.log
 journal/cron.log
 journal/reminders.log
+journal/bot.log
+
+# Внутреннее мутабельное состояние бота-пульта (дедуп пушей/алертов) — НЕ журнал
+journal/bot_state.json

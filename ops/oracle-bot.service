@@ -1,0 +1,22 @@
+[Unit]
+# Бот-пульт «Оракула» (раздел «Интерфейс»): пуш отчётов §8, кнопки решений §12,
+# строка/алерты бюджета §15, алерты триггеров листа ожидания §17. Долгоживущий long-polling.
+Description=Oracle Telegram control panel (бот-пульт)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/oracle
+# .env у проекта — строки `export KEY=val`; systemd EnvironmentFile их НЕ понимает (`export` ломает
+# парсинг). Поэтому поднимаем окружение так же, как cron: bash + set -a + source .env, затем exec.
+# Так бот получает TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, OPENROUTER_API_KEY и пр.
+ExecStart=/bin/bash -c 'set -a && . /root/oracle/.env && set +a && exec /root/oracle/.venv/bin/python /root/oracle/ops/bot.py'
+Restart=always
+RestartSec=5
+# Лог бота — рядом с cron.log проекта (systemd-журнал тоже пишется).
+StandardOutput=append:/root/oracle/journal/bot.log
+StandardError=append:/root/oracle/journal/bot.log
+
+[Install]
+WantedBy=multi-user.target
