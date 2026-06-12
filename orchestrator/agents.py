@@ -56,7 +56,7 @@ def call_agent(agent_id, ctx, client, *, user_prompt=None, exclude_family=None):
         parsed = J.parse(resp["text"], m["output_kind"])
     except J.JudgmentError as e:
         rec.update({"ok": False, "stage": "parse", "error": str(e),
-                    "raw": resp["text"][:600]})
+                    "raw": (resp.get("text") or "")[:600]})
         return rec
 
     violations = J.validate_p8(parsed)

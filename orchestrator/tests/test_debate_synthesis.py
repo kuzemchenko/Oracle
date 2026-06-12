@@ -24,6 +24,7 @@ from orchestrator import context as C                               # noqa: E402
 from orchestrator import debate as DBT                              # noqa: E402
 from orchestrator import synthesis as SY                            # noqa: E402
 from orchestrator import funnel as F                                # noqa: E402
+from mathlib import scoring as SC                                   # noqa: E402
 
 PROMPTS = ROOT / "agents" / "prompts"
 
@@ -150,6 +151,53 @@ def test_run_risk_flags_short_borrow_no_data():
     rj = rec["judgment"]
     assert rj["вероятность"] is None                       # риск не голосует о рынке
     assert "шорт" in rj["шорт_режим"].lower() or "сквиз" in rj["шорт_режим"].lower()
+
+
+# ── Риск-модуль: инвалидация/асимметрия масштабируются по ГОРИЗОНТУ тезиса (§4) ────
+def _synthetic_ctx_costs(asset="X.US"):
+    ctx = {"indicators": {asset: {"atr14": 3.0, "last_close": 100.0}},
+           "quotes": {asset: {"last": 100.0}}}
+    costs = {asset: {"round_trip_bps": 10, "short_borrow_fee_bps": None, "adv_usd_median": 5e8}}
+    return ctx, costs
+
+
+def test_horizon_parse_units():
+    assert SY._parse_horizon_text("§9: лонг, +20%, срок 6 кварталов, фиксинг биржи") == 6 * 63.0
+    assert SY._parse_horizon_text("цель за 2–8 недель") == 8 * 5.0      # берём самый длинный
+    assert SY._parse_horizon_text("горизонт 30 дней") == 30.0
+    assert SY._parse_horizon_text("без срока") is None
+
+
+def test_idea_horizon_priority_and_categorical():
+    # явный срок в разрешимости приоритетнее категориального 'горизонт'
+    assert SY._idea_horizon_days({"горизонт": "недели",
+                                  "разрешимость": "срок 4 квартала"}) == 4 * 63.0
+    # категориальный фолбек сохраняет прежний дефолт (≈2 недели → 10 торговых дней)
+    assert SY._idea_horizon_days({"горизонт": "недели"}) == 10.0
+    assert SY._idea_horizon_days({"горизонт": "дни"}) == 5.0
+    assert SY._idea_horizon_days({}) is None
+
+
+def test_asymmetry_default_horizon_is_backward_compatible():
+    # горизонт 'недели' → 10 дней, ход = дневной ATR (как ДО правки): регрессионный якорь
+    ctx, costs = _synthetic_ctx_costs()
+    cand = {"актив": "X.US", "направление": "лонг", "горизонт": "недели"}
+    crit = SY.derive_criteria(cand, {}, ctx, costs, judge_prob=0.6)
+    daily = 3.0 / 100.0 * 1e4
+    expect = SC.net_asymmetry_score(0.6, 10, win_move_bps=daily * 2, loss_move_bps=daily,
+                                    short_borrow_bps=None, horizon_days=10)["score"]
+    assert crit["values"]["asymmetry_net"] == round(expect, 4)
+
+
+def test_long_horizon_widens_band_vs_default():
+    # многоквартальный тезис: ход масштабируется √времени → асимметрия ≠ дефолтной, горизонт в протоколе
+    ctx, costs = _synthetic_ctx_costs()
+    short = SY.derive_criteria({"актив": "X.US", "направление": "лонг", "горизонт": "недели"},
+                               {}, ctx, costs, judge_prob=0.6)
+    long = SY.derive_criteria({"актив": "X.US", "направление": "лонг",
+                               "разрешимость": "срок 6 кварталов"}, {}, ctx, costs, judge_prob=0.6)
+    assert long["values"]["asymmetry_net"] != short["values"]["asymmetry_net"]
+    assert any("горизонт≈378" in n for n in long["происхождение"])
 
 
 # ── Полный цикл этапов 1–6 на тестовом дне ───────────────────────────────────────

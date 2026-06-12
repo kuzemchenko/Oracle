@@ -33,8 +33,18 @@ DEFAULT_SCALE_MAX = 5.0
 _REJECT_OUTCOMES = ("РАЗБИТА", "ВЕТО")
 
 
+_NO_TRADE = (None, "нет", "no", "none", "", "нет идеи", "no trade")
+
+
+def _is_no_trade(direction):
+    """Отказ контура от сделки (направление «нет»/пусто) — сильнейшая форма «не входить»."""
+    if direction is None:
+        return True
+    return str(direction).strip().lower() in _NO_TRADE
+
+
 def score_case(case_id, *, expected_stance, rubric_mean, verdict_outcome,
-               p8_violations, mandatory_answered,
+               p8_violations, mandatory_answered, proposed_direction=None,
                threshold=DEFAULT_THRESHOLD, scale_max=DEFAULT_SCALE_MAX,
                masking_imperfect=True, extra=None):
     """Зачёт ОДНОГО кейса с учётом ожидаемой позиции контура (affirm/reject).
@@ -42,21 +52,33 @@ def score_case(case_id, *, expected_stance, rubric_mean, verdict_outcome,
     expected_stance: 'affirm' (реальный каскад) | 'reject' (ловушка/поздно).
     rubric_mean: средний балл рубрики судьи (0..scale_max) или None.
     verdict_outcome: исход контура — 'УСТОЯЛА' | 'РАЗБИТА' | 'ВЕТО' | None.
+    proposed_direction: итоговое направление, выведенное контуром ('лонг'|'шорт'|'нет'|None).
     p8_violations: суммарное число нарушений П8 во всей цепочке ролей (0 = чисто).
     mandatory_answered: оба обязательных вопроса §4 отвечены.
+
+    Тонкость reject (§23.2б, П8): «контур НЕ сертифицирует ловушку» достигается ДВУМЯ путями —
+    идея предложена и РАЗБИТА/ВЕТО, ЛИБО контур сразу ОТКАЗАЛСЯ от сделки (направление «нет») и
+    судья подтвердил качество этого ОТКАЗА (УСТОЯЛА оценивает рассуждение-отказ, а не ставку на
+    памп). Оба = верное рассуждение. Засчитывать как провал отказ от манипуляции нельзя — «нет
+    данных»/стоп поощряется. Сертификация ЖЕ направленной ставки на ловушку (УСТОЯЛА + лонг/шорт) —
+    провал.
+    affirm: верно ⟺ сертифицирована направленная идея (УСТОЯЛА, балл ≥ порога, направление не «нет»).
     """
     if expected_stance not in ("affirm", "reject"):
         raise ValueError(f"expected_stance ∈ {{affirm, reject}}, дано {expected_stance!r}")
     p8_clean = (p8_violations == 0)
     rubric_pct = round(rubric_mean / scale_max * 100.0, 1) if rubric_mean is not None else None
+    no_trade = _is_no_trade(proposed_direction)
+    certified_trade = (verdict_outcome == "УСТОЯЛА") and (rubric_mean is not None) \
+        and (rubric_mean >= threshold) and (not no_trade)
 
     if expected_stance == "affirm":
-        reasoning_correct = (rubric_mean is not None) and (rubric_mean >= threshold) \
-            and (verdict_outcome == "УСТОЯЛА")
-        ожидание = f"подтвердить реальный каскад (балл ≥ {threshold} и УСТОЯЛА)"
+        reasoning_correct = certified_trade
+        ожидание = f"сертифицировать направленную идею (балл ≥ {threshold}, УСТОЯЛА, направление≠нет)"
     else:  # reject
-        reasoning_correct = verdict_outcome in _REJECT_OUTCOMES
-        ожидание = "не сертифицировать ловушку (РАЗБИТА/ВЕТО)"
+        # верно: ловушка НЕ превратилась в сертифицированную направленную ставку
+        reasoning_correct = (verdict_outcome in _REJECT_OUTCOMES) or no_trade
+        ожидание = "не сертифицировать ловушку (РАЗБИТА/ВЕТО ИЛИ отказ «нет»)"
 
     case_passed = bool(reasoning_correct and p8_clean and mandatory_answered)
     причины = []
@@ -86,10 +108,15 @@ def score_case(case_id, *, expected_stance, rubric_mean, verdict_outcome,
 
 
 def aggregate(case_results, *, required_fraction=GATE_FRACTION):
-    """Агрегат по набору кейсов → доля зачтённых и gate §24 (≥ required_fraction).
+    """Агрегат по набору кейсов → доля зачтённых + gate §24.
 
-    Дополнительно — средний процент рубрики по affirm-кейсам с баллами (ориентир качества). Пустой
-    вход → gate не пройден, нет данных (П8): нельзя «пройти» порог на нуле кейсов."""
+    ДВА условия gate (оба обязательны):
+      • доля зачтённых ≥ required_fraction (≥0.70);
+      • ЖЁСТКАЯ ДИСЦИПЛИНА ЗАЩИТЫ: ВСЕ reject-класс кейсы (ловушки/ПОЗДНО/манипуляции) решены
+        верно. Защитная дисциплина не торгуется: сертифицировать ловушку нельзя ни при каком
+        проценте. Один проваленный reject → gate НЕ пройден независимо от доли.
+
+    Пустой вход → gate не пройден, нет данных (П8): нельзя «пройти» порог на нуле кейсов."""
     n = len(case_results)
     n_passed = sum(1 for r in case_results if r.get("case_passed"))
     n_p8_clean = sum(1 for r in case_results if r.get("p8_clean"))
@@ -97,7 +124,28 @@ def aggregate(case_results, *, required_fraction=GATE_FRACTION):
     affirm_pcts = [r["rubric_pct"] for r in case_results
                    if r.get("expected_stance") == "affirm" and r.get("rubric_pct") is not None]
     mean_affirm_pct = round(sum(affirm_pcts) / len(affirm_pcts), 1) if affirm_pcts else None
-    gate_passed = bool(n > 0 and pass_fraction >= required_fraction)
+
+    rejects = [r for r in case_results if r.get("expected_stance") == "reject"]
+    n_reject = len(rejects)
+    reject_failed = [r["case_id"] for r in rejects if not r.get("case_passed")]
+    reject_discipline_ok = (len(reject_failed) == 0)
+
+    fraction_ok = bool(n > 0 and pass_fraction >= required_fraction)
+    gate_passed = bool(fraction_ok and reject_discipline_ok and n_reject > 0)
+
+    if n == 0:
+        вывод = "нет кейсов — gate §24 не на чем проверять (П8)"
+    elif n_reject == 0:
+        вывод = "gate НЕ пройден: в наборе нет reject-кейсов — защитную дисциплину не на чем проверить"
+    elif not reject_discipline_ok:
+        вывод = (f"gate НЕ пройден: НАРУШЕНА защитная дисциплина — reject-кейсы сертифицированы как "
+                 f"ставки: {', '.join(reject_failed)} (доля {pass_fraction:.0%} не спасает)")
+    elif not fraction_ok:
+        вывод = f"gate НЕ пройден: {n_passed}/{n} ({pass_fraction:.0%}) < {required_fraction:.0%}"
+    else:
+        вывод = (f"gate §24 ПРОЙДЕН: {n_passed}/{n} ({pass_fraction:.0%}) ≥ {required_fraction:.0%} "
+                 f"И все {n_reject} reject-кейсов решены верно")
+
     return {
         "n_кейсов": n,
         "n_зачтено": n_passed,
@@ -105,12 +153,11 @@ def aggregate(case_results, *, required_fraction=GATE_FRACTION):
         "доля_зачтено": pass_fraction,
         "порог_доли": required_fraction,
         "средний_процент_рубрики_affirm": mean_affirm_pct,
+        "n_reject": n_reject,
+        "reject_провалены": reject_failed,
+        "reject_дисциплина_ок": reject_discipline_ok,
+        "доля_ок": fraction_ok,
         "gate_пройден": gate_passed,
-        "вывод": (
-            "нет кейсов — gate §24 не на чем проверять (П8)" if n == 0 else
-            f"gate §24 ПРОЙДЕН: {n_passed}/{n} ({pass_fraction:.0%}) ≥ {required_fraction:.0%}"
-            if gate_passed else
-            f"gate §24 НЕ пройден: {n_passed}/{n} ({pass_fraction:.0%}) < {required_fraction:.0%}"
-        ),
+        "вывод": вывод,
         "оговорка": "маскировка несовершенна (§23.2): результаты ориентировочные, не доказательные",
     }

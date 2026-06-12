@@ -52,15 +52,37 @@ def _user_for(agent_id, payload):
             "\n\nВерни РОВНО один объект JSON по контракту из системного промпта.")
 
 
+def _norm_direction(val):
+    """Нормализует направление, выведенное генератором, к метке для дела судьи.
+    Пусто/None → None (школа/контур направление не дали)."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s:
+        return None
+    low = s.lower()
+    if "лонг" in low or "long" in low:
+        return "лонг"
+    if "шорт" in low or "short" in low:
+        return "шорт"
+    if low.startswith("нет") or "no trade" in low or "нет идеи" in low:
+        return "нет"
+    return s
+
+
 def _generator_family(models=None):
     cfg = OR.resolve_role("generator", models)
     return cfg.get("family") or OR.family_of(cfg["primary"], models)
 
 
-def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, models=None):
+def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, models=None,
+               eval_context=None):
     """Прогон состязательного контура по одному кандидату.
 
     candidate: {актив, направление, тезис, разрешимость, школа, вероятность_школы, ...}
+    eval_context: опц. СТОЙКО-НЕЙТРАЛЬНАЯ пометка контекста оценки для судьи (напр. §23.2б:
+        «идентичности скрыты намеренно, оценивай СТРУКТУРУ рассуждения и работу с поданными
+        данными»). НЕ раскрывает направление/исход; ловушку не вытягивает. В воронке = None.
     Возвращает dict-протокол дебатов: реплики ролей, СЛЕПОЕ дело судьи, вердикт, пересчёт.
     """
     rubric = rubric or load_rubric()
@@ -82,25 +104,34 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
 
     # 1. Генератор
     gen = A.call_agent("e_generator", ctx, client, user_prompt=_user_for("e_generator", idea_slice))
-    base_rate = (gen.get("judgment") or {}).get("base_rate") if gen.get("ok") else None
+    gen_j = (gen.get("judgment") or {}) if gen.get("ok") else {}
+    base_rate = gen_j.get("base_rate")
+
+    # Если школа не зафиксировала направление (напр. маскированный кейс §23.2(б)) — идею для
+    # ДАЛЬНЕЙШЕГО контура задаёт направление, выведенное генератором, и его §9-формулировка.
+    # Так дело судьи когерентно (нет «null на верхнем уровне против long внутри»). Когда школа
+    # направление дала — поведение прежнее (eff_* == исходные).
+    eff_direction = direction or _norm_direction(gen_j.get("направление"))
+    eff_resolvability = candidate.get("разрешимость") or gen_j.get("разрешимость")
+    down_slice = {**idea_slice, "направление": eff_direction, "разрешимость": eff_resolvability}
 
     # 2. Критик (видит гипотезу)
-    crit_payload = {**idea_slice, "гипотеза": _ok_judgment(gen)}
+    crit_payload = {**down_slice, "гипотеза": _ok_judgment(gen)}
     crit = A.call_agent("e_critic", ctx, client, user_prompt=_user_for("e_critic", crit_payload))
 
     # 3. Адвокат (видит гипотезу + критику)
-    adv_payload = {**idea_slice, "гипотеза": _ok_judgment(gen), "критика": _ok_judgment(crit)}
+    adv_payload = {**down_slice, "гипотеза": _ok_judgment(gen), "критика": _ok_judgment(crit)}
     adv = A.call_agent("e_advocate", ctx, client, user_prompt=_user_for("e_advocate", adv_payload))
 
     # 4. Reviewer данных (проверка фактов всех реплик)
-    rev_payload = {**idea_slice, "гипотеза": _ok_judgment(gen),
+    rev_payload = {**down_slice, "гипотеза": _ok_judgment(gen),
                    "критика": _ok_judgment(crit), "адвокат": _ok_judgment(adv)}
     rev = A.call_agent("e_data_reviewer", ctx, client, user_prompt=_user_for("e_data_reviewer", rev_payload))
 
     # 5. СЛЕПОЕ дело судьи: обезличиваем 3 аргумента, рандомизируем порядок
     blind_case, label_map = _build_blind_case(gen, crit, adv, run_id, asset)
     judge_payload = {
-        "идея": {"актив": asset, "направление": direction, "разрешимость": candidate.get("разрешимость")},
+        "идея": {"актив": asset, "направление": eff_direction, "разрешимость": eff_resolvability},
         "base_rate": base_rate,
         "аргументы_обезличенно_в_случайном_порядке": blind_case,
         "проверка_данных_reviewer": _review_findings(rev),
@@ -114,6 +145,8 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
         },
         "напоминание": "ты НЕ знаешь, кто автор какого аргумента; суди по существу (§16.6)",
     }
+    if eval_context:
+        judge_payload["контекст_оценки"] = eval_context
     # П10: судья (и все его фолбеки) не из семейства генератора текущей идеи
     judge = A.call_agent("e_judge", ctx, client, user_prompt=_user_for("e_judge", judge_payload),
                          exclude_family=gen_family)

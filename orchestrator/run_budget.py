@@ -147,19 +147,24 @@ class RunBudgetGuard:
 
     Передаётся live-клиенту как cost_guard: после каждого успешного вызова вызывается add(cost).
     Защита второго эшелона — если пред-оценка занизила. Mock не тратит → guard не срабатывает.
-    """
+    Потокобезопасен: при параллельном прогоне кейсов add() зовётся из разных потоков (§24)."""
     def __init__(self, mode, cap_usd):
+        import threading
         self.mode = mode
         self.cap_usd = float(cap_usd)
         self.spent_usd = 0.0
         self.calls = 0
+        self._lock = threading.Lock()
 
     def add(self, cost_usd):
-        self.calls += 1
-        if isinstance(cost_usd, (int, float)):
-            self.spent_usd += float(cost_usd)
-        if self.spent_usd >= self.cap_usd:
-            raise RunBudgetExceeded(self.mode, self.spent_usd, self.cap_usd)
+        with self._lock:
+            self.calls += 1
+            if isinstance(cost_usd, (int, float)):
+                self.spent_usd += float(cost_usd)
+            exceeded = self.spent_usd >= self.cap_usd
+            spent = self.spent_usd
+        if exceeded:
+            raise RunBudgetExceeded(self.mode, spent, self.cap_usd)
 
     def __call__(self, cost_usd):  # удобно передавать сам объект как callback
         self.add(cost_usd)

@@ -494,8 +494,9 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
         "этап5_дебаты": debates,
         "этап6_синтез": synth,
         "воронка_отсева": funnel_report,
-        "следующий_шаг": "Нед.8 закрыта: пред-проверка per_run_token_budget работает (§24); "
-                         "маскированный смоук §23.2б — orchestrator/masked.py; дашборд §15 — ops/dashboard.py. "
+        "следующий_шаг": "Нед.8 закрыта: пред-проверка per_run_token_budget (§24); маскированные "
+                         "кейсы §23.2б — orchestrator/masked.py (gate ≥70%); абляция §11.1 — "
+                         "orchestrator/ablation.py; дашборд §15 — dashboard/build_dashboard.py. "
                          "Открытый долг: экстремизация §5.5 (агрегат пока простое среднее)",
     })
     if write:

@@ -92,8 +92,11 @@ def filtered_chain(role_cfg, exclude_family=None, models=None):
 
 
 # ── Логирование ─────────────────────────────────────────────────────────────────
+_LOG_LOCK = __import__("threading").Lock()  # сериализует дозапись журналов при параллельных кейсах
+
+
 def log_cost(mode, agent_id, model, usage, cost, ok=True, run_id=None):
-    """Строка в journal/costs.jsonl (limits.yaml: costs_log). Append-only."""
+    """Строка в journal/costs.jsonl (limits.yaml: costs_log). Append-only, потокобезопасно."""
     COSTS_LOG.parent.mkdir(parents=True, exist_ok=True)
     rec = {
         "ts": _now(), "mode": mode, "agent": agent_id, "model": model,
@@ -101,7 +104,7 @@ def log_cost(mode, agent_id, model, usage, cost, ok=True, run_id=None):
         "completion_tokens": (usage or {}).get("completion_tokens"),
         "cost_usd": cost, "ok": ok, "run_id": run_id,
     }
-    with open(COSTS_LOG, "a", encoding="utf-8") as f:
+    with _LOG_LOCK, open(COSTS_LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
@@ -111,7 +114,7 @@ def log_model_swap(run_id, agent_id, role, attempted, used, reason):
     path = FUNNEL_LOGS / f"{run_id}_model_swaps.jsonl"
     rec = {"ts": _now(), "agent": agent_id, "role": role,
            "attempted": attempted, "used": used, "reason": reason}
-    with open(path, "a", encoding="utf-8") as f:
+    with _LOG_LOCK, open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
@@ -169,7 +172,10 @@ class LiveClient(BaseClient):
         choices = data.get("choices") or []
         if not choices:
             raise _Retryable("refusal", f"нет choices: {str(data)[:200]}")
-        text = choices[0].get("message", {}).get("content", "")
+        text = choices[0].get("message", {}).get("content") or ""
+        if not str(text).strip():
+            # пустой/None контент — транзиент: фолбек на следующую модель цепочки (§26), а не падение
+            raise _Retryable("empty", f"пустой content от {model}: {str(data)[:160]}")
         usage = data.get("usage") or {}
         cost = usage.get("cost")  # OpenRouter возвращает реальную стоимость при usage.include
         return text, usage, cost
@@ -337,6 +343,7 @@ class MockClient(BaseClient):
         if output_kind == "generator_hypothesis":
             return {
                 "вывод": f"гипотеза по {sym} ({direction}) [mock]",
+                "направление": direction,
                 "вероятность": prob, "base_rate": base_rate,
                 "уверенность": "средняя" if prob > 0.6 else "низкая",
                 "каскадная_цепочка": [
