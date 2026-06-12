@@ -19,7 +19,7 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from agents.registry import AGENTS, schools, all_ids        # noqa: E402
+from agents.registry import AGENTS, schools, all_ids, all_prompt_ids  # noqa: E402
 from agents import build_prompts                            # noqa: E402
 from orchestrator import judgment as J                      # noqa: E402
 from orchestrator import openrouter as OR                   # noqa: E402
@@ -32,8 +32,8 @@ PROMPTS = ROOT / "agents" / "prompts"
 
 # ── Промпты: все на месте, в каждом П8 (инвариант 1) ─────────────────────────────
 def test_all_prompts_exist_with_p8():
-    build_prompts.main.__wrapped__ if False else None  # noqa
-    for aid in all_ids():
+    # все 28 промптов (поле B/C/D/G + состязательный контур E + синтез F)
+    for aid in all_prompt_ids():
         path = PROMPTS / f"{aid}.md"
         assert path.exists(), f"нет промпта {aid}"
         text = path.read_text(encoding="utf-8")
@@ -43,7 +43,7 @@ def test_all_prompts_exist_with_p8():
 
 def test_prompts_in_sync_with_builder():
     # на диске ровно то, что генерит build_prompts (нет ручного дрейфа)
-    for aid in all_ids():
+    for aid in all_prompt_ids():
         on_disk = (PROMPTS / f"{aid}.md").read_text(encoding="utf-8")
         assert on_disk == build_prompts.build_one(aid), f"рассинхрон промпта {aid}"
 
@@ -79,6 +79,7 @@ def test_fallback_chain_switches_and_logs(monkeypatch, tmp_path):
     client.models = OR.load_models()
     client.run_id = "t_fb"
     client.mode = "live"
+    client.cost_guard = None  # __new__ минует __init__: ставим вручную (§24)
 
     calls = {"n": 0}
     role_cfg = OR.resolve_role("judge", client.models)

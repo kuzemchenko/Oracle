@@ -52,6 +52,7 @@ from .limits import (
     check_monthly_budget,
     check_run_token_budget,
 )
+from .masked_eval import score_case, aggregate, GATE_FRACTION
 
 __all__ = [
     # sealing (§9, П16)
@@ -74,4 +75,6 @@ __all__ = [
     # лимиты (§11, §12, инвариант 5)
     "load_limits", "check_idea_risk", "check_monthly_risk", "check_fast_basket",
     "check_monthly_budget", "check_run_token_budget",
+    # оценка маскированных кейсов (§23.2б, Нед.8)
+    "score_case", "aggregate", "GATE_FRACTION",
 ]

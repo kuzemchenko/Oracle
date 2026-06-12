@@ -26,19 +26,26 @@ def load_prompt(agent_id):
     return text
 
 
-def call_agent(agent_id, ctx, client):
+def call_agent(agent_id, ctx, client, *, user_prompt=None, exclude_family=None):
     """Вызывает агента на срезе ctx. Возвращает запись с сырым ответом, разобранным
     суждением и нарушениями П8 (НЕ бросает на невалидном ответе — фиксирует в записи,
-    чтобы протокол Дирижёра видел и брак)."""
+    чтобы протокол Дирижёра видел и брак).
+
+    user_prompt: готовый user-текст (дело дебатов §4 блок E / синтез §8); если None —
+        строится проекция широкого среза §5.5 через context.render_user_prompt.
+    exclude_family: П10 — исключить семейство моделей из цепочки роли (для слепого судьи:
+        семья судьи ≠ семья генератора текущей идеи).
+    """
     m = agent_meta(agent_id)
     system = load_prompt(agent_id)
-    user = C.render_user_prompt(agent_id, ctx)
+    user = user_prompt if user_prompt is not None else C.render_user_prompt(agent_id, ctx)
 
     rec = {"agent": agent_id, "title": m["title"], "block": m["block"],
            "model_role": m["model_role"], "output_kind": m["output_kind"]}
     try:
         resp = client.complete(m["model_role"], system, user,
-                               agent_id=agent_id, output_kind=m["output_kind"])
+                               agent_id=agent_id, output_kind=m["output_kind"],
+                               exclude_family=exclude_family)
     except Exception as e:
         rec.update({"ok": False, "stage": "call", "error": f"{type(e).__name__}: {e}"})
         return rec

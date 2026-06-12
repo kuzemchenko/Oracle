@@ -25,6 +25,15 @@ from agents.registry import AGENTS, schools as school_specs  # noqa: E402
 from orchestrator import agents as A                          # noqa: E402
 from orchestrator import context as C                         # noqa: E402
 from orchestrator import openrouter as OR                     # noqa: E402
+from orchestrator import debate as DBT                        # noqa: E402
+from orchestrator import synthesis as SY                      # noqa: E402
+from orchestrator import run_budget as RB                      # noqa: E402
+from mathlib import portfolio as PF                            # noqa: E402
+
+QUARANTINE_SCHOOLS = {"b_omens"}   # §4: агент примет — в карантин, в консенсус не входит
+TOP_DEBATE = 7                     # §6 этап 4: топ 5–7 в дебаты
+TOP_OUTPUT = 3                     # §6 этап 6: выдача топ-3
+MANIP_BLOCK_DEFAULT = 7            # порог манип-балла для стоп-фильтра, если нет в thresholds
 
 
 def _now_compact():
@@ -149,19 +158,263 @@ def procedural_veto(records):
     return flags
 
 
-# ── Прогон воронки ───────────────────────────────────────────────────────────────
-def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True):
-    """Сквозной прогон: контекст → все агенты B/C/D/G → поле суждений + протокол Дирижёра.
+# ── Этап 1. Широкий скан + FDR-контроль (§6, §23.1) ──────────────────────────────
+def stage1_scan(ctx):
+    """Перечисляет сырые сигналы (новости + аномалии индикаторов) и применяет FDR (БХ, §6).
 
+    Аномалия = сигнал ТОЛЬКО при q-value < q_value_max (config/thresholds). Без FDR при многих
+    проверках система «найдёт» закономерности в шуме гарантированно. P-значение аномалии —
+    двусторонний нормальный survival по z-скору хода/объёма (документированная аппроксимация).
+    П8: полноценный скан 200–500 сигналов требует более широкого фида — здесь сканируем то, что
+    подключено (универсум + ≈1 мес. новостей); ограничение помечается честно.
+    """
+    import math
+    from mathlib import fdr
+    q_max = ((ctx.get("calibration_status") or {}).get("fdr") or {}).get("q_value_max") or 0.1
+    raw_signals, pvals, labels = [], [], []
+    for sym, ind in (ctx.get("indicators") or {}).items():
+        for metric in ("ret_z_20", "vol_z_20"):
+            z = ind.get(metric)
+            if isinstance(z, (int, float)):
+                p = math.erfc(abs(z) / math.sqrt(2))  # двусторонний normal survival
+                pvals.append(max(min(p, 1.0), 0.0))
+                labels.append({"символ": sym, "метрика": metric, "z": round(z, 3)})
+    n_news = len(ctx.get("news") or [])
+    bh = fdr.benjamini_hochberg(pvals, q=q_max) if pvals else {"rejected": [], "qvalues": [], "n_signif": 0}
+    for i, lab in enumerate(labels):
+        sig = {**lab, "p_value": round(pvals[i], 4),
+               "q_value": round(bh["qvalues"][i], 4) if bh.get("qvalues") else None,
+               "сигнал_после_FDR": bool(bh["rejected"][i]) if bh.get("rejected") else False}
+        raw_signals.append(sig)
+    return {
+        "сырых_проверок": len(pvals), "новостных_заголовков": n_news,
+        "q_value_max": q_max, "процедура": "benjamini_hochberg",
+        "сигналов_после_FDR": int(bh.get("n_signif", 0)),
+        "сигналы": raw_signals,
+        "ограничение_П8": ("полный широкий скан 200–500 сигналов требует более широкого фида; "
+                           "сканируем подключённое (универсум + ≈1 мес. новостей)"),
+    }
+
+
+def _candidate_slice_for(agent_id, candidate, ctx, thresholds):
+    """User-промпт для пер-кандидатной проверки D-агента на этапе 3 (тайминг/манипуляция)."""
+    asset = candidate.get("актив")
+    payload = {
+        "идея": {"актив": asset, "направление": candidate.get("направление"),
+                 "тезис": candidate.get("тезис"), "разрешимость": candidate.get("разрешимость")},
+        "котировка": (ctx or {}).get("quotes", {}).get(asset, {}).get("last"),
+        "индикаторы": (ctx or {}).get("indicators", {}).get(asset),
+        "news": (ctx or {}).get("news", [])[:6],
+    }
+    if agent_id == "d_timeliness":
+        payload["timing_thresholds"] = (thresholds.get("timing") or {})
+    else:
+        payload["manipulation_thresholds"] = (thresholds.get("manipulation") or {})
+    return ("Пер-кандидатная проверка этапа 3 воронки (§6). Только поданные данные (П8).\n\n"
+            "```json\n" + json.dumps(payload, ensure_ascii=False, indent=1, default=str) +
+            "\n```\n\nВерни РОВНО один объект JSON по контракту.")
+
+
+# ── Этап 3. Грубая фильтрация → ~15 (§6) ─────────────────────────────────────────
+def stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client):
+    """Стоп-фильтры §6: карантин, дедуп (структурно), затем ПЕР-КАНДИДАТНО тайминг и манипуляция.
+
+    Тайминг ПОЗДНО/ЛОВУШКА без контр-сценария и манип-балл ≥ порога — стоп-фильтры §6,
+    они касаются КОНКРЕТНОЙ идеи, поэтому d_timeliness и d_anti_manipulation вызываются на
+    срезе кандидата (поле суждений §5.2 дало лишь дневной тематический read). Run-level
+    вердикты неочевидности/компетенции применяются как тематические. Каждый отсев журналируется
+    с причиной (прозрачность §6 этап 6). Возвращает (выжившие, отсев, пер-кандидатные вердикты).
+    """
+    dropped = []
+    manip_thr = (thresholds.get("manipulation", {}) or {}).get("block_score", MANIP_BLOCK_DEFAULT)
+    nonobv = records_by_id.get("c_non_obviousness")
+    nonobv_penalty = bool(nonobv and nonobv.get("ok") and str(nonobv["judgment"].get("вердикт")).upper() == "ШТРАФ")
+    ctx_filter = records_by_id.get("c_context_filter")
+    out_of_competence = bool(ctx_filter and ctx_filter.get("ok") and str(ctx_filter["judgment"].get("вердикт")).upper() == "ШТРАФ")
+
+    # 1) карантин (агент примет) — в консенсус не входит
+    survivors = []
+    for c in candidates:
+        if c.get("школа") in QUARANTINE_SCHOOLS:
+            dropped.append({**c, "причина_отсева": "карантинная школа (агент примет, §4) — журналируется, не в консенсус"})
+        else:
+            survivors.append(c)
+
+    # 2) дедуп по (актив, направление): одинаковые идеи разных школ = одна (макс. P школы)
+    best = {}
+    for c in survivors:
+        key = (c.get("актив"), c.get("направление"))
+        cur = best.get(key)
+        if cur is None or (c.get("вероятность_школы") or 0) > (cur.get("вероятность_школы") or 0):
+            if cur is not None:
+                dropped.append({**cur, "причина_отсева": f"дубликат идеи {key} (оставлена версия с большей P школы)"})
+            merged = (cur.get("_школы_дубликаты", []) if cur else [])
+            if cur:
+                merged = merged + [cur["школа"]]
+            best[key] = {**c, "_школы_дубликаты": merged}
+        else:
+            dropped.append({**c, "причина_отсева": f"дубликат идеи {key}"})
+    deduped = list(best.values())
+
+    # 3) run-level тематические фильтры (неочевидность/компетенция)
+    after_theme = []
+    for c in deduped:
+        reasons = []
+        if nonobv_penalty:
+            reasons.append("оценщик неочевидности: ШТРАФ (идея отыграна публично, §6)")
+        if out_of_competence:
+            reasons.append("фильтр контекста: вне круга компетенции при среднем потенциале (§6/§13)")
+        if reasons:
+            dropped.append({**c, "причина_отсева": "; ".join(reasons)})
+        else:
+            after_theme.append(c)
+
+    # 4) ПЕР-КАНДИДАТНО: тайминг и манипуляция (стоп-фильтры конкретной идеи §6)
+    kept, per_cand = [], []
+    for c in after_theme:
+        tm = A.call_agent("d_timeliness", ctx, client,
+                          user_prompt=_candidate_slice_for("d_timeliness", c, ctx, thresholds))
+        mp = A.call_agent("d_anti_manipulation", ctx, client,
+                          user_prompt=_candidate_slice_for("d_anti_manipulation", c, ctx, thresholds))
+        tv = str((tm["judgment"].get("вердикт") if tm.get("ok") else "")).upper()
+        mscore = mp["judgment"].get("балл") if mp.get("ok") else None
+        per_cand.append({"актив": c.get("актив"), "направление": c.get("направление"),
+                         "тайминг": tv, "манип_балл": mscore})
+        reasons = []
+        if tv in ("ПОЗДНО", "ЛОВУШКА"):
+            reasons.append(f"тайминг {tv} без контр-сценария (§6)")
+        if isinstance(mscore, (int, float)) and mscore >= manip_thr:
+            reasons.append(f"манипуляционный балл {mscore} ≥ порога {manip_thr} (§6)")
+        if reasons:
+            dropped.append({**c, "причина_отсева": "; ".join(reasons)})
+        else:
+            kept.append({**c, "_тайминг": tv, "_манип_балл": mscore})
+    return kept, dropped, per_cand
+
+
+# ── Этап 4. Полный скоринг → топ 5–7 (§6, §7) ────────────────────────────────────
+def stage4_scoring(survivors, records_by_id, ctx, costs, *, top_n=TOP_DEBATE):
+    scored = []
+    for c in survivors:
+        sc = SY.score_candidate(c, records_by_id, ctx, costs)
+        scored.append({**c, "скоринг": sc, "балл": sc["total"]})
+    scored.sort(key=lambda x: x["балл"], reverse=True)
+    return scored[:top_n], scored
+
+
+# ── Этап 5. Дебаты (состязательный контур §4 блок E) → вероятность судьи ──────────
+def stage5_debates(top, ctx, client, run_id, costs):
+    survivors, debates, dropped = [], [], []
+    for c in top:
+        deb = DBT.run_debate(c, ctx, client, run_id=run_id, costs=costs)
+        debates.append(deb)
+        v = deb["вердикт"]
+        if v["исход"] == "УСТОЯЛА":
+            survivors.append({**c, "вероятность_судьи": v.get("вероятность_судьи"),
+                              "base_rate": deb.get("base_rate"), "_debate": deb})
+        else:
+            dropped.append({"актив": c.get("актив"), "направление": c.get("направление"),
+                            "причина_отсева": f"дебаты: {v['исход']} — {v.get('причина') or 'средний балл рубрики ниже порога'}",
+                            "средний_балл_рубрики": v.get("средний_балл_рубрики")})
+    return survivors, debates, dropped
+
+
+# ── Этап 6. Риск + портфель + синтез отчёта → выдача топ-3 (§6, §7, §8) ───────────
+def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits):
+    rescored = []
+    for c in debate_survivors:
+        sc = SY.score_candidate(c, records_by_id, ctx, costs, judge_prob=c.get("вероятность_судьи"))
+        rescored.append({**c, "скоринг": sc, "балл": sc["total"]})
+    rescored.sort(key=lambda x: x["балл"], reverse=True)
+
+    # диверсификация топ-3 по макро-драйверам (§6: не три версии одной ставки)
+    chosen, seen_drivers, deferred = [], set(), []
+    for c in rescored:
+        drv = PF.macro_driver(c.get("актив"))
+        if len(chosen) < TOP_OUTPUT and drv not in seen_drivers:
+            chosen.append(c); seen_drivers.add(drv)
+        else:
+            deferred.append(c)
+    # добор, если не хватило разнообразия драйверов
+    for c in deferred:
+        if len(chosen) < TOP_OUTPUT:
+            chosen.append(c)
+
+    # риск-агент по каждой идее топ-3 (его «нет» перебивает поле, §5)
+    gate_passed = bool((limits.get("_gate_passed_override")))  # по умолчанию False (этап Д §11)
+    for c in chosen:
+        c["риск"] = SY.run_risk(c, ctx, client, costs)
+
+    # портфель (детерминированный код): размеры + карта корреляций + лимит-ворота
+    portfolio_ideas = [{"актив": c["актив"], "направление": c.get("направление"),
+                        "вероятность": c.get("вероятность_судьи"), "b": 1.0} for c in chosen]
+    portfolio = PF.build_portfolio(portfolio_ideas, capital=limits.get("capital_anchor_usd", 100000),
+                                   gate_passed=gate_passed, limits=limits)
+
+    # синтез отчёта §8 по каждой идее
+    reports = []
+    for c in chosen:
+        pos = next((p for p in portfolio["позиции"] if p["актив"] == c["актив"]), None)
+        bundle = {
+            "идея": {k: c.get(k) for k in ("актив", "направление", "тезис", "разрешимость", "школа")},
+            "вероятность_судьи": c.get("вероятность_судьи"), "base_rate": c.get("base_rate"),
+            "скоринг": c["скоринг"], "риск": SY._rec({"f_risk": c["риск"]}, "f_risk") or {"_ошибка": c["риск"].get("error")},
+            "позиция_портфеля": pos,
+            "вердикт_судьи": c["_debate"]["вердикт"],
+            "позиции_критика_и_судьи": {
+                "критик": SY._rec({"x": c["_debate"]["реплики"]["критик"]}, "x"),
+                "судья": SY._rec({"x": c["_debate"]["реплики"]["судья"]}, "x"),
+            },
+        }
+        rep = SY.synthesize_report(bundle, ctx, client)
+        reports.append({"актив": c["актив"], "направление": c.get("направление"),
+                        "балл": c["балл"], "отчёт": rep, "позиция": pos})
+    return {"топ_идеи": chosen, "переоценка": rescored, "портфель": portfolio, "отчёты": reports,
+            "gate_калибровки_пройден": gate_passed}
+
+
+# ── Прогон воронки ───────────────────────────────────────────────────────────────
+def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True):
+    """Сквозной прогон полной воронки §6 (этапы 1–6).
+
+    full=True (по умолчанию): этапы 1–6 — скан+FDR → кандидаты → грубый фильтр → скоринг §7 →
+        дебаты (состязательный контур §4 блок E) → риск/портфель/синтез отчёта §8 → топ-3.
+    full=False: только поле суждений §5.2 (этапы 1–2) — дешёвый режим гейта Нед.5–6.
     mode: 'live' (OpenRouter) | 'mock' (без сети/трат) | 'auto'.
     Возвращает dict-протокол; при write=True пишет journal/funnel_logs/{run_id}.{json,md}.
     """
     run_id = run_id or f"funnel_{_now_compact()}"
     ctx = C.build_context(theme=theme)
     client = OR.make_client(mode=mode, run_id=run_id)
+    thresholds = C._load_yaml("config/thresholds.yaml")
+    limits = PF.lim.load_limits()
+    costs = SY.load_costs()
+
+    # ── ПРЕД-проверка бюджета прогона ПЕРЕД любым LLM-вызовом (§24, долг Нед.8) ──────
+    # Только для live: оценка прогона vs потолок режима и месячный потолок. Отказ → прогон
+    # не начинается, возвращается протокол-отказ (ни одного платного вызова). Mock — без проверки.
+    budget_mode = "funnel_full" if full else "theme_daily"
+    budget_decision = None
+    if getattr(client, "mode", None) == "live":
+        budget_decision = RB.precheck(budget_mode, limits=limits)
+        if not budget_decision["allowed"]:
+            refusal = {
+                "run_id": run_id, "ts": _now_iso(), "mode": client.mode, "theme": theme,
+                "spec_ref": "§24 пред-проверка per_run_token_budget (долг Нед.8); инвариант 5 CLAUDE.md",
+                "ОТКАЗ_бюджет": budget_decision,
+                "следующий_шаг": ("прогон НЕ выполнен: оценка стоимости превышает потолок (§24) или "
+                                  "месячный бюджет исчерпан (§30 п.2). Поднять потолок может только "
+                                  "пользователь правкой config/limits.yaml (П12)."),
+            }
+            if write:
+                _write_refusal(refusal)
+            return refusal
+        # стоп на лету (второй эшелон): рвём прогон при пересечении потолка режима
+        client.cost_guard = RB.RunBudgetGuard(budget_mode, budget_decision["cap_usd"])
 
     ids = agent_ids or [a[0] for a in AGENTS]
     records = [A.call_agent(aid, ctx, client) for aid in ids]
+    records_by_id = {r["agent"]: r for r in records}
 
     field = judgment_field(records)
     candidates = collect_candidates(records)
@@ -174,12 +427,16 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     schools_ok = [r for r in schools_ran if r.get("ok")]
     schools_with_cands = {c["школа"] for c in candidates}
 
+    # ── Этап 1: широкий скан + FDR ───────────────────────────────────────────────
+    scan = stage1_scan(ctx)
+
     protocol = {
         "run_id": run_id,
         "ts": _now_iso(),
         "mode": client.mode,
         "theme": theme,
-        "spec_ref": "§5 Дирижёр, §6 воронка, §11.1 абляция; гейт Нед.5–6",
+        "spec_ref": "§5 Дирижёр, §6 воронка (этапы 1–6), §7 скоринг, §8 отчёт, §11.1 абляция; §24 пред-бюджет",
+        "пред_проверка_бюджета": budget_decision,
         "asof_data": {s: ctx["quotes"].get(s, {}).get("last_date") for s in ctx["quotes"]},
         "data_gaps": ctx["data_gaps"],
         "agents_total": len(records),
@@ -195,12 +452,75 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
         "процедурное_вето": veto,
         "уверенность_итога": ("понижена: есть неразрешённые противоречия" if contradictions
                               else "без эскалаций противоречий на этом прогоне"),
-        "следующий_шаг": "Неделя 7: состязательный контур (слепой судья, рандомизация, рубрика), "
-                         "экстремизация §5.5, риск-агент, портфель, скоринг §7",
+        "этап1_скан_FDR": scan,
     }
+
+    if not full:
+        protocol["следующий_шаг"] = "full=False: этапы 3–6 не выполнялись (дешёвый режим поля суждений)"
+        if write:
+            _write_protocol(protocol)
+        return protocol
+
+    # ── Этапы 3–6 ────────────────────────────────────────────────────────────────
+    kept3, dropped3, per_cand3 = stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client)
+    top4, scored4 = stage4_scoring(kept3, records_by_id, ctx, costs)
+    deb_survivors, debates, dropped5 = stage5_debates(top4, ctx, client, run_id, costs)
+    if deb_survivors:
+        synth = stage6_synthesis(deb_survivors, records_by_id, ctx, client, costs, limits)
+    else:
+        synth = {"топ_идеи": [], "переоценка": [], "портфель": None, "отчёты": [],
+                 "gate_калибровки_пройден": False}
+
+    # Воронка прозрачности §6: сколько и почему отсеяно на каждом этапе
+    funnel_report = {
+        "этап1_сырых_сигналов": scan["сырых_проверок"],
+        "этап1_сигналов_после_FDR": scan["сигналов_после_FDR"],
+        "этап2_кандидатов": len(candidates),
+        "этап3_после_грубого_фильтра": len(kept3),
+        "этап3_отсеяно": len(dropped3),
+        "этап4_в_дебаты_топ": len(top4),
+        "этап5_устояло_после_дебатов": len(deb_survivors),
+        "этап5_разбито_или_вето": len(dropped5),
+        "этап6_выдано_топ": len(synth["отчёты"]),
+        "отсев_этап3": dropped3,
+        "отсев_этап5": dropped5,
+        "вывод": ("стоящих идей нет — легитимный результат слабого дня (§6)"
+                  if not synth["отчёты"] else f"выдано идей: {len(synth['отчёты'])}"),
+    }
+
+    protocol.update({
+        "этап3_грубый_фильтр": {"выжившие": kept3, "отсеяно": dropped3, "пер_кандидатные_вердикты": per_cand3},
+        "этап4_скоринг": {"топ_в_дебаты": top4, "все_оценённые": scored4},
+        "этап5_дебаты": debates,
+        "этап6_синтез": synth,
+        "воронка_отсева": funnel_report,
+        "следующий_шаг": "Нед.8 закрыта: пред-проверка per_run_token_budget работает (§24); "
+                         "маскированный смоук §23.2б — orchestrator/masked.py; дашборд §15 — ops/dashboard.py. "
+                         "Открытый долг: экстремизация §5.5 (агрегат пока простое среднее)",
+    })
     if write:
         _write_protocol(protocol)
     return protocol
+
+
+def _write_refusal(p):
+    """Протокол ОТКАЗА пред-проверки бюджета (§24): прогон не выполнялся, но след в журнале."""
+    FUNNEL_LOGS.mkdir(parents=True, exist_ok=True)
+    jpath = FUNNEL_LOGS / f"{p['run_id']}.json"
+    with open(jpath, "w", encoding="utf-8") as f:
+        json.dump(p, f, ensure_ascii=False, indent=2)
+    d = p["ОТКАЗ_бюджет"]
+    md = (f"# ОТКАЗ прогона по бюджету · {p['run_id']}\n"
+          f"- Время: {p['ts']} · режим: {p['mode']} · тема: {p['theme']}\n"
+          f"- Спецификация: {p['spec_ref']}\n\n"
+          f"**{d['reason']}**\n\n"
+          f"- Контур отказа: {d.get('контур')}\n"
+          f"- Оценка прогона: ${d['estimate_usd']} = {d['expected_calls']} вызовов × "
+          f"${d['avg_call_usd']} ({d['basis_avg']}, n_истории={d['n_history']})\n"
+          f"- Месячный спенд: ${d['spent_month_usd']} / потолок ${d['month_cap_usd']}\n\n"
+          f"> {p['следующий_шаг']}\n")
+    (FUNNEL_LOGS / f"{p['run_id']}.md").write_text(md, encoding="utf-8")
+    return jpath
 
 
 def _write_protocol(p):
@@ -221,6 +541,11 @@ def _render_md(p):
     L.append(f"- Агентов: {p['agents_ok']}/{p['agents_total']} ок · "
              f"школ: {p['schools_ok']}/{p['schools_total']} · "
              f"кандидатов: {p['candidates_count']}")
+    bd = p.get("пред_проверка_бюджета")
+    if bd:
+        L.append(f"- Пред-проверка бюджета (§24): оценка **${bd['estimate_usd']}** ≤ потолка ${bd.get('cap_usd')} "
+                 f"режима '{bd['mode']}' · {bd['expected_calls']}×${bd['avg_call_usd']} ({bd['basis_avg']}) · "
+                 f"месяц ${bd['spent_month_usd']}/${bd['month_cap_usd']}")
     L.append("")
     L.append("## Поле суждений (стандартный формат §5.2)")
     L.append("| Агент | Блок | Школа | Модель | Вывод | P | Увер. | П8 |")
@@ -259,6 +584,73 @@ def _render_md(p):
     else:
         L.append("- нарушений процедуры/П8 не зафиксировано")
     L.append("")
+    # ── Воронка отсева §6 (этапы 1–6): сколько и почему отсеяно ──────────────────
+    fr = p.get("воронка_отсева")
+    if fr:
+        L.append("## Воронка отбора §6 — отсев по этапам")
+        L.append("| Этап | Осталось | Отсеяно |")
+        L.append("|---|---|---|")
+        L.append(f"| 1. Скан+FDR | {fr['этап1_сигналов_после_FDR']} сигн. из {fr['этап1_сырых_сигналов']} проверок | "
+                 f"{fr['этап1_сырых_сигналов'] - fr['этап1_сигналов_после_FDR']} (шум) |")
+        L.append(f"| 2. Кандидаты | {fr['этап2_кандидатов']} | — |")
+        L.append(f"| 3. Грубый фильтр | {fr['этап3_после_грубого_фильтра']} | {fr['этап3_отсеяно']} |")
+        L.append(f"| 4. Скоринг §7 → топ | {fr['этап4_в_дебаты_топ']} | {fr['этап3_после_грубого_фильтра'] - fr['этап4_в_дебаты_топ']} |")
+        L.append(f"| 5. Дебаты (контур E) | {fr['этап5_устояло_после_дебатов']} | {fr['этап5_разбито_или_вето']} |")
+        L.append(f"| 6. Выдача топ-3 | **{fr['этап6_выдано_топ']}** | {fr['этап5_устояло_после_дебатов'] - fr['этап6_выдано_топ']} (диверсификация) |")
+        L.append("")
+        if fr.get("отсев_этап3"):
+            L.append("**Отсев на этапе 3 (причины):**")
+            for d in fr["отсев_этап3"]:
+                L.append(f"- {d.get('актив')} {d.get('направление','')}: {d.get('причина_отсева')}")
+        if fr.get("отсев_этап5"):
+            L.append("**Отсев на этапе 5 (дебаты):**")
+            for d in fr["отсев_этап5"]:
+                L.append(f"- {d.get('актив')} {d.get('направление','')}: {d.get('причина_отсева')}")
+        L.append(f"\n> **Итог воронки:** {fr['вывод']}")
+        L.append("")
+
+    # ── Состязательный контур §4 блок E: слепота, рандомизация, рубрика ──────────
+    debates = p.get("этап5_дебаты")
+    if debates:
+        L.append("## Состязательный контур §4 блок E (этап 5)")
+        for d in debates:
+            v = d["вердикт"]
+            L.append(f"### {d['актив']} {d.get('направление','')} (школа {d.get('школа')}) — **{v['исход']}**")
+            L.append(f"- Слепое дело: метки {d['слепое_дело']['метки_в_деле']} в случайном порядке "
+                     f"(seed из run_id+актив); карта меток — только в аудит-протоколе, судье не передана")
+            L.append(f"- П10: семья генератора **{d['семейство_генератора']}** ≠ семья судьи **{d['семейство_судьи']}**")
+            L.append(f"- Рубрика: средний балл {v.get('средний_балл_рубрики')} vs порог {v.get('порог')} → {v['исход']}; "
+                     f"судья заявил: {v.get('судья_заявил')}")
+            if v.get("примечание"):
+                L.append(f"- ⚠ {v['примечание']}")
+            if v.get("пропущенные_вопросы"):
+                L.append(f"- Процедурное вето: не отвечены вопросы {v['пропущенные_вопросы']}")
+        L.append("")
+
+    # ── Топ-идеи и портфель (этап 6) ─────────────────────────────────────────────
+    synth = p.get("этап6_синтез")
+    if synth and synth.get("отчёты"):
+        L.append("## Выдача топ-3 + портфель (этапы 6, §7/§8)")
+        port = synth.get("портфель") or {}
+        L.append(f"- Режим размера: {port.get('режим_размера')}")
+        L.append(f"- Суммарный риск: ${port.get('суммарный_риск_usd')} · "
+                 f"независимых ставок по макро-драйверам: {(port.get('карта_корреляций') or {}).get('n_независимых_ставок')}")
+        for w in (port.get("карта_корреляций") or {}).get("предупреждения", []):
+            L.append(f"  - ⚠ корреляция: {w['деталь']}")
+        L.append("")
+        L.append("| # | Идея | Балл §7 | P судьи | Драйвер | Размер $ |")
+        L.append("|---|---|---|---|---|---|")
+        for i, rep in enumerate(synth["отчёты"], 1):
+            pos = rep.get("позиция") or {}
+            cand = next((c for c in synth["топ_идеи"] if c["актив"] == rep["актив"]), {})
+            L.append(f"| {i} | {rep['актив']} {rep.get('направление','')} | {rep.get('балл')} | "
+                     f"{cand.get('вероятность_судьи')} | {pos.get('макро_драйвер')} | {pos.get('amount_usd')} |")
+        L.append("")
+    elif synth is not None:
+        L.append("## Выдача")
+        L.append(f"- {(p.get('воронка_отсева') or {}).get('вывод', 'стоящих идей нет (§6)')}")
+        L.append("")
+
     L.append("## Честные пробелы данных (П8)")
     for g in p["data_gaps"]:
         L.append(f"- {g}")

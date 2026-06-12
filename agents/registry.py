@@ -23,6 +23,21 @@
   timing_verdict    — агент своевременности D: + вердикт РАНО/ВОВРЕМЯ/ПОЗДНО/ЛОВУШКА
   manipulation_score— антиманипулятор D: + балл 0–10, переворот
   control           — контроль G: процедурный вывод (блокировки, разрешимость, разбор)
+  generator_hypothesis — Генератор E: гипотеза + base_rate + каскад + «кто продаёт нам» + §9
+  critique          — Критик/Red Team E: ошибки, скрытые допущения, альт. объяснения
+  advocacy          — Адвокат E: ответы на критику, усиление тезиса
+  judge_verdict     — Судья E: слепой вердикт по рубрике + обязательные вопросы + финальная P
+  risk_assessment   — Риск-агент F: net-матожидание, сценарии, шорт-режим, балансировка
+  report            — Синтезатор F: 13 обязательных полей §8
+
+ДВА КОНТУРА АГЕНТОВ:
+  AGENTS (поле суждений) — блоки B/C/D/G: вызываются на ШИРОКОМ срезе (этапы 1–3 воронки),
+    собираются в поле суждений §5.2. Их итерирует orchestrator/funnel.py.
+  DEBATE_AGENTS (E) + SYNTH_AGENTS (F) — работают на ОДНОЙ идее-кандидате (этапы 5–6):
+    состязательный контур и синтез. Их вызывают orchestrator/debate.py и synthesis.py.
+  ALL_AGENTS = AGENTS + DEBATE_AGENTS + SYNTH_AGENTS — для сборки промптов и meta().
+Портфельный менеджер и скоринг §7 — ДЕТЕРМИНИРОВАННЫЙ код (mathlib), не LLM (инвариант 6
+CLAUDE.md), поэтому в реестре LLM-агентов их нет.
 """
 
 # (id, блок, заголовок §4, model_role, is_school, output_kind)
@@ -54,12 +69,31 @@ AGENTS = [
     ("g_credibility",           "G", "Агент credibility",                   "data_reviewer",        False, "control"),
 ]
 
+# ── Блок E. Состязательный контур (§4; разные семейства моделей, П10) ────────────
+# Работают на ОДНОЙ идее-кандидате (этап 5 дебатов), не в широком поле суждений.
+DEBATE_AGENTS = [
+    ("e_generator",   "E", "Генератор гипотезы",        "generator",     False, "generator_hypothesis"),
+    ("e_critic",      "E", "Критик / Red Team",         "critic",        False, "critique"),
+    ("e_advocate",    "E", "Адвокат",                   "advocate",      False, "advocacy"),
+    ("e_data_reviewer","E", "Reviewer данных (анти-галлюцинации)", "data_reviewer", False, "control"),
+    ("e_judge",       "E", "Судья (слепой, рубрика)",   "judge",         False, "judge_verdict"),
+]
+
+# ── Блок F. Синтез и риск (§4) — LLM-часть (Дирижёр/скоринг/портфель — код) ────────
+SYNTH_AGENTS = [
+    ("f_risk",        "F", "Риск-агент",                "risk_agent",         False, "risk_assessment"),
+    ("f_synthesizer", "F", "Синтезатор отчёта (§8)",    "report_synthesizer", False, "report"),
+]
+
+# Полный реестр для сборки промптов и резолва meta(); AGENTS остаётся «полем суждений».
+ALL_AGENTS = AGENTS + DEBATE_AGENTS + SYNTH_AGENTS
+
 # Удобные представления
-BY_ID = {a[0]: a for a in AGENTS}
+BY_ID = {a[0]: a for a in ALL_AGENTS}
 
 
 def agents_in_block(block):
-    return [a for a in AGENTS if a[1] == block]
+    return [a for a in ALL_AGENTS if a[1] == block]
 
 
 def schools():
@@ -68,7 +102,17 @@ def schools():
 
 
 def all_ids():
+    """ID агентов ПОЛЯ СУЖДЕНИЙ (B/C/D/G) — те, кого итерирует воронка на этапах 1–3."""
     return [a[0] for a in AGENTS]
+
+
+def all_prompt_ids():
+    """ID ВСЕХ агентов (поле + E + F) — для сборки промптов и проверки инварианта П8."""
+    return [a[0] for a in ALL_AGENTS]
+
+
+def debate_ids():
+    return [a[0] for a in DEBATE_AGENTS]
 
 
 def meta(agent_id):

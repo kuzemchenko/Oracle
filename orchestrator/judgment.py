@@ -15,6 +15,7 @@ import re
 CONFIDENCE = {"низкая", "средняя", "высокая"}
 DIRECTIONS = {"лонг", "шорт"}
 TIMING_VERDICTS = {"РАНО", "ВОВРЕМЯ", "ПОЗДНО", "ЛОВУШКА"}
+JUDGE_VERDICTS = {"УСТОЯЛА", "РАЗБИТА"}
 NO_DATA = "нет данных"
 
 # Ключевые поля стандартного поля суждений (§5.2), общие для всех видов.
@@ -133,6 +134,23 @@ def parse(raw_text, output_kind):
         # вероятность контроля всегда null (процедурный голос, §5.6)
         if obj.get("вероятность") is not None:
             raise JudgmentError("у контрольного агента вероятность должна быть null (§5.6)")
+    elif output_kind == "judge_verdict":
+        v = str(obj.get("вердикт", "")).strip().upper()
+        if v not in JUDGE_VERDICTS:
+            raise JudgmentError(f"вердикт судьи не из {JUDGE_VERDICTS}: {obj.get('вердикт')!r}")
+        obj["вердикт"] = v
+        if not isinstance(obj.get("рубрика"), dict):
+            raise JudgmentError("судья обязан вернуть рубрику с оценками (config/rubric.yaml)")
+        # два обязательных вопроса §4 блок E (процедурное вето §5.6 при отсутствии — в debate.py)
+    elif output_kind == "risk_assessment":
+        # риск-агент НЕ голосует о направлении рынка (§4 блок F): вероятность всегда null
+        if obj.get("вероятность") is not None:
+            raise JudgmentError("у риск-агента вероятность должна быть null (§4: не голос о рынке)")
+        if not isinstance(obj.get("сценарии", []), list):
+            raise JudgmentError("сценарии риск-агента должны быть списком")
+    elif output_kind == "report":
+        if not isinstance(obj.get("поля"), dict):
+            raise JudgmentError("отчёт §8 обязан содержать объект 'поля' с 13 полями")
 
     obj["_output_kind"] = output_kind
     obj["_no_data"] = _is_no_data(obj)

@@ -29,11 +29,13 @@ def main(argv=None):
     ap.add_argument("--agents", default=None,
                     help="список id через запятую (по умолчанию все B/C/D/G)")
     ap.add_argument("--no-write", action="store_true", help="не писать протокол на диск")
+    ap.add_argument("--field-only", action="store_true",
+                    help="только поле суждений (этапы 1–2), без дебатов/синтеза")
     args = ap.parse_args(argv)
 
     agent_ids = args.agents.split(",") if args.agents else None
     p = run_funnel(theme=args.theme, mode=args.mode, agent_ids=agent_ids,
-                   write=not args.no_write)
+                   write=not args.no_write, full=not args.field_only)
 
     print(f"[{p['run_id']}] режим={p['mode']} тема={p['theme']}")
     print(f"  агентов ок: {p['agents_ok']}/{p['agents_total']} · "
@@ -43,6 +45,18 @@ def main(argv=None):
     print(f"  агрегированная P: {p['контрфактический_протокол']['агрегированная_вероятность']}")
     print(f"  противоречий: {len(p['карта_противоречий'])} · "
           f"вето/П8: {len(p['процедурное_вето'])}")
+    fr = p.get("воронка_отсева")
+    if fr:
+        print(f"  воронка §6: скан {fr['этап1_сырых_сигналов']}→FDR {fr['этап1_сигналов_после_FDR']} · "
+              f"канд {fr['этап2_кандидатов']} → фильтр {fr['этап3_после_грубого_фильтра']} → "
+              f"дебаты топ {fr['этап4_в_дебаты_топ']} → устояло {fr['этап5_устояло_после_дебатов']} → "
+              f"выдано {fr['этап6_выдано_топ']}")
+        print(f"  итог: {fr['вывод']}")
+        synth = p.get("этап6_синтез") or {}
+        for rep in synth.get("отчёты", []):
+            pos = rep.get("позиция") or {}
+            print(f"    • {rep['актив']} {rep.get('направление','')} балл={rep.get('балл')} "
+                  f"драйвер={pos.get('макро_драйвер')} ${pos.get('amount_usd')}")
     if not args.no_write:
         print(f"  протокол: journal/funnel_logs/{p['run_id']}.md")
     return 0
