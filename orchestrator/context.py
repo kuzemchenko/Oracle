@@ -28,6 +28,7 @@ from mathlib import waves as wv         # noqa: E402
 
 CORE = ["BNO.US", "USO.US", "SPY.US", "DBC.US", "CPER.US", "COPX.US"]
 WAVE_THRESHOLD_PCT = 0.05  # порог ZigZag для разметки волн (§4 «Волновик»); калибруется форвардом
+MIN_THEME_HISTORY_BARS = 20  # §6/§23: меньше — нет волы/индикаторов/калибровки для §9-разрешимости
 
 
 def _load_yaml(rel):
@@ -36,6 +37,23 @@ def _load_yaml(rel):
         return {}
     with open(p, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def resolve_theme(theme):
+    """Сводит тему к тикеру ядра. Возвращает (symbol|None, kind).
+
+    kind: 'theme' (имя темы из universe.themes → proxy_etf) | 'core' (прямой тикер ядра) | None.
+    symbol=None → тема ВНЕ универсума (нет калиброванных данных). Используется гардом темы в
+    funnel.run_funnel: тематический фокус разрешён только по активу универсума (П8 — иначе агенты
+    дрейфуют к фоновым новостям, урок SPCX.US 2026-06-13)."""
+    universe = _load_yaml("config/universe.yaml")
+    themes = universe.get("themes") or {}
+    t = (theme or "").strip()
+    if t.lower() in themes:
+        return (themes[t.lower()] or {}).get("proxy_etf"), "theme"
+    if t.upper() in CORE:
+        return t.upper(), "core"
+    return None, None
 
 
 def _quotes(con, symbol, limit=260):

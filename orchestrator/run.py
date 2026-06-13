@@ -125,13 +125,23 @@ def main(argv=None):
     # theme §17.2 — тематический фокус на --asset (по умолчанию brent) с полным циклом и
     # запечатыванием прогноза; funnel §17.1 — свободная генерация (тоже стартует с темы brent).
     theme = args.asset or args.theme
-    funnel_mode = "auto" if args.mode in ("funnel", "theme") else args.mode
+    # --mock форсит mock в ЛЮБОМ режиме (защита от непреднамеренных live-трат: раньше для
+    #   funnel/theme флаг молча игнорировался, и 'auto'→live при наличии ключа).
+    funnel_mode = "mock" if args.mock else ("auto" if args.mode in ("funnel", "theme") else args.mode)
 
     agent_ids = args.agents.split(",") if args.agents else None
     p = run_funnel(theme=theme, mode=funnel_mode, agent_ids=agent_ids,
-                   write=not args.no_write, full=not args.field_only)
+                   write=not args.no_write, full=not args.field_only,
+                   theme_focused=(args.mode == "theme"))
 
     print(f"[{p['run_id']}] режим={p['mode']} тема={p['theme']}")
+    # Протокол-отказ (бюджет §24 / нет данных) не содержит полей прогона — печатаем причину и выходим.
+    if "agents_total" not in p:
+        ref = p.get("ОТКАЗ_бюджет") or p.get("ОТКАЗ_тема") or p.get("ОТКАЗ") or {}
+        print(f"  ОТКАЗ: {ref.get('reason') or p.get('следующий_шаг') or 'прогон не выполнен'}")
+        if p.get("следующий_шаг"):
+            print(f"  следующий шаг: {p['следующий_шаг']}")
+        return 0
     print(f"  агентов ок: {p['agents_ok']}/{p['agents_total']} · "
           f"школ ок: {p['schools_ok']}/{p['schools_total']} · "
           f"кандидатов: {p['candidates_count']}")

@@ -181,3 +181,34 @@ def test_no_p8_violations_in_mock(protocol):
 def test_data_gaps_reported_honestly(protocol):
     gaps = " ".join(protocol["data_gaps"])
     assert "OI" in gaps or "открытый интерес" in gaps  # П8: пробелы не скрыты
+
+
+# ── Гард темы (§6/§8/П8): тематический фокус только по активу универсума ──────────
+def test_resolve_theme_maps_name_core_and_unknown():
+    assert C.resolve_theme("brent") == ("BNO.US", "theme")     # имя темы → proxy_etf
+    assert C.resolve_theme("SPY.US") == ("SPY.US", "core")     # прямой тикер ядра
+    assert C.resolve_theme("SPCX.US") == (None, None)          # вне универсума
+
+
+def test_theme_guard_refuses_out_of_universe():
+    # Тематический фокус по активу вне универсума → ранний отказ (0 трат), даже в mock.
+    p = F.run_funnel(theme="SPCX.US", mode="mock", run_id="pytest_guard",
+                     write=False, theme_focused=True)
+    assert "ОТКАЗ_тема" in p
+    assert p["ОТКАЗ_тема"]["resolvable"] is False
+    assert "agents_total" not in p          # ни один агент не вызывался
+
+
+def test_theme_guard_passes_calibrated_theme():
+    # brent в универсуме с историей → гард пропускает, прогон идёт нормально.
+    p = F.run_funnel(theme="brent", mode="mock", run_id="pytest_guard_ok",
+                     write=False, theme_focused=True)
+    assert "ОТКАЗ_тема" not in p
+    assert p["agents_total"] >= 1
+
+
+def test_theme_guard_inactive_without_focus():
+    # Без theme_focused (обычная воронка) гард не трогает даже чужой тикер.
+    p = F.run_funnel(theme="SPCX.US", mode="mock", run_id="pytest_guard_off",
+                     write=False, theme_focused=False)
+    assert "ОТКАЗ_тема" not in p

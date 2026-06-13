@@ -399,7 +399,8 @@ def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits
 
 
 # ── Прогон воронки ───────────────────────────────────────────────────────────────
-def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True):
+def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
+               theme_focused=False):
     """Сквозной прогон полной воронки §6 (этапы 1–6).
 
     full=True (по умолчанию): этапы 1–6 — скан+FDR → кандидаты → грубый фильтр → скоринг §7 →
@@ -414,6 +415,32 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     thresholds = C._load_yaml("config/thresholds.yaml")
     limits = PF.lim.load_limits()
     costs = SY.load_costs()
+
+    # ── ГАРД ТЕМЫ (§6/§8/П8) ПЕРЕД любым LLM-вызовом ────────────────────────────────
+    # Тематический фокус разрешён ТОЛЬКО по активу из калиброванного универсума с историей
+    # ≥ MIN_THEME_HISTORY_BARS. Вне универсума ИЛИ слишком короткая история → честный ранний
+    # отказ «нет данных по теме» (0 трат). Иначе агенты дрейфуют к фоновым новостям и выдают
+    # суждение не про тему (урок SPCX.US 2026-06-13: однодневный IPO вне ядра → разбор макро).
+    if theme_focused:
+        sym, _kind = C.resolve_theme(theme)
+        nbars = ctx["quotes"].get(sym, {}).get("n_bars", 0) if sym else 0
+        if sym is None or nbars < C.MIN_THEME_HISTORY_BARS:
+            why = (f"тема '{theme}' вне калиброванного универсума (core_tradeable={C.CORE})"
+                   if sym is None else
+                   f"по '{theme}'→{sym} только {nbars} баров истории (< {C.MIN_THEME_HISTORY_BARS}): "
+                   f"волатильность/индикаторы/калибровка §23 не определены")
+            refusal = {
+                "run_id": run_id, "ts": _now_iso(), "mode": client.mode, "theme": theme,
+                "spec_ref": "§6/§8/П8 гард темы: тематический фокус — только актив универсума с историей",
+                "ОТКАЗ_тема": {"resolvable": sym is not None, "matched_symbol": sym,
+                               "n_bars": nbars, "min_bars": C.MIN_THEME_HISTORY_BARS, "reason": why},
+                "следующий_шаг": ("прогон НЕ выполнен (0 трат): по теме нет калиброванных данных — "
+                                  "агенты дрейфовали бы к фоновым новостям (урок SPCX.US). Оцени актив "
+                                  "через deep-research, либо добавь в универсум после калибровки §23."),
+            }
+            if write:
+                _write_refusal(refusal)
+            return refusal
 
     # ── ПРЕД-проверка бюджета прогона ПЕРЕД любым LLM-вызовом (§24, долг Нед.8) ──────
     # Только для live: оценка прогона vs потолок режима и месячный потолок. Отказ → прогон
@@ -531,21 +558,29 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
 
 
 def _write_refusal(p):
-    """Протокол ОТКАЗА пред-проверки бюджета (§24): прогон не выполнялся, но след в журнале."""
+    """Протокол ОТКАЗА до прогона (§24 бюджет ИЛИ §6 гард темы): прогон не выполнялся, след в журнале."""
     FUNNEL_LOGS.mkdir(parents=True, exist_ok=True)
     jpath = FUNNEL_LOGS / f"{p['run_id']}.json"
     with open(jpath, "w", encoding="utf-8") as f:
         json.dump(p, f, ensure_ascii=False, indent=2)
-    d = p["ОТКАЗ_бюджет"]
-    md = (f"# ОТКАЗ прогона по бюджету · {p['run_id']}\n"
-          f"- Время: {p['ts']} · режим: {p['mode']} · тема: {p['theme']}\n"
-          f"- Спецификация: {p['spec_ref']}\n\n"
-          f"**{d['reason']}**\n\n"
-          f"- Контур отказа: {d.get('контур')}\n"
-          f"- Оценка прогона: ${d['estimate_usd']} = {d['expected_calls']} вызовов × "
-          f"${d['avg_call_usd']} ({d['basis_avg']}, n_истории={d['n_history']})\n"
-          f"- Месячный спенд: ${d['spent_month_usd']} / потолок ${d['month_cap_usd']}\n\n"
-          f"> {p['следующий_шаг']}\n")
+    head = (f"- Время: {p['ts']} · режим: {p['mode']} · тема: {p['theme']}\n"
+            f"- Спецификация: {p['spec_ref']}\n\n")
+    if "ОТКАЗ_бюджет" in p:
+        d = p["ОТКАЗ_бюджет"]
+        md = (f"# ОТКАЗ прогона по бюджету · {p['run_id']}\n" + head +
+              f"**{d['reason']}**\n\n"
+              f"- Контур отказа: {d.get('контур')}\n"
+              f"- Оценка прогона: ${d['estimate_usd']} = {d['expected_calls']} вызовов × "
+              f"${d['avg_call_usd']} ({d['basis_avg']}, n_истории={d['n_history']})\n"
+              f"- Месячный спенд: ${d['spent_month_usd']} / потолок ${d['month_cap_usd']}\n\n"
+              f"> {p['следующий_шаг']}\n")
+    else:
+        d = p.get("ОТКАЗ_тема", {})
+        md = (f"# ОТКАЗ прогона: тема вне универсума · {p['run_id']}\n" + head +
+              f"**{d.get('reason')}**\n\n"
+              f"- Тема сводится к: {d.get('matched_symbol')} · баров истории: {d.get('n_bars')} "
+              f"(нужно ≥ {d.get('min_bars')})\n\n"
+              f"> {p['следующий_шаг']}\n")
     (FUNNEL_LOGS / f"{p['run_id']}.md").write_text(md, encoding="utf-8")
     return jpath
 
