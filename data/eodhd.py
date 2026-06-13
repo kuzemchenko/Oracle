@@ -37,6 +37,58 @@ CREATE TABLE IF NOT EXISTS quotes (
 );
 CREATE INDEX IF NOT EXISTS idx_quotes_symbol ON quotes(symbol);
 CREATE INDEX IF NOT EXISTS idx_quotes_date   ON quotes(date);
+
+-- Фундаментал (EODHD /fundamentals): структура владения/оценка для поведенческого,
+-- фундаментального и анти-манип. агентов. Храним извлечённые скаляры + полный JSON.
+CREATE TABLE IF NOT EXISTS fundamentals (
+    symbol               TEXT PRIMARY KEY,
+    name                 TEXT,
+    sector               TEXT,
+    industry             TEXT,
+    market_cap_mln       REAL,
+    pe_ratio             REAL,
+    forward_pe           REAL,
+    eps                  REAL,
+    shares_outstanding   REAL,
+    shares_float         REAL,
+    pct_insiders         REAL,
+    pct_institutions     REAL,
+    shares_short         REAL,        -- на нашем плане часто NULL ("нет данных", П8)
+    short_pct_float      REAL,        -- на нашем плане часто NULL
+    raw_json             TEXT,        -- полный ответ (ничего не теряем)
+    fetched_at           TEXT
+);
+
+-- Инсайдерские сделки (EODHD /insider-transactions): детектор «кто продаёт нам» (§4, §14).
+CREATE TABLE IF NOT EXISTS insider_tx (
+    id                   TEXT PRIMARY KEY,   -- sha1(symbol|tx_date|owner|code|amount)
+    symbol               TEXT NOT NULL,
+    tx_date              TEXT,
+    report_date          TEXT,
+    owner_name           TEXT,
+    owner_title          TEXT,
+    code                 TEXT,               -- P=покупка, S=продажа, ...
+    amount               REAL,
+    price                REAL,
+    acquired_disposed    TEXT,               -- A=acquired, D=disposed
+    post_amount          REAL,
+    link                 TEXT,
+    fetched_at           TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_insider_symbol ON insider_tx(symbol);
+
+-- Календарь отчётов (EODHD /calendar/earnings): тайминг + cui bono (совпадение с отчётами).
+CREATE TABLE IF NOT EXISTS earnings_calendar (
+    symbol               TEXT NOT NULL,
+    report_date          TEXT NOT NULL,      -- дата выхода отчёта
+    period_date          TEXT,               -- отчётный период
+    before_after_market  TEXT,
+    actual               REAL,
+    estimate             REAL,
+    fetched_at           TEXT,
+    PRIMARY KEY (symbol, report_date)
+);
+CREATE INDEX IF NOT EXISTS idx_earn_symbol ON earnings_calendar(symbol);
 """
 
 
@@ -99,6 +151,123 @@ def sync_symbol(con, symbol, api_key, history_from, full=False):
     return n, f"{start}..{today}"
 
 
+# ── EODHD: фундаментал / инсайдеры / календарь (всё в нашей подписке All-in-One) ──────
+import hashlib  # noqa: E402
+
+EODHD = "https://eodhd.com/api"
+
+
+def _get_json(url, api_key, expect=("[", "{")):
+    sep = "&" if "?" in url else "?"
+    full = f"{url}{sep}api_token={api_key}&fmt=json"
+    req = urllib.request.Request(full, headers={"User-Agent": "oracle/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            body = r.read().decode("utf-8", "ignore")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"HTTP {e.code}") from e
+    s = body.strip()
+    if expect and s[:1] not in expect:
+        raise RuntimeError(f"неожиданный ответ EODHD: {s[:120]!r}")
+    return json.loads(body) if s else None
+
+
+def _f(d, *path):
+    """Безопасный float по вложенному пути; None → None (П8: не выдумываем 0)."""
+    x = d
+    for k in path:
+        x = x.get(k) if isinstance(x, dict) else None
+    try:
+        return float(x) if x not in (None, "", "NA") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_fundamentals(symbol, api_key):
+    return _get_json(f"{EODHD}/fundamentals/{symbol}", api_key, expect=("{",))
+
+
+def sync_fundamentals(con, symbol, api_key):
+    f = fetch_fundamentals(symbol, api_key)
+    if not isinstance(f, dict) or not f:
+        return 0
+    g = f.get("General") or {}
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    con.execute(
+        """INSERT OR REPLACE INTO fundamentals
+           (symbol,name,sector,industry,market_cap_mln,pe_ratio,forward_pe,eps,
+            shares_outstanding,shares_float,pct_insiders,pct_institutions,
+            shares_short,short_pct_float,raw_json,fetched_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (symbol, g.get("Name"), g.get("Sector"), g.get("Industry"),
+         _f(f, "Highlights", "MarketCapitalizationMln"), _f(f, "Highlights", "PERatio"),
+         _f(f, "Valuation", "ForwardPE"), _f(f, "Highlights", "EarningsShare"),
+         _f(f, "SharesStats", "SharesOutstanding"), _f(f, "SharesStats", "SharesFloat"),
+         _f(f, "SharesStats", "PercentInsiders"), _f(f, "SharesStats", "PercentInstitutions"),
+         _f(f, "SharesStats", "SharesShort"), _f(f, "SharesStats", "ShortPercentFloat"),
+         json.dumps(f, ensure_ascii=False), now))
+    con.commit()
+    return 1
+
+
+def fetch_insider(symbol, api_key, limit=50):
+    return _get_json(f"{EODHD}/insider-transactions/?code={symbol}&limit={limit}", api_key)
+
+
+def sync_insider(con, symbol, api_key, limit=50):
+    rows = fetch_insider(symbol, api_key, limit) or []
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    n = 0
+    for r in rows:
+        txd = r.get("transactionDate") or r.get("date")
+        owner = r.get("ownerName") or ""
+        code = r.get("transactionCode") or ""
+        amt = r.get("transactionAmount")
+        rid = hashlib.sha1(f"{symbol}|{txd}|{owner}|{code}|{amt}".encode("utf-8")).hexdigest()
+        con.execute(
+            """INSERT OR REPLACE INTO insider_tx
+               (id,symbol,tx_date,report_date,owner_name,owner_title,code,amount,price,
+                acquired_disposed,post_amount,link,fetched_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (rid, symbol, txd, r.get("reportDate"), owner, r.get("ownerTitle"), code,
+             amt, r.get("transactionPrice"), r.get("transactionAcquiredDisposed"),
+             r.get("postTransactionAmount"), r.get("link"), now))
+        n += 1
+    con.commit()
+    return n
+
+
+def fetch_earnings_calendar(symbols, api_key, date_from, date_to):
+    syms = ",".join(symbols)
+    data = _get_json(f"{EODHD}/calendar/earnings?symbols={syms}&from={date_from}&to={date_to}",
+                     api_key, expect=("{", "["))
+    if isinstance(data, dict):
+        return data.get("earnings") or []
+    return data or []
+
+
+def sync_earnings(con, symbols, api_key, horizon_days=120):
+    today = datetime.date.today()
+    rows = fetch_earnings_calendar(symbols, api_key, today.isoformat(),
+                                   (today + datetime.timedelta(days=horizon_days)).isoformat())
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    n = 0
+    for r in rows:
+        sym = r.get("code")
+        rd = r.get("report_date")
+        if not sym or not rd:
+            continue
+        con.execute(
+            """INSERT OR REPLACE INTO earnings_calendar
+               (symbol,report_date,period_date,before_after_market,actual,estimate,fetched_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (sym, rd, r.get("date"), r.get("before_after_market"),
+             r.get("actual"), r.get("estimate"), now))
+        n += 1
+    con.commit()
+    return n
+
+
 def cmd_status(con):
     cur = con.execute(
         "SELECT symbol, COUNT(*), MIN(date), MAX(date) FROM quotes GROUP BY symbol ORDER BY symbol")
@@ -115,6 +284,10 @@ def main():
     ap.add_argument("--full", action="store_true", help="перекачать всю историю с history_from")
     ap.add_argument("--symbol", help="только один символ")
     ap.add_argument("--status", action="store_true", help="показать содержимое базы")
+    ap.add_argument("--extras", action="store_true",
+                    help="подтянуть фундаментал/инсайдеров/календарь (Tier 0 EODHD) для символов")
+    ap.add_argument("--also", default="",
+                    help="доп. символы через запятую (помимо core_symbols), напр. SPCX.US,RKLB.US")
     args = ap.parse_args()
 
     con = db_connect()
@@ -129,7 +302,8 @@ def main():
 
     uni = load_universe()
     history_from = uni.get("history_from", "2015-01-01")
-    symbols = [args.symbol] if args.symbol else uni["core_symbols"]
+    also = [s.strip() for s in args.also.split(",") if s.strip()]
+    symbols = [args.symbol] if args.symbol else (uni["core_symbols"] + also)
 
     failures = 0
     for sym in symbols:
@@ -139,6 +313,27 @@ def main():
         except Exception as e:
             failures += 1
             print(f"❌ {sym:12} {e}", file=sys.stderr)
+
+    if args.extras:
+        print("\n— Tier 0 EODHD: фундаментал / инсайдеры / календарь —")
+        try:
+            ne = sync_earnings(con, symbols, api_key)
+            print(f"📅 календарь отчётов: +{ne} записей по {len(symbols)} символам")
+        except Exception as e:
+            failures += 1
+            print(f"❌ календарь: {e}", file=sys.stderr)
+        for sym in symbols:
+            try:
+                nf = sync_fundamentals(con, sym, api_key)
+                ni = sync_insider(con, sym, api_key)
+                row = con.execute("SELECT shares_float, pct_insiders, pct_institutions, market_cap_mln "
+                                  "FROM fundamentals WHERE symbol=?", (sym,)).fetchone()
+                fl = f"float={row[0]:,.0f} инсайд={row[1]}% инст={row[2]}% mcap=${row[3]:,.0f}млн" if row else "—"
+                print(f"📊 {sym:12} fund={nf} инсайд_сделок={ni} · {fl}")
+            except Exception as e:
+                failures += 1
+                print(f"❌ {sym:12} extras: {e}", file=sys.stderr)
+
     print()
     cmd_status(con)
     return 1 if failures else 0
