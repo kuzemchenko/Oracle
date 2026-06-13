@@ -277,3 +277,48 @@ def test_watchlist_alert_fires_once(paths):
     before = len(bot.tg.sent)
     bot._tick_watchlist()              # дедуп: повторно не алертит
     assert len(bot.tg.sent) == before
+
+
+# ── новый «форбсовский» формат карточки ──────────────────────────────────────────────
+def test_report_is_column_not_dict_dump(paths):
+    proto = _proto()
+    idea = R.ideas_from_protocol(proto)[0]
+    text = R.format_report(proto, idea)
+    assert "ИДЕЯ" in text                       # хедлайн (на него опирается пуш/поиск)
+    assert "СУТЬ." in text and "ЧЕГО ОПАСАТЬСЯ." in text   # разделы-колонки
+    assert "{" not in text and "judgment" not in text     # без дампа словаря/служебных ключей
+    assert "исследовательский инструмент" in text          # дисклеймер §8 п.13
+
+
+# ── свободный диалог с Дирижёром (клиент внедрён, без сети) ───────────────────────────
+class _FakeLLM:
+    def __init__(self, text="Коротко: бюджет в норме, идей сегодня нет."):
+        self.text = text
+        self.calls = []
+
+    def complete(self, role, system, user, *, agent_id, output_kind, exclude_family=None):
+        self.calls.append({"role": role, "system": system, "user": user, "agent_id": agent_id})
+        return {"text": self.text, "model": "test/fake", "usage": {}, "cost": 0.0}
+
+
+def test_chat_free_text_routes_to_conductor(paths, monkeypatch):
+    import bot_chat as C
+    fake = _FakeLLM()
+    # answer() с внедрённым фейковым клиентом — без сети/ключа
+    monkeypatch.setattr(C, "answer", lambda text, history=None, client=None: (
+        fake.complete("conductor", C.SYSTEM_PROMPT, C.build_user_message(text, history),
+                      agent_id="bot_chat", output_kind="chat")["text"], 0.0))
+    bot = _fresh_bot()
+    bot._on_message({"chat": {"id": 555}, "text": "что у нас с бюджетом?"})
+    assert any("бюджет" in s[1].lower() for s in bot.tg.sent)        # ответ ушёл пользователю
+    assert bot.state["chat_history"][-2]["role"] == "user"          # история пары записана
+    assert bot.state["chat_history"][-1]["role"] == "assistant"
+
+
+def test_chat_answer_uses_conductor_role_and_grounds(paths):
+    import bot_chat as C
+    fake = _FakeLLM("ок")
+    reply, cost = C.answer("объясни воронку", history=[], client=fake)
+    assert reply == "ок"
+    assert fake.calls[0]["role"] == "conductor"
+    assert "СОСТОЯНИЕ СИСТЕМЫ" in fake.calls[0]["user"]   # ответ заземлён на контекст

@@ -5,6 +5,7 @@
 Чистый слой форматирования + скан артефактов (journal/funnel_logs/*.json). Сетевого I/O нет —
 его делает bot.py. Так логика тестируется без Telegram.
 """
+import re
 import json
 import html
 import pathlib
@@ -84,43 +85,117 @@ def new_runs(pushed_run_ids, logs_dir=None):
     return [p for p in scan_protocols(logs_dir or FUNNEL_LOGS) if p.get("run_id") not in pushed]
 
 
-# ── рендер отчёта (13 полей §8) ─────────────────────────────────────────────────────
-def format_report(protocol, idea):
-    run_id = protocol.get("run_id", "?")
-    asset = idea.get("актив", "?")
-    direction = idea.get("направление") or ""
-    score = idea.get("балл")
-    pos = idea.get("позиция")
-    head = f"📑 ИДЕЯ: {asset}"
-    if direction:
-        head += f" · {direction}"
-    if isinstance(score, (int, float)):
-        head += f" · балл {score:.1f}" if isinstance(score, float) else f" · балл {score}"
-    lines = [head, f"прогон {run_id} · тема {protocol.get('theme') or '—'} · режим {protocol.get('mode')}"]
-    if pos:
-        lines.append(f"позиция: {_trunc(pos, 200)}")
-    lines.append("— — —")
+# ── рендер отчёта: колонка, а не дамп словаря ────────────────────────────────────────
+# Перевод тикера/макро-драйвера в человеческое слово для заголовка (мягкий фолбек на тикер).
+_DRIVER_RU = {
+    "copper": "медь", "oil": "нефть", "brent": "нефть Brent", "wti": "нефть WTI",
+    "gold": "золото", "silver": "серебро", "gas": "газ", "natgas": "газ",
+    "equities": "рынок акций", "spy": "рынок акций", "rates": "ставки",
+    "wheat": "пшеница", "grain": "зерно", "uranium": "уран", "lithium": "литий",
+}
 
-    fields = _fields_dict(idea)
-    keys = list(fields.keys())
-    canonical = keys if keys else FIELDS_8
-    body = []
-    for i, k in enumerate(canonical):
-        v = fields.get(k)
-        label = k if keys else FIELDS_8[i]
-        if v is None:
+
+def _humanize(v, max_n=MAX_FIELD):
+    """Плоский читаемый текст из строки/списка/словаря (без JSON-скобок)."""
+    if v is None:
+        return ""
+    if isinstance(v, dict):
+        v = "; ".join(f"{k}: {_humanize(val, 120)}" for k, val in v.items())
+    elif isinstance(v, list):
+        v = "; ".join(_humanize(x, 160) for x in v if x not in (None, ""))
+    return _trunc(v, max_n)
+
+
+def _field(fields, n):
+    """Значение поля §8 по его НОМЕРУ — ключи варьируются ('2_каскадная…' / '2. Каскадная…')."""
+    for k, v in (fields or {}).items():
+        m = re.match(r"\s*(\d+)", str(k))
+        if m and int(m.group(1)) == n:
+            return v
+    return None
+
+
+def _section(title, *parts):
+    """Абзац колонки: ЗАГОЛОВОК + связный текст. Каждый кусок завершается точкой, чтобы
+    предложения не слипались. Пусто → None (абзац пропускается)."""
+    chunks = []
+    for c in parts:
+        if not c or not str(c).strip():
             continue
-        if isinstance(v, (dict, list)):
-            v = json.dumps(v, ensure_ascii=False)
-        label = str(label).replace("_", " ")
-        body.append(f"• {_trunc(label, 80)}: {_trunc(v, MAX_FIELD)}")
+        s = str(c).strip()
+        if s[-1] not in ".!?…;:":
+            s += "."
+        chunks.append(s)
+    if not chunks:
+        return None
+    return f"{title} " + " ".join(chunks)
+
+
+def format_report(protocol, idea):
+    """Карточка идеи в стиле колонки делового журнала: суть, расклад, риски, что делать."""
+    run_id = protocol.get("run_id", "?")
+    mode = protocol.get("mode")
+    asset = idea.get("актив", "?")
+    direction = (idea.get("направление") or "").strip()
+    score = idea.get("балл")
+    pos = idea.get("позиция") if isinstance(idea.get("позиция"), dict) else {}
+    fields = _fields_dict(idea)
+
+    is_long = direction.lower().startswith("лонг") or direction.lower() in ("long", "buy")
+    arrow = "📈" if is_long else "📉"
+    move = "ставка на рост" if is_long else "ставка на снижение"
+    driver = str(pos.get("макро_драйвер") or "").lower()
+    subject = _DRIVER_RU.get(driver) or _DRIVER_RU.get(asset.split(".")[0].lower()) or asset
+
+    # Заголовок-«хедлайн» (подстрока «ИДЕЯ» сохранена намеренно — на неё опираются тесты/поиск).
+    head = f"{arrow} ИДЕЯ ДНЯ — {subject}: {move}"
+    dek = f"{asset} · {direction or '—'}"
+    if isinstance(score, (int, float)):
+        dek += f" · оценка идеи {float(score):.2f} из 1.00"
+    header = [head, dek]
+    if mode and mode != "live":
+        header.append("⚠️ Это ПРОВЕРОЧНЫЙ прогон (режим mock) — тест формата, не живая идея.")
+
+    # Тело — связными абзацами по смыслу, а не «поле N: значение».
+    paras = []
+    paras.append(_section("СУТЬ.",
+                          _humanize(_field(fields, 1)),
+                          ("Каскад: " + _humanize(_field(fields, 2))) if _field(fields, 2) else ""))
+    paras.append(_section("РАСКЛАД.",
+                          _humanize(_field(fields, 3)),
+                          _humanize(_field(fields, 4))))
+    paras.append(_section("КТО ПО ДРУГУЮ СТОРОНУ.",
+                          _humanize(_field(fields, 6)),
+                          ("Отыграно: " + _humanize(_field(fields, 5))) if _field(fields, 5) else ""))
+    risk_bits = []
+    if _field(fields, 7):
+        risk_bits.append(_humanize(_field(fields, 7)))
+    if _field(fields, 12):
+        risk_bits.append("Идея перестанет работать, если: " + _humanize(_field(fields, 12)))
+    if _field(fields, 11):
+        risk_bits.append("Чего пока не знаем: " + _humanize(_field(fields, 11)))
+    paras.append(_section("ЧЕГО ОПАСАТЬСЯ.", *risk_bits))
+    entry = _humanize(_field(fields, 8))
+    size_note = ""
+    amt = pos.get("amount_usd")
+    if amt:
+        size_note = f"Размер — микро ${float(amt):.0f} (Келли выключен до подтверждения калибровки)."
+    paras.append(_section("ЕСЛИ ВХОДИТЬ.", entry, size_note))
+    if _field(fields, 10):
+        paras.append(_section("ИСТОЧНИКИ.", _humanize(_field(fields, 10))))
+
+    body = [p for p in paras if p]
     if not body:
-        body.append("• (синтезатор не вернул поля §8 — см. протокол прогона)")
-    lines += body
-    lines.append("— — —")
-    lines.append("⚖️ Исследовательский инструмент, НЕ инвестиционная рекомендация (§8 п.13). "
-                 "Решение о риске — за тобой, в рамках пре-коммитмента §12.")
-    text = "\n".join(lines)
+        body = ["(Синтезатор не вернул поля §8 — подробности в протоколе прогона.)"]
+
+    disclaimer = ("⚖️ «Оракул» — исследовательский инструмент, НЕ инвестиционная рекомендация "
+                  "(§8 п.13). Решение и риск — за тобой, в рамках пре-коммитмента §12. "
+                  "Кнопки решения ниже; «Принять» откроется через 24 ч (пауза §12).")
+    footer = f"· прогон {run_id} · тема {protocol.get('theme') or '—'} · режим {mode}"
+
+    text = ("\n".join(header) + "\n\n— — —\n\n"
+            + "\n\n".join(body)
+            + "\n\n— — —\n" + disclaimer + "\n" + footer)
     if len(text) > MAX_MSG:
         text = text[:MAX_MSG].rstrip() + "\n…(обрезано; полный отчёт — в journal/funnel_logs)"
     return text
@@ -144,12 +219,17 @@ def build_keyboard(token, issued_at, now=None):
 
 
 def format_weak_day(protocol):
-    """Однострочный пуш слабого дня §6 (идей нет — легитимный результат)."""
+    """Пуш слабого дня §6 человеческим языком (идей нет — это легитимный результат)."""
     fr = (protocol or {}).get("воронка_отсева") or {}
-    return (f"🟦 Воронка {protocol.get('run_id','?')} (тема {protocol.get('theme') or '—'}): "
-            f"стоящих идей нет — легитимный слабый день §6. "
-            f"Кандидатов {fr.get('этап2_кандидатов','?')} → после дебатов "
-            f"{fr.get('этап5_устояло_после_дебатов','?')} → выдано {fr.get('этап6_выдано_топ', 0)}.")
+    cand = fr.get("этап2_кандидатов")
+    theme = protocol.get("theme") or "—"
+    sift = (f"Воронка просеяла {cand} кандидатов по теме «{theme}», но после дебатов не уцелело "
+            "ни одной идеи." if isinstance(cand, int)
+            else f"Воронка по теме «{theme}» не дала ни одной идеи, прошедшей фильтры и дебаты.")
+    return ("🟦 Сегодня идей нет — и это нормально.\n\n"
+            f"{sift} Это легитимный слабый день (§6), а не сбой: лучшее решение большинства "
+            "дней — не сделать плохую ставку.\n\n"
+            f"· прогон {protocol.get('run_id','?')} · режим {protocol.get('mode')}")
 
 
 # ── бюджет ──────────────────────────────────────────────────────────────────────────

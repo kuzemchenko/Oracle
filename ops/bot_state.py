@@ -109,6 +109,7 @@ def _default_state():
         "last_budget_alert_date": None,  # дата последнего алерта бюджета (дедуп в сутки)
         "fired_triggers": [],        # id сработавших триггеров листа ожидания (дедуп алертов)
         "seen_watchlist": [],        # id записей watchlist, уже обработанных ботом
+        "chat_history": [],          # свободный диалог с Дирижёром: [{role, text}] (обрезается)
     }
 
 

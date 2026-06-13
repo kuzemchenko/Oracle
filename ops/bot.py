@@ -90,6 +90,9 @@ class Telegram:
             p["text"] = text[:200]
         return self._call("answerCallbackQuery", p)
 
+    def send_chat_action(self, chat_id, action="typing"):
+        return self._call("sendChatAction", {"chat_id": chat_id, "action": action})
+
 
 # ── сервис ──────────────────────────────────────────────────────────────────────────
 class Bot:
@@ -190,14 +193,25 @@ class Bot:
             return
         if text.startswith("/"):
             self._command(chat, text)
+            return
+        # Свободный текст → диалог с Дирижёром (как в терминале).
+        self._chat(chat, text)
 
     def _command(self, chat, text):
         cmd = text.split()[0].lstrip("/").lower()
         if cmd in ("start", "help"):
             self.tg.send_message(chat,
                 "Пульт «Оракула». Пуш отчётов с кнопками Принять/Отклонить/Отложить "
-                "(Принять — через 24 ч, пауза §12). Команды: /status — открытые идеи; "
-                "/budget — строка бюджета сейчас; /watchlist — лист ожидания.")
+                "(Принять — через 24 ч, пауза §12).\n\n"
+                "💬 Просто напиши мне вопрос обычным текстом — отвечу тем же мозгом, что ведёт "
+                "проект в терминале (Дирижёр). Например: «как ты оцениваешь идею по меди?», "
+                "«что у нас с бюджетом?», «объясни, как работает воронка».\n\n"
+                "Команды: /status — открытые идеи; /budget — строка бюджета; "
+                "/watchlist — лист ожидания; /reset — очистить контекст диалога.")
+        elif cmd == "reset":
+            self.state["chat_history"] = []
+            self.save()
+            self.tg.send_message(chat, "Контекст диалога очищен.")
         elif cmd == "status":
             pend = [c for c in self.state["pending"].values() if c.get("status") == "pending"]
             if not pend:
@@ -224,6 +238,49 @@ class Bot:
                 self.tg.send_message(chat, "\n".join(lines))
         else:
             self.tg.send_message(chat, "Неизвестная команда. /help")
+
+    # ── свободный диалог с Дирижёром ─────────────────────────────────────────────────
+    def _send_long(self, chat, text):
+        """Длинный ответ режем на части под лимит Telegram (4096)."""
+        import bot_chat as C
+        if not text:
+            return
+        for i in range(0, len(text), C.MAX_REPLY_CHUNK):
+            self.tg.send_message(chat, text[i:i + C.MAX_REPLY_CHUNK])
+
+    def _chat(self, chat, text):
+        """Вопрос пользователя → ответ Дирижёра (роль conductor). Уважает бюджет §11 и П8."""
+        # Денежные ворота §11: при превышении месячного потолка не жжём токены на диалог.
+        try:
+            if self._budget_status().get("exit_code") == 3:
+                self.tg.send_message(
+                    chat, "Месячный потолок бюджета токенов исчерпан (§11) — диалог с моделью "
+                          "приостановлен до нового месяца/пополнения. Команды /status, /budget, "
+                          "/watchlist работают.")
+                return
+        except Exception as e:                                   # noqa: BLE001
+            log("chat budget check ошибка", repr(e))
+        if hasattr(self.tg, "send_chat_action"):
+            self.tg.send_chat_action(chat, "typing")
+        import bot_chat as C
+        hist = self.state.setdefault("chat_history", [])
+        try:
+            reply, _cost = C.answer(text, history=hist)
+        except Exception as e:                                   # noqa: BLE001
+            log("chat ошибка", repr(e))
+            self.tg.send_message(
+                chat, "Не смог ответить (модель недоступна или ключ OpenRouter не задан). "
+                      "Попробуй позже или задай вопрос иначе.")
+            return
+        if not reply:
+            self.tg.send_message(chat, "Пустой ответ модели — попробуй переформулировать.")
+            return
+        hist.append({"role": "user", "text": text})
+        hist.append({"role": "assistant", "text": reply})
+        self.state["chat_history"] = hist[-2 * C.MAX_HISTORY_TURNS:]
+        self._send_long(chat, reply)
+        self.save()
+        log("диалог: ответ отправлен,", len(reply), "симв")
 
     # ── бюджет ────────────────────────────────────────────────────────────────────
     def _budget_status(self):
@@ -335,7 +392,8 @@ class Bot:
         log("старт. chat_id", self.chat_id, "BUDGET_HOUR", BUDGET_HOUR)
         self.initialize_baseline()
         if self.chat_id:
-            self.tg.send_message(self.chat_id, "🤖 Пульт «Оракула» на связи. /help")
+            self.tg.send_message(self.chat_id, "🤖 Пульт «Оракула» на связи. Пиши вопросы текстом — "
+                                               "отвечу как Дирижёр. /help")
         while True:
             try:
                 ups = self.tg.get_updates(self.state.get("update_offset", 0))
