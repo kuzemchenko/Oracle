@@ -64,9 +64,10 @@ else:
                         "АКТИВИРОВАН — можно подключать IV/OI и опционные конструкции риска"))
     except Exception as e:
         code = getattr(e, "code", None) or (403 if "403" in str(e) else None)
-        msg = ("НЕ активирован (403): отдельный marketplace-продукт (~$30/мес), НЕ входит в "
-               "All-in-One. IV/OI = «нет данных» до подписки (П8)" if code == 403
-               else f"статус неясен: {e}")
+        msg = ("НЕ активирован (403): отдельный marketplace-продукт Unicorn Bay (~$30/мес), НЕ "
+               "входит в All-in-One (проверено: demo-токен даёт 200, наш 403). Подписка: "
+               "eodhd.com/marketplace/unicornbay/options. IV/OI = «нет данных» до подписки (П8)"
+               if code == 403 else f"статус неясен: {e}")
         results.append(("EODHD options (аддон)", True, msg))  # не configuration-fail: аддон опционален
 
 # 3. NewsAPI.ai / EventRegistry
