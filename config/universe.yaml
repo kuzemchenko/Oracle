@@ -34,6 +34,12 @@ themes:
   copper:                          # тема №2 — со 2-го месяца
     proxy_etf: CPER.US             # United States Copper Index Fund — прокси цены меди
     related: [COPX.US, FCX.US, SCCO.US]  # медники (equity) для каскадов смежных областей
+  spacex:                          # СТРУКТУРНАЯ тема (событие-IPO, не калибровочная)
+    proxy_etf: SPCX.US             # сам SpaceX — НЕКАЛИБРУЕМ (2 бара): только research, без seal §16
+    structural: true               # режим структурной темы: якорим каскад, торгуемый выход — на звенья
+    related: [RKLB.US, ASTS.US]    # спутниковые аналоги (переоценка по «компу» Starlink) — КАЛИБРУЕМЫ
+    event: "IPO SpaceX 11.06.2026, ~$1.77 трлн, 7-я компания США; Fast Entry в Nasdaq-100 (~+15 торг.дней); лок-ап 180д ступенчатый"
+    note: "Торгуемые/вероятностные выводы — на related (RKLB/ASTS/QQQ-эффект), по SPCX — карта каскада + лист ожидания (§17.2, П16)"
 
 # --- Активы ядра, котировки которых тянем с Недели 1 ---
 core_symbols:
@@ -45,6 +51,9 @@ core_symbols:
   - USO.US        # WTI (прокси) — смежное
   - CPER.US       # медь (прокси) — тема №2
   - COPX.US       # медники (equity) — смежное
+  - SPCX.US       # SpaceX — структурная тема (research, некалибруем)
+  - RKLB.US       # Rocket Lab — каскадное звено SpaceX (калибруемо)
+  - ASTS.US       # AST SpaceMobile — каскадное звено SpaceX (калибруемо)
 
 liquidity_filter:                  # §14: наш объём незаметен в стакане; тонкие рынки запрещены
   min_avg_daily_volume: 100000     # стартовый порог; уточняется при скоринге контролируемости риска

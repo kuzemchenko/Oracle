@@ -26,7 +26,8 @@ sys.path.insert(0, str(ROOT))
 from mathlib import indicators as ind  # noqa: E402
 from mathlib import waves as wv         # noqa: E402
 
-CORE = ["BNO.US", "USO.US", "SPY.US", "DBC.US", "CPER.US", "COPX.US"]
+CORE = ["BNO.US", "USO.US", "SPY.US", "DBC.US", "CPER.US", "COPX.US",
+        "SPCX.US", "RKLB.US", "ASTS.US"]
 WAVE_THRESHOLD_PCT = 0.05  # порог ZigZag для разметки волн (§4 «Волновик»); калибруется форвардом
 MIN_THEME_HISTORY_BARS = 20  # §6/§23: меньше — нет волы/индикаторов/калибровки для §9-разрешимости
 
@@ -124,23 +125,96 @@ def _waves(q):
     return wv.wave_markup(px, threshold_pct=WAVE_THRESHOLD_PCT, recent_pivots=10)
 
 
-def _news(con, limit=12):
+def _news(con, limit=12, keywords=None):
+    """Свежие новости. Если keywords заданы — СНАЧАЛА совпавшие по заголовку (тема-якорь §17.2),
+    затем добор свежими до limit. Так тематический прогон видит новости ПО ТЕМЕ, а не топ-дня."""
     rows = con.execute(
         "SELECT published_at, source, title, lang FROM news "
-        "WHERE dup_of IS NULL ORDER BY published_at DESC LIMIT ?", (limit,)).fetchall()
-    return [{"published_at": r[0], "source": r[1], "title": r[2], "lang": r[3]} for r in rows]
+        "WHERE dup_of IS NULL ORDER BY published_at DESC LIMIT 400").fetchall()
+    items = [{"published_at": r[0], "source": r[1], "title": r[2], "lang": r[3]} for r in rows]
+    if keywords:
+        kw = [k.lower() for k in keywords if k]
+        hit = [it for it in items if any(k in (it["title"] or "").lower() for k in kw)]
+        rest = [it for it in items if it not in hit]
+        items = hit + rest
+    return items[:limit]
 
 
-def build_context(theme="brent", asof=None):
-    """Полный рыночный срез из реальных данных. asof=None → последние доступные данные."""
+def _fundamentals(con):
+    """Скаляры фундаментала по символам (флоат, владение, short%float, оценка) из БД EODHD Tier 0."""
+    try:
+        rows = con.execute(
+            "SELECT symbol,name,sector,market_cap_mln,pe_ratio,shares_float,"
+            "pct_insiders,pct_institutions,short_pct_float FROM fundamentals").fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out = {}
+    for r in rows:
+        if r[5] is None and r[3] is None:
+            continue
+        out[r[0]] = {"name": r[1], "sector": r[2], "market_cap_mln": r[3], "pe": r[4],
+                     "free_float": r[5], "pct_insiders": r[6], "pct_institutions": r[7],
+                     "short_pct_float": r[8]}
+    return out
+
+
+def _insider_recent(con, symbol, limit=8):
+    try:
+        rows = con.execute(
+            "SELECT tx_date,owner_name,owner_title,code,amount,price,acquired_disposed "
+            "FROM insider_tx WHERE symbol=? ORDER BY tx_date DESC LIMIT ?", (symbol, limit)).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    return [{"date": r[0], "owner": r[1], "title": r[2], "code": r[3], "amount": r[4],
+             "price": r[5], "acq_disp": r[6]} for r in rows]
+
+
+def _earnings_next(con, symbol):
+    try:
+        row = con.execute(
+            "SELECT report_date,before_after_market FROM earnings_calendar "
+            "WHERE symbol=? AND report_date>=date('now') ORDER BY report_date LIMIT 1",
+            (symbol,)).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return {"report_date": row[0], "when": row[1]} if row else None
+
+
+def _theme_keywords(theme, universe):
+    """Ключевые слова темы для фильтра новостей: имя темы + слова из event/related-имён."""
+    themes = (universe or {}).get("themes") or {}
+    t = (theme or "").strip().lower()
+    kws = {t}
+    meta = themes.get(t) or {}
+    # имя/тикер прокси и связанных — без биржевого суффикса
+    for sym in [meta.get("proxy_etf")] + list(meta.get("related") or []):
+        if sym:
+            kws.add(sym.split(".")[0].lower())
+    # «spacex»→starlink/spacex; добавим явные синонимы из event-строки нет — задаём вручную для known
+    extra = {"spacex": ["spacex", "starlink", "musk", "spcx"],
+             "brent": ["brent", "oil", "opec", "crude"],
+             "copper": ["copper", "freeport"]}.get(t, [])
+    kws.update(extra)
+    return [k for k in kws if k and len(k) >= 3]
+
+
+def build_context(theme="brent", asof=None, theme_focused=False):
+    """Полный рыночный срез из реальных данных. asof=None → последние доступные данные.
+
+    theme_focused=True (§17.2): новости приоритизируются по сущности темы (тема-якорь против
+    дрейфа к топ-новости дня — урок SPCX/Иран), и в контекст кладётся блок theme_anchor."""
     universe = _load_yaml("config/universe.yaml")
     thresholds = _load_yaml("config/thresholds.yaml")
     causal = _load_yaml("knowledge/causal_links.yaml")
     precursors = _load_yaml("knowledge/precursors.yaml")
+    themes = universe.get("themes") or {}
+    theme_meta = themes.get((theme or "").strip().lower()) or {}
 
     ctx = {
         "asof": asof,
         "theme": theme,
+        "theme_focused": theme_focused,
+        "theme_meta": theme_meta,
         "universe": {
             "core_tradeable": CORE,
             "benchmark": universe.get("benchmark"),
@@ -161,6 +235,10 @@ def build_context(theme="brent", asof=None):
         "indicators": {},
         "waves": {},
         "news": [],
+        "fundamentals": {},   # EODHD Tier 0: флоат, владение, short%float, оценка
+        "insider_tx": {},     # инсайдерские сделки по активу темы и связанным
+        "earnings_next": {},  # ближайшие отчёты (тайминг/cui bono)
+        "theme_anchor": None, # §17.2: явная привязка прогона к теме (против дрейфа)
         "data_gaps": [],  # честный реестр того, чего НЕТ в данных (П8)
     }
 
@@ -179,9 +257,43 @@ def build_context(theme="brent", asof=None):
                                 "first_date": q[0]["date"], "last_date": q[-1]["date"]}
             ctx["indicators"][s] = _indicators(q)
             ctx["waves"][s] = _waves(q)
-        ctx["news"] = _news(con)
+        # Новости: в тематическом фокусе — приоритет по ключевым словам темы (якорь §17.2).
+        kws = _theme_keywords(theme, universe) if theme_focused else None
+        ctx["news"] = _news(con, keywords=kws)
+        # Фундаментал/инсайдеры/календарь (EODHD Tier 0).
+        ctx["fundamentals"] = _fundamentals(con)
+        theme_syms = [theme_meta.get("proxy_etf")] + list(theme_meta.get("related") or [])
+        for s in [x for x in theme_syms if x] or CORE:
+            ins = _insider_recent(con, s)
+            if ins:
+                ctx["insider_tx"][s] = ins
+            en = _earnings_next(con, s)
+            if en:
+                ctx["earnings_next"][s] = en
     finally:
         con.close()
+
+    # Тема-якорь §17.2: явная директива против дрейфа к громкой новости дня.
+    if theme_focused:
+        sym = theme_meta.get("proxy_etf")
+        related = theme_meta.get("related") or []
+        structural = bool(theme_meta.get("structural"))
+        ctx["theme_anchor"] = {
+            "тема": theme,
+            "актив_темы": sym,
+            "событие": theme_meta.get("event"),
+            "каскадные_звенья": related,
+            "структурная": structural,
+            "директива": (
+                f"ЭТО ТЕМАТИЧЕСКИЙ ПРОГОН. Тема = {theme} ({sym}). Анализируй каскады 2–4 порядка "
+                f"ИМЕННО ОТ этого события/актива. Громкая НЕсвязанная макро-новость дня (нефть, ставки, "
+                f"геополитика) — НЕ повод бросать тему: упоминай её, только если она реально двигает "
+                f"цепочку темы. " + (
+                    f"АКТИВ ТЕМЫ {sym} НЕКАЛИБРУЕМ (мало истории) → по нему только КАРТА КАСКАДА и лист "
+                    f"ожидания, БЕЗ запечатанного вероятностного прогноза (П16); торгуемые/вероятностные "
+                    f"выводы выдвигай по КАЛИБРУЕМЫМ звеньям {related} (есть история и фундаментал)."
+                    if structural else "")),
+        }
 
     # честные пробелы данных §23.1 (то, чего нет в фиде)
     ctx["data_gaps"] += [
@@ -196,14 +308,17 @@ def build_context(theme="brent", asof=None):
 
 # ── §5.5: непересекающиеся проекции для разных агентов ───────────────────────────
 def _common(ctx):
-    """Минимальное ядро, видимое всем: универсум, статус калибровки, реестр пробелов."""
-    return {
+    """Минимальное ядро, видимое всем: универсум, статус калибровки, реестр пробелов, ЯКОРЬ ТЕМЫ."""
+    base = {
         "theme": ctx["theme"],
         "asof": ctx.get("asof"),
         "universe": ctx["universe"],
         "data_gaps": ctx["data_gaps"],
         "calibration_status": {"thresholds_calibrated": ctx["calibration_status"]["thresholds_calibrated"]},
     }
+    if ctx.get("theme_anchor"):
+        base["ЯКОРЬ_ТЕМЫ"] = ctx["theme_anchor"]   # против дрейфа к новости дня (§17.2)
+    return base
 
 
 def slice_for(agent_id, ctx):
@@ -221,15 +336,21 @@ def slice_for(agent_id, ctx):
         s["quotes"] = quotes_brief
     elif agent_id == "b_behavioral_economist":
         s["news"] = ctx["news"]                    # медленные агрегаты + настроения
-        s["positioning"] = "нет данных (позиционирование/плечо/потоки розницы не подключены)"
+        # Позиционирование теперь ЧАСТИЧНО есть (EODHD Tier 0): флоат, владение, short%float.
+        s["fundamentals"] = ctx.get("fundamentals") or {}
+        s["insider_tx"] = ctx.get("insider_tx") or {}
+        s["positioning_note"] = ("short%float и структура владения — из EODHD; открытый интерес/IV "
+                                 "опционов/потоки розницы — нет данных (П8)")
         s["quotes"] = quotes_brief
     elif agent_id == "b_fundamental":
-        s["macro"] = "нет данных (макро/отчётность по ETF-прокси не подключены)"
+        s["fundamentals"] = ctx.get("fundamentals") or {}   # флоат, mcap, P/E, владение (EODHD)
+        s["earnings_next"] = ctx.get("earnings_next") or {}
         s["quotes"] = quotes_brief
     elif agent_id in ("b_causal_links", "c_cascades", "c_adjacent_domains"):
         s["causal_links"] = ctx["knowledge"]["causal_links"]
         s["causal_meta"] = ctx["knowledge"]["causal_meta"]
         s["news"] = ctx["news"][:6]
+        s["fundamentals"] = ctx.get("fundamentals") or {}   # флоат/владение звеньев каскада
         s["quotes"] = quotes_brief
     elif agent_id == "b_historian_events":
         s["news"] = ctx["news"]
@@ -256,6 +377,9 @@ def slice_for(agent_id, ctx):
         s["manipulation_thresholds"] = ctx["calibration_status"]["manipulation"]
         s["news"] = ctx["news"]
         s["indicators"] = ctx["indicators"]
+        s["insider_tx"] = ctx.get("insider_tx") or {}        # «кто продаёт нам» (§4 детектор 2)
+        s["earnings_next"] = ctx.get("earnings_next") or {}  # cui bono: совпадение с отчётами (§14)
+        s["fundamentals"] = ctx.get("fundamentals") or {}
     elif agent_id in ("c_non_obviousness",):
         s["news"] = ctx["news"]
     elif agent_id in ("c_context_filter",):

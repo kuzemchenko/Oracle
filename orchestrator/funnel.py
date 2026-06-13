@@ -412,7 +412,7 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     Возвращает dict-протокол; при write=True пишет journal/funnel_logs/{run_id}.{json,md}.
     """
     run_id = run_id or f"funnel_{_now_compact()}"
-    ctx = C.build_context(theme=theme)
+    ctx = C.build_context(theme=theme, theme_focused=theme_focused)
     client = OR.make_client(mode=mode, run_id=run_id)
     thresholds = C._load_yaml("config/thresholds.yaml")
     limits = PF.lim.load_limits()
@@ -423,14 +423,19 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     # ≥ MIN_THEME_HISTORY_BARS. Вне универсума ИЛИ слишком короткая история → честный ранний
     # отказ «нет данных по теме» (0 трат). Иначе агенты дрейфуют к фоновым новостям и выдают
     # суждение не про тему (урок SPCX.US 2026-06-13: однодневный IPO вне ядра → разбор макро).
+    structural = bool((ctx.get("theme_meta") or {}).get("structural"))
     if theme_focused:
         sym, _kind = C.resolve_theme(theme)
         nbars = ctx["quotes"].get(sym, {}).get("n_bars", 0) if sym else 0
-        if sym is None or nbars < C.MIN_THEME_HISTORY_BARS:
+        low_history = nbars < C.MIN_THEME_HISTORY_BARS
+        # ОТКАЗ только если тема ВНЕ универсума, либо мало истории И тема НЕ структурная.
+        # Структурная тема (событие-IPO) с малой историей — НЕ отказ: идём в research-режиме,
+        # заякорив агентов на каскад (theme_anchor), торгуемый выход — на калибруемые звенья.
+        if sym is None or (low_history and not structural):
             why = (f"тема '{theme}' вне калиброванного универсума (core_tradeable={C.CORE})"
                    if sym is None else
                    f"по '{theme}'→{sym} только {nbars} баров истории (< {C.MIN_THEME_HISTORY_BARS}): "
-                   f"волатильность/индикаторы/калибровка §23 не определены")
+                   f"волатильность/индикаторы/калибровка §23 не определены, а тема не структурная")
             refusal = {
                 "run_id": run_id, "ts": _now_iso(), "mode": client.mode, "theme": theme,
                 "spec_ref": "§6/§8/П8 гард темы: тематический фокус — только актив универсума с историей",

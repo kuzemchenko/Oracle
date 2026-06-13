@@ -187,16 +187,25 @@ def test_data_gaps_reported_honestly(protocol):
 def test_resolve_theme_maps_name_core_and_unknown():
     assert C.resolve_theme("brent") == ("BNO.US", "theme")     # имя темы → proxy_etf
     assert C.resolve_theme("SPY.US") == ("SPY.US", "core")     # прямой тикер ядра
-    assert C.resolve_theme("SPCX.US") == (None, None)          # вне универсума
+    assert C.resolve_theme("NVDA.US") == (None, None)          # вне универсума (не в CORE)
 
 
 def test_theme_guard_refuses_out_of_universe():
     # Тематический фокус по активу вне универсума → ранний отказ (0 трат), даже в mock.
-    p = F.run_funnel(theme="SPCX.US", mode="mock", run_id="pytest_guard",
+    p = F.run_funnel(theme="NVDA.US", mode="mock", run_id="pytest_guard",
                      write=False, theme_focused=True)
     assert "ОТКАЗ_тема" in p
     assert p["ОТКАЗ_тема"]["resolvable"] is False
     assert "agents_total" not in p          # ни один агент не вызывался
+
+
+def test_structural_theme_proceeds_despite_low_history():
+    # Структурная тема (SpaceX IPO) с малой историей НЕ отказывает — идёт research-режимом
+    # (фикс дрейфа/пропуска мощной темы; урок SPCX/Иран 2026-06-13).
+    p = F.run_funnel(theme="spacex", mode="mock", run_id="pytest_structural",
+                     write=False, theme_focused=True)
+    assert "ОТКАЗ_тема" not in p
+    assert p.get("agents_total", 0) >= 1
 
 
 def test_theme_guard_passes_calibrated_theme():
