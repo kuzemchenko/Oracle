@@ -43,6 +43,32 @@ else:
     except Exception as e:
         results.append(("EODHD", False, f"ошибка (проверьте план All-in-One): {e}"))
 
+    # 2b. EODHD Tier 0 fundamentals (флоат/short%float/владение) — входит в All-in-One
+    try:
+        st, body = get(f"https://eodhd.com/api/fundamentals/AAPL.US?api_token={ek}&fmt=json")
+        ss = (json.loads(body).get("SharesStats") or {})
+        has = ss.get("SharesFloat") is not None or ss.get("ShortPercentFloat") is not None
+        results.append(("EODHD fundamentals", bool(has),
+                        "флоат/short%float/владение доступны (поведенческий/анти-манип агенты)"
+                        if has else "SharesStats пуст — проверьте план"))
+    except Exception as e:
+        results.append(("EODHD fundamentals", False, f"ошибка: {e}"))
+
+    # 2c. EODHD options (Unicorn Bay) — ОТДЕЛЬНЫЙ marketplace-продукт, НЕ входит в All-in-One.
+    #     Информационно: 200 = активирован (можно подключать IV/OI), 403 = нужна отдельная подписка.
+    try:
+        ourl = ("https://eodhd.com/api/mp/unicornbay/options/contracts"
+                "?filter%5Bunderlying_symbol%5D=AAPL.US&api_token=" + ek + "&fmt=json")
+        get(ourl, {"User-Agent": "oracle/1.0"})
+        results.append(("EODHD options (аддон)", True,
+                        "АКТИВИРОВАН — можно подключать IV/OI и опционные конструкции риска"))
+    except Exception as e:
+        code = getattr(e, "code", None) or (403 if "403" in str(e) else None)
+        msg = ("НЕ активирован (403): отдельный marketplace-продукт (~$30/мес), НЕ входит в "
+               "All-in-One. IV/OI = «нет данных» до подписки (П8)" if code == 403
+               else f"статус неясен: {e}")
+        results.append(("EODHD options (аддон)", True, msg))  # не configuration-fail: аддон опционален
+
 # 3. NewsAPI.ai / EventRegistry
 nk = os.environ.get("NEWSAPI_AI_KEY", "")
 if not nk:
