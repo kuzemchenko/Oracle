@@ -61,6 +61,7 @@ def _proto(run_id="funnel_20260612T140000Z", issued_at="2026-06-12T14:00:00+00:0
             "позиция": {"amount_usd": 500.0},
             "отчёт": {"judgment": {"поля": {
                 "1_актив_направление_инструмент": "BNO.US лонг",
+                "2_каскадная_цепочка": ["триггер: эскалация в Заливе", "перенос на BNO.US"],
                 "11_что_неизвестно": ["глубина стакана"],
                 "13_рамка": "исследовательский инструмент"}}},
         }]
@@ -285,7 +286,10 @@ def test_report_is_column_not_dict_dump(paths):
     idea = R.ideas_from_protocol(proto)[0]
     text = R.format_report(proto, idea)
     assert "ИДЕЯ" in text                       # хедлайн (на него опирается пуш/поиск)
-    assert "СУТЬ." in text and "ЧЕГО ОПАСАТЬСЯ." in text   # разделы-колонки
+    assert "Все 13 граней" in text and "🎯 ПОЧЕМУ" in text  # читаемый лид + полнота
+    # ВСЕ 13 граней присутствуют (ничего не теряем при свёртке)
+    for n in range(1, 14):
+        assert f"\n{n}. " in text, f"пропала грань {n}"
     assert "{" not in text and "judgment" not in text     # без дампа словаря/служебных ключей
     assert "исследовательский инструмент" in text          # дисклеймер §8 п.13
 

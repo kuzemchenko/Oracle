@@ -115,24 +115,33 @@ def _field(fields, n):
     return None
 
 
-def _section(title, *parts):
-    """Абзац колонки: ЗАГОЛОВОК + связный текст. Каждый кусок завершается точкой, чтобы
-    предложения не слипались. Пусто → None (абзац пропускается)."""
-    chunks = []
-    for c in parts:
-        if not c or not str(c).strip():
-            continue
-        s = str(c).strip()
-        if s[-1] not in ".!?…;:":
-            s += "."
-        chunks.append(s)
-    if not chunks:
-        return None
-    return f"{title} " + " ".join(chunks)
+# Человеческие лейблы 13 полей §8 (вместо «9_балл_скоринга_разбивка_и_позиции_критика_судьи»).
+_FIELD_LABELS = {
+    1: "Актив, направление, инструмент",
+    2: "Каскадная цепочка (почему именно это)",
+    3: "Вероятность и калибровка",
+    4: "Сценарии и асимметрия (после издержек)",
+    5: "Отыгранность и стадия входа",
+    6: "Кто продаёт нам — и почему он неправ",
+    7: "Манипуляции и поведение толпы",
+    8: "Как балансировать риск",
+    9: "Скоринг по критериям + критик и судья",
+    10: "Источники и их надёжность",
+    11: "Что неизвестно",
+    12: "Когда идея неверна (инвалидация)",
+    13: "Рамка",
+}
+
+
+def _cascade_line(v):
+    """Каскадную цепочку (список звеньев) показываем как 'триггер → … → актив'."""
+    if isinstance(v, list) and v:
+        return " → ".join(_humanize(x, 120) for x in v if x not in (None, ""))
+    return _humanize(v)
 
 
 def format_report(protocol, idea):
-    """Карточка идеи в стиле колонки делового журнала: суть, расклад, риски, что делать."""
+    """Карточка идеи: читаемый лид (хедлайн + ПОЧЕМУ) + ПОЛНЫЕ 13 граней §8 (ничего не теряем)."""
     run_id = protocol.get("run_id", "?")
     mode = protocol.get("mode")
     asset = idea.get("актив", "?")
@@ -147,55 +156,45 @@ def format_report(protocol, idea):
     driver = str(pos.get("макро_драйвер") or "").lower()
     subject = _DRIVER_RU.get(driver) or _DRIVER_RU.get(asset.split(".")[0].lower()) or asset
 
-    # Заголовок-«хедлайн» (подстрока «ИДЕЯ» сохранена намеренно — на неё опираются тесты/поиск).
-    head = f"{arrow} ИДЕЯ ДНЯ — {subject}: {move}"
-    dek = f"{asset} · {direction or '—'}"
+    # Хедлайн (подстрока «ИДЕЯ» сохранена намеренно — на неё опираются тесты/поиск).
+    head = f"{arrow} ИДЕЯ ДНЯ — {subject} ({asset}): {move}"
+    dek_bits = []
     if isinstance(score, (int, float)):
-        dek += f" · оценка идеи {float(score):.2f} из 1.00"
-    header = [head, dek]
+        dek_bits.append(f"оценка {float(score):.2f}/1.00")
+    prob = pos.get("вероятность")
+    if isinstance(prob, (int, float)):
+        dek_bits.append(f"вероятность ~{round(prob * 100)}%")
+    header = [head]
+    if dek_bits:
+        header.append(" · ".join(dek_bits))
     if mode and mode != "live":
-        header.append("⚠️ Это ПРОВЕРОЧНЫЙ прогон (режим mock) — тест формата, не живая идея.")
+        header.append("⚠️ ПРОВЕРОЧНЫЙ прогон (mock): агенты НЕ рассуждали — содержательные грани "
+                      "(почему/триггер) появятся только на боевом прогоне.")
 
-    # Тело — связными абзацами по смыслу, а не «поле N: значение».
-    paras = []
-    paras.append(_section("СУТЬ.",
-                          _humanize(_field(fields, 1)),
-                          ("Каскад: " + _humanize(_field(fields, 2))) if _field(fields, 2) else ""))
-    paras.append(_section("РАСКЛАД.",
-                          _humanize(_field(fields, 3)),
-                          _humanize(_field(fields, 4))))
-    paras.append(_section("КТО ПО ДРУГУЮ СТОРОНУ.",
-                          _humanize(_field(fields, 6)),
-                          ("Отыграно: " + _humanize(_field(fields, 5))) if _field(fields, 5) else ""))
-    risk_bits = []
-    if _field(fields, 7):
-        risk_bits.append(_humanize(_field(fields, 7)))
-    if _field(fields, 12):
-        risk_bits.append("Идея перестанет работать, если: " + _humanize(_field(fields, 12)))
-    if _field(fields, 11):
-        risk_bits.append("Чего пока не знаем: " + _humanize(_field(fields, 11)))
-    paras.append(_section("ЧЕГО ОПАСАТЬСЯ.", *risk_bits))
-    entry = _humanize(_field(fields, 8))
-    size_note = ""
-    amt = pos.get("amount_usd")
-    if amt:
-        size_note = f"Размер — микро ${float(amt):.0f} (Келли выключен до подтверждения калибровки)."
-    paras.append(_section("ЕСЛИ ВХОДИТЬ.", entry, size_note))
-    if _field(fields, 10):
-        paras.append(_section("ИСТОЧНИКИ.", _humanize(_field(fields, 10))))
+    # 🎯 ПОЧЕМУ — короткий читаемый лид из каскадной цепочки (поле 2): «триггер → … → актив».
+    why = None
+    chain = _cascade_line(_field(fields, 2))
+    if chain:
+        why = f"🎯 ПОЧЕМУ {asset}: {chain}."
 
-    body = [p for p in paras if p]
-    if not body:
-        body = ["(Синтезатор не вернул поля §8 — подробности в протоколе прогона.)"]
+    # 📋 Все 13 граней §8 — полностью, с человеческими лейблами и без JSON-скобок.
+    grani = ["📋 Все 13 граней (§8):"]
+    for n in range(1, 14):
+        label = _FIELD_LABELS.get(n, f"поле {n}")
+        raw = _field(fields, n)
+        v = _cascade_line(raw) if n == 2 else _humanize(raw, 360)
+        grani.append(f"{n}. {label} — {v or '— нет данных'}")
 
     disclaimer = ("⚖️ «Оракул» — исследовательский инструмент, НЕ инвестиционная рекомендация "
                   "(§8 п.13). Решение и риск — за тобой, в рамках пре-коммитмента §12. "
                   "Кнопки решения ниже; «Принять» откроется через 24 ч (пауза §12).")
     footer = f"· прогон {run_id} · тема {protocol.get('theme') or '—'} · режим {mode}"
 
-    text = ("\n".join(header) + "\n\n— — —\n\n"
-            + "\n\n".join(body)
-            + "\n\n— — —\n" + disclaimer + "\n" + footer)
+    parts = ["\n".join(header)]
+    if why:
+        parts.append(why)
+    parts.append("\n".join(grani))
+    text = "\n\n".join(parts) + "\n\n— — —\n" + disclaimer + "\n" + footer
     if len(text) > MAX_MSG:
         text = text[:MAX_MSG].rstrip() + "\n…(обрезано; полный отчёт — в journal/funnel_logs)"
     return text
