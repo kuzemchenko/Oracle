@@ -34,6 +34,12 @@ themes:
   copper:                          # тема №2 — со 2-го месяца
     proxy_etf: CPER.US             # United States Copper Index Fund — прокси цены меди
     related: [COPX.US, FCX.US, SCCO.US]  # медники (equity) для каскадов смежных областей
+  ai_power:                        # ТЕКТОНИЧЕСКАЯ цепочка (пилот движка §5/П5)
+    proxy_etf: VRT.US              # якорь с историей (узел 1: питание ЦОД) → гард пропускает
+    cascade_chain: ai_power_transformers_metal   # knowledge/cascade_chains.yaml
+    related: [GEV.US, ETN.US, CLF.US, NUE.US]    # узлы 2–4: трансформаторы → GOES-сталь → сырьё
+    event: "Бум ИИ-датацентров → структурный спрос на энергию → дефицит трансформаторов → GOES-сталь сердечников"
+    note: "Торгуемый edge — на дальних чокпоинт-узлах (CLF=GOES, GEV/ETN=трансформаторы), не у истока (VRT уже разогрет)"
   spacex:                          # СТРУКТУРНАЯ тема (событие-IPO, не калибровочная)
     proxy_etf: SPCX.US             # сам SpaceX — НЕКАЛИБРУЕМ (2 бара): только research, без seal §16
     structural: true               # режим структурной темы: якорим каскад, торгуемый выход — на звенья
@@ -54,6 +60,11 @@ core_symbols:
   - SPCX.US       # SpaceX — структурная тема (research, некалибруем)
   - RKLB.US       # Rocket Lab — каскадное звено SpaceX (калибруемо)
   - ASTS.US       # AST SpaceMobile — каскадное звено SpaceX (калибруемо)
+  - VRT.US        # Vertiv — питание/охлаждение ЦОД (узел 1 цепочки ai_power)
+  - GEV.US        # GE Vernova — сети/трансформаторы (узел 2, чокпоинт)
+  - ETN.US        # Eaton — электрооборудование (узел 2)
+  - CLF.US        # Cleveland-Cliffs — GOES-сталь сердечников (узел 3, чокпоинт)
+  - NUE.US        # Nucor — сталь/сырьё (узел 4)
 
 liquidity_filter:                  # §14: наш объём незаметен в стакане; тонкие рынки запрещены
   min_avg_daily_volume: 100000     # стартовый порог; уточняется при скоринге контролируемости риска

@@ -27,7 +27,8 @@ from mathlib import indicators as ind  # noqa: E402
 from mathlib import waves as wv         # noqa: E402
 
 CORE = ["BNO.US", "USO.US", "SPY.US", "DBC.US", "CPER.US", "COPX.US",
-        "SPCX.US", "RKLB.US", "ASTS.US"]
+        "SPCX.US", "RKLB.US", "ASTS.US",
+        "VRT.US", "GEV.US", "ETN.US", "CLF.US", "NUE.US"]  # цепочка ai_power (пилот тектоники)
 WAVE_THRESHOLD_PCT = 0.05  # порог ZigZag для разметки волн (§4 «Волновик»); калибруется форвардом
 MIN_THEME_HISTORY_BARS = 20  # §6/§23: меньше — нет волы/индикаторов/калибровки для §9-разрешимости
 
@@ -193,7 +194,10 @@ def _theme_keywords(theme, universe):
     # «spacex»→starlink/spacex; добавим явные синонимы из event-строки нет — задаём вручную для known
     extra = {"spacex": ["spacex", "starlink", "musk", "spcx"],
              "brent": ["brent", "oil", "opec", "crude"],
-             "copper": ["copper", "freeport"]}.get(t, [])
+             "copper": ["copper", "freeport"],
+             "ai_power": ["data center", "datacenter", "transformer", "electric grid",
+                          "electricity demand", "grid", "power", "electrical steel",
+                          "nuclear", "utility", "ai power"]}.get(t, [])
     kws.update(extra)
     return [k for k in kws if k and len(k) >= 3]
 
@@ -238,6 +242,7 @@ def build_context(theme="brent", asof=None, theme_focused=False):
         "fundamentals": {},   # EODHD Tier 0: флоат, владение, short%float, оценка
         "insider_tx": {},     # инсайдерские сделки по активу темы и связанным
         "earnings_next": {},  # ближайшие отчёты (тайминг/cui bono)
+        "theme_chain": None,  # тектоническая каскадная цепочка темы (карта + балл §5/П5)
         "theme_anchor": None, # §17.2: явная привязка прогона к теме (против дрейфа)
         "data_gaps": [],  # честный реестр того, чего НЕТ в данных (П8)
     }
@@ -273,6 +278,17 @@ def build_context(theme="brent", asof=None, theme_focused=False):
     finally:
         con.close()
 
+    # Тектоническая цепочка (пилот §5/П5): если у темы есть cascade_chain — карта + балл.
+    chain_id = theme_meta.get("cascade_chain")
+    if chain_id:
+        try:
+            from mathlib import tectonic as TEC
+            chain = TEC.get_chain(chain_id)
+            if chain:
+                ctx["theme_chain"] = {"chain": chain, "tectonic": TEC.score_chain(chain)}
+        except Exception:  # noqa: BLE001 — отсутствие карты не валит прогон (П8)
+            ctx["theme_chain"] = None
+
     # Тема-якорь §17.2: явная директива против дрейфа к громкой новости дня.
     if theme_focused:
         sym = theme_meta.get("proxy_etf")
@@ -294,6 +310,18 @@ def build_context(theme="brent", asof=None, theme_focused=False):
                     f"выводы выдвигай по КАЛИБРУЕМЫМ звеньям {related} (есть история и фундаментал)."
                     if structural else "")),
         }
+        # Тектоническая подсказка: куда целиться (наименее отыгранный дальний чокпоинт-узел).
+        tc = ctx.get("theme_chain")
+        if tc and tc.get("tectonic"):
+            far = tc["tectonic"].get("best_far_node") or {}
+            ctx["theme_anchor"]["тектоника"] = {
+                "потенциал": tc["tectonic"].get("tectonic_potential"),
+                "окно_входа_дней": tc["tectonic"].get("lag_window_days"),
+                "целевой_дальний_узел": far,
+                "подсказка": (f"Движок оценил каскад: целься в НЕОТЫГРАННОЕ дальнее чокпоинт-звено "
+                              f"«{far.get('node')}» ({far.get('instruments')}). 1-й порядок у истока "
+                              f"обычно уже в цене (П5/П13) — ищи edge глубже по цепочке."),
+            }
 
     # честные пробелы данных §23.1 (то, чего нет в фиде)
     ctx["data_gaps"] += [
@@ -351,6 +379,8 @@ def slice_for(agent_id, ctx):
         s["causal_meta"] = ctx["knowledge"]["causal_meta"]
         s["news"] = ctx["news"][:6]
         s["fundamentals"] = ctx.get("fundamentals") or {}   # флоат/владение звеньев каскада
+        if ctx.get("theme_chain"):                          # карта тектонической цепочки (пилот §5)
+            s["каскадная_цепочка_темы"] = ctx["theme_chain"]
         s["quotes"] = quotes_brief
     elif agent_id == "b_historian_events":
         s["news"] = ctx["news"]
