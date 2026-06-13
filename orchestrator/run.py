@@ -91,11 +91,36 @@ def _run_ablation(args):
     return 0
 
 
+def _run_multi(args):
+    from orchestrator.multi_event import run_multi_event
+    mode = "mock" if args.mock else "auto"
+    p = run_multi_event(mode=mode, k=args.k, write=not args.no_write)
+    print(f"[{p['run_id']}] МУЛЬТИ-СОБЫТИЕ · {p['mode']}")
+    print("Ранжирование событий по тектонике:")
+    for e in p["ранжирование_событий"]:
+        t = e.get("tectonic")
+        tag = f" T={t['T']}→{ (t['далёкий_узел'] or {}).get('instruments') }" if t else ""
+        anc = "" if e["anchorable"] else " (не якоримо)"
+        print(f"  {e['score']:.2f}  {e['id']}{tag}{anc}")
+    print(f"Глубоко проанализировано: {', '.join(p['глубоко_проанализировано'])}")
+    for pe in p["по_событиям"]:
+        print(f"  • {pe['событие']}: кандидатов {pe['кандидатов']} → выдано {pe['выдано']} ({pe['итог']})")
+    if p["обнаруженные_кластеры_новостей"]:
+        print("Обнаружены кластеры новостей (для регистрации):")
+        for cl in p["обнаруженные_кластеры_новостей"][:4]:
+            print(f"  ~{cl['salience']} {cl['keywords']}")
+    print(f"Объединённая выдача: {p['объединённая_выдача_топ3'] or 'идей нет (§6)'}")
+    print(f"Итог: {p['итог']}")
+    if not args.no_write:
+        print(f"Протокол: journal/funnel_logs/{p['run_id']}.md")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Прогон «Оракула»: воронка §6 / масккейсы §23.2 / абляция §11.1")
     ap.add_argument("--mode",
-                    choices=["auto", "live", "mock", "funnel", "theme", "calibrate", "resolve",
-                             "masked", "ablation"],
+                    choices=["auto", "live", "mock", "funnel", "theme", "multi", "calibrate",
+                             "resolve", "masked", "ablation"],
                     default="auto",
                     help="auto/live/mock/funnel — полная воронка §6; theme — тематический режим §17.2 "
                          "(полный цикл по --asset, запечатывание прогноза); calibrate — калибровка §17.3; "
@@ -110,10 +135,13 @@ def main(argv=None):
     ap.add_argument("--no-write", action="store_true", help="не писать протокол на диск")
     ap.add_argument("--field-only", action="store_true",
                     help="только поле суждений (этапы 1–2), без дебатов/синтеза")
+    ap.add_argument("--k", type=int, default=3, help="мульти-режим: сколько топ-событий анализировать")
     args = ap.parse_args(argv)
 
     if args.mode == "masked":
         return _run_masked(args)
+    if args.mode == "multi":
+        return _run_multi(args)
     if args.mode == "ablation":
         return _run_ablation(args)
     if args.mode == "calibrate":
