@@ -276,4 +276,6 @@ sensation_quarantine_hours:
   single_stock: 24
   small_exotic: 48
 non_obviousness:
-  reject_if_public: true
+  reject_if_priced_in: true
+  spent_move_ref: timing.spent_move_sigma
+  provenance: пер-идейная оценка отыгранности В ЦЕНЕ (§7/П5); публичность темы — НЕ основание для ШТРАФА

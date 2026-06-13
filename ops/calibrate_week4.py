@@ -353,7 +353,11 @@ def write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_
         },
 
         "sensation_quarantine_hours": {"liquid_macro": 6, "single_stock": 24, "small_exotic": 48},
-        "non_obviousness": {"reject_if_public": True},
+        "non_obviousness": {
+            "reject_if_priced_in": True,
+            "spent_move_ref": "timing.spent_move_sigma",
+            "provenance": "пер-идейная оценка отыгранности В ЦЕНЕ (§7/П5); публичность темы — НЕ основание для ШТРАФА",
+        },
     }
     dump_yaml(CONFIG / "thresholds.yaml", GEN_HEADER, obj)
     return obj

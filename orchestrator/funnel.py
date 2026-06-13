@@ -198,7 +198,7 @@ def stage1_scan(ctx):
 
 
 def _candidate_slice_for(agent_id, candidate, ctx, thresholds):
-    """User-промпт для пер-кандидатной проверки D-агента на этапе 3 (тайминг/манипуляция)."""
+    """User-промпт для пер-кандидатной проверки на этапе 3 (неочевидность/тайминг/манипуляция)."""
     asset = candidate.get("актив")
     payload = {
         "идея": {"актив": asset, "направление": candidate.get("направление"),
@@ -208,6 +208,9 @@ def _candidate_slice_for(agent_id, candidate, ctx, thresholds):
         "news": (ctx or {}).get("news", [])[:6],
     }
     if agent_id == "d_timeliness":
+        payload["timing_thresholds"] = (thresholds.get("timing") or {})
+    elif agent_id == "c_non_obviousness":
+        payload["non_obviousness_thresholds"] = (thresholds.get("non_obviousness") or {})
         payload["timing_thresholds"] = (thresholds.get("timing") or {})
     else:
         payload["manipulation_thresholds"] = (thresholds.get("manipulation") or {})
@@ -228,8 +231,6 @@ def stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client):
     """
     dropped = []
     manip_thr = (thresholds.get("manipulation", {}) or {}).get("block_score", MANIP_BLOCK_DEFAULT)
-    nonobv = records_by_id.get("c_non_obviousness")
-    nonobv_penalty = bool(nonobv and nonobv.get("ok") and str(nonobv["judgment"].get("вердикт")).upper() == "ШТРАФ")
     ctx_filter = records_by_id.get("c_context_filter")
     out_of_competence = bool(ctx_filter and ctx_filter.get("ok") and str(ctx_filter["judgment"].get("вердикт")).upper() == "ШТРАФ")
 
@@ -257,31 +258,32 @@ def stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client):
             dropped.append({**c, "причина_отсева": f"дубликат идеи {key}"})
     deduped = list(best.values())
 
-    # 3) run-level тематические фильтры (неочевидность/компетенция)
+    # 3) run-level фильтр компетенции (§13). Неочевидность — пер-идейно ниже (§7/П5):
+    #    публичность 1-го порядка ≠ отыгранность дальнего звена, нельзя стирать набор заголовком.
     after_theme = []
     for c in deduped:
-        reasons = []
-        if nonobv_penalty:
-            reasons.append("оценщик неочевидности: ШТРАФ (идея отыграна публично, §6)")
         if out_of_competence:
-            reasons.append("фильтр контекста: вне круга компетенции при среднем потенциале (§6/§13)")
-        if reasons:
-            dropped.append({**c, "причина_отсева": "; ".join(reasons)})
+            dropped.append({**c, "причина_отсева": "фильтр контекста: вне круга компетенции при среднем потенциале (§6/§13)"})
         else:
             after_theme.append(c)
 
-    # 4) ПЕР-КАНДИДАТНО: тайминг и манипуляция (стоп-фильтры конкретной идеи §6)
+    # 4) ПЕР-КАНДИДАТНО: неочевидность (отыгранность В ЦЕНЕ §7/П5), тайминг и манипуляция (стоп-фильтры §6)
     kept, per_cand = [], []
     for c in after_theme:
+        nz = A.call_agent("c_non_obviousness", ctx, client,
+                          user_prompt=_candidate_slice_for("c_non_obviousness", c, ctx, thresholds))
         tm = A.call_agent("d_timeliness", ctx, client,
                           user_prompt=_candidate_slice_for("d_timeliness", c, ctx, thresholds))
         mp = A.call_agent("d_anti_manipulation", ctx, client,
                           user_prompt=_candidate_slice_for("d_anti_manipulation", c, ctx, thresholds))
+        nv = str((nz["judgment"].get("вердикт") if nz.get("ok") else "")).upper()
         tv = str((tm["judgment"].get("вердикт") if tm.get("ok") else "")).upper()
         mscore = mp["judgment"].get("балл") if mp.get("ok") else None
         per_cand.append({"актив": c.get("актив"), "направление": c.get("направление"),
-                         "тайминг": tv, "манип_балл": mscore})
+                         "неочевидность": nv, "тайминг": tv, "манип_балл": mscore})
         reasons = []
+        if nv == "ШТРАФ":
+            reasons.append("неочевидность: идея уже отражена в цене (§7/П5)")
         if tv in ("ПОЗДНО", "ЛОВУШКА"):
             reasons.append(f"тайминг {tv} без контр-сценария (§6)")
         if isinstance(mscore, (int, float)) and mscore >= manip_thr:
@@ -289,7 +291,7 @@ def stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client):
         if reasons:
             dropped.append({**c, "причина_отсева": "; ".join(reasons)})
         else:
-            kept.append({**c, "_тайминг": tv, "_манип_балл": mscore})
+            kept.append({**c, "_неочевидность": nv, "_тайминг": tv, "_манип_балл": mscore})
     return kept, dropped, per_cand
 
 

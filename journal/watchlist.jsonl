@@ -1,0 +1,2 @@
+{"ts": "2026-06-13T12:41:02+00:00", "type": "add", "id": "wl_41d76f96f7f0", "asset": "SPY.US", "direction": "лонг", "trigger_text": "РАНО (§6): войти, когда подтвердится триггер по SPY.US", "trigger": null, "manual_check": true, "source": "funnel:funnel_20260613T124049Z"}
+{"ts": "2026-06-13T12:41:02+00:00", "type": "add", "id": "wl_49fa53f44e84", "asset": "BNO.US", "direction": "шорт", "trigger_text": "РАНО (§6): войти, когда подтвердится триггер по BNO.US", "trigger": null, "manual_check": true, "source": "funnel:funnel_20260613T124049Z"}

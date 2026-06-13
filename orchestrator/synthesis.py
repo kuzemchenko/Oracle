@@ -129,10 +129,13 @@ def derive_criteria(candidate, records_by_id, ctx, costs, *, judge_prob=None):
         notes.append("asymmetry_net=0.5 (нет round_trip/ATR — консервативная замена, П8)")
 
     # 3. Неочевидность — c_non_obviousness (ШТРАФ→низко) + тайминг (ПОЗДНО/ЛОВУШКА→низко)
-    # тайминг берём ПЕР-КАНДИДАТНЫЙ (этап 3), если есть; иначе тематический из поля
+    # неочевидность и тайминг берём ПЕР-КАНДИДАТНЫЕ (этап 3), если есть; иначе тематические из поля
     non_obv = 0.6
-    nz = _rec(records_by_id, "c_non_obviousness")
-    if nz and str(nz.get("вердикт")).upper() == "ШТРАФ":
+    nv = str(candidate.get("_неочевидность") or "").upper()
+    if not nv:
+        nz = _rec(records_by_id, "c_non_obviousness")
+        nv = str((nz or {}).get("вердикт", "")).upper()
+    if nv == "ШТРАФ":
         non_obv = 0.25
     tv = str(candidate.get("_тайминг") or "").upper()
     if not tv:
@@ -142,9 +145,9 @@ def derive_criteria(candidate, records_by_id, ctx, costs, *, judge_prob=None):
         non_obv = min(non_obv, 0.2)
     elif tv == "ВОВРЕМЯ":
         non_obv = max(non_obv, 0.65)
-    if not nz and not tv:
+    if not nv and not tv:
         missing.append("non_obviousness")
-    notes.append(f"non_obviousness={non_obv} (неочевидность={nz and nz.get('вердикт')}, тайминг={tv or '—'})")
+    notes.append(f"non_obviousness={non_obv} (неочевидность={nv or '—'}, тайминг={tv or '—'})")
 
     # 4. Надёжность данных — валидатор/credibility (OK→высоко, ВОЗВРАТ→низко)
     data_rel, hits = 0.6, []
