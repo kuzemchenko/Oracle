@@ -109,6 +109,18 @@ def detect_news_clusters(news, threshold=0.30, top=6):
     return out[:top]
 
 
+def recent_news(limit=300):
+    """Широкий срез свежих новостей для кластеризации (дефолтный ctx-срез — лишь 12, мало)."""
+    import sqlite3
+    if not C.DB.exists():
+        return []
+    con = sqlite3.connect(C.DB)
+    try:
+        return C._news(con, limit=limit)
+    finally:
+        con.close()
+
+
 def rank_events(universe=None, news=None):
     """Единый ранг кандидат-событий: зарегистрированные темы (по тектонике/типу) + кластеры новостей.
 
@@ -203,9 +215,8 @@ def _map_new_clusters(clusters, deep_themes, universe, mode, run_id, max_map=2):
 def run_multi_event(mode="auto", k=3, write=True, run_id=None, map_clusters=True):
     """Полный мульти-событийный прогон. Возвращает сводный протокол."""
     run_id = run_id or f"multi_{F._now_compact()}"
-    base_ctx = C.build_context(theme="multi")
     universe = C._load_yaml("config/universe.yaml")
-    ranking = rank_events(universe=universe, news=base_ctx.get("news"))
+    ranking = rank_events(universe=universe, news=recent_news(300))  # широкий срез для кластеров
     anchorable = [e for e in ranking["события"] if e["anchorable"]][:k]
 
     per_event, all_ideas = [], []
