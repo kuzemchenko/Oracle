@@ -21,9 +21,10 @@ MAILTO=""
 # Суточный новостной сбор (GDELT + NewsAPI.ai + pytrends → нормализация/теги/дедуп): ежедневно 06:45
 45 6 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python data/news_ingest.py >> journal/cron.log 2>&1
 
-# Суточная дозагрузка котировок ядра из EODHD в storage/oracle.db (нужно resolve для свежих close): 06:50
-# Без аргументов = инкрементально (sync с последней даты в БД). Нужен EODHD_API_KEY → source .env.
-50 6 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python data/eodhd.py >> journal/cron.log 2>&1
+# Суточная дозагрузка котировок ядра + Tier 0 (фундаментал/инсайдеры/календарь) + опционы
+# (Unicorn Bay IV/OI/skew) из EODHD в storage/oracle.db: 06:50. --extras/--options освежают
+# флоат/short%float/IV ежедневно (иначе устаревают). Нужен EODHD_API_KEY → source .env.
+50 6 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python data/eodhd.py --extras --options >> journal/cron.log 2>&1
 
 # Калибровочный режим §17.3 (мелкие недельные §9-прогнозы, запечатывание): вторник и пятница 08:00
 0 8 * * 2,5  cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
