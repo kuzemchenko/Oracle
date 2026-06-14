@@ -89,6 +89,15 @@ CREATE TABLE IF NOT EXISTS earnings_calendar (
     PRIMARY KEY (symbol, report_date)
 );
 CREATE INDEX IF NOT EXISTS idx_earn_symbol ON earnings_calendar(symbol);
+
+-- Свёртка опционной цепочки (EODHD Unicorn Bay, marketplace-аддон): ATM IV, skew, put/call OI/vol,
+-- term-structure. Тайминг (IV), антиманипуляция (OI), риск (ликвидность хеджа). Считает mathlib.options.
+CREATE TABLE IF NOT EXISTS options_summary (
+    symbol      TEXT PRIMARY KEY,
+    asof        TEXT,            -- дата спота, по которому считалась ATM/moneyness
+    summary     TEXT,            -- JSON метрик (mathlib.options.summarize)
+    fetched_at  TEXT
+);
 """
 
 
@@ -268,6 +277,36 @@ def sync_earnings(con, symbols, api_key, horizon_days=120):
     return n
 
 
+def fetch_options(symbol, api_key, limit=1000):
+    """Опционная цепочка EODHD Unicorn Bay (marketplace-аддон). Тикер БЕЗ суффикса .US."""
+    import urllib.parse
+    base = symbol.split(".")[0]
+    f = urllib.parse.quote("filter[underlying_symbol]")
+    url = (f"{EODHD}/mp/unicornbay/options/eod?{f}={base}&sort=-exp_date&limit={limit}")
+    data = _get_json(url, api_key, expect=("{",))
+    rows = (data or {}).get("data") or []
+    # JSON:API-стиль ({attributes}) ИЛИ плоские dict — нормализуем к плоским
+    return [(r.get("attributes") if isinstance(r.get("attributes"), dict) else r) for r in rows]
+
+
+def sync_options(con, symbol, api_key):
+    """Фетч цепочки → свёртка mathlib.options (спот из quotes) → options_summary."""
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT))
+    from mathlib import options as OPT
+    contracts = fetch_options(symbol, api_key)
+    spot_row = con.execute("SELECT close, date FROM quotes WHERE symbol=? ORDER BY date DESC LIMIT 1",
+                           (symbol,)).fetchone()
+    spot = spot_row[0] if spot_row else None
+    asof = spot_row[1] if spot_row else None
+    summary = OPT.summarize(contracts, spot=spot)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    con.execute("INSERT OR REPLACE INTO options_summary (symbol,asof,summary,fetched_at) VALUES (?,?,?,?)",
+                (symbol, asof, json.dumps(summary, ensure_ascii=False), now))
+    con.commit()
+    return summary
+
+
 def cmd_status(con):
     cur = con.execute(
         "SELECT symbol, COUNT(*), MIN(date), MAX(date) FROM quotes GROUP BY symbol ORDER BY symbol")
@@ -286,6 +325,8 @@ def main():
     ap.add_argument("--status", action="store_true", help="показать содержимое базы")
     ap.add_argument("--extras", action="store_true",
                     help="подтянуть фундаментал/инсайдеров/календарь (Tier 0 EODHD) для символов")
+    ap.add_argument("--options", action="store_true",
+                    help="подтянуть свёртку опционов (Unicorn Bay marketplace-аддон) для символов")
     ap.add_argument("--also", default="",
                     help="доп. символы через запятую (помимо core_symbols), напр. SPCX.US,RKLB.US")
     args = ap.parse_args()
@@ -333,6 +374,21 @@ def main():
             except Exception as e:
                 failures += 1
                 print(f"❌ {sym:12} extras: {e}", file=sys.stderr)
+
+    if args.options:
+        print("\n— Опционы (Unicorn Bay): ATM IV / skew / put-call OI —")
+        for sym in symbols:
+            try:
+                s = sync_options(con, sym, api_key)
+                if s.get("insufficient"):
+                    print(f"🟦 {sym:12} опционов нет/недостаточно")
+                else:
+                    print(f"📈 {sym:12} ATM_IV={s['atm_iv']} skew={s['iv_skew_25d_put_minus_call']} "
+                          f"put/call_OI={s['put_call_oi_ratio']} OI={s['total_open_interest']} "
+                          f"ликвид={s['liquid']}")
+            except Exception as e:
+                failures += 1
+                print(f"❌ {sym:12} опционы: {e}", file=sys.stderr)
 
     print()
     cmd_status(con)

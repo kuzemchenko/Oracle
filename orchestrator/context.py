@@ -159,6 +159,23 @@ def _fundamentals(con):
     return out
 
 
+def _options(con):
+    """Свёртки опционов по символам (ATM IV, skew, put/call OI/vol) из EODHD Unicorn Bay."""
+    try:
+        rows = con.execute("SELECT symbol, asof, summary FROM options_summary").fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out = {}
+    for sym, asof, s in rows:
+        try:
+            d = json.loads(s)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if d and not d.get("insufficient"):
+            out[sym] = {**d, "asof": asof}
+    return out
+
+
 def _insider_recent(con, symbol, limit=8):
     try:
         rows = con.execute(
@@ -240,6 +257,7 @@ def build_context(theme="brent", asof=None, theme_focused=False):
         "waves": {},
         "news": [],
         "fundamentals": {},   # EODHD Tier 0: флоат, владение, short%float, оценка
+        "options": {},        # EODHD Unicorn Bay: ATM IV, skew, put/call OI/vol, ликвидность
         "insider_tx": {},     # инсайдерские сделки по активу темы и связанным
         "earnings_next": {},  # ближайшие отчёты (тайминг/cui bono)
         "theme_chain": None,  # тектоническая каскадная цепочка темы (карта + балл §5/П5)
@@ -265,8 +283,9 @@ def build_context(theme="brent", asof=None, theme_focused=False):
         # Новости: в тематическом фокусе — приоритет по ключевым словам темы (якорь §17.2).
         kws = _theme_keywords(theme, universe) if theme_focused else None
         ctx["news"] = _news(con, keywords=kws)
-        # Фундаментал/инсайдеры/календарь (EODHD Tier 0).
+        # Фундаментал/инсайдеры/календарь (EODHD Tier 0) + опционы (Unicorn Bay аддон).
         ctx["fundamentals"] = _fundamentals(con)
+        ctx["options"] = _options(con)
         theme_syms = [theme_meta.get("proxy_etf")] + list(theme_meta.get("related") or [])
         for s in [x for x in theme_syms if x] or CORE:
             ins = _insider_recent(con, s)
@@ -324,12 +343,13 @@ def build_context(theme="brent", asof=None, theme_focused=False):
             }
 
     # честные пробелы данных §23.1 (то, чего нет в фиде)
+    n_opt = len(ctx.get("options") or {})
     ctx["data_gaps"] += [
-        "открытый интерес (OI) — нет в дневном фиде EODHD",
-        "подразумеваемая волатильность опционов (IV) — не подключена",
-        "глубина стакана / bid-ask — нет в дневных барах",
+        f"опционы (IV/OI/skew) — ПОДКЛЮЧЕНЫ (EODHD Unicorn Bay) по {n_opt} ликвидным символам; "
+        "по новым/неликвидным (напр. SPCX свежий IPO) — нет данных (П8)",
+        "глубина стакана / bid-ask интрадей — нет в дневных барах",
         "похожесть нарративов — требует длинной истории новостей (≈1 мес. доступно)",
-        "позиционирование/потоки розницы/плечо — не подключены",
+        "потоки розницы / плечо — не подключены (short%float и IV-skew есть как прокси)",
     ]
     return ctx
 
@@ -367,8 +387,9 @@ def slice_for(agent_id, ctx):
         # Позиционирование теперь ЧАСТИЧНО есть (EODHD Tier 0): флоат, владение, short%float.
         s["fundamentals"] = ctx.get("fundamentals") or {}
         s["insider_tx"] = ctx.get("insider_tx") or {}
-        s["positioning_note"] = ("short%float и структура владения — из EODHD; открытый интерес/IV "
-                                 "опционов/потоки розницы — нет данных (П8)")
+        s["options"] = ctx.get("options") or {}          # IV-skew = индикатор страха толпы
+        s["positioning_note"] = ("short%float, владение — EODHD; IV/skew/put-call OI — опционы "
+                                 "Unicorn Bay (где есть); потоки розницы — нет данных (П8)")
         s["quotes"] = quotes_brief
     elif agent_id == "b_fundamental":
         s["fundamentals"] = ctx.get("fundamentals") or {}   # флоат, mcap, P/E, владение (EODHD)
@@ -403,6 +424,7 @@ def slice_for(agent_id, ctx):
         s["timing_thresholds"] = ctx["calibration_status"]["timing"]
         s["indicators"] = ctx["indicators"]
         s["news"] = ctx["news"][:6]
+        s["options"] = ctx.get("options") or {}              # всплеск IV = «дорогие ожидания» (П13)
     elif agent_id == "d_anti_manipulation":
         s["manipulation_thresholds"] = ctx["calibration_status"]["manipulation"]
         s["news"] = ctx["news"]
@@ -410,6 +432,7 @@ def slice_for(agent_id, ctx):
         s["insider_tx"] = ctx.get("insider_tx") or {}        # «кто продаёт нам» (§4 детектор 2)
         s["earnings_next"] = ctx.get("earnings_next") or {}  # cui bono: совпадение с отчётами (§14)
         s["fundamentals"] = ctx.get("fundamentals") or {}
+        s["options"] = ctx.get("options") or {}              # открытый интерес/skew (§4 детектор 2/3)
     elif agent_id in ("c_non_obviousness",):
         s["news"] = ctx["news"]
     elif agent_id in ("c_context_filter",):

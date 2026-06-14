@@ -205,6 +205,7 @@ def _candidate_slice_for(agent_id, candidate, ctx, thresholds):
                  "тезис": candidate.get("тезис"), "разрешимость": candidate.get("разрешимость")},
         "котировка": (ctx or {}).get("quotes", {}).get(asset, {}).get("last"),
         "индикаторы": (ctx or {}).get("indicators", {}).get(asset),
+        "опционы": (ctx or {}).get("options", {}).get(asset),   # IV/skew/OI по активу идеи (где есть)
         "news": (ctx or {}).get("news", [])[:6],
     }
     if agent_id == "d_timeliness":
