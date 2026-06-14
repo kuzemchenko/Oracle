@@ -55,7 +55,10 @@ def _write(protocol):
             lines.append(f"- {m['keywords']} → тема **{m['theme']}**" + (" (проанализирована)" if m.get("covered") else ""))
         elif m["kind"] == "proposed":
             nodes = "; ".join(f"{n['узел']}={n['тикеры']}" for n in m["узлы"])
-            lines.append(f"- {m['keywords']} → ПРЕДЛОЖЕНО «{m['событие']}»: {nodes} _(застейджено на регистрацию §30)_")
+            t = m.get("тектонический_потенциал")
+            far = (m.get("целевой_дальний_узел") or {}).get("instruments")
+            lines.append(f"- {m['keywords']} → ПРЕДЛОЖЕНО «{m['событие']}» (T={t}, цель {far}): "
+                         f"{nodes} _(застейджено на регистрацию §30)_")
         else:
             lines.append(f"- {m['keywords']} → {m['kind']}: {m.get('why','')}")
     lines += ["", f"**Итог:** {protocol['итог']}", ""]
@@ -184,11 +187,16 @@ def _map_new_clusters(clusters, deep_themes, universe, mode, run_id, max_map=2):
         m = EM.map_cluster(cl, universe, client, checker)
         if m["kind"] == "proposed" and m["tradable"]:
             rec = EM.stage_proposal(m, F._now_iso())
+            tec = m.get("tectonic") or {}
             out.append({"kind": "proposed", "keywords": cl["keywords"],
-                        "событие": rec["событие"], "узлы": rec["узлы"], "staged": True})
+                        "событие": rec["событие"], "узлы": rec["узлы"], "staged": True,
+                        "тектонический_потенциал": tec.get("tectonic_potential"),
+                        "целевой_дальний_узел": tec.get("best_far_node")})
         else:
             out.append({"kind": m["kind"], "keywords": cl["keywords"],
                         "why": m.get("why", "торгуемого переноса не найдено")})
+    # предложенные — по убыванию тектонического потенциала (долг №4: ранг новых событий по T)
+    out.sort(key=lambda x: (x.get("тектонический_потенциал") or -1), reverse=True)
     return out
 
 

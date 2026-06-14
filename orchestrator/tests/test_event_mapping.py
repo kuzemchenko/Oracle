@@ -48,6 +48,23 @@ def test_map_cluster_proposes_and_verifies():
     assert m["verified_nodes"][0]["verified_tickers"][0]["ticker"] == "REAL.US"  # FAKE отсеян
 
 
+def test_proposed_map_gets_tectonic_score_and_far_node():
+    # долг №4: предложенная карта скорится по T, выбирает дальний чокпоинт-узел
+    draft = ('{"событие":"Бум Y","первый_порядок":"A","каскад":'
+             '[{"порядок":2,"узел":"оборудование","тикеры":["EQ.US"],"чокпоинт":false},'
+             '{"порядок":3,"узел":"редкий металл","тикеры":["MET.US"],"чокпоинт":true}],'
+             '"обоснование":"...","уверенность":"средняя"}')
+    client = _FakeClient(draft)
+    checker = lambda t: {"avg_volume": 2_000_000, "last": 10}   # все реальны/ликвидны
+    m = EM.map_cluster({"keywords": ["yboom"], "sample": "Y boom"}, UNIVERSE, client, checker)
+    assert m["tectonic"] is not None
+    far = m["tectonic"]["best_far_node"]
+    assert far["order"] == 3 and "MET.US" in far["instruments"] and far["chokepoint"]
+    assert 0 <= m["tectonic"]["tectonic_potential"] <= 1
+    # лаги неизвестны → ось L = 0 (окно входа не откалибровано), честно
+    assert m["tectonic"]["lag_window_days"] == 0
+
+
 def test_map_cluster_no_map_when_empty_cascade():
     client = _FakeClient('{"событие":"неясно","каскад":[],"обоснование":"нет переноса"}')
     m = EM.map_cluster({"keywords": ["z"], "sample": "z"}, UNIVERSE, client, lambda t: None)

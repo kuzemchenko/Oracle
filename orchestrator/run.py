@@ -111,8 +111,9 @@ def _run_multi(args):
             if m["kind"] == "matched":
                 print(f"  {m['keywords']} → тема {m['theme']}")
             elif m["kind"] == "proposed":
-                print(f"  {m['keywords']} → ПРЕДЛОЖЕНО «{m['событие']}» (застейджено): "
-                      + ", ".join(t for n in m['узлы'] for t in n['тикеры']))
+                far = (m.get("целевой_дальний_узел") or {}).get("instruments")
+                print(f"  {m['keywords']} → ПРЕДЛОЖЕНО «{m['событие']}» "
+                      f"T={m.get('тектонический_потенциал')} цель={far} (застейджено)")
             else:
                 print(f"  {m['keywords']} → {m['kind']}")
     print(f"Объединённая выдача: {p['объединённая_выдача_топ3'] or 'идей нет (§6)'}")

@@ -98,6 +98,37 @@ def verify_tickers(tickers, checker):
     return out
 
 
+def _proposal_to_chain(mapped):
+    """Адаптер: верифицированная черновая карта → схема цепочки для mathlib.tectonic (долг №4).
+
+    Лаги рёбер неизвестны (LLM их не даёт) → edges с lag_days=None: ось L честно = 0 (окно входа
+    не откалибровано). priced_hint берём из глубины/чокпоинта (дальний чокпоинт обычно low).
+    M/P/S не заданы → tectonic поставит нейтраль 0.5 с пометкой (П8)."""
+    nodes = []
+    for n in mapped["verified_nodes"]:
+        order = n.get("порядок") or 1
+        choke = bool(n.get("чокпоинт"))
+        priced = "low" if (choke and order >= 3) else ("medium" if order >= 2 else "high")
+        nodes.append({"order": order, "node": n.get("узел"),
+                      "instruments": [v["ticker"] for v in n["verified_tickers"]],
+                      "chokepoint": choke, "priced_hint": priced})
+    orders = sorted({nd["order"] for nd in nodes})
+    edges = [{"from": orders[i], "to": orders[i + 1], "lag_days": None, "strength": "unknown"}
+             for i in range(len(orders) - 1)]
+    return {"id": f"proposed:{(mapped['draft'].get('событие') or '')[:40]}",
+            "title": mapped["draft"].get("событие"),
+            "trigger": {},   # M/P/S неизвестны → нейтраль с пометкой
+            "nodes": nodes, "edges": edges}
+
+
+def score_proposal(mapped):
+    """Тектонический балл предложенной карты (долг №4). None, если нет торгуемых узлов."""
+    if mapped.get("kind") != "proposed" or not mapped.get("verified_nodes"):
+        return None
+    from mathlib import tectonic as TEC
+    return TEC.score_chain(_proposal_to_chain(mapped))
+
+
 def map_cluster(cluster, universe, client, checker):
     """Полный цикл по одному кластеру: матч к теме ИЛИ предложение+верификация черновой карты."""
     theme, overlap = match_cluster_to_theme(cluster, universe)
@@ -112,15 +143,20 @@ def map_cluster(cluster, universe, client, checker):
         vt = verify_tickers(node.get("тикеры"), checker)
         if vt:
             verified_nodes.append({**node, "verified_tickers": vt})
-    return {"kind": "proposed", "cluster": cluster, "draft": draft,
-            "verified_nodes": verified_nodes,
-            "tradable": bool(verified_nodes)}
+    mapped = {"kind": "proposed", "cluster": cluster, "draft": draft,
+              "verified_nodes": verified_nodes,
+              "tradable": bool(verified_nodes)}
+    mapped["tectonic"] = score_proposal(mapped)   # долг №4: балл T + дальний узел
+    return mapped
 
 
 def stage_proposal(mapped, ts, path=PROPOSED):
     """Записать предложенную тему в стейджинг (append-only) на регистрацию человеком (§30)."""
+    tec = mapped.get("tectonic") or {}
     rec = {"ts": ts, "событие": mapped["draft"].get("событие"),
            "уверенность": mapped["draft"].get("уверенность"),
+           "тектонический_потенциал": tec.get("tectonic_potential"),
+           "целевой_дальний_узел": tec.get("best_far_node"),
            "узлы": [{"порядок": n.get("порядок"), "узел": n.get("узел"),
                      "тикеры": [v["ticker"] for v in n["verified_tickers"]],
                      "чокпоинт": n.get("чокпоинт")} for n in mapped["verified_nodes"]],
