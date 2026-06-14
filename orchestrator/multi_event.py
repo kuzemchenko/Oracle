@@ -49,6 +49,15 @@ def _write(protocol):
     lines += ["", "## Обнаруженные кластеры новостей (для регистрации как тем)", ""]
     for cl in protocol["обнаруженные_кластеры_новостей"][:6]:
         lines.append(f"- салиентность {cl['salience']} · {cl['keywords']} · «{(cl['sample'] or '')[:70]}»")
+    lines += ["", "## Привязка кластеров (долг №3: матч к темам / черновые карты)", ""]
+    for m in protocol.get("привязка_кластеров", []):
+        if m["kind"] == "matched":
+            lines.append(f"- {m['keywords']} → тема **{m['theme']}**" + (" (проанализирована)" if m.get("covered") else ""))
+        elif m["kind"] == "proposed":
+            nodes = "; ".join(f"{n['узел']}={n['тикеры']}" for n in m["узлы"])
+            lines.append(f"- {m['keywords']} → ПРЕДЛОЖЕНО «{m['событие']}»: {nodes} _(застейджено на регистрацию §30)_")
+        else:
+            lines.append(f"- {m['keywords']} → {m['kind']}: {m.get('why','')}")
     lines += ["", f"**Итог:** {protocol['итог']}", ""]
     (LOGS / f"{protocol['run_id']}.md").write_text("\n".join(lines), encoding="utf-8")
 
@@ -147,11 +156,48 @@ def _diversify(ideas):
     return top[:3]
 
 
-def run_multi_event(mode="auto", k=3, write=True, run_id=None):
+def _map_new_clusters(clusters, deep_themes, universe, mode, run_id, max_map=2):
+    """Долг №3: обнаруженные кластеры → матч к теме ИЛИ черновая каскадная карта (LLM+верификация).
+
+    Матченные к уже глубоко-проанализированным темам пропускаем (покрыты). Новые (top max_map по
+    салиентности) → propose+verify+stage на регистрацию (НЕ авто-торгуются, П16/§30)."""
+    from orchestrator import openrouter as OR
+    from orchestrator import event_mapping as EM
+    import os
+    out = []
+    client = None
+    checker = None
+    mapped_count = 0
+    for cl in clusters:
+        theme, overlap = EM.match_cluster_to_theme(cl, universe)
+        if theme:
+            out.append({"kind": "matched", "theme": theme, "keywords": cl["keywords"],
+                        "covered": theme in deep_themes})
+            continue
+        if mapped_count >= max_map:
+            out.append({"kind": "skipped", "keywords": cl["keywords"], "why": "лимит маппинга на прогон"})
+            continue
+        if client is None:
+            client = OR.make_client(mode=mode, run_id=run_id)
+            checker = EM.make_eodhd_checker(os.environ.get("EODHD_API_KEY", ""))
+        mapped_count += 1
+        m = EM.map_cluster(cl, universe, client, checker)
+        if m["kind"] == "proposed" and m["tradable"]:
+            rec = EM.stage_proposal(m, F._now_iso())
+            out.append({"kind": "proposed", "keywords": cl["keywords"],
+                        "событие": rec["событие"], "узлы": rec["узлы"], "staged": True})
+        else:
+            out.append({"kind": m["kind"], "keywords": cl["keywords"],
+                        "why": m.get("why", "торгуемого переноса не найдено")})
+    return out
+
+
+def run_multi_event(mode="auto", k=3, write=True, run_id=None, map_clusters=True):
     """Полный мульти-событийный прогон. Возвращает сводный протокол."""
     run_id = run_id or f"multi_{F._now_compact()}"
     base_ctx = C.build_context(theme="multi")
-    ranking = rank_events(news=base_ctx.get("news"))
+    universe = C._load_yaml("config/universe.yaml")
+    ranking = rank_events(universe=universe, news=base_ctx.get("news"))
     anchorable = [e for e in ranking["события"] if e["anchorable"]][:k]
 
     per_event, all_ideas = [], []
@@ -170,12 +216,18 @@ def run_multi_event(mode="auto", k=3, write=True, run_id=None):
             "итог": fr.get("вывод") or p.get("ОТКАЗ_тема", {}).get("reason") or "—",
         })
 
+    # Долг №3: обнаруженные кластеры → матч к темам ИЛИ черновые каскадные карты (на регистрацию).
+    deep = {e["id"] for e in anchorable}
+    mapped = (_map_new_clusters(ranking["кластеры_новостей"], deep, universe, mode, run_id)
+              if map_clusters else [])
+
     top3 = _diversify(all_ideas)
     protocol = {
         "run_id": run_id, "ts": F._now_iso(), "mode": mode, "режим": "мульти-событие (§17.1)",
         "spec_ref": "§17.1 свободная генерация + §5/П5 тектоника + §4 диверсификация по драйверам",
         "ранжирование_событий": ranking["события"],
         "обнаруженные_кластеры_новостей": ranking["кластеры_новостей"],
+        "привязка_кластеров": mapped,   # №3: матч к темам / черновые карты на регистрацию
         "глубоко_проанализировано": [e["id"] for e in anchorable],
         "по_событиям": per_event,
         "объединённая_выдача_топ3": [
