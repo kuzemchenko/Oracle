@@ -95,6 +95,34 @@ _DRIVER_RU = {
 }
 
 
+# Тикер → (короткое имя, что это простыми словами). Чтобы не слать «COPX.US» без объяснения.
+_ASSET = {
+    "BNO.US": ("нефть Brent", "биржевой фонд на цену нефти Brent"),
+    "USO.US": ("нефть WTI", "биржевой фонд на цену американской нефти WTI"),
+    "SPY.US": ("рынок акций США", "фонд на индекс S&P 500 — весь крупный рынок США"),
+    "DBC.US": ("корзина сырья", "фонд на широкую корзину сырьевых товаров"),
+    "CPER.US": ("медь", "биржевой фонд на цену меди"),
+    "COPX.US": ("акции медедобытчиков", "фонд на акции компаний, добывающих медь"),
+    "SPCX.US": ("SpaceX", "акции SpaceX (космос, Starlink, xAI)"),
+    "RKLB.US": ("Rocket Lab", "акции Rocket Lab — пусковые услуги, конкурент SpaceX"),
+    "ASTS.US": ("AST SpaceMobile", "акции AST SpaceMobile — спутниковая связь, конкурент Starlink"),
+    "VRT.US": ("Vertiv", "акции Vertiv — питание и охлаждение для дата-центров"),
+    "GEV.US": ("GE Vernova", "акции GE Vernova — оборудование для энергосетей и генерации"),
+    "ETN.US": ("Eaton", "акции Eaton — электрооборудование"),
+    "CLF.US": ("Cleveland-Cliffs", "акции Cleveland-Cliffs — сталь, в т.ч. для сердечников трансформаторов"),
+    "NUE.US": ("Nucor", "акции Nucor — крупнейший сталевар США"),
+    "FCX.US": ("Freeport", "акции Freeport-McMoRan — добыча меди"),
+    "SCCO.US": ("Southern Copper", "акции Southern Copper — добыча меди"),
+}
+
+
+def _asset_human(ticker):
+    """(имя, описание) для тикера. Фолбек — сам тикер (честно, без выдумок)."""
+    if ticker in _ASSET:
+        return _ASSET[ticker]
+    return (ticker, f"торгуемый инструмент {ticker}")
+
+
 def _humanize(v, max_n=MAX_FIELD):
     """Плоский читаемый текст из строки/списка/словаря (без JSON-скобок)."""
     if v is None:
@@ -115,88 +143,147 @@ def _field(fields, n):
     return None
 
 
-# Человеческие лейблы 13 полей §8 (вместо «9_балл_скоринга_разбивка_и_позиции_критика_судьи»).
-_FIELD_LABELS = {
+# Короткие заголовки 13 полей §8 (для шапки каждого пункта).
+_FIELD_TITLES = {
     1: "Актив, направление, инструмент",
-    2: "Каскадная цепочка (почему именно это)",
+    2: "Каскадная цепочка — ГЛАВНОЕ ПОЛЕ",
     3: "Вероятность и калибровка",
     4: "Сценарии и асимметрия (после издержек)",
     5: "Отыгранность и стадия входа",
     6: "Кто продаёт нам — и почему он неправ",
     7: "Манипуляции и поведение толпы",
     8: "Как балансировать риск",
-    9: "Скоринг по критериям + критик и судья",
+    9: "Скоринг + критик и судья",
     10: "Источники и их надёжность",
     11: "Что неизвестно",
     12: "Когда идея неверна (инвалидация)",
     13: "Рамка",
 }
 
+# ℹ️ «что это поле и зачем» — ОДИН словарь, правится здесь (формулировки) и переключателем short.
+field_help = {
+    1: "что покупаем/продаём и чем именно",
+    2: "пошаговая цепочка причин: почему именно это сыграет",
+    3: "шанс, что сыграет, и можно ли пока верить системе",
+    4: "сколько заработать против сколько потерять, уже за вычетом комиссий и спреда",
+    5: "сколько движения уже прошло — не поздно ли заходить",
+    6: "кто по другую сторону сделки и в чём его ошибка; нет ответа — идея не выпускается",
+    7: "не разгоняют ли актив искусственно; в какой фазе жадности/страха",
+    8: "способы уменьшить риск, если он велик",
+    9: "из чего сложился балл и что сказали «адвокат» и «прокурор» идеи",
+    10: "откуда данные и насколько им можно верить",
+    11: "честные пробелы — то, чего система НЕ знает",
+    12: "при каком условии выходим и признаём ошибку",
+    13: "напоминание: это инструмент, не приказ",
+}
+
+EMPTY_MARK = "[поле пустое]"   # П8: пусто → честно, ничего не выдумываем
+
+
+def load_presentation(path=None):
+    """Слой подачи: режим (long/short), still_unclear, слать ли mock. Читается при каждом рендере."""
+    import yaml
+    p = pathlib.Path(path or (ROOT / "config" / "presentation.yaml"))
+    try:
+        cfg = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        cfg = {}
+    return {"mode": cfg.get("mode", "long"),
+            "still_unclear": set(cfg.get("still_unclear") or []),
+            "send_mock_to_telegram": bool(cfg.get("send_mock_to_telegram", False))}
+
+
+def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
+    """Записать настройки подачи (для команды /format). Меняет ТОЛЬКО слой отображения."""
+    import yaml
+    p = pathlib.Path(path or (ROOT / "config" / "presentation.yaml"))
+    cur = load_presentation(p)
+    obj = {"version": 1,
+           "mode": mode if mode in ("long", "short") else cur["mode"],
+           "still_unclear": sorted(still_unclear if still_unclear is not None else cur["still_unclear"]),
+           "send_mock_to_telegram": cur["send_mock_to_telegram"] if send_mock is None else bool(send_mock)}
+    p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
+                 "Меняется командой /format или руками.\n"
+                 + yaml.safe_dump(obj, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return obj
+
 
 def _cascade_line(v):
-    """Каскадную цепочку (список звеньев) показываем как 'триггер → … → актив'."""
+    """Каскадную цепочку (список звеньев) показываем как 'событие → … → актив'."""
     if isinstance(v, list) and v:
-        return " → ".join(_humanize(x, 120) for x in v if x not in (None, ""))
+        return " → ".join(_humanize(x, 160) for x in v if x not in (None, ""))
     return _humanize(v)
 
 
-def format_report(protocol, idea):
-    """Карточка идеи: читаемый лид (хедлайн + ПОЧЕМУ) + ПОЛНЫЕ 13 граней §8 (ничего не теряем)."""
-    run_id = protocol.get("run_id", "?")
+def _field_content(n, fields, idea, pos):
+    """Содержание поля §8 простыми словами (→). Пусто → честный маркер (П8)."""
+    raw = _field(fields, n)
+    if n == 1:
+        name, what = _asset_human(idea.get("актив", "?"))
+        direction = (idea.get("направление") or "").strip().lower()
+        side = "ставка на рост" if direction.startswith("лонг") or direction in ("long", "buy") else "ставка на снижение"
+        base = _humanize(raw) or f"{name} ({idea.get('актив')})"
+        return f"{base} — {what}. «{idea.get('направление') or '—'}» = {side}."
+    if n == 2:
+        return _cascade_line(raw) or EMPTY_MARK
+    if n == 9:
+        score = idea.get("балл")
+        note = (f"общий балл {float(score):.2f}/1.00 (это НЕ вероятность из п.3, а сводная оценка "
+                f"по 6 критериям). " if isinstance(score, (int, float)) else "")
+        return (note + _humanize(raw)).strip() or note.strip() or EMPTY_MARK
+    return _humanize(raw, 360) or EMPTY_MARK
+
+
+def format_mock_check(protocol):
+    """Проверочный (mock/test) прогон — НЕ идея. Шлётся, только если send_mock_to_telegram=true."""
+    return ("🔧 Проверка связи — это НЕ идея.\n"
+            "Тестируем, что трубопровод работает и формат собирается. Содержательные поля пустые.\n"
+            f"· тех.id {protocol.get('run_id','?')} · режим {protocol.get('mode')}")
+
+
+def format_report(protocol, idea, presentation=None):
+    """Карточка идеи §8 человеческим языком: шапка (1 цифра уверенности) + ВСЕ 13 полей с ℹ️.
+
+    Слой ОТОБРАЖЕНИЯ: данные §8 не меняются (журналы пишутся полностью отдельно). mock сюда не
+    попадает как идея — для него format_mock_check. long: ℹ️ у всех полей; short: ℹ️ только у
+    полей из still_unclear (содержание → всегда)."""
+    pres = presentation or load_presentation()
     mode = protocol.get("mode")
-    asset = idea.get("актив", "?")
-    direction = (idea.get("направление") or "").strip()
-    score = idea.get("балл")
+    if mode and mode != "live":
+        return format_mock_check(protocol)
+
+    idea_d = idea
     pos = idea.get("позиция") if isinstance(idea.get("позиция"), dict) else {}
     fields = _fields_dict(idea)
-
-    is_long = direction.lower().startswith("лонг") or direction.lower() in ("long", "buy")
+    asset = idea.get("актив", "?")
+    name = _asset_human(asset)[0]
+    direction = (idea.get("направление") or "").strip().lower()
+    is_long = direction.startswith("лонг") or direction in ("long", "buy")
     arrow = "📈" if is_long else "📉"
     move = "ставка на рост" if is_long else "ставка на снижение"
-    driver = str(pos.get("макро_драйвер") or "").lower()
-    subject = _DRIVER_RU.get(driver) or _DRIVER_RU.get(asset.split(".")[0].lower()) or asset
 
-    # Хедлайн (подстрока «ИДЕЯ» сохранена намеренно — на неё опираются тесты/поиск).
-    head = f"{arrow} ИДЕЯ ДНЯ — {subject} ({asset}): {move}"
-    dek_bits = []
-    if isinstance(score, (int, float)):
-        dek_bits.append(f"оценка {float(score):.2f}/1.00")
+    # Шапка: заголовок + ОДНА цифра уверенности (вероятность судьи, поле 3). НЕ сводный балл.
     prob = pos.get("вероятность")
     if isinstance(prob, (int, float)):
-        dek_bits.append(f"вероятность ~{round(prob * 100)}%")
-    header = [head]
-    if dek_bits:
-        header.append(" · ".join(dek_bits))
-    if mode and mode != "live":
-        header.append("⚠️ ПРОВЕРОЧНЫЙ прогон (mock): агенты НЕ рассуждали — содержательные грани "
-                      "(почему/триггер) появятся только на боевом прогоне.")
+        conf_line = f"Насколько уверены: ~{round(prob*100)}% (против ~50% «вслепую»)."
+    else:
+        conf_line = "Насколько уверены: пока не оценена."
+    lines = [f"{arrow} Идея дня: {name} ({asset}) — {move}", conf_line, "",
+             "📋 Полный разбор (13 полей §8):"]
 
-    # 🎯 ПОЧЕМУ — короткий читаемый лид из каскадной цепочки (поле 2): «триггер → … → актив».
-    why = None
-    chain = _cascade_line(_field(fields, 2))
-    if chain:
-        why = f"🎯 ПОЧЕМУ {asset}: {chain}."
-
-    # 📋 Все 13 граней §8 — полностью, с человеческими лейблами и без JSON-скобок.
-    grani = ["📋 Все 13 граней (§8):"]
+    show_help_all = (pres["mode"] == "long")
     for n in range(1, 14):
-        label = _FIELD_LABELS.get(n, f"поле {n}")
-        raw = _field(fields, n)
-        v = _cascade_line(raw) if n == 2 else _humanize(raw, 360)
-        grani.append(f"{n}. {label} — {v or '— нет данных'}")
+        lines.append("")
+        lines.append(f"{n}. {_FIELD_TITLES[n]}")
+        if show_help_all or n in pres["still_unclear"]:
+            lines.append(f"   ℹ️ {field_help[n]}")
+        lines.append(f"   → {_field_content(n, fields, idea_d, pos)}")
 
-    disclaimer = ("⚖️ «Оракул» — исследовательский инструмент, НЕ инвестиционная рекомендация "
-                  "(§8 п.13). Решение и риск — за тобой, в рамках пре-коммитмента §12. "
-                  "Кнопки решения ниже; «Принять» откроется через 24 ч (пауза §12).")
-    footer = f"· прогон {run_id} · тема {protocol.get('theme') or '—'} · режим {mode}"
-
-    parts = ["\n".join(header)]
-    if why:
-        parts.append(why)
-    parts.append("\n".join(grani))
-    text = "\n\n".join(parts) + "\n\n— — —\n" + disclaimer + "\n" + footer
+    lines += ["", "⚖️ «Принять» откроется через 24 ч (пауза §12).",
+              f"· тех.id {protocol.get('run_id','?')}"]
+    text = "\n".join(lines)
     if len(text) > MAX_MSG:
-        text = text[:MAX_MSG].rstrip() + "\n…(обрезано; полный отчёт — в journal/funnel_logs)"
+        text = text[:MAX_MSG].rstrip() + "\n…(полный отчёт — в журнале funnel_logs)"
     return text
 
 
@@ -205,63 +292,70 @@ def build_keyboard(token, issued_at, now=None):
     Заблокированная кнопка остаётся видимой (с таймером) — нажатие бот отвергнет с подсказкой."""
     unlocked = S.accept_unlocked(issued_at, now)
     if unlocked:
-        accept_label = "✅ Принять"
+        accept_label = "✅ Беру в работу"
     else:
         rem = S.hours_remaining(issued_at, now)
-        rem_txt = f"{rem:.0f}ч" if rem is not None and rem >= 1 else "<1ч"
-        accept_label = f"🔒 Принять (через {rem_txt})"
+        rem_txt = f"{rem:.0f} ч" if rem is not None and rem >= 1 else "<1 ч"
+        accept_label = f"🔒 Беру в работу (через {rem_txt})"
     return {"inline_keyboard": [[
         {"text": accept_label, "callback_data": f"d:a:{token}"},
-        {"text": "❌ Отклонить", "callback_data": f"d:r:{token}"},
-        {"text": "🕒 Отложить", "callback_data": f"d:p:{token}"},
+        {"text": "❌ Мимо", "callback_data": f"d:r:{token}"},
+        {"text": "🕒 Позже", "callback_data": f"d:p:{token}"},
     ]]}
 
 
 def format_weak_day(protocol):
-    """Пуш слабого дня §6 человеческим языком (идей нет — это легитимный результат)."""
-    fr = (protocol or {}).get("воронка_отсева") or {}
-    cand = fr.get("этап2_кандидатов")
+    """Пуш «идей нет» человеческим языком (это нормальный, частый и полезный результат)."""
     theme = protocol.get("theme") or "—"
-    sift = (f"Воронка просеяла {cand} кандидатов по теме «{theme}», но после дебатов не уцелело "
-            "ни одной идеи." if isinstance(cand, int)
-            else f"Воронка по теме «{theme}» не дала ни одной идеи, прошедшей фильтры и дебаты.")
-    return ("🟦 Сегодня идей нет — и это нормально.\n\n"
-            f"{sift} Это легитимный слабый день (§6), а не сбой: лучшее решение большинства "
-            "дней — не сделать плохую ставку.\n\n"
-            f"· прогон {protocol.get('run_id','?')} · режим {protocol.get('mode')}")
+    tname = _asset_human(theme.upper() + ".US")[0] if "." not in theme else theme
+    return ("🟦 Идей нет — и это нормально.\n\n"
+            f"Сегодня по теме «{theme}» система просмотрела варианты, но ни один не прошёл "
+            "проверку. Это частый и полезный результат: лучшее решение в большинстве дней — "
+            "НЕ сделать плохую ставку. Система намеренно молчит, когда нет чего-то стоящего.\n\n"
+            f"· тех.id {protocol.get('run_id','?')}")
 
 
 # ── бюджет ──────────────────────────────────────────────────────────────────────────
 def format_budget_line(one_liner_text):
-    """Утренняя строка бюджета §15 (обёртка над budget.one_liner)."""
-    return "🌅 Утренняя строка бюджета (§15)\n" + one_liner_text
+    """Утренняя строка бюджета — расход на работу системы, человеческим языком."""
+    return ("🌅 Сколько стоит работа системы в этом месяце\n" + _budget_human(one_liner_text)
+            + "\n(Это расходы на ИИ-модели, не твои инвестиции.)")
+
+
+def _budget_human(one_liner_text):
+    """Из тех.строки budget.one_liner вытащить только понятную часть: $потрачено/$лимит."""
+    import re as _re
+    m = _re.search(r"токены \$([\d.]+)/\$([\d.]+)", one_liner_text)
+    if m:
+        spent, cap = float(m.group(1)), float(m.group(2))
+        return f"Потрачено ${spent:.0f} из месячного лимита ${cap:.0f} ({spent/cap*100:.0f}%)."
+    return one_liner_text
 
 
 def format_budget_alert(st, one_liner_text):
-    """Алерт бюджета: ВНИМАНИЕ (≥alert) или ПРЕВЫШЕНИЕ (≥100% → прогоны стоп)."""
-    icon = "🛑" if st.get("exit_code") == 3 else "⚠️"
-    head = ("ПРЕВЫШЕНИЕ потолка бюджета — прогоны стоп (§11/§12, лимиты в коде)"
-            if st.get("exit_code") == 3 else f"Бюджет: {st.get('status')}")
-    return f"{icon} {head}\n{one_liner_text}"
+    """Предупреждение по бюджету человеческим языком (внимание / достигнут потолок)."""
+    if st.get("exit_code") == 3:
+        return ("🛑 Достигнут месячный лимит расходов на работу системы — новые прогоны "
+                "приостановлены до начала следующего месяца. Это защитный лимит, не ошибка.\n"
+                + _budget_human(one_liner_text))
+    return ("⚠️ Внимание: расходы на работу системы приблизились к месячному лимиту.\n"
+            + _budget_human(one_liner_text))
 
 
-# ── алерт триггера листа ожидания ────────────────────────────────────────────────────
+# ── сработал ожидаемый ценовой ориентир ──────────────────────────────────────────────
 def format_trigger_alert(fired):
-    """fired = {'entry':..., 'observed': {date, close}} из bot_watchlist.evaluate."""
+    """Сработал заранее заданный ценовой ориентир по активу из листа ожидания (человеческим языком)."""
     e = fired["entry"]
     obs = fired["observed"]
     t = e.get("trigger") or {}
-    direction = e.get("direction")
-    dir_txt = {"above": "≥", "below": "≤"}.get(t.get("dir"), t.get("dir"))
-    head = f"🔔 Сработал триггер листа ожидания: {e.get('asset')}"
-    if direction:
-        head += f" · {direction}"
-    return (f"{head}\n"
-            f"{t.get('symbol')} close {obs.get('close')} {dir_txt} уровня {t.get('level')} "
-            f"(на {obs.get('date')}).\n"
-            f"Контекст: {e.get('trigger_text') or '—'}\n"
-            f"Окно входа §6: после события 1-го порядка, до того как рынок свяжет цепочку. "
-            f"Прогон воронки по активу для свежего отчёта.")
+    name = _asset_human(e.get("asset", ""))[0]
+    side = {"above": "поднялась выше", "below": "опустилась ниже"}.get(t.get("dir"), "достигла")
+    ctx = e.get("trigger_text")
+    return (f"🔔 Сработал ориентир, который ты ждал: {name} ({e.get('asset')})\n\n"
+            f"Цена {side} уровня {t.get('level')} (сейчас {obs.get('close')}, {obs.get('date')}).\n"
+            + (f"Напоминание по идее: {ctx}\n" if ctx else "")
+            + "Это был «вход по триггеру» — момент, которого мы ждали. Имеет смысл свежий разбор "
+              "по этому активу (напиши мне «разбери {}»).".format(name))
 
 
 def escape(s):

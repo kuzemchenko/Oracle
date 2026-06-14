@@ -144,9 +144,9 @@ class Bot:
             unlock = S.accept_unlock_at(issued_at)
             self.tg.answer_callback(
                 cb_id,
-                f"Пауза пре-коммитмента §12: «Принять» откроется через {rem:.0f} ч "
-                f"(в {S.iso(unlock) if unlock else '—'}). Это защита от импульсивного входа. "
-                f"Можно «Отклонить»/«Отложить».",
+                f"«Беру в работу» откроется через {rem:.0f} ч (в {S.iso(unlock) if unlock else '—'}). "
+                f"Это намеренная пауза-сутки — защита от решения на эмоциях. "
+                f"Пока можно нажать «Мимо» или «Позже».",
                 show_alert=True)
             return
 
@@ -164,8 +164,9 @@ class Bot:
                                          "asset": card["asset"], "action": action}
         self.tg.send_message(
             chat,
-            f"{S.action_ru(action)}: {card['asset']}. Укажи МОТИВ решения ответным сообщением "
-            f"(§12 — сверим с исходом, покажу твою калибровку). Или пришли «-», чтобы пропустить.")
+            f"Записал: «{S.action_ru(action)}» по {card['asset']}.\n"
+            f"Черкни одной фразой ПОЧЕМУ так решил (ответным сообщением) — позже сверим с тем, "
+            f"что вышло, и покажу, насколько точны твои решения. Или пришли «-», чтобы пропустить.")
         self.save()
 
     def _on_message(self, msg):
@@ -185,9 +186,9 @@ class Bot:
             if text != "-":
                 S.append_motive(run_id=slot["run_id"], asset=slot["asset"],
                                 action=slot["action"], motive=text, chat_id=self.chat_id)
-                self.tg.send_message(chat, "Мотив записан (§12).")
+                self.tg.send_message(chat, "Записал причину, спасибо — сверим с результатом.")
             else:
-                self.tg.send_message(chat, "Мотив пропущен.")
+                self.tg.send_message(chat, "Ок, без причины.")
             self.state["awaiting_motive"] = None
             self.save()
             return
@@ -201,43 +202,82 @@ class Bot:
         cmd = text.split()[0].lstrip("/").lower()
         if cmd in ("start", "help"):
             self.tg.send_message(chat,
-                "Пульт «Оракула». Пуш отчётов с кнопками Принять/Отклонить/Отложить "
-                "(Принять — через 24 ч, пауза §12).\n\n"
-                "💬 Просто напиши мне вопрос обычным текстом — отвечу тем же мозгом, что ведёт "
-                "проект в терминале (Дирижёр). Например: «как ты оцениваешь идею по меди?», "
-                "«что у нас с бюджетом?», «объясни, как работает воронка».\n\n"
-                "Команды: /status — открытые идеи; /budget — строка бюджета; "
-                "/watchlist — лист ожидания; /reset — очистить контекст диалога.")
+                "Привет! Я «Оракул» — помощник по инвест-идеям. Что я делаю:\n\n"
+                "• Каждый день анализирую новости и рынок и ищу НЕочевидные идеи — где рынок ещё "
+                "не заметил выгоду. Если стоящего нет — честно молчу или пишу «идей нет».\n"
+                "• Когда идея есть — пришлю карточку простым языком: что это, почему, чем рискуем, "
+                "и кнопки «Беру в работу / Мимо / Позже».\n"
+                "• Я НЕ даю инвест-рекомендаций и не торгую — последнее слово и деньги всегда за тобой.\n\n"
+                "💬 Можешь просто писать мне вопросы обычным текстом — отвечу по-человечески. "
+                "Например: «объясни последнюю идею», «что сейчас происходит?», «почему ты выбрал медь?».\n\n"
+                "Команды: /status — идеи, ждущие решения; /budget — расход на работу системы; "
+                "/watchlist — что я отслеживаю; /format — короче/подробнее карточки; "
+                "/reset — забыть наш диалог.")
         elif cmd == "reset":
             self.state["chat_history"] = []
             self.save()
-            self.tg.send_message(chat, "Контекст диалога очищен.")
+            self.tg.send_message(chat, "Хорошо, начнём разговор с чистого листа.")
         elif cmd == "status":
             pend = [c for c in self.state["pending"].values() if c.get("status") == "pending"]
             if not pend:
-                self.tg.send_message(chat, "Открытых идей на решении нет.")
+                self.tg.send_message(chat, "Сейчас нет идей, ждущих твоего решения.")
             else:
-                lines = ["Открытые идеи:"]
+                lines = ["Идеи, ждущие решения:"]
                 for c in pend:
-                    lock = ("готова к приёму" if S.accept_unlocked(c["issued_at"])
-                            else f"приём через {S.hours_remaining(c['issued_at']):.0f}ч")
-                    lines.append(f"• {c['asset']} ({c['run_id']}) — {lock}")
+                    name = R._asset_human(c["asset"])[0]
+                    lock = ("можно брать в работу" if S.accept_unlocked(c["issued_at"])
+                            else f"кнопка откроется через {S.hours_remaining(c['issued_at']):.0f} ч")
+                    lines.append(f"• {name} ({c['asset']}) — {lock}")
                 self.tg.send_message(chat, "\n".join(lines))
+        elif cmd == "format":
+            self._cmd_format(chat, text)
         elif cmd == "budget":
             self.tg.send_message(chat, R.format_budget_line(self._budget_one_liner(with_key=True)))
         elif cmd == "watchlist":
             entries = W.current_entries()
             if not entries:
-                self.tg.send_message(chat, "Лист ожидания пуст.")
+                self.tg.send_message(chat, "Пока ничего не отслеживаю в режиме ожидания.")
             else:
-                lines = ["Лист ожидания:"]
+                lines = ["Отслеживаю (жду нужный момент):"]
                 for e in entries.values():
                     t = e.get("trigger")
-                    cond = f"{t['symbol']} {t['dir']} {t['level']}" if t else "ручная проверка"
-                    lines.append(f"• {e.get('asset')} — {cond}")
+                    name = R._asset_human(e.get("asset", ""))[0]
+                    side = {"above": "поднимется выше", "below": "опустится ниже"}.get(
+                        (t or {}).get("dir"), "достигнет уровня") if t else "по сигналу"
+                    cond = f"когда цена {side} {t['level']}" if t else "по ручной проверке"
+                    lines.append(f"• {name} ({e.get('asset')}) — {cond}")
                 self.tg.send_message(chat, "\n".join(lines))
         else:
-            self.tg.send_message(chat, "Неизвестная команда. /help")
+            self.tg.send_message(chat, "Не знаю такой команды. Напиши /help или просто задай вопрос словами.")
+
+    def _cmd_format(self, chat, text):
+        """Переключатель подачи: /format [long|short] | unclear N.. | clear [N..]."""
+        parts = text.split()[1:]
+        pres = R.load_presentation()
+        if not parts:
+            unclear = sorted(pres["still_unclear"]) or "—"
+            self.tg.send_message(
+                chat, f"Формат карточки: {pres['mode']}.\n"
+                      f"В коротком режиме ℹ️-подсказки показываются для полей: {unclear}.\n\n"
+                      "Команды: /format long — подсказки у всех полей; /format short — только у "
+                      "помеченных; /format unclear 3 5 — пометить поля как «ещё мутно»; "
+                      "/format clear — убрать все пометки.")
+            return
+        sub = parts[0].lower()
+        if sub in ("long", "short"):
+            R.save_presentation(mode=sub)
+            self.tg.send_message(chat, f"Готово: формат — {sub}.")
+        elif sub == "unclear":
+            nums = {int(x) for x in parts[1:] if x.isdigit() and 1 <= int(x) <= 13}
+            R.save_presentation(still_unclear=sorted(pres["still_unclear"] | nums))
+            self.tg.send_message(chat, f"Помечены как «ещё мутно»: {sorted(pres['still_unclear'] | nums) or '—'}.")
+        elif sub == "clear":
+            rem = {int(x) for x in parts[1:] if x.isdigit()}
+            new = sorted(pres["still_unclear"] - rem) if rem else []
+            R.save_presentation(still_unclear=new)
+            self.tg.send_message(chat, f"Обновил пометки: {new or '—'}.")
+        else:
+            self.tg.send_message(chat, "Не понял. /format long|short | unclear N.. | clear [N..]")
 
     # ── свободный диалог с Дирижёром ─────────────────────────────────────────────────
     def _send_long(self, chat, text):
@@ -254,9 +294,9 @@ class Bot:
         try:
             if self._budget_status().get("exit_code") == 3:
                 self.tg.send_message(
-                    chat, "Месячный потолок бюджета токенов исчерпан (§11) — диалог с моделью "
-                          "приостановлен до нового месяца/пополнения. Команды /status, /budget, "
-                          "/watchlist работают.")
+                    chat, "На этот месяц достигнут лимит расходов на ИИ-модели — отвечать словами "
+                          "пока не могу (это защитный лимит). Команды /status, /budget, /watchlist "
+                          "работают; диалог вернётся в начале месяца.")
                 return
         except Exception as e:                                   # noqa: BLE001
             log("chat budget check ошибка", repr(e))
@@ -312,18 +352,40 @@ class Bot:
             log("tick budget ошибка", repr(e))
         self.save()
 
+    def _send_card(self, text, kb):
+        """Длинную карточку шлём частями (лимит Telegram 4096); клавиатуру — на ПОСЛЕДНЮЮ часть."""
+        import bot_chat as CH
+        parts = [text[i:i + CH.MAX_REPLY_CHUNK] for i in range(0, len(text), CH.MAX_REPLY_CHUNK)] or [text]
+        mid = None
+        for i, part in enumerate(parts):
+            last = (i == len(parts) - 1)
+            mid = self.tg.send_message(self.chat_id, part, reply_markup=kb if last else None)
+        return mid
+
     def _tick_reports(self):
+        pres = R.load_presentation()
         for proto in R.new_runs(self.state["pushed_runs"]):
             run_id = proto.get("run_id")
             issued_at = proto.get("ts")
+            is_mock = (proto.get("mode") != "live")
+            # mock/test НЕ маскируем под идею: по умолчанию вовсе не шлём (config флаг).
+            if is_mock and not pres["send_mock_to_telegram"]:
+                self.state["pushed_runs"].append(run_id)
+                log("mock-прогон не отправлен (send_mock_to_telegram=false)", run_id)
+                continue
+            if is_mock:
+                self.tg.send_message(self.chat_id, R.format_mock_check(proto))
+                self.state["pushed_runs"].append(run_id)
+                log("пуш проверки связи (mock)", run_id)
+                continue
             ideas = R.ideas_from_protocol(proto)
             if ideas:
                 for idea in ideas:
                     asset = idea.get("актив")
                     token = S.idea_token(run_id, asset)
-                    text = R.format_report(proto, idea)
+                    text = R.format_report(proto, idea, pres)
                     kb = R.build_keyboard(token, issued_at)
-                    mid = self.tg.send_message(self.chat_id, text, reply_markup=kb)
+                    mid = self._send_card(text, kb)
                     self.state["pending"][token] = {
                         "run_id": run_id, "asset": asset,
                         "direction": idea.get("направление"), "score": idea.get("балл"),
@@ -332,7 +394,7 @@ class Bot:
                     log("пуш идеи", run_id, asset, "token", token)
             else:
                 self.tg.send_message(self.chat_id, R.format_weak_day(proto))
-                log("пуш слабого дня", run_id)
+                log("пуш «идей нет»", run_id)
             # РАНО-идеи прогона → лист ожидания (manual_check; авто-триггер привяжет оператор).
             added = W.ingest_protocol(proto, existing_ids=self.state["seen_watchlist"])
             for rec in added:
@@ -392,8 +454,9 @@ class Bot:
         log("старт. chat_id", self.chat_id, "BUDGET_HOUR", BUDGET_HOUR)
         self.initialize_baseline()
         if self.chat_id:
-            self.tg.send_message(self.chat_id, "🤖 Пульт «Оракула» на связи. Пиши вопросы текстом — "
-                                               "отвечу как Дирижёр. /help")
+            self.tg.send_message(self.chat_id, "🤖 «Оракул» на связи. Буду присылать идеи простым "
+                                               "языком и отвечать на вопросы. Нажми /help, чтобы понять, "
+                                               "что я умею.")
         while True:
             try:
                 ups = self.tg.get_updates(self.state.get("update_offset", 0))

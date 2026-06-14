@@ -239,7 +239,7 @@ def test_tick_reports_push_and_dedup(paths):
     _write_proto(paths["logs"], _proto())
     bot = _fresh_bot()
     bot._tick_reports()
-    pushed = [s for s in bot.tg.sent if "ИДЕЯ" in s[1]]
+    pushed = [s for s in bot.tg.sent if "Идея дня:" in s[1]]
     assert len(pushed) == 1
     assert pushed[0][2] and "inline_keyboard" in pushed[0][2]   # клавиатура есть
     # РАНО-идея ушла в лист ожидания
@@ -254,7 +254,18 @@ def test_weak_day_push(paths):
     _write_proto(paths["logs"], _proto(ideas=False, early=False))
     bot = _fresh_bot()
     bot._tick_reports()
-    assert any("слабый день" in s[1] for s in bot.tg.sent)
+    assert any("Идей нет" in s[1] for s in bot.tg.sent)
+
+
+def test_mock_run_not_pushed_by_default(paths):
+    # mock-прогон не маскируется под идею и по умолчанию вовсе не шлётся (send_mock_to_telegram=false)
+    p = _proto()
+    p["mode"] = "mock"
+    _write_proto(paths["logs"], p)
+    bot = _fresh_bot()
+    bot._tick_reports()
+    assert bot.tg.sent == []                                   # ничего не отправлено
+    assert p["run_id"] in bot.state["pushed_runs"]             # но помечен как обработанный
 
 
 def test_baseline_marks_without_spam(paths):
@@ -273,25 +284,57 @@ def test_watchlist_alert_fires_once(paths):
     bot = _fresh_bot()
     e = W.add_entry(asset="Brent", trigger=W.make_trigger("BNO.US", 75, "above"))
     bot._tick_watchlist()
-    assert any("Сработал триггер" in s[1] for s in bot.tg.sent)
+    assert any("Сработал ориентир" in s[1] for s in bot.tg.sent)
     assert e["id"] in bot.state["fired_triggers"]
     before = len(bot.tg.sent)
     bot._tick_watchlist()              # дедуп: повторно не алертит
     assert len(bot.tg.sent) == before
 
 
-# ── новый «форбсовский» формат карточки ──────────────────────────────────────────────
-def test_report_is_column_not_dict_dump(paths):
-    proto = _proto()
-    idea = R.ideas_from_protocol(proto)[0]
-    text = R.format_report(proto, idea)
-    assert "ИДЕЯ" in text                       # хедлайн (на него опирается пуш/поиск)
-    assert "Все 13 граней" in text and "🎯 ПОЧЕМУ" in text  # читаемый лид + полнота
-    # ВСЕ 13 граней присутствуют (ничего не теряем при свёртке)
+# ── канонический формат подачи §8 (все 13 полей + ℹ️, шапка с 1 цифрой) ───────────────
+def _live_idea():
+    return {"актив": "BNO.US", "направление": "лонг", "балл": 0.58,
+            "позиция": {"вероятность": 0.65},
+            "отчёт": {"judgment": {"поля": {
+                "1_": "BNO.US лонг", "2_каскад": ["триггер X", "перенос на BNO.US"],
+                "9_скоринг": "критик/судья: ок", "13_рамка": "инструмент"}}}}
+
+
+def test_long_report_all_13_fields_with_help(paths):
+    proto = {"run_id": "f1", "mode": "live", "theme": "brent"}
+    text = R.format_report(proto, _live_idea(), {"mode": "long", "still_unclear": set(),
+                                                 "send_mock_to_telegram": False})
+    assert "Идея дня:" in text and "нефть Brent" in text          # человеческий хедлайн
+    assert "Насколько уверены: ~65%" in text                       # ОДНА цифра в шапке (поле 3)
     for n in range(1, 14):
-        assert f"\n{n}. " in text, f"пропала грань {n}"
-    assert "{" not in text and "judgment" not in text     # без дампа словаря/служебных ключей
-    assert "исследовательский инструмент" in text          # дисклеймер §8 п.13
+        assert f"\n{n}. " in text, f"пропало поле {n}"            # ВСЕ 13 полей
+    assert text.count("ℹ️") == 13                                  # long → ℹ️ у всех
+    # сводный балл 0.58 — ТОЛЬКО в п.9 с пометкой, НЕ в шапке
+    assert "0.58/1.00" in text and "сводная оценка по 6 критериям" in text
+    assert "0.58" not in text.split("\n")[1]                       # не в строке уверенности
+    assert "{" not in text and "judgment" not in text
+
+
+def test_short_mode_shows_help_only_for_marked():
+    proto = {"run_id": "f1", "mode": "live", "theme": "brent"}
+    text = R.format_report(proto, _live_idea(), {"mode": "short", "still_unclear": {2},
+                                                 "send_mock_to_telegram": False})
+    assert text.count("ℹ️") == 1                                   # только поле 2
+    assert "→" in text                                             # содержание всегда есть
+
+
+def test_empty_field_is_honest_not_invented():
+    proto = {"run_id": "f1", "mode": "live", "theme": "brent"}
+    text = R.format_report(proto, _live_idea(), {"mode": "long", "still_unclear": set(),
+                                                 "send_mock_to_telegram": False})
+    assert R.EMPTY_MARK in text                                    # пустые поля помечены честно (П8)
+
+
+def test_mock_is_connection_check_not_idea():
+    proto = {"run_id": "f1", "mode": "mock", "theme": "brent"}
+    text = R.format_report(proto, _live_idea())
+    assert "Проверка связи" in text and "НЕ идея" in text          # не маскируется под идею
+    assert "Идея дня" not in text
 
 
 # ── свободный диалог с Дирижёром (клиент внедрён, без сети) ───────────────────────────
