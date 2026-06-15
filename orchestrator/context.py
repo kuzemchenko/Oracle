@@ -25,10 +25,12 @@ import sys
 sys.path.insert(0, str(ROOT))
 from mathlib import indicators as ind  # noqa: E402
 from mathlib import waves as wv         # noqa: E402
+from orchestrator import universe_resolver as U  # noqa: E402
 
-CORE = ["BNO.US", "USO.US", "SPY.US", "DBC.US", "CPER.US", "COPX.US",
-        "SPCX.US", "RKLB.US", "ASTS.US",
-        "VRT.US", "GEV.US", "ETN.US", "CLF.US", "NUE.US"]  # цепочка ai_power (пилот тектоники)
+# CORE = курируемая ЗАТРАВКА калибровки (единый источник правды — universe_resolver.CALIBRATION_SEED),
+# а НЕ предел открытия. Скан событий/каскадов открыт (§6 Эт.1/§17.2 — U.discovery_is_open());
+# что МОЖНО запечатать (§9/П16) — динамический U.sealable_universe(). Значение списка не изменилось.
+CORE = U.CALIBRATION_SEED
 WAVE_THRESHOLD_PCT = 0.05  # порог ZigZag для разметки волн (§4 «Волновик»); калибруется форвардом
 MIN_THEME_HISTORY_BARS = 20  # §6/§23: меньше — нет волы/индикаторов/калибровки для §9-разрешимости
 
