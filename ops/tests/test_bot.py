@@ -369,3 +369,70 @@ def test_chat_answer_uses_conductor_role_and_grounds(paths):
     assert reply == "ок"
     assert fake.calls[0]["role"] == "conductor"
     assert "СОСТОЯНИЕ СИСТЕМЫ" in fake.calls[0]["user"]   # ответ заземлён на контекст
+
+
+# ── состязательный разбор идеи по возражению (/debate, §4 блок E) ─────────────────────
+@pytest.fixture
+def challenge_paths(paths, monkeypatch):
+    """Изоляция движка разбора: читаем идеи из temp funnel_logs, пишем разбор в temp."""
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT))
+    from orchestrator import challenge as CH
+    monkeypatch.setattr(CH, "FUNNEL_LOGS", paths["logs"])
+    monkeypatch.setattr(CH, "CHALLENGE_LOGS", paths["tmp"] / "challenges")
+    (paths["logs"] / "funnel_20260612T140000Z.json").write_text(
+        json.dumps(_proto(), ensure_ascii=False), encoding="utf-8")
+    return CH
+
+
+def test_debate_no_args_lists_ideas(challenge_paths):
+    bot = _fresh_bot()
+    bot._on_message({"chat": {"id": 555}, "text": "/debate"})
+    txt = " ".join(s[1] for s in bot.tg.sent)
+    assert "оспорить" in txt.lower() and "BNO.US" in txt        # перечислил идею, не запускал контур
+
+
+def test_debate_runs_contour_and_returns_verdict(challenge_paths):
+    bot = _fresh_bot()
+    bot._on_message({"chat": {"id": 555},
+                     "text": "/debate это же просто ставка на нефть, всё уже в цене"})
+    joined = "\n".join(s[1] for s in bot.tg.sent)
+    assert "состязательн" in joined.lower()                     # анонс запуска
+    assert "Вердикт слепого судьи" in joined                    # резюме контура доставлено
+    assert "не рекомендация" in joined                          # рамка §12
+    # разбор записан в изолированный журнал, не в боевой
+    assert list((challenge_paths.CHALLENGE_LOGS).glob("challenge_*.json"))
+
+
+# ── заземление свободного чата на ВЫДАННЫЕ идеи (баг: Дирижёр не видел пушнутую карточку) ──
+def test_chat_brief_grounds_on_pending_ideas_not_mock_fixture(paths, monkeypatch):
+    import bot_chat as BC
+    # боевой прогон с идеей + mock-фикстура, которая по имени файла «последняя» (week7…)
+    real = _proto(run_id="multi_20260613T222357Z__ai_power", issued_at="2026-06-13T22:23:57Z")
+    real["mode"] = "live"; real["theme"] = "ai_power"
+    real["этап6_синтез"]["отчёты"][0]["актив"] = "CLF.US"
+    real["этап6_синтез"]["отчёты"][0]["позиция"] = {"вероятность": 0.65}
+    real["этап6_синтез"]["отчёты"][0]["отчёт"]["judgment"]["поля"] = {
+        "1_актив_направление_инструмент": "CLF.US лонг (сталь GOES)",
+        "2_каскадная_цепочка": ["спрос на трансформаторы", "дефицит GOES-стали", "перенос на CLF.US"],
+        "11_что_неизвестно": ["доля выручки CLF от GOES-стали", "лаг переноса спроса в цену"]}
+    (paths["logs"] / "multi_20260613T222357Z__ai_power.json").write_text(
+        json.dumps(real, ensure_ascii=False), encoding="utf-8")
+    fixture = _proto(run_id="week7_testday", issued_at="")
+    fixture["mode"] = "mock"
+    (paths["logs"] / "week7_testday.json").write_text(
+        json.dumps(fixture, ensure_ascii=False), encoding="utf-8")
+
+    # состояние бота: CLF.US выдан и ждёт решения
+    st = S._default_state()
+    st["pending"]["multi_20260613T222357Z__ai_power|CLF.US"] = {
+        "run_id": "multi_20260613T222357Z__ai_power", "asset": "CLF.US", "direction": "лонг",
+        "issued_at": "2026-06-13T22:23:57Z", "status": "pending"}
+    monkeypatch.setattr(S, "load_state", lambda path=None: st)
+
+    brief = BC.context_brief()
+    assert "CLF.US" in brief                                  # выданная идея видна Дирижёру
+    assert "GOES" in brief                                    # суть восстановлена из протокола
+    assert "week7_testday" not in brief                       # mock-фикстура не выдаётся за прогон
+    # «последний боевой прогон» — именно live ai_power, не mock-фикстура
+    assert "ai_power" in brief

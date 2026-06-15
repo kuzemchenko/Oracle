@@ -59,8 +59,23 @@ def load_protocol(run_id, logs_dir=None):
         return None
 
 
+_TS_RE = re.compile(r"\d{8}T\d{6}Z")
+
+
+def _ts_key(protocol):
+    """Хронологический ключ протокола: timestamp из ts/run_id. БЕЗ timestamp (статичные тест-
+    фикстуры вроде week7_testday) → пустой ключ, такие идут НИЖЕ боевых прогонов. Иначе «последним
+    прогоном» в чате/пуше оказывается mock-фикстура, отсортированная по имени файла (баг: Дирижёр
+    заземлялся на week7_testday вместо реальной выданной идеи)."""
+    ts = (protocol or {}).get("ts") or ""
+    if ts:
+        return ts
+    m = _TS_RE.search(str((protocol or {}).get("run_id") or ""))
+    return m.group(0) if m else ""
+
+
 def scan_protocols(logs_dir=None):
-    """Все протоколы в журнале, по возрастанию run_id (run_id несёт timestamp → сортируется)."""
+    """Все протоколы в журнале по ХРОНОЛОГИИ (timestamp из ts/run_id), не по имени файла."""
     d = pathlib.Path(logs_dir or FUNNEL_LOGS)
     if not d.exists():
         return []
@@ -70,6 +85,7 @@ def scan_protocols(logs_dir=None):
             out.append(json.loads(p.read_text(encoding="utf-8")))
         except (json.JSONDecodeError, OSError):
             continue
+    out.sort(key=lambda pr: (_ts_key(pr), str(pr.get("run_id") or "")))
     return out
 
 
@@ -77,6 +93,25 @@ def ideas_from_protocol(protocol):
     """Список карточек идей (отчёты этапа 6) из протокола. Пусто — слабый день §6."""
     synth = (protocol or {}).get("этап6_синтез") or {}
     return synth.get("отчёты") or []
+
+
+def idea_brief(idea_card):
+    """Сжатая суть выданной идеи для ЗАЗЕМЛЕНИЯ свободного чата Дирижёра (он должен предметно
+    обсуждать пушнутые карточки, а не один последний прогон). Только то, что в карточке (П8).
+
+    Возвращает {актив, направление, вероятность, тезис, каскад, что_неизвестно} — поля §8 №1/2/11
+    + вероятность судьи (поле 3). Сохраняется и в pending при пуше, чтобы суть пережила ротацию
+    файлов протоколов."""
+    f = _fields_dict(idea_card)
+    pos = idea_card.get("позиция") if isinstance(idea_card.get("позиция"), dict) else {}
+    return {
+        "актив": idea_card.get("актив"),
+        "направление": idea_card.get("направление"),
+        "вероятность": pos.get("вероятность"),
+        "тезис": _humanize(_field(f, 1), 200) or idea_card.get("актив"),
+        "каскад": _cascade_line(_field(f, 2)),
+        "что_неизвестно": _humanize(_field(f, 11), 220),
+    }
 
 
 def new_runs(pushed_run_ids, logs_dir=None):

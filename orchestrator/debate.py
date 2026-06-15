@@ -76,13 +76,18 @@ def _generator_family(models=None):
 
 
 def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, models=None,
-               eval_context=None):
+               eval_context=None, user_doubt=None):
     """Прогон состязательного контура по одному кандидату.
 
     candidate: {актив, направление, тезис, разрешимость, школа, вероятность_школы, ...}
     eval_context: опц. СТОЙКО-НЕЙТРАЛЬНАЯ пометка контекста оценки для судьи (напр. §23.2б:
         «идентичности скрыты намеренно, оценивай СТРУКТУРУ рассуждения и работу с поданными
         данными»). НЕ раскрывает направление/исход; ловушку не вытягивает. В воронке = None.
+    user_doubt: опц. возражение/сомнение владельца по этой идее (ad hoc разбор, см.
+        orchestrator/challenge.py). Подаётся ДВАЖДЫ (решение пользователя §30): (а) критику —
+        как обязательная линия атаки Red Team; (б) судье — как отдельный вопрос, на который тот
+        обязан явно ответить, меняет ли возражение вердикт. Слепоту судьи и развязку семейств
+        НЕ нарушает (это данные дела, не идентичность автора). В воронке = None.
     Возвращает dict-протокол дебатов: реплики ролей, СЛЕПОЕ дело судьи, вердикт, пересчёт.
     """
     rubric = rubric or load_rubric()
@@ -115,8 +120,10 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     eff_resolvability = candidate.get("разрешимость") or gen_j.get("разрешимость")
     down_slice = {**idea_slice, "направление": eff_direction, "разрешимость": eff_resolvability}
 
-    # 2. Критик (видит гипотезу)
+    # 2. Критик (видит гипотезу; возражение владельца — обязательная линия атаки)
     crit_payload = {**down_slice, "гипотеза": _ok_judgment(gen)}
+    if user_doubt:
+        crit_payload["возражение_владельца_ОБЯЗАТЕЛЬНО_РАЗОБРАТЬ"] = user_doubt
     crit = A.call_agent("e_critic", ctx, client, user_prompt=_user_for("e_critic", crit_payload))
 
     # 3. Адвокат (видит гипотезу + критику)
@@ -147,6 +154,13 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     }
     if eval_context:
         judge_payload["контекст_оценки"] = eval_context
+    if user_doubt:
+        # Возражение владельца — отдельный вопрос судье (решение пользователя §30): судья обязан
+        # явно учесть его при оценке рубрики и в выводе сказать, меняет ли оно вердикт.
+        judge_payload["возражение_владельца"] = user_doubt
+        judge_payload["напоминание"] += (
+            "; владелец поднял возражение (поле 'возражение_владельца') — учти его в баллах "
+            "рубрики и в выводе ЯВНО ответь, выдерживает ли идея это возражение")
     # П10: судья (и все его фолбеки) не из семейства генератора текущей идеи
     judge = A.call_agent("e_judge", ctx, client, user_prompt=_user_for("e_judge", judge_payload),
                          exclude_family=gen_family)
@@ -155,6 +169,7 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
 
     return {
         "актив": asset, "направление": direction, "школа": candidate.get("школа"),
+        "возражение_владельца": user_doubt,
         "base_rate": base_rate,
         "семейство_генератора": gen_family,
         "семейство_судьи": OR.family_of(judge.get("model", ""), models) if judge.get("ok") else None,

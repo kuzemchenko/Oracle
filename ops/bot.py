@@ -210,9 +210,12 @@ class Bot:
                 "• Я НЕ даю инвест-рекомендаций и не торгую — последнее слово и деньги всегда за тобой.\n\n"
                 "💬 Можешь просто писать мне вопросы обычным текстом — отвечу по-человечески. "
                 "Например: «объясни последнюю идею», «что сейчас происходит?», «почему ты выбрал медь?».\n\n"
+                "🥊 Сомневаешься в идее? Напиши «/debate <твоё возражение>» — и я НЕ отвечу сам, "
+                "а сведу спор разных моделей: одна защищает идею, другая атакует твоим возражением, "
+                "третья (слепой судья) выносит вердикт — выдержала идея твоё сомнение или нет.\n\n"
                 "Команды: /status — идеи, ждущие решения; /budget — расход на работу системы; "
-                "/watchlist — что я отслеживаю; /format — короче/подробнее карточки; "
-                "/reset — забыть наш диалог.")
+                "/watchlist — что я отслеживаю; /debate — оспорить идею; /format — короче/подробнее "
+                "карточки; /reset — забыть наш диалог.")
         elif cmd == "reset":
             self.state["chat_history"] = []
             self.save()
@@ -229,6 +232,8 @@ class Bot:
                             else f"кнопка откроется через {S.hours_remaining(c['issued_at']):.0f} ч")
                     lines.append(f"• {name} ({c['asset']}) — {lock}")
                 self.tg.send_message(chat, "\n".join(lines))
+        elif cmd == "debate":
+            self._cmd_debate(chat, text)
         elif cmd == "format":
             self._cmd_format(chat, text)
         elif cmd == "budget":
@@ -278,6 +283,71 @@ class Bot:
             self.tg.send_message(chat, f"Обновил пометки: {new or '—'}.")
         else:
             self.tg.send_message(chat, "Не понял. /format long|short | unclear N.. | clear [N..]")
+
+    # ── состязательный разбор идеи по возражению (§4 блок E) ─────────────────────────
+    def _cmd_debate(self, chat, text):
+        """/debate <возражение> — НЕ ответ Дирижёра, а спор разных семейств моделей по идее.
+
+        Генератор/адвокат защищают тезис, критик атакует возражением владельца, слепой судья
+        (другого семейства, П10) выносит вердикт. Можно начать с тикера выданной идеи: «/debate
+        SPY.US это просто ставка на рынок». Без тикера — последняя выданная идея."""
+        # Денежные ворота §11: контур = 5 LLM-вызовов; при превышении потолка не жжём токены.
+        try:
+            if self._budget_status().get("exit_code") == 3:
+                self.tg.send_message(
+                    chat, "На этот месяц достигнут лимит расходов на ИИ-модели — состязательный "
+                          "разбор пока не запускаю (защитный лимит). Вернётся в начале месяца.")
+                return
+        except Exception as e:                                   # noqa: BLE001
+            log("debate budget check ошибка", repr(e))
+
+        sys.path.insert(0, str(ROOT))
+        from orchestrator import challenge as CH
+
+        parts = text.split(maxsplit=1)
+        doubt = parts[1].strip() if len(parts) > 1 else ""
+        ideas = CH.list_ideas()
+        if not doubt:
+            if not ideas:
+                self.tg.send_message(chat, "Пока нет выданных идей, которые можно оспорить — "
+                                           "дождись прогона воронки.")
+                return
+            lines = ["Какую идею оспорить? Напиши «/debate <твоё сомнение>» — разберу последнюю; "
+                     "или начни с тикера. Сейчас на столе:"]
+            for i in ideas:
+                lines.append(f"• {R._asset_human(i['актив'])[0]} ({i['актив']}) {i['направление']}")
+            self.tg.send_message(chat, "\n".join(lines))
+            return
+
+        # Необязательный ведущий тикер: «/debate SPY.US ...» — только если совпал с выданной идеей.
+        asset = None
+        assets = {i["актив"] for i in ideas}
+        tok = doubt.split()[0] if doubt.split() else ""
+        for cand in (tok.upper(), tok.upper() + ".US"):
+            if cand in assets:
+                asset = cand
+                doubt = doubt[len(tok):].strip() or doubt
+                break
+
+        self.tg.send_message(
+            chat, "🥊 Запускаю состязательный разбор: одна модель защищает идею, другая атакует "
+                  "твоим возражением, слепой судья решает. Это займёт до минуты…")
+        if hasattr(self.tg, "send_chat_action"):
+            self.tg.send_chat_action(chat, "typing")
+        try:
+            p = CH.run_challenge(doubt, asset=asset, mode="auto", write=True)
+        except Exception as e:                                   # noqa: BLE001
+            log("debate ошибка", repr(e))
+            self.tg.send_message(
+                chat, "Не смог провести разбор (модель недоступна или ключ OpenRouter не задан). "
+                      "Попробуй позже.")
+            return
+        if "ОТКАЗ" in p:
+            self.tg.send_message(chat, f"Не получилось: {p['ОТКАЗ']}.")
+            return
+        self._send_long(chat, p["резюме"] + "\n\n(Это исследовательский разбор, не рекомендация — "
+                                            "решение и риск за тобой, §12.)")
+        log("debate: разбор отправлен", p.get("run_id"))
 
     # ── свободный диалог с Дирижёром ─────────────────────────────────────────────────
     def _send_long(self, chat, text):
@@ -390,6 +460,9 @@ class Bot:
                         "run_id": run_id, "asset": asset,
                         "direction": idea.get("направление"), "score": idea.get("балл"),
                         "issued_at": issued_at, "message_id": mid, "status": "pending",
+                        # суть идеи — чтобы свободный чат Дирижёра мог предметно её обсуждать
+                        # даже после ротации файлов протоколов (§8 поля 1/2/11 + P судьи).
+                        "idea_brief": R.idea_brief(idea),
                     }
                     log("пуш идеи", run_id, asset, "token", token)
             else:
