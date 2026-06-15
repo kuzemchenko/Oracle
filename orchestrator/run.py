@@ -91,6 +91,42 @@ def _run_ablation(args):
     return 0
 
 
+def _run_challenge(args):
+    """Точечный состязательный разбор одной идеи по возражению владельца (§4 блок E, ad hoc)."""
+    from orchestrator import challenge as CH
+    doubt = (args.doubt or "").strip()
+    if not doubt:
+        ideas = CH.list_ideas()
+        if not ideas:
+            print("Нет выданных идей для разбора. Сделай прогон воронки (--mode funnel).")
+            return 1
+        print("Укажи возражение через --doubt \"...\". Доступные идеи последнего прогона:")
+        for i in ideas:
+            print(f"  • {i['актив']} {i['направление']} (балл {i.get('балл')}) — {i['тезис']}")
+        return 1
+    mode = "mock" if args.mock else "auto"
+    p = CH.run_challenge(doubt, asset=args.asset, src_run_id=args.from_run, mode=mode,
+                         write=not args.no_write)
+    if "ОТКАЗ" in p:
+        print(f"ОТКАЗ: {p['ОТКАЗ']}")
+        for i in p.get("доступные_идеи", []):
+            print(f"  • {i['актив']} {i['направление']} — {i['тезис']}")
+        return 1
+    print(f"[{p['run_id']}] режим={p['mode']}\n")
+    print(p["резюме"])
+    if not args.no_write:
+        print(f"\nПротокол: journal/challenges/{p['run_id']}.json")
+    return 0
+
+
+def _run_challenge_digest(args):
+    """Дайджест live-разборов /debate для еженедельного разбора §25 (мостик «вопросы → предложения»)."""
+    from orchestrator import challenge as CH
+    dg = CH.digest_challenges(since=args.since)
+    print(CH.format_digest(dg))
+    return 0
+
+
 def _run_multi(args):
     from orchestrator.multi_event import run_multi_event
     mode = "mock" if args.mock else "auto"
@@ -123,16 +159,37 @@ def _run_multi(args):
     return 0
 
 
+def _run_event_first(args):
+    from orchestrator.event_first import run_event_first
+    mode = "mock" if args.mock else "auto"     # auto → live при ключе OpenRouter
+    p = run_event_first(mode=mode, k=args.k, write=not args.no_write)
+    print(f"[{p['run_id']}] EVENT-FIRST · {p['mode']}")
+    s = p["скан"]
+    print(f"  скан §6: {s['сырых_сигналов']} сигналов ({s['источники']}), "
+          f"после FDR {s['статистических_после_FDR']}")
+    print(f"  события: {', '.join(s['топ_события'][:5])}")
+    print(f"  шок-источники: {', '.join(p['шок_источники'])}")
+    for src in p["по_источникам"]:
+        cr = src.get("каскад_резолв") or {}
+        seals = "; ".join(f"{sp['prediction']['asset']} {sp['prediction']['direction']} "
+                          f"P={sp['prediction']['probability']}" for sp in cr.get("запечатываемо", []))
+        print(f"  ⚡ {src['источник']} шок={src['shock']} · контур выдал "
+              f"{src['контур']['выдано']} · каскад §9: {seals or '—'}")
+    print(f"  Итог: {p['итог']}")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Прогон «Оракула»: воронка §6 / масккейсы §23.2 / абляция §11.1")
     ap.add_argument("--mode",
-                    choices=["auto", "live", "mock", "funnel", "theme", "multi", "calibrate",
-                             "resolve", "masked", "ablation"],
+                    choices=["auto", "live", "mock", "funnel", "theme", "multi", "event_first",
+                             "calibrate", "resolve", "masked", "ablation", "challenge", "challenge-digest"],
                     default="auto",
                     help="auto/live/mock/funnel — полная воронка §6; theme — тематический режим §17.2 "
                          "(полный цикл по --asset, запечатывание прогноза); calibrate — калибровка §17.3; "
                          "resolve — сверка исходов §10.10; masked — маскированные кейсы §23.2(б); "
-                         "ablation — абляция вкладов §11.1")
+                         "ablation — абляция вкладов §11.1; challenge — точечный состязательный разбор "
+                         "одной идеи по возражению (--doubt, опц. --asset/--from-run)")
     ap.add_argument("--mock", action="store_true",
                     help="для masked/calibrate: принудительно mock (дымовой тест конвейера, без seal)")
     ap.add_argument("--theme", default="brent")
@@ -143,12 +200,24 @@ def main(argv=None):
     ap.add_argument("--field-only", action="store_true",
                     help="только поле суждений (этапы 1–2), без дебатов/синтеза")
     ap.add_argument("--k", type=int, default=3, help="мульти-режим: сколько топ-событий анализировать")
+    ap.add_argument("--doubt", default=None,
+                    help="challenge-режим: твоё возражение/сомнение по идее (текст в кавычках)")
+    ap.add_argument("--from-run", default=None,
+                    help="challenge-режим: run_id протокола-источника идеи (по умолчанию последний)")
+    ap.add_argument("--since", default=None,
+                    help="challenge-digest: учитывать разборы с ts >= since (ISO, дата прошлого разбора)")
     args = ap.parse_args(argv)
 
+    if args.mode == "challenge":
+        return _run_challenge(args)
+    if args.mode == "challenge-digest":
+        return _run_challenge_digest(args)
     if args.mode == "masked":
         return _run_masked(args)
     if args.mode == "multi":
         return _run_multi(args)
+    if args.mode == "event_first":
+        return _run_event_first(args)
     if args.mode == "ablation":
         return _run_ablation(args)
     if args.mode == "calibrate":

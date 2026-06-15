@@ -35,8 +35,9 @@ MAILTO=""
 # Сверка исходов §10.10 (дозревшие прогнозы → close из oracle.db → outcomes.jsonl): ежедневно 21:00
 0 21 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
 
-# Боевой прогон полной воронки §6 (свободная генерация идей): понедельник 09:00
-0 9 * * 1    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode funnel >> journal/cron.log 2>&1
+# Боевой прогон EVENT-FIRST воронки (§6 скан событий → каскад → инструмент): понедельник 09:00
+# (заменил brent-якорный --mode funnel; дневной --mode theme --asset brent остаётся, §30). k=2 — бюджет/время.
+0 9 * * 1    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 >> journal/cron.log 2>&1
 
 # Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
 0 7 * * *    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1

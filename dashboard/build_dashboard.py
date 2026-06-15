@@ -202,6 +202,35 @@ def metric_prevented_errors(funnel_runs):
     }
 
 
+def metric_cascade_trees():
+    """Деревья каскадов последнего event-first прогона (§5/П5): событие→шок→узлы (амплитуда/P),
+    разделение брандмауэром §9: запечатываемо vs лист ожидания. «накапливается», если прогонов нет."""
+    files = sorted([p for p in FUNNEL_LOGS.glob("ef_*.json") if "__" not in p.name],
+                   key=lambda p: p.stat().st_mtime)
+    if not files:
+        return {"status": "накапливается", "trees": [], "events": []}
+    try:
+        d = json.loads(files[-1].read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"status": "накапливается", "trees": [], "events": []}
+    trees = []
+    for s in d.get("по_источникам", []):
+        cr = s.get("каскад_резолв") or {}
+        nodes = []
+        for sp in (cr.get("запечатываемо") or []):
+            pr = sp.get("prediction", {})
+            nodes.append({"актив": pr.get("asset"), "направление": pr.get("direction"),
+                          "P": pr.get("probability"), "амплитуда": pr.get("amplitude_expected"),
+                          "статус": "§9-прогноз"})
+        for w in (cr.get("лист_ожидания") or []):
+            nodes.append({"актив": w.get("актив"), "статус": "лист ожидания",
+                          "причина": w.get("причина")})
+        trees.append({"источник": s.get("источник"), "shock": s.get("shock"),
+                      "контур_выдал": (s.get("контур") or {}).get("выдано"), "узлы": nodes})
+    return {"status": "ok", "run_id": d.get("run_id"), "mode": d.get("mode"),
+            "events": ((d.get("скан") or {}).get("топ_события") or [])[:6], "trees": trees}
+
+
 # ── Сбор всех метрик ─────────────────────────────────────────────────────────────
 def collect_metrics():
     runs = _load_funnel_runs()
@@ -215,6 +244,7 @@ def collect_metrics():
         "holdout": metric_holdout(),
         "реестр_версий": metric_registry(),
         "предотвращённые_ошибки": metric_prevented_errors(runs),
+        "деревья_каскадов": metric_cascade_trees(),
     }
 
 
@@ -327,6 +357,30 @@ def _prevented_card(m):
     return _card("7 · Счётчик предотвращённых ошибок", body)
 
 
+def _cascade_card(m):
+    if m.get("status") != "ok" or not m.get("trees"):
+        return _card("8 · Деревья каскадов (event-first §5/П5)",
+                     _accum_badge("накапливается") + " event-first прогонов ещё нет")
+    blocks = []
+    for t in m["trees"]:
+        items = []
+        for n in t["узлы"]:
+            if n.get("статус") == "§9-прогноз":
+                items.append(f"<li>✅ <b>{_h(n.get('актив'))}</b> {_h(n.get('направление'))} · "
+                             f"P={_h(n.get('P'))} · ампл={_h(n.get('амплитуда'))} <i>(§9-прогноз)</i></li>")
+            else:
+                items.append(f"<li>⏳ <b>{_h(n.get('актив'))}</b> — лист ожидания "
+                             f"<span style='color:#666'>({_h((n.get('причина') or '')[:45])})</span></li>")
+        sh = t.get("shock")
+        blocks.append(f"<p style='margin:8px 0 2px'><b>⚡ {_h(t['источник'])}</b> "
+                      f"шок={_h(sh)} · контур выдал {_h(t.get('контур_выдал'))}</p>"
+                      f"<ul style='margin:2px 0 8px'>{''.join(items) or '<li>узлов нет</li>'}</ul>")
+    ev = ", ".join(_h(e) for e in m.get("events", []))
+    head = (f"<div style='color:#666;font-size:13px'>{_h(m['run_id'])} · {_h(m['mode'])} · "
+            f"события: {ev}</div>")
+    return _card("8 · Деревья каскадов (event-first §5/П5)", head + "".join(blocks))
+
+
 def render_html(metrics):
     cards = (_calibration_card(metrics["калибровка"]) +
              _hitrate_card(metrics["hit_rate_pnl"]) +
@@ -334,7 +388,8 @@ def render_html(metrics):
              _funnel_card(metrics["статус_воронки"]) +
              _holdout_card(metrics["holdout"]) +
              _registry_card(metrics["реестр_версий"]) +
-             _prevented_card(metrics["предотвращённые_ошибки"]))
+             _prevented_card(metrics["предотвращённые_ошибки"]) +
+             _cascade_card(metrics["деревья_каскадов"]))
     return (
         "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
