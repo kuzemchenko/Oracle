@@ -65,12 +65,15 @@ def _write(protocol):
     (LOGS / f"{protocol['run_id']}.md").write_text("\n".join(lines), encoding="utf-8")
 
 _STOP = set("the a an of to in on for and or is are be with from at by as this that "
+            "says said new amid after over into out has have will its his her their "
             "и в на по с от за до о об у к не что как для при из его их же бы то "
             "的 了 是 在 和 与".split())
 
 
 def _tokens(title):
-    return {t for t in re.findall(r"[^\W\d_]{3,}", (title or "").lower()) if t not in _STOP}
+    # Только латиница+кириллица (en/ru — наши рынки): CJK/арабские заголовки дают пустой набор
+    # токенов и выпадают из кластеризации как шум для US-универсума, БЕЗ потери ru-сигнала (Brent и т.п.).
+    return {t for t in re.findall(r"[a-zа-яё]{3,}", (title or "").lower()) if t not in _STOP}
 
 
 def _jaccard(a, b):
