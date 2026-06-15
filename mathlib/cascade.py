@@ -95,10 +95,14 @@ def node_sensitivity(source_ret, node_ret, lag=0, min_obs=MIN_OBS):
     if fit is None:
         return None
     lo, hi = CA._fisher_ci(fit["corr"], fit["n"])
-    established = bool(lo > 0 or hi < 0)   # CI не пересекает 0 → перенос статистически установлен
+    if lo is None or hi is None:           # вырожденный CI (|corr|→1) → перенос явно установлен
+        established = abs(fit["corr"]) >= 0.999
+    else:
+        established = bool(lo > 0 or hi < 0)   # CI не пересекает 0 → перенос статистически установлен
+    ci = [None if lo is None else round(lo, 4), None if hi is None else round(hi, 4)]
     return {"beta": round(fit["beta"], 6), "corr": round(fit["corr"], 4),
             "r2": round(fit["r2"], 4), "n": fit["n"], "resid_std": round(fit["resid_std"], 6),
-            "lag": int(lag), "corr_ci95": [round(lo, 4), round(hi, 4)],
+            "lag": int(lag), "corr_ci95": ci,
             "перенос_установлен": established}
 
 
