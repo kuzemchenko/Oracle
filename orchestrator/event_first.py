@@ -23,10 +23,15 @@ import yaml  # noqa: E402
 
 from orchestrator import event_scan as ES            # noqa: E402
 from orchestrator import cascade_resolve as CR       # noqa: E402
+from orchestrator import forecast as FC              # noqa: E402
+from orchestrator import cascade_build as CB          # noqa: E402
+from orchestrator import graph_build as GB            # noqa: E402
 from orchestrator import universe_resolver as U      # noqa: E402
 from orchestrator import event_mapping as EM         # noqa: E402
+from orchestrator import openrouter as OR             # noqa: E402
 from orchestrator import funnel as F                  # noqa: E402
 from orchestrator import multi_event as ME            # noqa: E402
+from orchestrator import progress as PROG              # noqa: E402
 from mathlib import cascade as CAS                    # noqa: E402
 
 DB = ROOT / "storage" / "oracle.db"
@@ -38,6 +43,8 @@ def _now():
 
 
 def _last_return(con, symbol):
+    """УСТАРЕЛО для шока каскада (1-дневная доходность рассинхронена с realized за окно §R2.1 — см.
+    _window_return). Оставлено только для event_first_dryrun. В боевой свёртке НЕ использовать."""
     rows = con.execute(
         "SELECT adjusted_close FROM quotes WHERE symbol=? AND adjusted_close IS NOT NULL "
         "ORDER BY date DESC LIMIT 6", (symbol,)).fetchall()
@@ -46,13 +53,13 @@ def _last_return(con, symbol):
     return float(r[-1]) if r.size else None
 
 
-def _neighbors(symbol, links):
-    out = []
-    for ln in (links or []):
-        pr = [str(x) for x in (ln.get("pair") or [])]
-        if symbol in pr and len(pr) == 2:
-            out.append(pr[1] if pr[0] == symbol else pr[0])
-    return sorted(set(out))
+def _window_return(con, symbol):
+    """§R2.1: доходность символа за ОКНО реакции на событие — шок корня каскада (выровнен с realized)."""
+    rows = con.execute(
+        "SELECT close FROM quotes WHERE symbol=? AND close IS NOT NULL "
+        "ORDER BY date DESC LIMIT ?", (symbol, CAS.EVENT_WINDOW_DAYS + 1)).fetchall()
+    px = [float(r[0]) for r in rows][::-1]
+    return CAS.window_return(px)
 
 
 def _shock_sources(scan, universe, con, max_sources):
@@ -77,18 +84,264 @@ def _shock_sources(scan, universe, con, max_sources):
     return uniq[:max_sources]
 
 
-def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None):
-    """Полный event-first прогон. Возвращает сводный протокол."""
+def _price_signal_syms(scan):
+    """Символы со статистически значимым ценовым сигналом (после FDR) — узлы цепочки могут совпасть."""
+    return sorted({s["символ"] for s in scan["сигналы"]
+                   if s.get("сигнал_после_FDR") and s.get("символ")})
+
+
+def _theme_for_chain(chain_id, universe):
+    """Тема универсума, привязанная к цепочке (themes.<t>.cascade_chain == chain_id)."""
+    for tname, t in (universe.get("themes") or {}).items():
+        if (t or {}).get("cascade_chain") == chain_id:
+            return tname
+    return None
+
+
+def activated_chains(scan, universe, chains, price_signal_syms):
+    """ШИРОКАЯ активация (дыра №1): авторская цепочка включается, если её ТЕМА салиентна в новостях
+    ИЛИ есть ценовой сигнал на ЛЮБОМ её узле — а не только когда якорь попал в источники шока.
+    Якорь (узел минимального порядка) даёт корневой шок для свёртки вниз по каскаду.
+    """
+    # тема → КОНКРЕТНЫЙ заголовок, который её активировал (П8: не «тема салиентна», а сама новость).
+    matched = {}
+    for ne in scan["новостные_события"][:12]:
+        th, _ = EM.match_cluster_to_theme({"keywords": ne["ключи"], "sample": ne["пример"]}, universe)
+        if th and th not in matched:
+            matched[th] = (ne.get("пример") or "").strip()
+    sigset = set(price_signal_syms or [])
+    out = []
+    for ch in (chains or []):
+        reasons = []
+        событие = None  # человекочитаемый «повод» = реальный заголовок (для дайджеста «новость→…→компания»)
+        th = _theme_for_chain(ch.get("id"), universe)
+        if th and th in matched:
+            hl = matched[th]
+            if hl:
+                событие = hl
+                reasons.append(f"тема «{th}» — новость: {hl[:160]}")
+            else:
+                reasons.append(f"тема «{th}» салиентна в новостях")
+        node_syms = {i for n in (ch.get("nodes") or []) for i in (n.get("instruments") or [])}
+        hit = node_syms & sigset
+        if hit:
+            reasons.append(f"ценовой сигнал на узле(ах): {sorted(hit)}")
+        if reasons:
+            anchor_nodes = sorted((ch.get("nodes") or []), key=lambda n: n.get("order", 0))
+            anchor = (anchor_nodes[0].get("instruments") or [None])[0] if anchor_nodes else None
+            out.append({"chain": ch, "anchor": anchor, "причины": reasons, "событие_новость": событие})
+    return out
+
+
+def _proposal_ideas(proposals):
+    """РЕШЕНИЕ «A» (анти-brent): предложения LLM-картографа по событиям ВНЕ реестра тем → research-идеи
+    на КОНКРЕТНЫХ компаниях (целевой дальний чокпоинт-узел), ранг по тектоническому потенциалу. Вход
+    не зажат темами — Украина/ставки/золото и т.п. рождают идеи, а не молчат. Не запечатываются (П16):
+    тег research, в Brier-трек не идут; полная картина §8 не прячется."""
+    ideas = []
+    for p in (proposals or []):
+        far = p.get("целевой_дальний_узел") or {}
+        insts = far.get("instruments") or []
+        if not insts:
+            continue
+        ideas.append({
+            "актив": insts[0], "все_инструменты": insts,
+            "событие": p.get("событие"), "ключи": p.get("ключи"),
+            "порядок_узла": far.get("order"), "чокпоинт": bool(far.get("chokepoint")),
+            "тектонический_потенциал": p.get("тектонический_потенциал"),
+            "отыгранность_узла": far.get("priced"),
+            "research": True, "источник_идеи": "LLM-картограф (вне реестра тем)",
+            "узлы_каскада": p.get("узлы"),
+        })
+    ideas.sort(key=lambda x: (x.get("тектонический_потенциал") or -1), reverse=True)
+    return ideas
+
+
+def _cartographer_pass(scan, universe, mode, run_id, max_map=10):
+    """B2.5 (§R2): картограф ОДИН раз — новостные кластеры вне реестра тем → каскадные карты. Один
+    результат кормит И воронку отбора (узлы графа), И стейджинг/поток research-идей (дедуп: раньше
+    картограф гонялся дважды). LLM-путь — только live/auto; mock → []. max_map — кэп бюджета §30."""
+    if mode == "mock":
+        return []
+    import os
+    client = OR.make_client(mode=mode, run_id=run_id)
+    checker = EM.make_eodhd_checker(os.environ.get("EODHD_API_KEY", ""))
+    tl = EM.make_eodhd_type_lookup(os.environ.get("EODHD_API_KEY", ""))
+    clusters = [{"keywords": ne["ключи"], "sample": ne["пример"], "salience": ne["салиентность"]}
+                for ne in scan.get("новостные_события", [])]
+    return EM.proposal_chains(clusters, universe, client, checker, type_lookup=tl, max_map=max_map)
+
+
+def _stage_cartographer(pcs, now):
+    """Стейджинг карт картографа в proposed_themes (§30) + форма для _proposal_ideas (поток research).
+    Берёт ТЕ ЖЕ карты, что и воронка (дедуп) — повторного LLM-вызова нет."""
+    out = []
+    ts = now.isoformat(timespec="seconds")
+    for pc in pcs:
+        m = pc["mapped"]
+        rec = EM.stage_proposal(m, ts)
+        tec = m.get("tectonic") or {}
+        out.append({"событие": rec["событие"], "ключи": pc.get("ключи"), "узлы": rec["узлы"],
+                    "staged": True, "тектонический_потенциал": tec.get("tectonic_potential"),
+                    "целевой_дальний_узел": tec.get("best_far_node")})
+    return out
+
+
+def _money_kind(verdict):
+    """Слепой суд РАЗБИЛ money-идею (или ВЕТО) → демотируем в провизорный (НЕ пускаем к §11).
+    Иначе (устояла / не судили) — money. Это и есть гейт качества денежного трека (П10).
+    verdict — либо строка-исход (старый контракт/тесты), либо подробный dict {исход,...}."""
+    outcome = verdict.get("исход") if isinstance(verdict, dict) else verdict
+    return "cascade_provisional" if outcome in ("РАЗБИТА", "ВЕТО") else "cascade_money"
+
+
+def _событие_из_цепочки(ch_meta):
+    """Чистый текст события (П8: РОВНО то, что активировало). Приоритет — конкретный заголовок
+    новости (событие_новость / картограф), иначе служебная причина активации."""
+    if not isinstance(ch_meta, dict):
+        return None
+    if ch_meta.get("событие_новость"):
+        return ch_meta["событие_новость"]
+    акт = ch_meta.get("активация") or []
+    for r in акт:
+        if str(r).startswith("картограф: "):
+            return str(r)[len("картограф: "):]
+    return (акт or [None])[0]
+
+
+def _money_thesis(n, событие=None):
+    """Содержательный тезис для состязательного суда из ПОСЧИТАННЫХ полей каскадного узла (П8):
+    событие-исток → механизм цепочки по звеньям → ожидаемый ход и НЕотыгранный edge с надёжностью →
+    тайминг. Раньше суду уходил голый «edge {число}» — судья по П8 честно валил «нет данных»; здесь
+    собираем ровно то, что система уже посчитала (ничего не выдумываем сверх полей узла)."""
+    def _p(x):
+        return f"{x * 100:+.1f}%" if isinstance(x, (int, float)) else None
+    amp, full = n.get("amplitude"), n.get("amplitude_total")
+    r2, order, lag = n.get("reliability_r2"), n.get("order"), n.get("lag_total")
+    prob, root = n.get("probability"), n.get("root")
+    chain = [str(x) for x in (n.get("провенанс_звеньев") or []) if x and "без данных" not in str(x)]
+    parts = []
+    if событие:
+        parts.append(f"Событие-исток: {событие}")
+    if root:
+        parts.append(f"Корневой шок идёт от якоря {root}.")
+    if chain:
+        parts.append("Механизм по звеньям каскада: " + " → ".join(chain) + ".")
+    if order is not None:
+        parts.append(f"Целевой узел — {order}-й порядок цепочки"
+                     + (" (узкое место/чокпоинт — через него идёт весь поток)" if n.get("chokepoint") else "") + ".")
+    if _p(full):
+        parts.append(f"Расчётный полный ход цели ≈ {_p(full)}.")
+    if _p(amp):
+        parts.append(f"НЕотыгранный рынком edge ≈ {_p(amp)} (расчётный ход за вычетом уже реализованного на терминале).")
+    if isinstance(r2, (int, float)):
+        parts.append(f"Надёжность связи r²={r2} (доля колебаний звена, объяснённая корнем на истории цен).")
+    if isinstance(lag, (int, float)) and lag:
+        parts.append(f"Историческое окно доведения реакции ≈ {int(round(lag))} дн.")
+    if isinstance(prob, (int, float)):
+        parts.append(f"Базовая вероятность хода ≈ {prob * 100:.0f}% (нормальная модель, БЕЗ учёта новости).")
+    return " ".join(parts) or "каскадный узел: посчитанных полей нет (П8 — нет данных для тезиса)"
+
+
+def _vet_money(money_members, run_id, top_k=3, chain_events=None):
+    """ПЕРЕНАПРАВЛЕНИЕ КОНТУРА: дорогой состязательный суд (генератор/критик/слепой судья П10) на
+    топ-K money-каскадов (ярус A → путь к деньгам §11), а НЕ на слепые шок-источники (там бюджет
+    горел впустую). Возвращает {symbol: исход}. ~$1/идея (точечный разбор, не вся 21-агентная воронка).
+
+    chain_events: {chain_id: событие} — событие-исток цепочки, чтобы судья видел ПОВОД, а не голый edge.
+    Котировку/индикаторы по каскадной мишени инъектируем в ctx ЯВНО: build_context знает только CORE,
+    а мишени каскада — вне CORE; без этого судья видит null-котировку и структурно валит идею."""
+    from orchestrator import context as _C
+    from orchestrator import debate as _D
+    from orchestrator.openrouter import LiveClient
+    chain_events = chain_events or {}
+    ctx = _C.build_context()
+    client = LiveClient(run_id=run_id)
+    con = sqlite3.connect(str(_C.DB)) if _C.DB.exists() else None
+    out = {}
+    try:
+        for s in (money_members or [])[:top_k]:
+            n = s.get("node") or {}
+            sym, amp = s.get("symbol"), n.get("amplitude")
+            direction = "лонг" if (amp or 0) > 0 else "шорт"
+            # котировка/индикаторы ПО ЭТОМУ символу (вне CORE) → судья видит цену, а не null
+            if con is not None and sym and sym not in ctx.get("quotes", {}):
+                q = _C._quotes(con, sym)
+                if q:
+                    ctx["quotes"][sym] = {"last": q[-1], "n_bars": len(q),
+                                          "first_date": q[0]["date"], "last_date": q[-1]["date"]}
+                    ctx["indicators"][sym] = _C._indicators(q)
+            # P2#8: ФЕЙЛ-ФАСТ — нет котировки терминала (после попытки инъекции) → НЕ гоним дорогой
+            # суд (он структурно завалит «нет цены»), помечаем research-only. Экономит бюджет и не
+            # засчитывает идее провал из-за дыры данных, а не по существу.
+            if not (ctx.get("quotes", {}).get(sym) or {}).get("last"):
+                out[sym] = {"исход": "ПРОПУСК", "направление": direction,
+                            "примечание": "нет котировки терминала — research-only, не на состязательный суд (P2#8)"}
+                continue
+            событие = chain_events.get(n.get("_chain"))
+            # P2#7: ПРОВЕРЯЕМОЕ дело каскада судье/ревьюеру (факты, не авторство — П10 цел)
+            дело = {
+                "событие_исток_заголовок": событие,
+                "якорь_корневого_шока": n.get("root"),
+                "механизм_по_звеньям": [str(x) for x in (n.get("провенанс_звеньев") or []) if x],
+                "порядок_узла": n.get("order"), "чокпоинт": bool(n.get("chokepoint")),
+                "ожидаемый_полный_ход": n.get("amplitude_total"),
+                "неотыгранный_edge": amp, "надёжность_r2": n.get("reliability_r2"),
+                "лаг_дней": n.get("lag_total"),
+                "котировка_терминала": (ctx.get("quotes", {}).get(sym) or {}).get("last"),
+            }
+            cand = {"актив": sym, "направление": direction,
+                    "тезис": _money_thesis(n, событие),
+                    "дело_каскада": дело, "школа": "каскад", "разрешимость": None}
+            try:
+                d = _D.run_debate(cand, ctx, client, run_id=f"{run_id}__vet__{sym}")
+                v = d.get("вердикт") or {}
+                judge = ((d.get("реплики") or {}).get("судья") or {}).get("judgment") or {}
+                # Сохраняем НЕ только ярлык исхода, но и аргументацию суда (§8: «кто против и почему
+                # неправ», «почему возможность ещё существует»), чтобы дайджест объяснял, а не клеймил.
+                out[sym] = {
+                    "исход": v.get("исход"), "направление": direction,
+                    "балл": v.get("средний_балл_рубрики"), "порог": v.get("порог"),
+                    "кто_против": judge.get("кто_продаёт_нам_и_почему_неправ"),
+                    "почему_возможность": judge.get("почему_возможность_ещё_существует"),
+                    "примечание": v.get("примечание") or v.get("причина"),
+                }
+            except Exception:  # noqa: BLE001
+                out[sym] = None
+    finally:
+        if con is not None:
+            con.close()
+    return out
+
+
+def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
+                    seal_predictions=False, vet_money_k=0):
+    """Полный event-first прогон. Возвращает сводный протокол.
+
+    skip_contour=True — research-only: без дорогого 21-агентного качественного контура по источникам
+    (только скан + LLM-картограф + каскады в компании). Дёшево, быстро, для ежедневного потока идей."""
     run_id = run_id or "ef_" + _now().strftime("%Y%m%dT%H%M%SZ")
     universe = yaml.safe_load(open(ROOT / "config" / "universe.yaml", encoding="utf-8")) or {}
-    links = (yaml.safe_load(open(ROOT / "knowledge" / "causal_links.yaml", encoding="utf-8")) or {}).get("links")
+    chains_doc = CB.load_chains()   # §3c/D1: резолв в КОНКРЕТНЫЕ компании авторских цепочек
     now = _now()
+    # Прогресс (§15): открываем прогон на K событий; уточним число после скана.
+    PROG.begin(run_id, mode, "event-first: поиск идей", outer_total=k)
+    PROG.note("скан событий (новости + цены + тренды)…")
     con = sqlite3.connect(str(DB))
     try:
         scan = ES.scan_events_live(q_max=0.1, con=con)
         sources = _shock_sources(scan, universe, con, k)
+        # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
+        # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
+        pcs = _cartographer_pass(scan, universe, mode, run_id)
+        proposals = _stage_cartographer(pcs, now)
+        картограф_идеи = _proposal_ideas(proposals)
+        PROG.set_outer_total((len(sources) or 1) if not skip_contour else 1)
         per_source, all_ideas = [], []
-        for src in sources:
+        # research-only (дешёвый ежедневный режим): пропускаем дорогой 21-агентный качественный
+        # контур по источникам; оставляем картограф + каскады в компании (это и есть поток идей).
+        for _i, src in enumerate(sources if not skip_contour else []):
+            PROG.outer(_i, src)
             # 1) КАЧЕСТВЕННО: полный состязательный контур, заякоренный на источник события
             p = F.run_funnel(theme=src, mode=mode, theme_focused=True, write=write,
                              run_id=f"{run_id}__{src}")
@@ -96,28 +349,116 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None):
             for idea in ideas:
                 all_ideas.append({**idea, "_событие": src})
             fr = p.get("воронка_отсева") or {}
-            # 2) КОЛИЧЕСТВЕННО: каскад из калиброванной чувствительности → §9-резолв
-            shock = _last_return(con, src)
-            nbrs = _neighbors(src, links)
-            casc_res = None
-            if shock is not None and nbrs:
-                casc = CAS.cascade_from_quotes(src, shock, nbrs, horizon_days=horizon_days, links=links)
-                casc_res = CR.resolve_cascade(casc, run_id=run_id, now_dt=now, con=con)
             per_source.append({
-                "источник": src, "shock": (round(shock, 5) if shock is not None else None),
+                "источник": src, "shock": (round(_window_return(con, src) or 0, 5) or None),
                 "контур": {"run_id": p.get("run_id"), "кандидатов": p.get("candidates_count"),
                            "выдано": fr.get("этап6_выдано_топ", 0),
                            "итог": fr.get("вывод") or "—"},
-                "каскад_резолв": ({"запечатываемо": casc_res["запечатываемо"],
-                                   "лист_ожидания": casc_res["лист_ожидания"],
-                                   "сводка": casc_res["сводка"]} if casc_res else None),
             })
+
+        # КАСКАД В КОМПАНИИ (§3c/D1 + Этап B3 §R2/§R3): авторские цепочки активируются по СОВПАДЕНИЮ
+        # ТЕМЫ в новостях ИЛИ ценовому сигналу на узле. Узлы ВСЕХ активированных цепочек сливаются в
+        # ОДИН граф и проходят воронку отбора (ворота → пред-ранг по edge-возможности → топ-K), затем
+        # маршрутизируются по трекам (money / провизорный / дайджест). Запечатывание — отдельно (B3c).
+        price_syms = _price_signal_syms(scan)
+        # активации цепочек: (а) АВТОРСКИЕ по теме/ценовому сигналу + (б) КАРТОГРАФ из новостей (B2.5)
+        chain_acts = list(activated_chains(scan, universe, chains_doc, price_syms))
+        for _a in chain_acts:
+            _a["источник_карты"] = "авторская"
+        chain_acts += [{"chain": pc["chain"], "anchor": pc["anchor"], "источник_карты": "картограф",
+                        "причины": [f"картограф: {pc['событие']}"]} for pc in pcs]   # те же карты (дедуп)
+
+        # B2.6: ДИНАМИЧЕСКИЙ ДОБОР ИСТОРИИ — тикеры цепочек без локальной истории цен тянем из EODHD
+        # на лету (снимает «универсум как стенку»: любой ликвидный тикер от картографа становится
+        # анализируемым). live-only; mock работает на готовой базе. Кэш растёт сам.
+        добор = {"fetched": [], "had": [], "refreshed": [], "failed": []}
+        if mode != "mock":
+            import os as _os
+            from data import eodhd as _E
+            _syms = [i for act in chain_acts for n in (act["chain"].get("nodes") or [])
+                     for i in (n.get("instruments") or [])]
+            добор = _E.ensure_history(con, _syms, _os.environ.get("EODHD_API_KEY", ""))
+
+        каскады, graph_nodes = [], []
+        for act in chain_acts:
+            ch, anchor = act["chain"], act["anchor"]
+            # §R2.1: шок корня — за ОКНО реакции (EVENT_WINDOW_DAYS), выровнен с realized терминала
+            # (realized_fn=window_return). Раньше тут был _last_return (1 день) → амплитуда занижена
+            # в ~√window и систематически перекошена в сторону realized-компоненты edge.
+            shock = _window_return(con, anchor) if anchor else None
+            if shock is None:
+                каскады.append({"chain_id": ch.get("id"), "активация": act["причины"],
+                                "событие_новость": act.get("событие_новость"),
+                                "источник_карты": act.get("источник_карты"),
+                                "пропуск": f"нет шока якоря {anchor} (П8)"})
+                continue
+            nodes = CB.build_from_db(ch, shock, horizon_days=horizon_days, con=con, db=DB)["узлы"]
+            каскады.append({"chain_id": ch.get("id"), "якорь": anchor, "shock": round(shock, 5),
+                            "активация": act["причины"], "событие_новость": act.get("событие_новость"),
+                            "источник_карты": act.get("источник_карты"),
+                            "узлов_построено": len(nodes)})
+            for n in nodes:
+                graph_nodes.append({**n, "root": anchor, "_chain": ch.get("id")})
+
+        # ВОРОНКА ОТБОРА (§R2/§R3): объединённый граф → ворота → ранг по возможности → треки seal.
+        отбор = GB.select_from_nodes(graph_nodes, con=con, horizon_days=horizon_days, top_k=8)
+        треки = GB.route_tracks(отбор)
+
+        # B3c: ЗАПЕЧАТЫВАНИЕ ПО ТРЕКАМ (П16 — только при seal_predictions, иначе журнал не трогаем).
+        # money (ярус A) → kind=cascade_money → денежный Brier/§11; провизорный (ярус B/C) →
+        # kind=cascade_provisional → СВОЙ Brier, к §11 не приближается (resolve сегментирует герметично).
+        # ПЕРЕНАПРАВЛЕНИЕ КОНТУРА: дорогой состязательный суд — на топ-K money-каскадов (не на слепые
+        # шок-источники). Сломанные слепым судом money-идеи демотируются в провизорный (гейт §11).
+        суд_money = {}
+        if vet_money_k and mode != "mock":
+            # событие-исток по цепочке → судья видит ПОВОД, а не голый edge (см. _money_thesis)
+            chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
+                            for c in каскады if c.get("chain_id")}
+            суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events)
+
+        запечатано = {"money": 0, "провизорный": 0, "демотировано_судом": 0}
+        if seal_predictions and mode != "mock":
+            for s in треки["money"]:
+                kind = _money_kind(суд_money.get(s["symbol"]))
+                if kind == "cascade_provisional":
+                    запечатано["демотировано_судом"] += 1
+                spec = CR.seal_spec(s["node"], kind=kind, run_id=run_id,
+                                    horizon_days=horizon_days, con=con, now_dt=now)
+                if spec:
+                    FC.seal_prediction(spec)
+                    запечатано["money" if kind == "cascade_money" else "провизорный"] += 1
+            for s in треки["provisional"]:
+                spec = CR.seal_spec(s["node"], kind="cascade_provisional", run_id=run_id,
+                                    horizon_days=horizon_days, con=con, now_dt=now)
+                if spec:
+                    FC.seal_prediction(spec)
+                    запечатано["провизорный"] += 1
     finally:
         con.close()
 
     top3 = ME._diversify(all_ideas)
-    seal_total = sum(len((s.get("каскад_резолв") or {}).get("запечатываемо", [])) for s in per_source)
-    watch_total = sum(len((s.get("каскад_резолв") or {}).get("лист_ожидания", [])) for s in per_source)
+    money_n, prov_n, dig_n = len(треки["money"]), len(треки["provisional"]), len(треки["digest_only"])
+
+    # Карта цепочка_id → её активация/якорь (для «почему» в дайджесте). каскады уже посчитаны выше:
+    # активация — это породившее событие («картограф: <событие>» либо тема/ценовой сигнал авторской цепочки).
+    _chain_meta = {c.get("chain_id"): c for c in каскады if c.get("chain_id")}
+
+    def _node_brief(s):
+        n = s["node"]
+        ch = _chain_meta.get(n.get("_chain")) or {}
+        edge = n.get("amplitude")
+        # направление = знак ожидаемого движения узла (П8: из посчитанной амплитуды, не выдумка)
+        напр = None if edge is None else ("лонг" if edge > 0 else "шорт" if edge < 0 else "флэт")
+        return {"актив": s["symbol"], "score": s["score"], "edge": edge, "направление": напр,
+                "ярусы": n.get("tiers"), "лаг_дней": n.get("lag_days"),
+                "горизонт_дней": n.get("horizon_days"), "вероятность": n.get("probability"),
+                "надёжность_r2": n.get("reliability"), "изоляция_r2": n.get("r2"),
+                "надёжность_метка": s["prerank"].get("reliability"), "цепочка": n.get("_chain"),
+                "порядок": n.get("order"), "чокпоинт": n.get("chokepoint"),
+                "провизорный": bool(n.get("research")),
+                # «почему»: событие, активировавшее цепочку, и её якорь (источник корневого шока)
+                "событие": _событие_из_цепочки(ch),
+                "якорь": ch.get("якорь"), "источник_карты": ch.get("источник_карты")}
     protocol = {
         "run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
         "режим": "event-first контур (§6 скан + §4 контур + §5 каскад + §9 резолв)",
@@ -126,16 +467,39 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None):
                  "статистических_после_FDR": scan["статистических_после_FDR"],
                  "топ_события": [e["метка"] for e in scan["кандидат_события"][:10]]},
         "шок_источники": sources,
+        "новые_события_на_регистрацию": proposals,
+        "картограф_идеи": картограф_идеи,        # анти-brent: research-идеи по событиям вне реестра тем
         "по_источникам": per_source,
+        "каскады_в_компании": каскады,                     # лог активации цепочек (счётчики построенных узлов)
+        "граф_отбор": {                                     # §R2/§R3: воронка отбора объединённого графа + треки seal
+            "узлов": отбор["всего"], "ворота_прошли": отбор["ворота_прошли"],
+            "отсев_по_критериям": отбор["отсев_по_критериям"],
+            "добор_истории": {"скачано": добор["fetched"], "было": len(добор["had"]),
+                              "досинк": добор.get("refreshed", []),  # P0#2: ДОсинк до сегодня (свежий шок)
+                              "не_удалось": добор["failed"]},   # B2.6: новые тикеры с EODHD на лету
+            "треки": {"money": money_n, "провизорный": prov_n, "дайджест": dig_n},
+            "запечатано": запечатано,           # B3c: фактически в журнал (только seal_predictions)
+            "суд_money": суд_money,              # слепой суд по топ-K money-каскадов (перенаправл. контур)
+            "топ_k": [_node_brief(s) for s in отбор["топ_k"]],
+            "money_трек": [_node_brief(s) for s in треки["money"]],
+            "провизорный_трек": [_node_brief(s) for s in треки["provisional"]],
+        },
         "контур_выдал_топ3": [{"актив": i.get("актив"), "направление": i.get("направление"),
                                "балл": i.get("балл"), "событие": i.get("_событие")} for i in top3],
         "итог": (f"источников {len(sources)}; контур выдал {len(top3)} идей; "
-                 f"каскад: §9-спеков {seal_total}, в лист ожидания {watch_total}"),
+                 f"картограф-идей (вне тем) {len(картограф_идеи)}; "
+                 f"граф: {отбор['всего']} узлов → ворота {отбор['ворота_прошли']} → "
+                 f"money {money_n}, провизорный {prov_n}, дайджест {dig_n}; "
+                 f"новых событий на регистрацию {len(proposals)}"),
     }
     if write:
         LOGS.mkdir(parents=True, exist_ok=True)
         (LOGS / f"{run_id}.json").write_text(json.dumps(protocol, ensure_ascii=False, indent=2),
                                              encoding="utf-8")
+    PROG.finish(f"Источников {len(sources)} · идей выдано {len(top3)} · "
+                f"картограф-идей {len(картограф_идеи)} · граф {отбор['всего']} узлов "
+                f"(ворота {отбор['ворота_прошли']}: money {money_n}/провиз {prov_n}/дайдж {dig_n}) · "
+                f"новых событий {len(proposals)}.")
     return protocol
 
 
@@ -144,8 +508,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", default="mock", choices=["mock", "live", "auto"])
     ap.add_argument("--k", type=int, default=3)
+    ap.add_argument("--research-only", action="store_true",
+                    help="без дорогого качественного контура: только картограф + каскады (поток идей)")
     a = ap.parse_args()
-    p = run_event_first(mode=a.mode, k=a.k)
+    p = run_event_first(mode=a.mode, k=a.k, skip_contour=a.research_only)
     print(f"[{p['run_id']}] {p['режим']} · mode={p['mode']}")
     print(f"  скан: {p['скан']['сырых_сигналов']} сигналов, события: {', '.join(p['скан']['топ_события'][:5])}")
     print(f"  {p['итог']}")

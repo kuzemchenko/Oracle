@@ -98,6 +98,41 @@ def resolve_node(node, *, run_id, horizon_days, now_dt=None, con=None, db=None):
     return {"kind": "seal", "prediction": pred, "узел": symbol}
 
 
+def seal_spec(fact, *, kind, run_id, horizon_days, con, now_dt=None):
+    """B3c (§R3, Вариант 2): §9-спека из узла ВОРОНКИ (факты graph_build.node_to_facts) с меткой
+    ТРЕКА kind. БЕЗ ярус-гейта — воронка уже отсеяла по торгуемости/разрешимости; ярус определяет
+    куда (kind: cascade_money / cascade_provisional), а не право на seal. Возвращает pred|None.
+
+    Направление = знак неотыгранного edge; порог = последний close; вероятность — направленная."""
+    now_dt = now_dt or datetime.datetime.now(datetime.timezone.utc)
+    symbol = fact.get("symbol")
+    amp = fact.get("amplitude")                      # неотыгранный edge
+    if not symbol or amp in (None, 0):
+        return None
+    lc = _latest_close(symbol, con)
+    if not lc:
+        return None
+    side = "above" if amp > 0 else "below"
+    p_ge0 = fact.get("probability")
+    prob = None if p_ge0 is None else round(p_ge0 if side == "above" else 1.0 - p_ge0, 4)
+    pred = {
+        "kind": kind, "run_id": run_id, "asset": symbol, "direction": side,
+        "threshold": round(float(lc["close"]), 4),
+        "resolve_by": FC._resolve_by(now_dt, horizon_days),
+        "price_source": f"EODHD close {symbol}",
+        "probability": prob,
+        "amplitude_expected": amp, "reliability_r2": fact.get("reliability"),
+        "ярусы": fact.get("tiers"),
+        # рёбра пути для ФОРВАРД-промоушена (forward_promotion): однозвенный путь (len==1) →
+        # исход чисто атрибутируется этому ребру; многозвенный — композитный, одному ребру не атрибутируется.
+        "cascade_path": fact.get("path_edges") or [],
+        "horizon_trading_days": round(float(horizon_days), 2),
+        "threshold_asof_close_date": lc["date"],
+        "spec_ref": "§9; §5/П5 каскад; П16; B3c трек " + str(kind),
+    }
+    return pred if not SEAL.validate_resolvable(pred) else None
+
+
 def resolve_cascade(cascade_result, *, run_id, horizon_days=None, now_dt=None, con=None, db=None):
     """Все узлы каскада → разделение на запечатываемые §9-прогнозы и лист ожидания."""
     hd = horizon_days or cascade_result.get("horizon_days") or 5

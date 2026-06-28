@@ -160,6 +160,40 @@ def sync_symbol(con, symbol, api_key, history_from, full=False):
     return n, f"{start}..{today}"
 
 
+def ensure_history(con, symbols, api_key, *, min_bars=60, history_from="2019-01-01"):
+    """Динамический добор истории (B2.6): для тикеров без достаточной локальной истории — тянем EOD
+    из EODHD на лету и вставляем в quotes. Снимает «универсум как стенку»: любой ликвидный тикер
+    (напр. предложенный картографом из новостей) становится анализируемым ПО СУЩЕСТВУ, а не по
+    членству в списке. Уже скачанные — пропускаем (кэш растёт сам). Возвращает {fetched, had, failed}."""
+    def _bars(sym):
+        return con.execute("SELECT COUNT(*) FROM quotes WHERE symbol=? AND close IS NOT NULL",
+                           (sym,)).fetchone()[0]
+    fetched, had, failed, refreshed = [], [], [], []
+    for sym in dict.fromkeys(s for s in (symbols or []) if s):
+        if _bars(sym) >= min_bars:
+            # БАЗА ЕСТЬ, но цены могли замёрзнуть (крон синкает лишь core): ДОсинкиваем инкрементально
+            # до сегодня — иначе шок корня берётся из устаревших цен и к событию не относится. Дёшево:
+            # sync_symbol(full=False) от last_date+1; если уже актуально — без обращения к API.
+            try:
+                n, _ = sync_symbol(con, sym, api_key, history_from, full=False)
+                if n:
+                    refreshed.append(sym)
+            except Exception as e:  # noqa: BLE001 — досинк best-effort, база уже пригодна
+                failed.append({"symbol": sym, "почему": f"досинк не удался: {str(e)[:60]}"})
+            had.append(sym)
+            continue
+        try:
+            sync_symbol(con, sym, api_key, history_from, full=True)
+        except Exception as e:  # noqa: BLE001
+            failed.append({"symbol": sym, "почему": str(e)[:80]})
+            continue
+        if _bars(sym) >= min_bars:
+            fetched.append(sym)
+        else:
+            failed.append({"symbol": sym, "почему": f"после фетча < {min_bars} баров"})
+    return {"fetched": fetched, "had": had, "refreshed": refreshed, "failed": failed}
+
+
 # ── EODHD: фундаментал / инсайдеры / календарь (всё в нашей подписке All-in-One) ──────
 import hashlib  # noqa: E402
 

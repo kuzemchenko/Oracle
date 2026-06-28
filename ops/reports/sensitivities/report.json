@@ -1,23 +1,26 @@
 {
   "train_window": {
     "from": "2019-11-01",
-    "to": "2026-06-12",
-    "n": 1661
+    "to": "2026-06-17",
+    "n": 1664
   },
   "n_pairs": 9,
   "n_pinned": 8,
+  "n_chain_edges": 3,
+  "n_chain_pinned": 0,
   "honesty_note": "эмпирические лаги дневных ETF = 0 (синхронны); каскадные лаги недель/месяцев не измеримы на ETF — калибруются форвардом. Бета пинится только при устойчивости по фолдам (П8).",
+  "chain_note": "звенья компаний считаются на лету для динамически-резолвнутых тикеров; молодые листинги + доменный лаг → честное «нет данных/форвард-онли» (П8).",
   "sensitivities": [
     {
       "источник": "USO.US",
       "узел": "BNO.US",
       "mechanism": "WTI↔Brent — один нефтяной комплекс (двунаправленно)",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 0.920113,
       "pinned": true,
-      "beta_fullsample": 0.887603,
+      "beta_fullsample": 0.887883,
       "beta_ci_folds": [
         0.775823,
         1.021657
@@ -44,7 +47,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.1711,
       "established_frac": 1.0,
-      "r2_fullsample": 0.8964,
+      "r2_fullsample": 0.8966,
       "provenance": "ПИН: знак согласован, разброс 0.1711 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -52,11 +55,11 @@
       "узел": "USO.US",
       "mechanism": "WTI↔Brent — один нефтяной комплекс (двунаправленно)",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 0.994518,
       "pinned": true,
-      "beta_fullsample": 1.009923,
+      "beta_fullsample": 1.009821,
       "beta_ci_folds": [
         0.956696,
         1.052536
@@ -83,7 +86,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.0741,
       "established_frac": 1.0,
-      "r2_fullsample": 0.8964,
+      "r2_fullsample": 0.8966,
       "provenance": "ПИН: знак согласован, разброс 0.0741 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -91,11 +94,11 @@
       "узел": "DBC.US",
       "mechanism": "нефть — крупнейший вес товарного индекса; перенос в индекс",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.382364,
+      "beta_fullsample": 0.382179,
       "beta_ci_folds": [
         0.259325,
         0.573661
@@ -122,7 +125,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.435,
       "established_frac": 1.0,
-      "r2_fullsample": 0.7356,
+      "r2_fullsample": 0.7357,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.435 > 0.35"
     },
     {
@@ -130,11 +133,11 @@
       "узел": "USO.US",
       "mechanism": "нефть — крупнейший вес товарного индекса; перенос в индекс",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 1.873901,
       "pinned": true,
-      "beta_fullsample": 1.923785,
+      "beta_fullsample": 1.924917,
       "beta_ci_folds": [
         1.534011,
         2.499335
@@ -161,7 +164,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.2694,
       "established_frac": 1.0,
-      "r2_fullsample": 0.7356,
+      "r2_fullsample": 0.7357,
       "provenance": "ПИН: знак согласован, разброс 0.2694 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -169,11 +172,11 @@
       "узел": "DBC.US",
       "mechanism": "медь в составе индустриальных металлов товарного индекса",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.208564,
+      "beta_fullsample": 0.208618,
       "beta_ci_folds": [
         0.076942,
         0.473124
@@ -200,7 +203,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.5728,
       "established_frac": 1.0,
-      "r2_fullsample": 0.1143,
+      "r2_fullsample": 0.1144,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.5728 > 0.35"
     },
     {
@@ -208,11 +211,11 @@
       "узел": "CPER.US",
       "mechanism": "медь в составе индустриальных металлов товарного индекса",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 0.549654,
       "pinned": true,
-      "beta_fullsample": 0.548193,
+      "beta_fullsample": 0.548174,
       "beta_ci_folds": [
         0.343968,
         0.687332
@@ -239,7 +242,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.1648,
       "established_frac": 1.0,
-      "r2_fullsample": 0.1143,
+      "r2_fullsample": 0.1144,
       "provenance": "ПИН: знак согласован, разброс 0.1648 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -247,11 +250,11 @@
       "узел": "DBC.US",
       "mechanism": "риск-аппетит акций ↔ спрос на сырьё (двунаправленно)",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.329383,
+      "beta_fullsample": 0.328829,
       "beta_ci_folds": [
         0.20137,
         0.484466
@@ -278,7 +281,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.4305,
       "established_frac": 1.0,
-      "r2_fullsample": 0.1053,
+      "r2_fullsample": 0.105,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.4305 > 0.35"
     },
     {
@@ -286,11 +289,11 @@
       "узел": "SPY.US",
       "mechanism": "риск-аппетит акций ↔ спрос на сырьё (двунаправленно)",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.319824,
+      "beta_fullsample": 0.319452,
       "beta_ci_folds": [
         0.160367,
         0.792844
@@ -317,7 +320,7 @@
       "sign_consistent": true,
       "rel_dispersion": 1.1517,
       "established_frac": 1.0,
-      "r2_fullsample": 0.1053,
+      "r2_fullsample": 0.105,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 1.1517 > 0.35"
     },
     {
@@ -325,11 +328,11 @@
       "узел": "COPX.US",
       "mechanism": "цена меди ↔ выручка/маржа медников (двунаправленно)",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 1.059261,
       "pinned": true,
-      "beta_fullsample": 0.733079,
+      "beta_fullsample": 0.733601,
       "beta_ci_folds": [
         0.305305,
         1.339941
@@ -364,11 +367,11 @@
       "узел": "CPER.US",
       "mechanism": "цена меди ↔ выручка/маржа медников (двунаправленно)",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.455867,
+      "beta_fullsample": 0.455558,
       "beta_ci_folds": [
         0.31773,
         0.52662
@@ -403,11 +406,11 @@
       "узел": "COPX.US",
       "mechanism": "энергозатраты добычи и общий сырьевой цикл → медники",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 0.345379,
       "pinned": true,
-      "beta_fullsample": 0.307534,
+      "beta_fullsample": 0.30636,
       "beta_ci_folds": [
         0.267138,
         0.526335
@@ -434,7 +437,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.2422,
       "established_frac": 1.0,
-      "r2_fullsample": 0.1126,
+      "r2_fullsample": 0.1117,
       "provenance": "ПИН: знак согласован, разброс 0.2422 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -442,11 +445,11 @@
       "узел": "USO.US",
       "mechanism": "энергозатраты добычи и общий сырьевой цикл → медники",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.366071,
+      "beta_fullsample": 0.364666,
       "beta_ci_folds": [
         0.282551,
         0.610517
@@ -473,7 +476,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.3788,
       "established_frac": 1.0,
-      "r2_fullsample": 0.1126,
+      "r2_fullsample": 0.1117,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.3788 > 0.35"
     },
     {
@@ -481,11 +484,11 @@
       "узел": "CPER.US",
       "mechanism": "нефть как прокси глобального спроса → медь",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.141562,
+      "beta_fullsample": 0.141452,
       "beta_ci_folds": [
         0.068746,
         0.283114
@@ -520,11 +523,11 @@
       "узел": "USO.US",
       "mechanism": "нефть как прокси глобального спроса → медь",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.270976,
+      "beta_fullsample": 0.271136,
       "beta_ci_folds": [
         0.114803,
         0.978426
@@ -559,11 +562,11 @@
       "узел": "COPX.US",
       "mechanism": "бета медников к широкому рынку",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 1.148506,
       "pinned": true,
-      "beta_fullsample": 1.277768,
+      "beta_fullsample": 1.279314,
       "beta_ci_folds": [
         1.041354,
         1.815212
@@ -590,7 +593,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.1878,
       "established_frac": 1.0,
-      "r2_fullsample": 0.3751,
+      "r2_fullsample": 0.3758,
       "provenance": "ПИН: знак согласован, разброс 0.1878 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -598,11 +601,11 @@
       "узел": "SPY.US",
       "mechanism": "бета медников к широкому рынку",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.293532,
+      "beta_fullsample": 0.293718,
       "beta_ci_folds": [
         0.155529,
         0.510699
@@ -629,7 +632,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.6867,
       "established_frac": 1.0,
-      "r2_fullsample": 0.3751,
+      "r2_fullsample": 0.3758,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.6867 > 0.35"
     },
     {
@@ -637,11 +640,11 @@
       "узел": "CPER.US",
       "mechanism": "цикл рынка акций → промышленный спрос на медь",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": 0.439362,
       "pinned": true,
-      "beta_fullsample": 0.484738,
+      "beta_fullsample": 0.485077,
       "beta_ci_folds": [
         0.344828,
         0.596468
@@ -668,7 +671,7 @@
       "sign_consistent": true,
       "rel_dispersion": 0.2206,
       "established_frac": 1.0,
-      "r2_fullsample": 0.0868,
+      "r2_fullsample": 0.087,
       "provenance": "ПИН: знак согласован, разброс 0.2206 ≤ 0.35, перенос установлен в 100% фолдов (17)"
     },
     {
@@ -676,11 +679,11 @@
       "узел": "SPY.US",
       "mechanism": "цикл рынка акций → промышленный спрос на медь",
       "lag": 0,
-      "n_obs": 2877,
+      "n_obs": 2880,
       "n_folds": 17,
       "beta_pinned": null,
       "pinned": false,
-      "beta_fullsample": 0.17907,
+      "beta_fullsample": 0.179341,
       "beta_ci_folds": [
         0.047262,
         0.621668
@@ -707,8 +710,144 @@
       "sign_consistent": true,
       "rel_dispersion": 0.8185,
       "established_frac": 1.0,
-      "r2_fullsample": 0.0868,
+      "r2_fullsample": 0.087,
       "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.8185 > 0.35"
+    }
+  ],
+  "chain_sensitivities": [
+    {
+      "источник": "VRT.US",
+      "узел": "GEV.US",
+      "lag": 0,
+      "n_obs": 557,
+      "pinned": null,
+      "beta_pinned": null,
+      "beta_fullsample": 0.558928,
+      "provenance": "нет данных (П8): история 557 < train+test (504+252) — чувствительность калибруется только форвардом",
+      "chain_id": "ai_power_transformers_metal",
+      "звено": "ord1→ord2",
+      "лаг_гипотеза": 30
+    },
+    {
+      "источник": "VRT.US",
+      "узел": "GEV.US",
+      "lag": 30,
+      "n_obs": 527,
+      "pinned": null,
+      "beta_pinned": null,
+      "beta_fullsample": 0.055491,
+      "provenance": "нет данных (П8): история 527 < train+test (504+252) — чувствительность калибруется только форвардом",
+      "chain_id": "ai_power_transformers_metal",
+      "звено": "ord1→ord2",
+      "лаг_гипотеза": 30
+    },
+    {
+      "источник": "GEV.US",
+      "узел": "CLF.US",
+      "lag": 0,
+      "n_obs": 557,
+      "pinned": null,
+      "beta_pinned": null,
+      "beta_fullsample": 0.303755,
+      "provenance": "нет данных (П8): история 557 < train+test (504+252) — чувствительность калибруется только форвардом",
+      "chain_id": "ai_power_transformers_metal",
+      "звено": "ord2→ord3",
+      "лаг_гипотеза": 60
+    },
+    {
+      "источник": "GEV.US",
+      "узел": "CLF.US",
+      "lag": 60,
+      "n_obs": 497,
+      "pinned": null,
+      "beta_pinned": null,
+      "beta_fullsample": 0.015957,
+      "provenance": "нет данных (П8): история 497 < train+test (504+252) — чувствительность калибруется только форвардом",
+      "chain_id": "ai_power_transformers_metal",
+      "звено": "ord2→ord3",
+      "лаг_гипотеза": 60
+    },
+    {
+      "источник": "CLF.US",
+      "узел": "NUE.US",
+      "lag": 0,
+      "n_obs": 2880,
+      "n_folds": 17,
+      "beta_pinned": null,
+      "pinned": false,
+      "beta_fullsample": 0.301236,
+      "beta_ci_folds": [
+        0.131334,
+        0.575788
+      ],
+      "fold_betas": [
+        0.1313,
+        0.1557,
+        0.1746,
+        0.2957,
+        0.302,
+        0.2832,
+        0.3051,
+        0.4011,
+        0.4115,
+        0.3977,
+        0.4354,
+        0.4341,
+        0.4688,
+        0.5758,
+        0.5471,
+        0.5329,
+        0.5446
+      ],
+      "sign_consistent": true,
+      "rel_dispersion": 0.5271,
+      "established_frac": 1.0,
+      "r2_fullsample": 0.3544,
+      "provenance": "НЕ ПИНИТСЯ (форвард-онли): разброс 0.5271 > 0.35",
+      "chain_id": "ai_power_transformers_metal",
+      "звено": "ord3→ord4",
+      "лаг_гипотеза": 90
+    },
+    {
+      "источник": "CLF.US",
+      "узел": "NUE.US",
+      "lag": 90,
+      "n_obs": 2790,
+      "n_folds": 17,
+      "beta_pinned": null,
+      "pinned": false,
+      "beta_fullsample": 0.003075,
+      "beta_ci_folds": [
+        -0.027157,
+        0.032663
+      ],
+      "fold_betas": [
+        -0.0,
+        0.0011,
+        0.0133,
+        0.0075,
+        0.0004,
+        0.0272,
+        0.0327,
+        0.0174,
+        0.0088,
+        -0.0004,
+        -0.0109,
+        -0.004,
+        0.0127,
+        0.0054,
+        0.0155,
+        0.0088,
+        -0.0272
+      ],
+      "sign_consistent": false,
+      "rel_dispersion": 1.9548,
+      "established_frac": 0.0,
+      "r2_fullsample": 0.0,
+      "provenance": "НЕ ПИНИТСЯ (форвард-онли): знак беты непостоянен по фолдам; разброс 1.9548 > 0.35; перенос установлен лишь в 0% фолдов",
+      "chain_id": "ai_power_transformers_metal",
+      "звено": "ord3→ord4",
+      "лаг_гипотеза": 90
     }
   ]
 }

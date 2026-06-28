@@ -36,6 +36,26 @@ def make_eodhd_checker(api_key):
     return checker
 
 
+def make_eodhd_type_lookup(api_key):
+    """Фабрика лукапа ТИПА инструмента (General.Type: 'Common Stock'/'ETF'/…) через EODHD-фундаментал.
+    Кэш на тикер, best-effort (нет данных → None). Нужен, чтобы предпочесть КОМПАНИЮ секторному ETF."""
+    from data import eodhd as E
+    cache = {}
+
+    def type_of(ticker):
+        if ticker in cache:
+            return cache[ticker]
+        typ = None
+        try:
+            fnd = E.fetch_fundamentals(ticker, api_key) or {}
+            typ = (fnd.get("General") or {}).get("Type")
+        except Exception:  # noqa: BLE001
+            typ = None
+        cache[ticker] = typ
+        return typ
+    return type_of
+
+
 def match_cluster_to_theme(cluster, universe):
     """Детерминированный матч кластера к зарегистрированной теме по пересечению ключевых слов.
 
@@ -81,11 +101,12 @@ def propose_cascade(cluster, client, run_id="event_map"):
         return None
 
 
-def verify_tickers(tickers, checker):
+def verify_tickers(tickers, checker, type_lookup=None):
     """Детерминированная проверка кандидат-тикеров: оставить только реальные/ликвидные.
 
     checker(ticker) -> dict|None: {avg_volume, last} если инструмент существует, иначе None.
-    Выдуманные/неликвидные тикеры отсеиваются (П8 + фильтр ликвидности §14)."""
+    type_lookup(ticker) -> str|None: тип (Common Stock/ETF…) — запрашивается ТОЛЬКО для прошедших
+    фильтр объёма (дёшево), чтобы потом предпочесть компанию ETF-у. Выдумки/неликвид отсеиваются (П8/§14)."""
     MIN_VOL = 100000
     out = []
     for t in tickers or []:
@@ -94,7 +115,9 @@ def verify_tickers(tickers, checker):
         except Exception:  # noqa: BLE001
             info = None
         if info and (info.get("avg_volume") or 0) >= MIN_VOL:
-            out.append({"ticker": t, "avg_volume": info.get("avg_volume"), "last": info.get("last")})
+            typ = type_lookup(t) if type_lookup else None
+            out.append({"ticker": t, "avg_volume": info.get("avg_volume"),
+                        "last": info.get("last"), "type": typ})
     return out
 
 
@@ -109,8 +132,11 @@ def _proposal_to_chain(mapped):
         order = n.get("порядок") or 1
         choke = bool(n.get("чокпоинт"))
         priced = "low" if (choke and order >= 3) else ("medium" if order >= 2 else "high")
+        # предпочесть КОНКРЕТНУЮ КОМПАНИЮ секторному ETF: Common Stock раньше ETF (§3c, не у истока)
+        vts = sorted(n["verified_tickers"],
+                     key=lambda v: 0 if (v.get("type") and v["type"] != "ETF") else 1)
         nodes.append({"order": order, "node": n.get("узел"),
-                      "instruments": [v["ticker"] for v in n["verified_tickers"]],
+                      "instruments": [v["ticker"] for v in vts],
                       "chokepoint": choke, "priced_hint": priced})
     orders = sorted({nd["order"] for nd in nodes})
     edges = [{"from": orders[i], "to": orders[i + 1], "lag_days": None, "strength": "unknown"}
@@ -129,7 +155,7 @@ def score_proposal(mapped):
     return TEC.score_chain(_proposal_to_chain(mapped))
 
 
-def map_cluster(cluster, universe, client, checker):
+def map_cluster(cluster, universe, client, checker, type_lookup=None):
     """Полный цикл по одному кластеру: матч к теме ИЛИ предложение+верификация черновой карты."""
     theme, overlap = match_cluster_to_theme(cluster, universe)
     if theme:
@@ -140,7 +166,7 @@ def map_cluster(cluster, universe, client, checker):
                 "why": (draft or {}).get("обоснование", "торгуемого переноса не найдено")}
     verified_nodes = []
     for node in draft.get("каскад", []):
-        vt = verify_tickers(node.get("тикеры"), checker)
+        vt = verify_tickers(node.get("тикеры"), checker, type_lookup=type_lookup)
         if vt:
             verified_nodes.append({**node, "verified_tickers": vt})
     mapped = {"kind": "proposed", "cluster": cluster, "draft": draft,
@@ -148,6 +174,36 @@ def map_cluster(cluster, universe, client, checker):
               "tradable": bool(verified_nodes)}
     mapped["tectonic"] = score_proposal(mapped)   # долг №4: балл T + дальний узел
     return mapped
+
+
+def proposal_chains(clusters, universe, client, checker, type_lookup=None, max_map=8):
+    """Картограф → ВОРОНКА (B2.5 §R2): новостные кластеры ВНЕ реестра тем → каскадные карты → схемы
+    цепочек для graph_build. Так НОВОСТЬ становится каскадными узлами в общей воронке отбора, а не
+    только «на регистрацию». Каждая верифицированная карта (LLM-гипотеза 2–4 порядка, ярус C) →
+    _proposal_to_chain → (chain, anchor). Якорь = узел минимального порядка карты (его недавняя
+    доходность даст шок свёртки вниз). max_map ограничивает LLM-вызовы (бюджет §30).
+
+    Возвращает список {chain, anchor, событие, уверенность, ключи, mapped} (mapped — для стейджинга)."""
+    out, mapped_n = [], 0
+    for cl in (clusters or []):
+        if mapped_n >= max_map:
+            break
+        theme, _ = match_cluster_to_theme(cl, universe)
+        if theme:
+            continue                         # покрыто авторской цепочкой
+        mapped_n += 1
+        m = map_cluster(cl, universe, client, checker, type_lookup=type_lookup)
+        if m.get("kind") != "proposed" or not m.get("verified_nodes"):
+            continue
+        chain = _proposal_to_chain(m)
+        nodes = sorted(chain["nodes"], key=lambda n: n.get("order", 0))
+        anchor = (nodes[0].get("instruments") or [None])[0] if nodes else None
+        if not anchor:
+            continue
+        out.append({"chain": chain, "anchor": anchor, "mapped": m,
+                    "событие": m["draft"].get("событие"),
+                    "уверенность": m["draft"].get("уверенность"), "ключи": cl.get("keywords")})
+    return out
 
 
 def stage_proposal(mapped, ts, path=PROPOSED):

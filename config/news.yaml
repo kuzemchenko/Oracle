@@ -12,26 +12,48 @@ themes:
     # Тема №1 (§30 п.5): нефть Brent, ежедневная сверка.
     # БЕЗ внешних скобок: коннектор сам обернёт в (...) + sourcelang. Двойные скобки GDELT
     # парсит как пустой запрос (возвращает 0 статей без ошибки) — проверено.
-    gdelt_query: 'oil OR crude OR brent OR petroleum OR OPEC'
+    gdelt_query: 'oil OR crude OR brent OR petroleum OR OPEC OR refinery OR "strait of hormuz"'
     newsapi_keyword: oil
     trends_keywords: ["brent oil", "crude oil", "oil price", "OPEC"]
   - name: copper
     # Тема №2 (§30 п.5): медь.
-    gdelt_query: 'copper OR "base metals"'
+    gdelt_query: 'copper OR "base metals" OR cobalt OR lithium OR nickel'
     newsapi_keyword: copper
-    trends_keywords: ["copper price", "copper"]
+    trends_keywords: ["copper price", "copper", "lithium price"]
+  - name: ai_power
+    # Тектоническая цепочка ИИ-ЦОД → энергия → трансформаторы → GOES-сталь (universe.yaml).
+    gdelt_query: 'data center OR datacenter OR "AI power" OR transformer shortage OR "grid capacity" OR "electricity demand"'
+    newsapi_keyword: data center
+    trends_keywords: ["AI data center", "data center power", "electricity demand", "transformer shortage"]
+  - name: spacex
+    # Структурная тема: IPO SpaceX/Starlink → спутниковые аналоги (universe.yaml).
+    gdelt_query: 'SpaceX OR Starlink OR "rocket launch" OR satellite launch'
+    newsapi_keyword: SpaceX
+    trends_keywords: ["SpaceX", "Starlink", "rocket launch"]
+  - name: market_catalysts
+    # A (динамическое открытие, одобрено владельцем 28.06): ШИРОКИЙ КАТАЛИЗАТОР-поток, НЕ привязанный
+    # к 4 якорям — чтобы открытый кластер-скан (multi_event.detect_news_clusters, ранг по салиентности)
+    # видел НОВЫЕ нарративы (M&A, санкции, тарифы, отзывы, забастовки, IPO), а не только нефть/медь/ИИ/
+    # космос. Запрос событийный (катализаторы со сдвигом цены), а не генерик «stock market» (тот тонет
+    # в шуме). Картограф строит карты по тем, что РЕАЛЬНО всплыли (П8). Бюджет: +1 тема × langs к GDELT.
+    gdelt_query: 'merger OR acquisition OR takeover OR sanctions OR tariff OR "export ban" OR "product recall" OR strike OR "guidance cut" OR "profit warning" OR bankruptcy OR "antitrust"'
+    newsapi_keyword: merger acquisition
+    trends_keywords: []
 
 # --- GDELT DOC 2.0 (без ключа) ---
 gdelt:
   timespan: "1d"          # суточный поток (gate Недели 2)
   maxrecords: 250         # максимум GDELT на запрос
-  pause_sec: 7.0          # GDELT free API терпит ~1 запрос/5с; меньше — массовый 429 (блок IP)
-  langs: ["en", "ru", "ar", "zh"]   # ISO 639-1; ключевые регионы по нефти/металлам, переводится в имена для GDELT
+  pause_sec: 9.0          # GDELT free API терпит ~1 запрос/5с; меньше — массовый 429 (блок IP). Нед.10: 7→9
+  langs: ["en", "ru", "ar"]   # ISO 639-1. Нед.10 убирали ar/zh (429-давление). 18.06: ar ВЕРНУЛИ —
+                          # арабоязычные регионы ключевы для нефти, токенизатор кластеров теперь арабицу
+                          # ловит (multi_event._tokens). zh НЕ вернули: иероглифика без сегментатора в
+                          # кластеризацию не входит (см. _tokens) — вернуть = дописать биграммы.
 
 # --- NewsAPI.ai / EventRegistry (нужен NEWSAPI_AI_KEY) ---
 newsapi_ai:
   langs: ["eng", "rus", "ara"]   # ISO 639-3; шире = дороже (бюджет токенов/запросов §30)
-  pages: 1                       # страниц по 100 статей на (тему, язык) в сутки
+  pages: 2                       # 18.06: 1→2 — шире суточный охват (по 100 статей/стр на тему,язык)
   count: 100
   pause_sec: 1.0
 

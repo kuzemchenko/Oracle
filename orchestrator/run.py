@@ -162,7 +162,11 @@ def _run_multi(args):
 def _run_event_first(args):
     from orchestrator.event_first import run_event_first
     mode = "mock" if args.mock else "auto"     # auto → live при ключе OpenRouter
-    p = run_event_first(mode=mode, k=args.k, write=not args.no_write)
+    vet = getattr(args, "vet", False)
+    p = run_event_first(mode=mode, k=args.k, write=not args.no_write,
+                        seal_predictions=getattr(args, "seal", False),
+                        skip_contour=vet,            # --vet: НЕ жжём 21-агентный контур на слепых шок-источниках
+                        vet_money_k=3 if vet else 0)  # вместо него — точечный слепой суд по топ-K money
     print(f"[{p['run_id']}] EVENT-FIRST · {p['mode']}")
     s = p["скан"]
     print(f"  скан §6: {s['сырых_сигналов']} сигналов ({s['источники']}), "
@@ -175,6 +179,10 @@ def _run_event_first(args):
                           f"P={sp['prediction']['probability']}" for sp in cr.get("запечатываемо", []))
         print(f"  ⚡ {src['источник']} шок={src['shock']} · контур выдал "
               f"{src['контур']['выдано']} · каскад §9: {seals or '—'}")
+    for pr in p.get("новые_события_на_регистрацию", []):
+        if pr.get("staged"):
+            print(f"  🆕 на регистрацию: «{pr['событие']}» (T={pr.get('тектонический_потенциал')}) "
+                  f"← {pr.get('ключи')} → proposed_themes.jsonl")
     print(f"  Итог: {p['итог']}")
     return 0
 
@@ -197,6 +205,11 @@ def main(argv=None):
     ap.add_argument("--agents", default=None,
                     help="список id через запятую (по умолчанию все B/C/D/G)")
     ap.add_argument("--no-write", action="store_true", help="не писать протокол на диск")
+    ap.add_argument("--seal", action="store_true",
+                    help="event_first: запечатывать каскады в два трека (money/провизорный, B3c §R3)")
+    ap.add_argument("--vet", action="store_true",
+                    help="event_first: перенаправить контур — слепой суд по топ-K money-каскадов "
+                         "(вместо 21-агентного контура по шок-источникам); сломанные демотируются")
     ap.add_argument("--field-only", action="store_true",
                     help="только поле суждений (этапы 1–2), без дебатов/синтеза")
     ap.add_argument("--k", type=int, default=3, help="мульти-режим: сколько топ-событий анализировать")

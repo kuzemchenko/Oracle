@@ -27,6 +27,10 @@ from mathlib import brier as BR              # noqa: E402
 DB = ROOT / "storage" / "oracle.db"
 OUTCOMES_PATH = ROOT / "journal" / "outcomes.jsonl"
 
+# ГЕРМЕТИЧНОСТЬ ТРЕКОВ (B3c §R3, Вариант 2): провизорный трек (ярус B/C — гипотезы) копит СВОЙ Brier
+# и НЕ приближается к денежным воротам §11. Эти kind исключаются из денежного Brier и гейта-270.
+PROVISIONAL_KINDS = ("cascade_provisional",)
+
 
 def _now_iso():
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
@@ -103,12 +107,23 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     # Brier по ВСЕМ сверенным исходам (старые + новые). Если записали — перечитываем журнал
     # (он уже содержит newly); если write=False — склеиваем в памяти.
     all_out = read_outcomes(outcomes_path) if (write and newly) else (read_outcomes(outcomes_path) + newly)
-    probs = [float(o["probability"]) for o in all_out
-             if o.get("probability") is not None and o.get("outcome") in (0, 1)]
-    outs = [int(o["outcome"]) for o in all_out
-            if o.get("probability") is not None and o.get("outcome") in (0, 1)]
-    brier = BR.brier_score(probs, outs) if probs else None
-    band = BR.calibration_band_pp(probs, outs) if probs else None
+
+    # B3c: денежный Brier + гейт-270 — ТОЛЬКО не-провизорные; провизорный трек копит свой Brier ОТДЕЛЬНО
+    # и к §11 не приближается (герметичность Варианта 2).
+    def _bins(lst):
+        pr = [float(o["probability"]) for o in lst
+              if o.get("probability") is not None and o.get("outcome") in (0, 1)]
+        ou = [int(o["outcome"]) for o in lst
+              if o.get("probability") is not None and o.get("outcome") in (0, 1)]
+        return pr, ou
+
+    money_out = [o for o in all_out if o.get("kind") not in PROVISIONAL_KINDS]
+    prov_out = [o for o in all_out if o.get("kind") in PROVISIONAL_KINDS]
+    m_probs, m_outs = _bins(money_out)
+    p_probs, p_outs = _bins(prov_out)
+    brier = BR.brier_score(m_probs, m_outs) if m_probs else None
+    band = BR.calibration_band_pp(m_probs, m_outs) if m_probs else None
+    prov_brier = BR.brier_score(p_probs, p_outs) if p_probs else None
 
     return {
         "прогнозов_в_журнале": len(preds),
@@ -116,8 +131,10 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         "ещё_pending": still_pending,
         "ошибок": errors,
         "всего_исходов": len(all_out),
-        "brier": (None if brier is None else round(brier, 4)),
+        "brier": (None if brier is None else round(brier, 4)),                 # ДЕНЕЖНЫЙ трек (§11)
         "калибровка_band_пп": (None if band is None else round(band, 2)),
-        "до_ворот_270": max(0, 270 - len(all_out)),
-        "spec_ref": "§10.10, §16, §11 ворота; скилл calibrate п.5",
+        "до_ворот_270": max(0, 270 - len(money_out)),                          # только денежные → §11
+        "провизорный_трек": {"исходов": len(prov_out),                         # отдельный Brier, НЕ в §11
+                             "brier": (None if prov_brier is None else round(prov_brier, 4))},
+        "spec_ref": "§10.10, §16, §11 ворота; B3c герметичность треков; скилл calibrate п.5",
     }

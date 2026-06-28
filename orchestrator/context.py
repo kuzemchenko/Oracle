@@ -43,13 +43,17 @@ def _load_yaml(rel):
         return yaml.safe_load(f) or {}
 
 
-def resolve_theme(theme):
-    """Сводит тему к тикеру ядра. Возвращает (symbol|None, kind).
+def resolve_theme(theme, con=None):
+    """Сводит тему к тикеру. Возвращает (symbol|None, kind).
 
-    kind: 'theme' (имя темы из universe.themes → proxy_etf) | 'core' (прямой тикер ядра) | None.
-    symbol=None → тема ВНЕ универсума (нет калиброванных данных). Используется гардом темы в
-    funnel.run_funnel: тематический фокус разрешён только по активу универсума (П8 — иначе агенты
-    дрейфуют к фоновым новостям, урок SPCX.US 2026-06-13)."""
+    kind: 'theme' (имя темы из universe.themes → proxy_etf) | 'core' (прямой тикер затравки) |
+        'dynamic' (любой тикер с §9-источником цены/историей — брандмауэр §1 PLAN_cascade_first) | None.
+    symbol=None → тикера нет источника цены/истории (нечего анализировать, П8).
+
+    Ревизия 18.06 (поток идей): универсум АНАЛИЗА — динамический (sealable), не замороженный CORE.
+    Калибровка — гейт только для ЗАПЕЧАТЫВАНИЯ, не для мышления: конкретную компанию из каскада
+    (дальний чокпоинт-узел, не ETF) с историей котировок пускаем в research-разбор. Гард темы в
+    run_funnel отклоняет лишь то, у чего нет цены/истории вовсе."""
     universe = _load_yaml("config/universe.yaml")
     themes = universe.get("themes") or {}
     t = (theme or "").strip()
@@ -57,6 +61,8 @@ def resolve_theme(theme):
         return (themes[t.lower()] or {}).get("proxy_etf"), "theme"
     if t.upper() in CORE:
         return t.upper(), "core"
+    if U.is_sealable(t.upper(), con=con):       # динамический sealable-универсум (≥ MIN_SEALABLE_BARS)
+        return t.upper(), "dynamic"
     return None, None
 
 
@@ -144,20 +150,34 @@ def _news(con, limit=12, keywords=None):
 
 
 def _fundamentals(con):
-    """Скаляры фундаментала по символам (флоат, владение, short%float, оценка) из БД EODHD Tier 0."""
+    """Скаляры фундаментала по символам (флоат, владение, short%float, оценка) из БД EODHD Tier 0.
+    + borrow-прокси (§R4): cost-to-borrow EODHD не отдаёт → строим из short%float + Δшорта (Technicals
+    из raw_json) + days-to-cover. Питает поведенческий хвост риск-агента и behavioral."""
+    from mathlib import behavioral as BEH
     try:
         rows = con.execute(
             "SELECT symbol,name,sector,market_cap_mln,pe_ratio,shares_float,"
-            "pct_insiders,pct_institutions,short_pct_float FROM fundamentals").fetchall()
+            "pct_insiders,pct_institutions,short_pct_float,raw_json FROM fundamentals").fetchall()
     except sqlite3.OperationalError:
         return {}
     out = {}
     for r in rows:
         if r[5] is None and r[3] is None:
             continue
+        try:
+            tech = (json.loads(r[9]) or {}).get("Technicals") or {} if r[9] else {}
+        except (json.JSONDecodeError, TypeError):
+            tech = {}
         out[r[0]] = {"name": r[1], "sector": r[2], "market_cap_mln": r[3], "pe": r[4],
                      "free_float": r[5], "pct_insiders": r[6], "pct_institutions": r[7],
-                     "short_pct_float": r[8]}
+                     "short_pct_float": r[8],
+                     "shares_short": tech.get("SharesShort"),
+                     "shares_short_prior": tech.get("SharesShortPriorMonth"),
+                     "short_ratio": tech.get("ShortRatio"),
+                     "borrow_proxy": BEH.borrow_pressure(
+                         short_pct_float=r[8], shares_short=tech.get("SharesShort"),
+                         shares_short_prior=tech.get("SharesShortPriorMonth"),
+                         short_ratio=tech.get("ShortRatio"))}
     return out
 
 

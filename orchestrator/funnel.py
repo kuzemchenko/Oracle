@@ -29,6 +29,7 @@ from orchestrator import debate as DBT                        # noqa: E402
 from orchestrator import synthesis as SY                      # noqa: E402
 from orchestrator import run_budget as RB                      # noqa: E402
 from orchestrator import forecast as FC                         # noqa: E402
+from orchestrator import progress as PROG                       # noqa: E402
 from mathlib import portfolio as PF                            # noqa: E402
 
 QUARANTINE_SCHOOLS = {"b_omens"}   # §4: агент примет — в карантин, в консенсус не входит
@@ -473,9 +474,20 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
         client.cost_guard = RB.RunBudgetGuard(budget_mode, budget_decision["cap_usd"])
 
     ids = agent_ids or [a[0] for a in AGENTS]
-    records = [A.call_agent(aid, ctx, client) for aid in ids]
+    # Прогресс (§15): event-first уже мог открыть прогон и выставить текущее событие через
+    # PROG.outer(); тогда воронка только рапортует этапы. Иначе (тематический/одиночный
+    # прогон) — открываем свой прогон на одно событие и сами его закроем.
+    _owns_progress = not PROG.active()
+    if _owns_progress:
+        PROG.begin(run_id, getattr(client, "mode", mode), f"воронка · {theme}", outer_total=1)
+        PROG.outer(0, theme)
+    records = []
+    for _i, aid in enumerate(ids):
+        records.append(A.call_agent(aid, ctx, client))
+        PROG.phase("field", agents=(_i + 1, len(ids)), detail=aid)
     records_by_id = {r["agent"]: r for r in records}
 
+    PROG.phase("candidates")
     field = judgment_field(records)
     candidates = collect_candidates(records)
     contradictions = contradiction_map(candidates)
@@ -488,6 +500,7 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     schools_with_cands = {c["школа"] for c in candidates}
 
     # ── Этап 1: широкий скан + FDR ───────────────────────────────────────────────
+    PROG.phase("scan")
     scan = stage1_scan(ctx)
 
     protocol = {
@@ -519,12 +532,18 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
         protocol["следующий_шаг"] = "full=False: этапы 3–6 не выполнялись (дешёвый режим поля суждений)"
         if write:
             _write_protocol(protocol)
+        if _owns_progress:
+            PROG.finish(f"воронка · {theme}: поле суждений ({len(candidates)} кандидатов), этапы 3–6 пропущены")
         return protocol
 
     # ── Этапы 3–6 ────────────────────────────────────────────────────────────────
+    PROG.phase("coarse")
     kept3, dropped3, per_cand3 = stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client)
+    PROG.phase("scoring")
     top4, scored4 = stage4_scoring(kept3, records_by_id, ctx, costs)
+    PROG.phase("debates")
     deb_survivors, debates, dropped5 = stage5_debates(top4, ctx, client, run_id, costs)
+    PROG.phase("synthesis")
     if deb_survivors:
         synth = stage6_synthesis(deb_survivors, records_by_id, ctx, client, costs, limits,
                                  run_id=run_id, seal_predictions=(client.mode == "live"))
@@ -562,6 +581,8 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
     })
     if write:
         _write_protocol(protocol)
+    if _owns_progress:
+        PROG.finish(f"воронка · {theme}: {funnel_report['вывод']}")
     return protocol
 
 

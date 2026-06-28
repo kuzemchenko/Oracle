@@ -36,6 +36,26 @@ class _FakeClient:
         return {"text": self._t}
 
 
+def test_proposal_chains_builds_chain_for_funnel():
+    # B2.5: новость вне реестра тем → карта картографа → схема цепочки (chain+anchor) для воронки
+    draft = ('{"событие":"Дефицит трансформаторов","первый_порядок":"энергооборудование",'
+             '"каскад":[{"порядок":2,"узел":"трансформаторы","тикеры":["GEV.US"],"чокпоинт":false},'
+             '{"порядок":3,"узел":"GOES-сталь","тикеры":["CLF.US"],"чокпоинт":true}],'
+             '"обоснование":"дефицит","уверенность":"средняя"}')
+
+    def checker(t):
+        return {"avg_volume": 500000, "last": 100.0}      # все ликвидны
+
+    clusters = [{"keywords": ["transformer", "shortage"], "sample": "transformer shortage", "salience": 9}]
+    chains = EM.proposal_chains(clusters, {"themes": {}}, _FakeClient(draft), checker, max_map=5)
+    assert len(chains) == 1
+    c = chains[0]
+    assert c["anchor"] == "GEV.US"                         # узел минимального порядка (2)
+    assert [n["order"] for n in c["chain"]["nodes"]] == [2, 3]
+    assert c["событие"] == "Дефицит трансформаторов"
+    assert c["mapped"]["kind"] == "proposed"
+
+
 def test_map_cluster_proposes_and_verifies():
     draft = ('{"событие":"Бум X","первый_порядок":"A","каскад":'
              '[{"порядок":3,"узел":"редкий металл","тикеры":["REAL.US","FAKE.US"],"чокпоинт":true}],'

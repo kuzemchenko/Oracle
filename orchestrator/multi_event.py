@@ -71,9 +71,11 @@ _STOP = set("the a an of to in on for and or is are be with from at by as this t
 
 
 def _tokens(title):
-    # Только латиница+кириллица (en/ru — наши рынки): CJK/арабские заголовки дают пустой набор
-    # токенов и выпадают из кластеризации как шум для US-универсума, БЕЗ потери ru-сигнала (Brent и т.п.).
-    return {t for t in re.findall(r"[a-zа-яё]{3,}", (title or "").lower()) if t not in _STOP}
+    # Латиница+кириллица+АРАБИЦА: арабский словоразделён (пробелами), {3,} работает — важен для нефти
+    # (англо-/русско-/арабоязычные регионы, см. config/news.yaml). CJK НЕ включаем: иероглифика без
+    # сегментатора даёт один гигантский «токен» на заголовок (нет пробелов) → не кластеризуется;
+    # вернуть zh = дописать сегментацию (биграммы), отдельная задача.
+    return {t for t in re.findall(r"[a-zа-яё؀-ۿ]{3,}", (title or "").lower()) if t not in _STOP}
 
 
 def _jaccard(a, b):
@@ -107,9 +109,33 @@ def detect_news_clusters(news, threshold=0.30, top=6):
     for cl in clusters:
         kws = sorted(cl["tokfreq"], key=cl["tokfreq"].get, reverse=True)[:4]
         out.append({"size": len(cl["items"]), "salience": len(cl["items"]),
-                    "keywords": kws, "sample": cl["items"][0]})
+                    "keywords": kws, "sample": cl["items"][0], "_tokfreq": dict(cl["tokfreq"])})
+    out = _merge_near_dup(out)   # P2#9: схлопнуть один нарратив, разбитый на кластеры (короткие заголовки)
     out.sort(key=lambda c: c["salience"], reverse=True)
     return out[:top]
+
+
+def _merge_near_dup(clusters, min_shared_kw=2):
+    """P2#9: ПОСТ-СЛИЯНИЕ кластеров одного нарратива. Короткие заголовки часто не дают Jaccard≥порога,
+    и одна история (напр. Иран/Ормуз) дробится на 5-6 кластеров, выжирая бюджет картографа и теряя
+    разнообразие дня. Сливаем кластеры, делящие ≥min_shared_kw топ-ключей; салиентность суммируем
+    (это объём нарратива), топ-ключи пересчитываем по объединённым частотам."""
+    merged = []
+    for c in clusters:
+        ckw = set(c["keywords"])
+        host = next((m for m in merged if len(ckw & set(m["keywords"])) >= min_shared_kw), None)
+        if host:
+            host["salience"] += c["salience"]
+            host["size"] += c["size"]
+            tf = host["_tokfreq"]
+            for t, n in (c.get("_tokfreq") or {}).items():
+                tf[t] = tf.get(t, 0) + n
+            host["keywords"] = sorted(tf, key=tf.get, reverse=True)[:4]
+        else:
+            merged.append(c)
+    for m in merged:
+        m.pop("_tokfreq", None)
+    return merged
 
 
 def recent_news(limit=300):

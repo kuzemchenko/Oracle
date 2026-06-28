@@ -29,18 +29,36 @@ MAILTO=""
 # Калибровочный режим §17.3 (мелкие недельные §9-прогнозы, запечатывание): вторник и пятница 08:00
 0 8 * * 2,5  cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
 
-# Тематический режим Brent §17.2 (полный цикл по теме + запечатанный прогноз): будни 07:30
-30 7 * * 1-5 cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode theme --asset brent >> journal/cron.log 2>&1
-
 # Сверка исходов §10.10 (дозревшие прогнозы → close из oracle.db → outcomes.jsonl): ежедневно 21:00
 0 21 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
 
-# Боевой прогон EVENT-FIRST воронки (§6 скан событий → каскад → инструмент): понедельник 09:00
-# (заменил brent-якорный --mode funnel; дневной --mode theme --asset brent остаётся, §30). k=2 — бюджет/время.
-0 9 * * 1    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 >> journal/cron.log 2>&1
+# Боевой прогон EVENT-FIRST воронки (§6 скан событий → каскад → инструмент): КАЖДОЕ УТРО 09:00 —
+# ЕДИНСТВЕННЫЙ боевой контур скана. Brent-тема снесена 20.06 (REVISION_2026-06 §R1, аменд §30):
+# 1-й порядок отыгрывается за часы, фикс-тема противоречит открытому скану. k=2 — бюджет/время.
+# --seal: запечатывание каскадов в два трека (B3c §R3 — money→§11, провизорный→свой Brier, герметично).
+# --vet: ПЕРЕНАПРАВЛЕНИЕ КОНТУРА — слепой суд (генератор/критик/судья П10) по топ-K money-каскадов
+# вместо 21-агентного контура на слепых шок-источниках (там бюджет горел впустую); сломанные → провизорный.
+0 9 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet >> journal/cron.log 2>&1
 
 # Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
 0 7 * * *    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1
 
+# Devops-петля-предложитель §R6 (автономия 0): еженедельный анализ террейна/калибровки → ПРЕДЛОЖЕНИЯ
+# на подпись в journal/proposals/. НИЧЕГО не применяет сам (П16/§10/инвариант 5). Воскресенье 08:00.
+0 8 * * 0   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/devops_loop.py >> journal/cron.log 2>&1
+
+# Форвард-промоушен рёбер C→A (решение 28.06): DRY-предложения по запечатанным форвард-исходам
+# (N≥30, §10). НЕ применяет — пишет ops/reports/promotions/. Применение — рукой владельца
+# `ops/promote_edges.py --apply` ежемесячно (§25, инвариант 5). Воскресенье 08:30 (после devops-петли).
+30 8 * * 0   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
+
 # Напоминание о еженедельном разборе (сам разбор — в Claude Code: /review-week): пятница 18:00
 0 18 * * 5   cd /root/oracle && echo "$(date): пора /review-week в Claude Code" >> journal/reminders.log
+
+# @FemmeCode_Bot — ежедневная рассылка встреч (8:00 и 8:30 МСК = 5:00 и 5:30 UTC)
+0 5 * * *   curl -s http://65.109.237.234/femmecode-bot/avto.php?token=gho45pojgwoi5idfhjgfi6fgjhdfggjasdghfgjdfgkjllhjghg67 >> /var/www/femmecode/cron.log 2>&1
+10 5 * * *  curl -s http://65.109.237.234/femmecode-bot/avto.php?token=gho45pojgwoi5idfhjgfi6fgjhdfggjasdghfgjdfgkjllhjghg67 >> /var/www/femmecode/cron.log 2>&1
+20 5 * * *  curl -s http://65.109.237.234/femmecode-bot/avto.php?token=gho45pojgwoi5idfhjgfi6fgjhdfggjasdghfgjdfgkjllhjghg67 >> /var/www/femmecode/cron.log 2>&1
+
+# @aimycode_bot — профилактический перезапуск раз в неделю (воскресенье 3:00 МСК = 00:00 UTC)
+0 0 * * 0   cd /opt/mycode/infra && docker compose restart bot >> /var/log/mycode-bot-restart.log 2>&1

@@ -106,6 +106,12 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
         "издержки": (costs or {}).get(asset),
         "calibration_status": (ctx or {}).get("calibration_status", {}).get("thresholds_calibrated"),
     }
+    # P2#7: ПРОВЕРЯЕМОЕ дело каскада (событие-исток, механизм по звеньям, edge/r²/lag/порядок) — это
+    # ФАКТЫ дела, не авторство, поэтому слепоту судьи (П10) не нарушает. Без них ревьюер по П8 клеймил
+    # аргументы по событию как недоказанные, а судья снижал балл «нет первоисточника/нет расчёта».
+    дело = candidate.get("дело_каскада")
+    if дело:
+        idea_slice["каскадное_дело_проверяемое"] = дело
 
     # 1. Генератор
     gen = A.call_agent("e_generator", ctx, client, user_prompt=_user_for("e_generator", idea_slice))
@@ -152,6 +158,10 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
         },
         "напоминание": "ты НЕ знаешь, кто автор какого аргумента; суди по существу (§16.6)",
     }
+    if дело:
+        # проверяемое дело каскада судье ЯВНО (факты, не авторство — П10 цел): событие-исток+механизм+
+        # edge/r²/lag. Чтобы вердикт «нет первоисточника/расчёта» выносился только когда их РЕАЛЬНО нет.
+        judge_payload["каскадное_дело_проверяемое"] = дело
     if eval_context:
         judge_payload["контекст_оценки"] = eval_context
     if user_doubt:

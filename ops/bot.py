@@ -25,6 +25,7 @@ import time
 import argparse
 import datetime
 import pathlib
+import threading
 
 import requests
 
@@ -35,6 +36,11 @@ import bot_watchlist as W      # noqa: E402
 import budget as B             # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))   # для пакета orchestrator (строка прогресса прогона §15)
+try:
+    from orchestrator import progress as PROG   # noqa: E402
+except Exception:                                # бот не должен падать из-за индикатора
+    PROG = None
 LOG_TAG = "[bot]"
 
 POLL_TIMEOUT = 25              # long-poll getUpdates, сек
@@ -100,6 +106,8 @@ class Bot:
         self.tg = tg
         self.chat_id = str(chat_id) if chat_id else None
         self.state = state if state is not None else S.load_state()
+        self._job = None            # текущая фоновая задача (прогон/калибровка/сверка)
+        self._job_label = None      # её человеческое имя для /progress и сообщений
 
     def save(self):
         S.save_state(self.state)
@@ -195,8 +203,100 @@ class Bot:
         if text.startswith("/"):
             self._command(chat, text)
             return
+        # R9c: «проверь идею <X>» → полный состязательный контур по идее пользователя.
+        idea = self._intent_check_idea(text)
+        if idea:
+            self._cmd_check_idea(chat, idea)
+            return
+        # Намерение в свободной речи: «сделай прогон», «найди идеи» → боевой прогон (узкий
+        # вайтлист, чтобы не перехватывать настоящие вопросы). Прочее — диалог с Дирижёром.
+        if self._intent_run_funnel(text):
+            self._cmd_run_funnel(chat)
+            return
         # Свободный текст → диалог с Дирижёром (как в терминале).
         self._chat(chat, text)
+
+    @staticmethod
+    def _intent_run_funnel(text):
+        """Грубое распознавание «запусти прогон» в свободном тексте. Узко — лучше пропустить
+        намерение (тогда ответит Дирижёр и подскажет /run-funnel), чем перехватить вопрос."""
+        t = text.lower().strip().strip(".!?…")
+        for pre in ("да, ", "да ", "ок, ", "ок ", "окей ", "хорошо, ", "хорошо ", "давай, "):
+            if t.startswith(pre):
+                t = t[len(pre):].strip()
+        if len(t) > 60:                       # длинная фраза — почти наверняка вопрос, не команда
+            return False
+        exact = {"прогон", "прогон воронки", "сделай прогон", "сделай прогон воронки",
+                 "запусти прогон", "запусти воронку", "давай прогон", "новый прогон",
+                 "найди идеи", "найди идею", "найди мне идеи", "поищи идеи", "ищи идеи"}
+        if t in exact:
+            return True
+        return (t.startswith(("сделай прогон", "запусти прогон", "прогон воронки", "запусти воронку"))
+                or t.startswith(("найди иде", "поищи иде", "найди мне иде")))
+
+    @staticmethod
+    def _intent_check_idea(text):
+        """«проверь идею <X>» / «оцени идею <X>» / «разбери идею <X>» → вернуть X (саму идею) или None."""
+        low = text.lower().strip()
+        for pre in ("проверь мою идею", "оцени мою идею", "проверь идею", "оцени идею",
+                    "разбери идею", "проверь идею:"):
+            if low.startswith(pre):
+                return text.strip()[len(pre):].lstrip(" :—-").strip() or None
+        return None
+
+    def _cmd_check_idea(self, chat, idea_text):
+        """R9c: проверка ИДЕИ пользователя полным состязательным контуром (21 агент + слепой суд §8).
+        Тикер из идеи → добор истории (B2.6) → run_funnel theme-focused → вердикт. seal НЕ делаем."""
+        if self._job_busy():
+            self._busy_notice(chat)
+            return
+        if self._budget_blocked(chat, "проверку идеи"):
+            return
+        if not os.environ.get("OPENROUTER_API_KEY"):
+            self.tg.send_message(chat, "Нет ключа OpenRouter — проверка идеи невозможна.")
+            return
+        import bot_introspect as INTRO
+        ticker = INTRO._ticker(idea_text)
+        if not ticker:
+            self.tg.send_message(chat, "Не вижу тикер в идее. Например: «проверь идею: CLF» или "
+                                       "«проверь идею NUE — сталь вырастет на пошлинах».")
+            return
+        self.tg.send_message(
+            chat, f"🔬 Проверяю идею по {ticker} полным состязательным контуром (генератор → критик → "
+                  f"слепой судья, §8). Несколько минут — вердикт пришлю сюда. «Не проходит» — тоже "
+                  f"честный результат.")
+
+        def _job():
+            import datetime as _dt
+            import sqlite3 as _sq
+            from data import eodhd as _E
+            from orchestrator.funnel import run_funnel
+            con = _sq.connect(str(ROOT / "storage" / "oracle.db"))
+            try:
+                _E.ensure_history(con, [ticker], os.environ.get("EODHD_API_KEY", ""))
+            finally:
+                con.close()
+            rid = ("idea_" + ticker.split(".")[0] + "_"
+                   + _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
+            p = run_funnel(theme=ticker, mode="live", theme_focused=True, write=True, run_id=rid)
+            ideas = (p.get("этап6_синтез") or {}).get("отчёты") or []
+            log("проверка идеи завершена:", rid, "· идей:", len(ideas))
+            if not ideas:                                    # карточки §8 пушит _tick_reports; здесь — «не прошло»
+                self.tg.send_message(
+                    self.chat_id, f"🔬 Идея по {ticker}: контур НЕ выдал прошедшую идею — слепой суд / "
+                                  f"фильтры её зарезали (честный результат, не поломка). Разбор: /progress.")
+
+        self._start_job("проверка идеи", _job)
+
+    def _cmd_devops(self, chat):
+        """§R6: последние devops-ПРЕДЛОЖЕНИЯ (анализ террейна/калибровки на подпись). Нет отчёта —
+        генерим на лету (read-only). Система сама НИЧЕГО не применяет (автономия 0)."""
+        import devops_loop as DV
+        pdir = ROOT / "journal" / "proposals"
+        mds = sorted(pdir.glob("proposals_*.md")) if pdir.exists() else []
+        text = mds[-1].read_text(encoding="utf-8") if mds else DV._markdown(
+            DV.run_devops_proposer(n=10, write=False))
+        self.tg.send_message(chat, text[:3800] + ("…" if len(text) > 3800 else ""))
 
     def _command(self, chat, text):
         cmd = text.split()[0].lstrip("/").lower()
@@ -210,12 +310,20 @@ class Bot:
                 "• Я НЕ даю инвест-рекомендаций и не торгую — последнее слово и деньги всегда за тобой.\n\n"
                 "💬 Можешь просто писать мне вопросы обычным текстом — отвечу по-человечески. "
                 "Например: «объясни последнюю идею», «что сейчас происходит?», «почему ты выбрал медь?».\n\n"
+                "🚀 Можешь сам запустить прогон: напиши «/run-funnel» (или просто «сделай прогон» / "
+                "«найди идеи») — я прогоню воронку (открытый скан мира → каскады в компании) и пришлю "
+                "дайджест. Прогон идёт несколько минут; ход — в /progress. Может выйти и «идей нет» — "
+                "это честный результат.\n\n"
                 "🥊 Сомневаешься в идее? Напиши «/debate <твоё возражение>» — и я НЕ отвечу сам, "
                 "а сведу спор разных моделей: одна защищает идею, другая атакует твоим возражением, "
                 "третья (слепой судья) выносит вердикт — выдержала идея твоё сомнение или нет.\n\n"
-                "Команды: /status — идеи, ждущие решения; /budget — расход на работу системы; "
-                "/watchlist — что я отслеживаю; /debate — оспорить идею; /format — короче/подробнее "
-                "карточки; /reset — забыть наш диалог.")
+                "Команды: /run-funnel — запустить прогон; /calibrate — калибровочный прогон (копим "
+                "статистику точности); /resolve — сверить созревшие прогнозы с фактом; /status — идеи, "
+                "ждущие решения; /progress — что я делаю прямо сейчас; /budget — расход на работу "
+                "системы; /watchlist — что я отслеживаю; /debate — оспорить идею; /format — короче/"
+                "подробнее карточки; /reset — забыть наш диалог.\n\n"
+                "Веса и лимиты системы из чата НЕ меняю — это делается командами в терминале (защита "
+                "от решений на ходу).")
         elif cmd == "reset":
             self.state["chat_history"] = []
             self.save()
@@ -232,12 +340,25 @@ class Bot:
                             else f"кнопка откроется через {S.hours_remaining(c['issued_at']):.0f} ч")
                     lines.append(f"• {name} ({c['asset']}) — {lock}")
                 self.tg.send_message(chat, "\n".join(lines))
+        elif cmd in ("progress", "ход", "прогресс"):
+            if PROG is None:
+                self.tg.send_message(chat, "Индикатор прогресса недоступен (модуль не загрузился).")
+            else:
+                self.tg.send_message(chat, PROG.format_line())
+        elif cmd in ("run-funnel", "run_funnel", "runfunnel", "прогон", "воронка"):
+            self._cmd_run_funnel(chat)
+        elif cmd == "calibrate":
+            self._cmd_calibrate(chat)
+        elif cmd == "resolve":
+            self._cmd_resolve(chat)
         elif cmd == "debate":
             self._cmd_debate(chat, text)
         elif cmd == "format":
             self._cmd_format(chat, text)
         elif cmd == "budget":
             self.tg.send_message(chat, R.format_budget_line(self._budget_one_liner(with_key=True)))
+        elif cmd in ("devops", "предложения"):
+            self._cmd_devops(chat)
         elif cmd == "watchlist":
             entries = W.current_entries()
             if not entries:
@@ -284,6 +405,131 @@ class Bot:
         else:
             self.tg.send_message(chat, "Не понял. /format long|short | unclear N.. | clear [N..]")
 
+    # ── тяжёлые задачи из чата: прогон / калибровка / сверка (фоном, не морозим опрос) ──
+    def _job_busy(self):
+        return self._job is not None and self._job.is_alive()
+
+    def _start_job(self, label, target):
+        """Запускаем target() в фоновом daemon-потоке: полный прогон идёт минуты, а главная
+        петля должна продолжать опрашивать Telegram (кнопки решений §12, /progress). Один
+        тяжёлый прогон за раз — иначе риск задвоить траты и обойти денежные ворота §11."""
+        if self._job_busy():
+            return False
+
+        def _wrap():
+            try:
+                target()
+            except Exception as e:                               # noqa: BLE001
+                log(label, "ошибка", repr(e))
+                try:
+                    self.tg.send_message(self.chat_id, f"⚠️ «{label}» не завершилась: {e}")
+                except Exception:                                # noqa: BLE001
+                    pass
+            finally:
+                log(label, "фоновая задача завершена")
+
+        self._job_label = label
+        self._job = threading.Thread(target=_wrap, name=label, daemon=True)
+        self._job.start()
+        log("фоновая задача запущена:", label)
+        return True
+
+    def _budget_blocked(self, chat, what):
+        """True (+сообщение), если достигнут месячный потолок токенов — ворота §11/инвариант 5."""
+        try:
+            if self._budget_status().get("exit_code") == 3:
+                self.tg.send_message(
+                    chat, f"На этот месяц достигнут лимит расходов на ИИ-модели — {what} пока не "
+                          f"запускаю (защитный лимит §11). Вернётся в начале месяца. "
+                          f"Команды /status, /budget, /watchlist работают.")
+                return True
+        except Exception as e:                                   # noqa: BLE001
+            log("budget check ошибка", repr(e))
+        return False
+
+    def _busy_notice(self, chat):
+        self.tg.send_message(
+            chat, f"Уже идёт задача «{self._job_label}». Дождись её конца — ход смотри в /progress. "
+                  f"Параллельный запуск не делаю, чтобы не задвоить траты (ворота §11).")
+
+    def _cmd_run_funnel(self, chat):
+        """Боевой прогон воронки прямо из Telegram (РЕШЕНИЕ владельца 19.06: event-first,
+        открытый скан мира, дешёвый research-режим — skip_contour=True, как ежедневный крон).
+
+        Выдачу пушит штатный _tick_reports (research-дайджест по новому live-протоколу) — здесь
+        её не дублируем. mode='live' задаём ЯВНО: иначе протокол пишется как 'auto' и пуш-контур
+        принимает его за mock (см. event_first.run_event_first: protocol['mode']=mode без резолва)."""
+        if self._job_busy():
+            self._busy_notice(chat)
+            return
+        if self._budget_blocked(chat, "прогон воронки"):
+            return
+        if not os.environ.get("OPENROUTER_API_KEY"):
+            self.tg.send_message(
+                chat, "Нет ключа OpenRouter (OPENROUTER_API_KEY) — боевой прогон невозможен. "
+                      "Пропиши ключ в .env и перезапусти сервис.")
+            return
+        self.tg.send_message(
+            chat, "🚀 Запускаю боевой прогон: открытый скан мира (новости + цены + тренды) → "
+                  "каскады в конкретные компании. Это несколько минут — ход смотри в /progress, "
+                  "готовый дайджест пришлю сюда сам. Может выйти и «идей нет» — это честный "
+                  "результат (широкий вход, строгое сито), а не поломка.")
+
+        def _job():
+            from orchestrator.event_first import run_event_first
+            p = run_event_first(mode="live", k=2, skip_contour=True, write=True)
+            log("прогон из чата завершён:", p.get("run_id"), "·", p.get("итог"))
+
+        self._start_job("прогон воронки", _job)
+
+    def _cmd_calibrate(self, chat):
+        """Калибровочный прогон §17.3 из чата: пачка мелких прогнозов без ставок — копим
+        статистику Brier к воротам Б→Д (270 исходов). Итог пришлём сообщением."""
+        if self._job_busy():
+            self._busy_notice(chat)
+            return
+        if self._budget_blocked(chat, "калибровку"):
+            return
+        self.tg.send_message(
+            chat, "📐 Запускаю калибровочный прогон — мелкие прогнозы без ставок, чтобы копить "
+                  "статистику точности (Brier). Итог пришлю сюда.")
+
+        def _job():
+            from orchestrator import calibrate as CAL
+            s = CAL.run_calibrate(mode="auto", write=True)
+            if "ОТКАЗ" in s:
+                self.tg.send_message(self.chat_id, f"Калибровка не выполнена: {s['ОТКАЗ']}.")
+                return
+            self.tg.send_message(
+                self.chat_id,
+                f"📐 Калибровка готова: сгенерировано {s['сгенерировано']}, разрешимо §9 "
+                f"{s['разрешимо_§9']}, запечатано {s['запечатано']}. Всего исходов разрешено "
+                f"{s['разрешено_исходов']}, Brier {s['текущий_brier']}, до ворот 270 осталось "
+                f"{s['до_ворот_270']}.")
+
+        self._start_job("калибровка", _job)
+
+    def _cmd_resolve(self, chat):
+        """Сверка созревших прогнозов с фактом §10.10 из чата. Детерминированно, без трат
+        токенов (бюджет не трогаем), поэтому без ворот §11."""
+        if self._job_busy():
+            self._busy_notice(chat)
+            return
+        self.tg.send_message(chat, "🔍 Сверяю созревшие прогнозы с фактическими исходами…")
+
+        def _job():
+            from orchestrator import resolve as RES
+            s = RES.run_resolve(write=True)
+            msg = (f"🔍 Сверка готова: сверено сейчас {s['сверено_сейчас']}, ещё ждут "
+                   f"{s['ещё_pending']}. Всего исходов {s['всего_исходов']}, Brier {s['brier']}, "
+                   f"калибровка band {s['калибровка_band_пп']} п.п., до ворот 270 осталось "
+                   f"{s['до_ворот_270']}.")
+            if s.get("ошибок"):
+                msg += f"\n⚠ ошибок сверки: {s['ошибок']}."
+            self.tg.send_message(self.chat_id, msg)
+
+        self._start_job("сверка исходов", _job)
+
     # ── состязательный разбор идеи по возражению (§4 блок E) ─────────────────────────
     def _cmd_debate(self, chat, text):
         """/debate <возражение> — НЕ ответ Дирижёра, а спор разных семейств моделей по идее.
@@ -329,25 +575,33 @@ class Bot:
                 doubt = doubt[len(tok):].strip() or doubt
                 break
 
+        # Разбор = 5 последовательных вызовов LLM (минуты). Уводим в ФОНОВЫЙ поток, как все
+        # тяжёлые команды (_cmd_run_funnel/_cmd_calibrate/...), иначе главный цикл опроса
+        # блокируется на всё время разбора — бот перестаёт отвечать и реагировать на кнопки
+        # (баг «запустил разбор → бот завис»). Один тяжёлый прогон за раз (ворота §11).
+        if self._job_busy():
+            self._busy_notice(chat)
+            return
         self.tg.send_message(
             chat, "🥊 Запускаю состязательный разбор: одна модель защищает идею, другая атакует "
                   "твоим возражением, слепой судья решает. Это займёт до минуты…")
         if hasattr(self.tg, "send_chat_action"):
             self.tg.send_chat_action(chat, "typing")
-        try:
+
+        def _job():
+            # Доставка результата — ВНУТРИ задачи: при сбое отправки _start_job._wrap его
+            # поймает, сообщит владельцу и залогирует (раньше _send_long стоял вне try и сбой
+            # терялся молча).
             p = CH.run_challenge(doubt, asset=asset, mode="auto", write=True)
-        except Exception as e:                                   # noqa: BLE001
-            log("debate ошибка", repr(e))
-            self.tg.send_message(
-                chat, "Не смог провести разбор (модель недоступна или ключ OpenRouter не задан). "
-                      "Попробуй позже.")
-            return
-        if "ОТКАЗ" in p:
-            self.tg.send_message(chat, f"Не получилось: {p['ОТКАЗ']}.")
-            return
-        self._send_long(chat, p["резюме"] + "\n\n(Это исследовательский разбор, не рекомендация — "
+            if "ОТКАЗ" in p:
+                self.tg.send_message(self.chat_id, f"Не получилось: {p['ОТКАЗ']}.")
+                return
+            self._send_long(
+                self.chat_id, p["резюме"] + "\n\n(Это исследовательский разбор, не рекомендация — "
                                             "решение и риск за тобой, §12.)")
-        log("debate: разбор отправлен", p.get("run_id"))
+            log("debate: разбор отправлен", p.get("run_id"))
+
+        self._start_job("разбор идеи (debate)", _job)
 
     # ── свободный диалог с Дирижёром ─────────────────────────────────────────────────
     def _send_long(self, chat, text):
@@ -437,7 +691,12 @@ class Bot:
         for proto in R.new_runs(self.state["pushed_runs"]):
             run_id = proto.get("run_id")
             issued_at = proto.get("ts")
-            is_mock = (proto.get("mode") != "live")
+            # МОКА — только явный mode=="mock" (дымовой прогон без сети/трат). Режим "auto"
+            # боевой: run.py трактует auto→live при наличии ключа OpenRouter (event_first/funnel
+            # по крону идут как auto и делают реальную работу). Раньше is_mock=(mode!="live")
+            # ошибочно глотал ВСЕ кроновые auto-прогоны в тишину (journal/bot.log: «mock-прогон
+            # не отправлен») — до пользователя долетал лишь бюджет. Фикс: auto и live доставляем.
+            is_mock = (proto.get("mode") == "mock")
             # mock/test НЕ маскируем под идею: по умолчанию вовсе не шлём (config флаг).
             if is_mock and not pres["send_mock_to_telegram"]:
                 self.state["pushed_runs"].append(run_id)
@@ -447,6 +706,17 @@ class Bot:
                 self.tg.send_message(self.chat_id, R.format_mock_check(proto))
                 self.state["pushed_runs"].append(run_id)
                 log("пуш проверки связи (mock)", run_id)
+                continue
+            # Event-first СВОДНЫЙ прогон (ef_<ts>, без '__') → research-дайджест (РЕШЕНИЕ A, анти-brent):
+            # поток идей по событиям мира на компаниях, без кнопок-ставок (research-метка §16).
+            if str(run_id).startswith("ef_") and "__" not in str(run_id):
+                # дайджест с разбором новость→цепочка→суд длиннее лимита Telegram (4096) → шлём частями.
+                self._send_card(R.format_research_digest(proto), None)
+                added = W.ingest_protocol(proto, existing_ids=self.state["seen_watchlist"])
+                for rec in added:
+                    self.state["seen_watchlist"].append(rec["id"])
+                self.state["pushed_runs"].append(run_id)
+                log("пуш research-дайджеста event-first", run_id)
                 continue
             ideas = R.ideas_from_protocol(proto)
             if ideas:

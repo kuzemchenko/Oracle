@@ -254,7 +254,7 @@ def test_weak_day_push(paths):
     _write_proto(paths["logs"], _proto(ideas=False, early=False))
     bot = _fresh_bot()
     bot._tick_reports()
-    assert any("Идей нет" in s[1] for s in bot.tg.sent)
+    assert any("Идей под ставку сегодня нет" in s[1] for s in bot.tg.sent)
 
 
 def test_mock_run_not_pushed_by_default(paths):
@@ -378,11 +378,102 @@ def challenge_paths(paths, monkeypatch):
     import sys as _sys
     _sys.path.insert(0, str(ROOT))
     from orchestrator import challenge as CH
+    from orchestrator import openrouter as OR
     monkeypatch.setattr(CH, "FUNNEL_LOGS", paths["logs"])
     monkeypatch.setattr(CH, "CHALLENGE_LOGS", paths["tmp"] / "challenges")
+    # Герметичность: разбор гоняем на MockClient, не на сети (mode="auto" иначе ушёл бы в live
+    # при ключе в окружении — реальные вызовы и трата бюджета в юнит-тесте).
+    monkeypatch.setattr(OR, "make_client",
+                        lambda mode="auto", models=None, run_id=None: OR.MockClient(models, run_id))
     (paths["logs"] / "funnel_20260612T140000Z.json").write_text(
         json.dumps(_proto(), ensure_ascii=False), encoding="utf-8")
     return CH
+
+
+# ── запуск тяжёлых задач из чата (прогон/калибровка/сверка) ───────────────────────────
+def test_intent_run_funnel_matches_natural_phrasing():
+    yes = ["сделай прогон", "Да, сделай прогон", "запусти прогон", "прогон", "найди идеи",
+           "поищи идеи", "сделай прогон воронки", "новый прогон"]
+    no = ["что у нас с бюджетом?", "объясни последнюю идею про прогон воронки и почему медь",
+          "почему ты не нашёл идей вчера", "расскажи как устроен прогон", ""]
+    for t in yes:
+        assert BOT.Bot._intent_run_funnel(t) is True, t
+    for t in no:
+        assert BOT.Bot._intent_run_funnel(t) is False, t
+
+
+def test_run_funnel_refuses_without_key(paths, monkeypatch):
+    bot = _fresh_bot()
+    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 0})
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    bot._cmd_run_funnel(555)
+    assert any("ключ" in s[1].lower() for s in bot.tg.sent)
+    assert not bot._job_busy()                              # задача не запущена
+
+
+def test_run_funnel_blocked_by_budget(paths, monkeypatch):
+    bot = _fresh_bot()
+    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 3})
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    bot._cmd_run_funnel(555)
+    assert any("лимит расходов" in s[1] for s in bot.tg.sent)
+    assert not bot._job_busy()
+
+
+def test_run_funnel_launches_background_job(paths, monkeypatch):
+    import orchestrator.event_first as EF
+    called = {}
+
+    def _stub(mode="mock", k=3, skip_contour=False, write=True, **kw):
+        called.update(mode=mode, k=k, skip_contour=skip_contour, write=write)
+        return {"run_id": "ef_test", "итог": "источников 0; идей 0"}
+
+    monkeypatch.setattr(EF, "run_event_first", _stub)
+    bot = _fresh_bot()
+    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 0})
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    bot._cmd_run_funnel(555)
+    assert any("Запускаю боевой прогон" in s[1] for s in bot.tg.sent)   # моментальный ack
+    bot._job.join(timeout=5)
+    assert called == {"mode": "live", "k": 2, "skip_contour": True, "write": True}
+
+
+def test_only_one_heavy_job_at_a_time(paths, monkeypatch):
+    import orchestrator.event_first as EF
+    release = __import__("threading").Event()
+    monkeypatch.setattr(EF, "run_event_first",
+                        lambda **kw: release.wait(timeout=5) and {"run_id": "x", "итог": ""})
+    bot = _fresh_bot()
+    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 0})
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    bot._cmd_run_funnel(555)                                # первая — стартует
+    assert bot._job_busy()
+    n = len(bot.tg.sent)
+    bot._cmd_calibrate(555)                                 # вторая (любая тяжёлая) — отказ
+    assert any("Уже идёт задача" in s[1] for s in bot.tg.sent[n:])
+    release.set()
+    bot._job.join(timeout=5)
+
+
+def test_resolve_runs_and_reports(paths, monkeypatch):
+    import orchestrator.resolve as RES
+    monkeypatch.setattr(RES, "run_resolve", lambda write=True: {
+        "сверено_сейчас": 2, "ещё_pending": 5, "всего_исходов": 20, "brier": 0.21,
+        "калибровка_band_пп": 7, "до_ворот_270": 250, "ошибок": 0})
+    bot = _fresh_bot()
+    bot._cmd_resolve(555)
+    bot._job.join(timeout=5)
+    joined = "\n".join(s[1] for s in bot.tg.sent)
+    assert "Сверяю созревшие" in joined                     # ack
+    assert "Сверка готова" in joined and "до ворот 270 осталось 250" in joined
+
+
+def test_help_lists_new_run_commands():
+    bot = _fresh_bot()
+    bot._command(555, "/help")
+    txt = " ".join(s[1] for s in bot.tg.sent)
+    assert "/run-funnel" in txt and "/calibrate" in txt and "/resolve" in txt
+    assert "веса и лимиты" in txt.lower()                    # инвариант: не из чата
 
 
 def test_debate_no_args_lists_ideas(challenge_paths):
@@ -396,6 +487,9 @@ def test_debate_runs_contour_and_returns_verdict(challenge_paths):
     bot = _fresh_bot()
     bot._on_message({"chat": {"id": 555},
                      "text": "/debate это же просто ставка на нефть, всё уже в цене"})
+    # Разбор идёт в ФОНОВОМ потоке (не морозит опрос Telegram) — дождёмся доставки вердикта.
+    if bot._job is not None:
+        bot._job.join(timeout=30)
     joined = "\n".join(s[1] for s in bot.tg.sent)
     assert "состязательн" in joined.lower()                     # анонс запуска
     assert "Вердикт слепого судьи" in joined                    # резюме контура доставлено

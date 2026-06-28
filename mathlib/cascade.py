@@ -41,6 +41,20 @@ def log_returns(prices):
     return np.diff(np.log(p))
 
 
+EVENT_WINDOW_DAYS = 5   # §R2.1: окно РЕАКЦИИ на событие. shock (корня) и realized (терминала) меряются
+                        # за ОДНО это окно → «отыграно» = сколько терминал уже отреагировал, как каскад
+                        # предсказывает (а не сырое 20д-движение всех драйверов — прошлый баг несоосности).
+
+
+def window_return(prices, window=EVENT_WINDOW_DAYS):
+    """Лог-доходность за окно последних `window` баров (реакция на событие). None — мало истории.
+    Выравнивает горизонты: и шок корня, и реализованное терминала считаются за это же окно."""
+    p = [float(x) for x in (prices or []) if x is not None and float(x) > 0]
+    if len(p) < window + 1:
+        return None
+    return round(math.log(p[-1] / p[-1 - window]), 6)
+
+
 def ols_beta(x, y):
     """OLS y на x: y ≈ a + beta·x. Возвращает {beta, intercept, corr, r2, n, resid_std, se_beta}.
 
@@ -100,9 +114,11 @@ def node_sensitivity(source_ret, node_ret, lag=0, min_obs=MIN_OBS):
     else:
         established = bool(lo > 0 or hi < 0)   # CI не пересекает 0 → перенос статистически установлен
     ci = [None if lo is None else round(lo, 4), None if hi is None else round(hi, 4)]
+    se = fit.get("se_beta")
     return {"beta": round(fit["beta"], 6), "corr": round(fit["corr"], 4),
             "r2": round(fit["r2"], 4), "n": fit["n"], "resid_std": round(fit["resid_std"], 6),
             "lag": int(lag), "corr_ci95": ci,
+            "se_beta": (None if se is None or math.isinf(se) else round(se, 6)),
             "перенос_установлен": established}
 
 
@@ -111,14 +127,25 @@ def node_amplitude(beta, shock):
     return float(beta) * float(shock)
 
 
-def node_probability(amplitude, resid_std, horizon_days, threshold=0.0):
+def node_probability(amplitude, resid_std, horizon_days, threshold=0.0,
+                     amplitude_sd=0.0, reliability=None):
     """P(движение узла за горизонт ≥ threshold) при сносе=amplitude и остаточной воле σ_h.
 
-    σ_h = resid_std·√horizon. При amplitude=0 обобщает baseline calibrate (Φ(−threshold/σ_h))."""
+    σ_h = resid_std·√horizon. При amplitude=0 обобщает baseline calibrate (Φ(−threshold/σ_h)).
+
+    amplitude_sd: неопределённость самого сноса (проброс дисперсии по звеньям, compose_chain). Входит
+        в полосу: σ_total² = σ_h² + amplitude_sd². Узкое звено с широкой полосой → p ближе к 0.5.
+    reliability: r² связи (0..1). Сжимаем p к 0.5 пропорционально надёжности: слабая связь (r²≈0.04)
+        НЕ должна давать уверенность 0.99 (П8 — мы не уверены, когда связь статистически пуста)."""
     sigma_h = float(resid_std) * math.sqrt(max(int(horizon_days), 1))
-    if not (sigma_h > 0):
+    sigma_total = math.sqrt(sigma_h ** 2 + float(amplitude_sd or 0.0) ** 2)
+    if not (sigma_total > 0):
         return None
-    return round(_norm_cdf((float(amplitude) - float(threshold)) / sigma_h), 4)
+    p = _norm_cdf((float(amplitude) - float(threshold)) / sigma_total)
+    if reliability is not None:
+        w = max(0.0, min(1.0, float(reliability)))
+        p = 0.5 + (p - 0.5) * w           # надёжность=0 → монетка; =1 → исходная p
+    return round(p, 4)
 
 
 def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
@@ -190,3 +217,149 @@ def _lag_for_pair(a, b, links):
         if {a.upper(), b.upper()} == set(pair):
             return int(ln.get("lag_days") or 0)
     return 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# §3c PLAN_cascade_first: ярусы честности звена + многозвенная свёртка с пробросом
+# дисперсии + edge=амплитуда−отыгранное. Прогноз неочевидной идеи = условный сценарий
+# по звеньям (не одна калиброванная p). Инвариант 6: свёртку считает КОД, LLM лишь
+# предлагает структуру цепочки и поставляет факты экспозиции (с источником, П8).
+# ══════════════════════════════════════════════════════════════════════════════════
+
+# Надёжность звена ограничена сверху ярусом: B (структурная экспозиция без ценового
+# подтверждения) и C (только механизм) не могут притворяться эмпирически установленными.
+STRUCTURAL_RELIABILITY_CAP = 0.6
+MECHANISM_RELIABILITY_CAP = 0.2
+
+_TIER_RANK = {"A": 0, "B": 1, "C": 2}   # A — самый надёжный, C — самый шаткий
+
+
+def _lowest_tier(tiers):
+    """Наименее надёжный (самый шаткий) ярус в цепочке — несущая слабость цепи."""
+    present = [t for t in tiers if t in _TIER_RANK]
+    return max(present, key=lambda t: _TIER_RANK[t]) if present else None
+
+
+def _product_mean_var(means, sds):
+    """E и Var произведения НЕЗАВИСИМЫХ факторов с (mean, sd). Точно: Var=Π(μ²+σ²)−(Πμ)²."""
+    m = 1.0
+    e_sq = 1.0
+    for mu, sd in zip(means, sds):
+        m *= float(mu)
+        e_sq *= (float(mu) ** 2 + float(sd) ** 2)
+    return m, max(e_sq - m * m, 0.0)
+
+
+def link_empirical(source_ret, node_ret, *, lag=0, min_obs=MIN_OBS):
+    """Ярус A — звено из истории. gain=бета, gain_sd=se_beta, reliability=R² (если перенос
+    установлен, иначе 0). None — нет данных (мало синхронной истории, П8)."""
+    sens = node_sensitivity(source_ret, node_ret, lag=lag, min_obs=min_obs)
+    if sens is None:
+        return None
+    rel = sens["r2"] if sens["перенос_установлен"] else 0.0
+    return {"tier": "A", "gain": sens["beta"], "gain_sd": sens.get("se_beta") or 0.0,
+            "reliability": round(rel, 4), "lag": sens["lag"],
+            "established": sens["перенос_установлен"], "r2": sens["r2"],
+            "провенанс": f"эмпирическая бета OLS, n={sens['n']}, R²={sens['r2']}, "
+                         f"перенос_установлен={sens['перенос_установлен']}"}
+
+
+def link_structural(exposure, op_leverage, *, lag=0, reliability=None,
+                    exposure_sd=0.0, op_leverage_sd=0.0, провенанс=""):
+    """Ярус B — структурная экспозиция. gain = exposure × op_leverage (доля выручки/затрат
+    от затронутого рынка × операционный рычаг). Входы — ФАКТЫ С ИСТОЧНИКОМ (П8), код только
+    свёртывает. reliability ограничена STRUCTURAL_RELIABILITY_CAP (нет ценового подтверждения)."""
+    gain, var = _product_mean_var([exposure, op_leverage], [exposure_sd, op_leverage_sd])
+    rel = (STRUCTURAL_RELIABILITY_CAP if reliability is None
+           else min(float(reliability), STRUCTURAL_RELIABILITY_CAP))
+    return {"tier": "B", "gain": round(gain, 6), "gain_sd": round(math.sqrt(var), 6),
+            "reliability": round(rel, 4), "lag": int(lag), "established": None,
+            "провенанс": провенанс or "структурная экспозиция × оп.рычаг (требует источника, П8)"}
+
+
+def link_mechanism(prior_gain, *, lag=0, prior_sd=None, reliability=None, провенанс=""):
+    """Ярус C — только механизм, данных нет. Низкий приор надёжности + широкая полоса (по
+    умолчанию CV≈1). Это звено атакует слепой суд; весь edge на C → research-only."""
+    g = float(prior_gain)
+    psd = abs(g) if prior_sd is None else float(prior_sd)
+    rel = (MECHANISM_RELIABILITY_CAP if reliability is None
+           else min(float(reliability), MECHANISM_RELIABILITY_CAP))
+    return {"tier": "C", "gain": round(g, 6), "gain_sd": round(psd, 6),
+            "reliability": round(rel, 4), "lag": int(lag), "established": False,
+            "механизм_только": True,
+            "провенанс": провенанс or "механизм-гипотеза, не подтверждён данными (П8) — мишень суда"}
+
+
+def compose_chain(links, shock0, *, shock0_sd=0.0):
+    """Свёртка цепочки звеньев при корневом шоке shock0 (доходность первоисточника).
+
+      amplitude = shock0 × Π gainᵢ ;  дисперсия пробрасывается (независимые факторы) →
+      длинная цепь / одно шаткое звено = широкая полоса = честная «низкая уверенность».
+      reliability = Π reliabilityᵢ (цепь не крепче произведения звеньев) ;  lag = Σ lagᵢ.
+
+    sealable_path=True только если ВСЕ звенья яруса A и перенос установлен — иначе research-only
+    (несущее звено B/C, П16: не в форвард-Brier-трек). Звено=None (нет данных) → путь не сворачивается."""
+    if not links:
+        return {"sealable_path": False, "причина": "пустая цепочка", "amplitude": None, "links": 0}
+    missing = [i for i, l in enumerate(links) if l is None]
+    if missing:
+        return {"sealable_path": False, "amplitude": None, "reliability": None,
+                "lowest_tier": None, "links": len(links),
+                "причина": f"звено(я) {missing} без данных — путь не разрешим (П8)"}
+
+    means = [shock0] + [l["gain"] for l in links]
+    sds = [shock0_sd] + [l.get("gain_sd", 0.0) for l in links]
+    amp_mean, amp_var = _product_mean_var(means, sds)
+    amp_sd = math.sqrt(amp_var)
+
+    reliability = 1.0
+    for l in links:
+        reliability *= float(l.get("reliability", 0.0))
+    lag_total = sum(int(l.get("lag", 0)) for l in links)
+    tiers = [l["tier"] for l in links]
+    lowest = _lowest_tier(tiers)
+    all_A = all(l.get("tier") == "A" and l.get("established") for l in links)
+    return {
+        "amplitude": round(amp_mean, 6),               # ожидаемое полное движение терминала (доли)
+        "amplitude_sd": round(amp_sd, 6),
+        "amplitude_ci68": [round(amp_mean - amp_sd, 6), round(amp_mean + amp_sd, 6)],
+        "reliability": round(reliability, 4),          # P(цепь переносит) — произведение звеньев
+        "lag_total": lag_total,                        # суммарное окно входа (торг. дни)
+        "tiers": tiers,
+        "lowest_tier": lowest,                         # несущая слабость цепи (A<B<C)
+        "sealable_path": bool(all_A),
+        "причина_seal": ("все звенья A и перенос установлен → калибруемо"
+                         if all_A else
+                         f"несущее звено яруса {lowest} → research-only (не в Brier-трек, П16)"),
+        "links": len(links),
+    }
+
+
+UNPRICED_MIN_AMP = 0.005   # ниже этой |амплитуды| (0.5%) доля «отыграно» НЕ определена: предсказанное
+                           # каскадом движение на уровне шума, делить на него = мусор (2890%) — П8.
+
+
+def cascade_edge(amplitude, realized_move, *, amplitude_sd=0.0):
+    """edge = ещё НЕ отыгранная на терминале амплитуда = расчётная амплитуда − уже реализованное
+    движение. Лекарство от схлопывания в 1-й порядок: отыгранный узел (BNO после −3%) → edge≈0;
+    дальний непрокинутый узел → edge>0.
+
+    unpriced_fraction∈[~−1,1]: 1=ничего не отыграно, 0=всё, <0=переотыграно. None, если |амплитуда| <
+    UNPRICED_MIN_AMP — каскад предсказывает движение на уровне шума, доля «отыграно» НЕ ИЗМЕРИМА (П8):
+    раньше тут делилось на почти-ноль и выходил абсурд (2890%). edge (направление+величина) считается
+    всегда; вырождается только ДОЛЯ."""
+    if amplitude is None:
+        return None
+    amp = float(amplitude)
+    edge = amp - float(realized_move)
+    frac = None if abs(amp) < UNPRICED_MIN_AMP else round(edge / amp, 4)
+    return {"edge": round(edge, 6), "edge_sd": round(float(amplitude_sd), 6),
+            "amplitude": round(amp, 6), "realized": round(float(realized_move), 6),
+            "unpriced_fraction": frac}
+
+
+def edge_rank_score(edge, reliability):
+    """Ранг идеи в потоке = |непрокинутый edge| × надёжность цепи (§3c: не по салиентности кластера)."""
+    if edge is None or reliability is None:
+        return 0.0
+    return round(abs(float(edge)) * float(reliability), 6)

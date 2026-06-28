@@ -44,8 +44,13 @@ ISO1_TO_GDELT_LANG = {
 }
 
 
-def _get(url, timeout=45, tries=5, pause=5.0):
-    """GET с backoff на 429/таймаут. GDELT любит ограничивать частоту."""
+def _get(url, timeout=45, tries=4, pause=8.0, max_wait=60.0):
+    """GET с backoff на 429/таймаут. GDELT free Doc API жёстко лимитирует частоту (≈1 запрос/5 c
+    на IP) и при перегрузе банит окном. Стратегия: УВАЖАЕМ заголовок Retry-After (если прислан и
+    разумен), иначе ЭКСПОНЕНЦИАЛЬНАЯ пауза 8→16→32 c (потолок max_wait) — линейные 5·i были
+    слишком короткими (оттого «недоступен после 5 попыток» в cron.log), а слишком длинные вешают
+    живой прогон. GDELT — best-effort (основной поток новостей несёт NewsAPI.ai): после tries
+    попыток отдаём управление, run_all ловит и идёт к следующему запросу (Нед.10)."""
     last = None
     for i in range(tries):
         try:
@@ -55,12 +60,19 @@ def _get(url, timeout=45, tries=5, pause=5.0):
         except urllib.error.HTTPError as e:
             last = e
             if e.code in (429, 502, 503, 504):
-                time.sleep(pause * (i + 1))
+                ra = e.headers.get("Retry-After") if getattr(e, "headers", None) else None
+                try:
+                    wait = float(ra) if ra else None
+                except (TypeError, ValueError):
+                    wait = None
+                if wait is None or wait > max_wait:
+                    wait = min(pause * (2 ** i), max_wait)   # игнорируем неадекватно длинный Retry-After
+                time.sleep(wait)
                 continue
             raise RuntimeError(f"GDELT HTTP {e.code}") from e
         except Exception as e:  # noqa: BLE001 — сеть/таймаут → backoff
             last = e
-            time.sleep(pause * (i + 1))
+            time.sleep(min(pause * (2 ** i), max_wait))
     raise RuntimeError(f"GDELT недоступен после {tries} попыток: {last}")
 
 

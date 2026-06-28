@@ -77,3 +77,23 @@ def calibrate_pair_sensitivity(source_ret, node_ret, lag=0,
         if estab_frac < ESTAB_FRAC_MIN: why.append(f"перенос установлен лишь в {estab_frac:.0%} фолдов")
         rec["provenance"] = "НЕ ПИНИТСЯ (форвард-онли): " + "; ".join(why)
     return rec
+
+
+def on_the_fly(source_sym, node_sym, *, lag=0, db=None,
+               train=TRAIN, test=TEST, step=STEP, min_obs=CAS.MIN_OBS):
+    """Калибровка чувствительности узла к источнику для ЛЮБЫХ резолвнутых тикеров — на лету из
+    oracle.db (§3c/Этап 3–4: динамически-резолвнутые компании, не только реестр 14). Честный «нет
+    данных» (П8): нет синхронных рядов / мало истории → pinned=None с причиной, без выдуманной беты.
+    """
+    from mathlib.calibration import loader as LD
+    syms = [source_sym, node_sym]
+    _, series = LD.load_aligned(syms, db=db) if db else LD.load_aligned(syms)
+    miss = [s for s in syms if s not in series or series[s].adj.size == 0]
+    if miss:
+        return {"источник": source_sym, "узел": node_sym, "lag": int(lag),
+                "pinned": None, "beta_pinned": None, "n_obs": 0,
+                "provenance": f"нет данных (П8): нет синхронных рядов для {miss}"}
+    ra = CAS.log_returns(series[source_sym].adj)
+    rb = CAS.log_returns(series[node_sym].adj)
+    rec = calibrate_pair_sensitivity(ra, rb, lag=lag, train=train, test=test, step=step, min_obs=min_obs)
+    return {"источник": source_sym, "узел": node_sym, **rec}
