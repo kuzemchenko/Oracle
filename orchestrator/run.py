@@ -163,10 +163,12 @@ def _run_event_first(args):
     from orchestrator.event_first import run_event_first
     mode = "mock" if args.mock else "auto"     # auto → live при ключе OpenRouter
     vet = getattr(args, "vet", False)
+    deep = getattr(args, "deep", False)
     p = run_event_first(mode=mode, k=args.k, write=not args.no_write,
                         seal_predictions=getattr(args, "seal", False),
                         skip_contour=vet,            # --vet: НЕ жжём 21-агентный контур на слепых шок-источниках
-                        vet_money_k=3 if vet else 0)  # вместо него — точечный слепой суд по топ-K money
+                        vet_money_k=3 if vet else 0,  # вместо него — точечный слепой суд по топ-K money
+                        deep_money_report=deep)       # --deep (решение D в.3): полный §8-контур по пережившим суд
     print(f"[{p['run_id']}] EVENT-FIRST · {p['mode']}")
     s = p["скан"]
     print(f"  скан §6: {s['сырых_сигналов']} сигналов ({s['источники']}), "
@@ -207,6 +209,9 @@ def main(argv=None):
     ap.add_argument("--no-write", action="store_true", help="не писать протокол на диск")
     ap.add_argument("--seal", action="store_true",
                     help="event_first: запечатывать каскады в два трека (money/провизорный, B3c §R3)")
+    ap.add_argument("--deep", action="store_true",
+                    help="event_first (решение D в.3): полный §8-контур (тайминг/манип/риск/синтез 13 "
+                         "полей + процедурное вето §6) ТОЧЕЧНО по money-идеям, пережившим слепой суд")
     ap.add_argument("--vet", action="store_true",
                     help="event_first: перенаправить контур — слепой суд по топ-K money-каскадов "
                          "(вместо 21-агентного контура по шок-источникам); сломанные демотируются")

@@ -190,7 +190,13 @@ def _stage_cartographer(pcs, now):
 def _money_kind(verdict):
     """Слепой суд РАЗБИЛ money-идею (или ВЕТО) → демотируем в провизорный (НЕ пускаем к §11).
     Иначе (устояла / не судили) — money. Это и есть гейт качества денежного трека (П10).
-    verdict — либо строка-исход (старый контракт/тесты), либо подробный dict {исход,...}."""
+    verdict — либо строка-исход (старый контракт/тесты), либо подробный dict {исход,...}.
+
+    Решение D (вариант 3): процедурное вето Дирижёра (§5) от ПОЛНОГО §8-контура (тайминг ЛОВУШКА/
+    ПОЗДНО или манипуляция выше порога) тоже демотирует money→провизорный — это не суждение о рынке,
+    а процедурный стоп-фильтр §6 (П10 цел: вето применяет Дирижёр, не подменяя слепого судью)."""
+    if isinstance(verdict, dict) and verdict.get("процедурное_вето"):
+        return "cascade_provisional"
     outcome = verdict.get("исход") if isinstance(verdict, dict) else verdict
     return "cascade_provisional" if outcome in ("РАЗБИТА", "ВЕТО") else "cascade_money"
 
@@ -243,7 +249,61 @@ def _money_thesis(n, событие=None):
     return " ".join(parts) or "каскадный узел: посчитанных полей нет (П8 — нет данных для тезиса)"
 
 
-def _vet_money(money_members, run_id, top_k=3, chain_events=None):
+def _deep_report_money(cand, debate, ctx, client):
+    """ВАРИАНТ 3 (решение D): ПОЛНЫЙ §4-контур качества §8 на ОДНУ пережившую слепой суд money-идею.
+    Дешёвый каскад+money-vet — ежедневный фильтр; полный контур (тайминг/манипуляция/неочевидность/
+    риск/синтез 13 полей §8) тратится ТОЧЕЧНО — только на идею, которая претендует в деньги. Дебаты
+    (генератор/критик/слепой судья) УЖЕ проведены (передаём debate), второй раз их не гоняем — §8
+    добирает измерения, которых money-vet не делает. Возвращает отчёт + процедурное_вето (§6/§5)."""
+    from orchestrator import context as _C
+    from orchestrator import synthesis as SY
+    from orchestrator import agents as A
+    thresholds = _C._load_yaml("config/thresholds.yaml") or {}
+    manip_thr = ((thresholds.get("manipulation") or {}).get("балл_порог")
+                 or (thresholds.get("manipulation") or {}).get("score_threshold") or 70)
+    # пер-кандидатные качественные измерения §8, которых money-vet НЕ делает (тайминг/манип/неочевидн.)
+    quality = {}
+    for aid, key in (("d_timeliness", "тайминг"), ("d_anti_manipulation", "манипуляция"),
+                     ("c_non_obviousness", "неочевидность")):
+        try:
+            rec = A.call_agent(aid, ctx, client,
+                               user_prompt=F._candidate_slice_for(aid, cand, ctx, thresholds))
+            quality[key] = rec.get("judgment") if rec.get("ok") else {"_ошибка": rec.get("error")}
+        except Exception:  # noqa: BLE001
+            quality[key] = None
+    tv = str((quality.get("тайминг") or {}).get("вердикт") or "").upper()
+    mscore = (quality.get("манипуляция") or {}).get("балл")
+    причины_вето = []
+    if tv in ("ПОЗДНО", "ЛОВУШКА"):
+        причины_вето.append(f"тайминг {tv} без контр-сценария (§6)")
+    if isinstance(mscore, (int, float)) and mscore >= manip_thr:
+        причины_вето.append(f"манипуляционный балл {mscore} ≥ {manip_thr} (§6)")
+    # риск-агент (§4 блок F) + синтез 13 полей §8
+    prob_j = (debate.get("вердикт") or {}).get("вероятность_судьи")
+    risk = SY.run_risk({**cand, "вероятность_судьи": prob_j}, ctx, client, costs={})
+    bundle = {
+        "идея": {k: cand.get(k) for k in ("актив", "направление", "тезис", "разрешимость", "школа")},
+        "дело_каскада": cand.get("дело_каскада"),
+        "вероятность_судьи": prob_j,
+        "риск": SY._rec({"f_risk": risk}, "f_risk") or {"_ошибка": (risk or {}).get("error")},
+        "качество_§8": quality,
+        "вердикт_судьи": debate.get("вердикт"),
+        "позиции_критика_и_судьи": {
+            "критик": SY._rec({"x": (debate.get("реплики") or {}).get("критик")}, "x"),
+            "судья": SY._rec({"x": (debate.get("реплики") or {}).get("судья")}, "x"),
+        },
+    }
+    rep = SY.synthesize_report(bundle, ctx, client)
+    return {
+        "отчёт_§8": (rep.get("judgment") if rep.get("ok") else {"_ошибка": rep.get("error")}),
+        "качество": quality,
+        "риск": SY._rec({"f_risk": risk}, "f_risk") or {"_ошибка": (risk or {}).get("error")},
+        "процедурное_вето": bool(причины_вето),
+        "причина_вето": "; ".join(причины_вето) or None,
+    }
+
+
+def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=False):
     """ПЕРЕНАПРАВЛЕНИЕ КОНТУРА: дорогой состязательный суд (генератор/критик/слепой судья П10) на
     топ-K money-каскадов (ярус A → путь к деньгам §11), а НЕ на слепые шок-источники (там бюджет
     горел впустую). Возвращает {symbol: исход}. ~$1/идея (точечный разбор, не вся 21-агентная воронка).
@@ -306,6 +366,16 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None):
                     "почему_возможность": judge.get("почему_возможность_ещё_существует"),
                     "примечание": v.get("примечание") or v.get("причина"),
                 }
+                # ВАРИАНТ 3 (решение D): идея ПЕРЕЖИЛА слепой суд (устояла, не ПРОПУСК) → полный §8-контур
+                # ТОЧЕЧНО на неё (тайминг/манип/неочевидн./риск/синтез 13 полей). Процедурное вето §6
+                # может демотировать её money→провизорный (_money_kind это видит). Бюджет: лишь survivors.
+                if deep_report and _money_kind(out[sym]) == "cascade_money":
+                    deep = _deep_report_money(cand, d, ctx, client)
+                    out[sym]["отчёт_§8"] = deep["отчёт_§8"]
+                    out[sym]["качество"] = deep["качество"]
+                    out[sym]["риск"] = deep["риск"]
+                    out[sym]["процедурное_вето"] = deep["процедурное_вето"]
+                    out[sym]["причина_вето"] = deep["причина_вето"]
             except Exception:  # noqa: BLE001
                 out[sym] = None
     finally:
@@ -315,7 +385,7 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None):
 
 
 def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
-                    seal_predictions=False, vet_money_k=0):
+                    seal_predictions=False, vet_money_k=0, deep_money_report=False):
     """Полный event-first прогон. Возвращает сводный протокол.
 
     skip_contour=True — research-only: без дорогого 21-агентного качественного контура по источникам
@@ -414,7 +484,8 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             # событие-исток по цепочке → судья видит ПОВОД, а не голый edge (см. _money_thesis)
             chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
                             for c in каскады if c.get("chain_id")}
-            суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events)
+            суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events,
+                                   deep_report=deep_money_report)
 
         запечатано = {"money": 0, "провизорный": 0, "демотировано_судом": 0}
         if seal_predictions and mode != "mock":

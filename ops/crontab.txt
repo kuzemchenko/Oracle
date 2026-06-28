@@ -38,7 +38,9 @@ MAILTO=""
 # --seal: запечатывание каскадов в два трека (B3c §R3 — money→§11, провизорный→свой Brier, герметично).
 # --vet: ПЕРЕНАПРАВЛЕНИЕ КОНТУРА — слепой суд (генератор/критик/судья П10) по топ-K money-каскадов
 # вместо 21-агентного контура на слепых шок-источниках (там бюджет горел впустую); сломанные → провизорный.
-0 9 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet >> journal/cron.log 2>&1
+# --deep (решение D в.3): полный §8-контур (тайминг/манип/неочевидн./риск/синтез 13 полей + процедурное
+# вето §6) ТОЧЕЧНО на money-идеи, пережившие слепой суд — глубина тратится только на то, что идёт в деньги.
+0 9 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet --deep >> journal/cron.log 2>&1
 
 # Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
 0 7 * * *    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1

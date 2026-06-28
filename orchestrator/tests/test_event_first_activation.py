@@ -71,3 +71,62 @@ def test_money_kind_demotes_broken_by_blind_judge():
     assert EF._money_kind("ВЕТО") == "cascade_provisional"
     assert EF._money_kind("УСТОЯЛА") == "cascade_money"
     assert EF._money_kind(None) == "cascade_money"          # не судили → остаётся money
+
+
+# ── Решение D, вариант 3: полный §8-контур по гейту (пережившие слепой суд money-идеи) ──
+def test_money_kind_procedural_veto_demotes():
+    # вердикт судьи УСТОЯЛА, но полный §8-контур дал процедурное вето (§6) → money→провизорный
+    assert EF._money_kind({"исход": "УСТОЯЛА", "процедурное_вето": True}) == "cascade_provisional"
+    assert EF._money_kind({"исход": "УСТОЯЛА", "процедурное_вето": False}) == "cascade_money"
+
+
+def _patch_deep(monkeypatch, *, timing="ВОВРЕМЯ", manip=10):
+    from orchestrator import context as _C
+    from orchestrator import synthesis as _SY
+    from orchestrator import agents as _A
+    monkeypatch.setattr(_C, "_load_yaml",
+                        lambda *_a, **_k: {"manipulation": {"балл_порог": 70}, "timing": {},
+                                           "non_obviousness": {}})
+    def _agent(aid, *_a, **_k):
+        j = {"d_timeliness": {"вердикт": timing},
+             "d_anti_manipulation": {"балл": manip},
+             "c_non_obviousness": {"вердикт": "ОК"}}.get(aid, {})
+        return {"ok": True, "judgment": j}
+    monkeypatch.setattr(_A, "call_agent", _agent)
+    monkeypatch.setattr(_SY, "run_risk", lambda *_a, **_k: {"ok": True, "judgment": {"риск": "ок"}})
+    monkeypatch.setattr(_SY, "synthesize_report",
+                        lambda *_a, **_k: {"ok": True, "judgment": {"поля": {"п1": "тезис"}}})
+
+
+def test_deep_report_clean_idea_no_veto(monkeypatch):
+    _patch_deep(monkeypatch, timing="ВОВРЕМЯ", manip=10)
+    cand = {"актив": "GEV.US", "направление": "лонг", "тезис": "t", "школа": "каскад",
+            "дело_каскада": {}, "разрешимость": None}
+    debate = {"вердикт": {"исход": "УСТОЯЛА", "вероятность_судьи": 0.62},
+              "реплики": {"критик": {"ok": True, "judgment": {"c": 1}},
+                          "судья": {"ok": True, "judgment": {"j": 1}}}}
+    deep = EF._deep_report_money(cand, debate, ctx={"quotes": {}, "indicators": {}, "news": []},
+                                client=None)
+    assert deep["процедурное_вето"] is False
+    assert deep["отчёт_§8"]["поля"]["п1"] == "тезис"
+    assert deep["качество"]["тайминг"]["вердикт"] == "ВОВРЕМЯ"
+
+
+def test_deep_report_trap_timing_triggers_veto(monkeypatch):
+    _patch_deep(monkeypatch, timing="ЛОВУШКА", manip=10)
+    cand = {"актив": "GEV.US", "направление": "лонг", "тезис": "t", "школа": "каскад"}
+    debate = {"вердикт": {"исход": "УСТОЯЛА", "вероятность_судьи": 0.62}, "реплики": {}}
+    deep = EF._deep_report_money(cand, debate, ctx={"quotes": {}, "indicators": {}, "news": []},
+                                client=None)
+    assert deep["процедурное_вето"] is True
+    assert "ЛОВУШКА" in deep["причина_вето"]
+
+
+def test_deep_report_high_manipulation_triggers_veto(monkeypatch):
+    _patch_deep(monkeypatch, timing="ВОВРЕМЯ", manip=85)   # ≥ порога 70
+    cand = {"актив": "GEV.US", "направление": "лонг", "тезис": "t"}
+    debate = {"вердикт": {"исход": "УСТОЯЛА"}, "реплики": {}}
+    deep = EF._deep_report_money(cand, debate, ctx={"quotes": {}, "indicators": {}, "news": []},
+                                client=None)
+    assert deep["процедурное_вето"] is True
+    assert "манипул" in deep["причина_вето"].lower()
