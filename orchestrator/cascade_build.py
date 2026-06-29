@@ -199,8 +199,9 @@ def build_from_db(chain, shock0, *, horizon_days, con, db=None, promotions=None)
     if promotions is None:
         promotions = load_promotions()
     def has_data_fn(sym):
-        n = con.execute("SELECT COUNT(*) FROM quotes WHERE symbol=? AND close IS NOT NULL",
-                        (sym,)).fetchone()[0]
+        # F0#8: гейт достаточности баров считаем по ТОЙ ЖЕ выборке, что _closes (COALESCE adj/close)
+        n = con.execute("SELECT COUNT(*) FROM quotes WHERE symbol=? "
+                        "AND COALESCE(adjusted_close, close) IS NOT NULL", (sym,)).fetchone()[0]
         return n >= MIN_BARS
 
     def _closes(sym, limit):
