@@ -23,8 +23,9 @@
 import math
 
 MIN_OUTCOMES = 30        # §10: N≥30 разрешённых исходов на ребро до промоушена
-ALPHA = 0.05             # уровень значимости одностороннего биномтеста hit_rate>0.5
-BASE_BRIER = 0.25        # Brier неинформативного p=0.5; форвард-Brier должен быть строго ниже
+ALPHA = 0.05             # уровень значимости одностороннего биномтеста hit_rate > base-rate
+MIN_BSS = 0.05           # F0#5: минимальный Brier Skill Score НАД климатологией (base-rate), а не над 0.5
+EPS = 1e-9               # порог «нет направленного вызова» (p ровно 0.5)
 FORWARD_RELIABILITY_CAP = 0.7   # потолок надёжности заработанной форвардом (между structural 0.6 и пином)
 
 
@@ -44,37 +45,56 @@ def _binom_sf_ge(k, n, p=0.5):
 
 
 def forward_skill(probs, outcomes):
-    """Скилл ребра по запечатанным форвард-исходам. probs/outcomes — направленная вероятность
-    (P[исход=1]) и бинарный исход 0/1, выровненные по индексу. Возвращает метрики и вердикт-готовность
-    (без применения порога N — это решает promote_decision). hit = (p≥0.5)==(outcome==1)."""
+    """Скилл ребра по запечатанным форвард-исходам — НАД БАЗОВОЙ СТАВКОЙ (climatology), не над монеткой.
+    probs/outcomes — направленная вероятность P[исход=1] и бинарный исход 0/1, выровненные по индексу.
+
+    F0#5: раньше тест шёл против фикс. p=0.5 и Brier<0.25 — это пропускало base-rate-монетку (терминал
+    с base-rate 0.7 + константный p≈0.7 даёт hit-rate значим против 0.5 и Brier≈0.17<0.25 при НУЛЕВОМ
+    условном скилле). Теперь:
+      • биномтест направленного hit-rate против p0 = max(base_rate, 1−base_rate) (hit-rate тривиального
+        предиктора «всегда мажоритарное направление») — модель должна ПРЕВЗОЙТИ базу, не монетку;
+      • Brier Skill Score над климатологией base_rate·(1−base_rate) > MIN_BSS.
+    Направленный вызов — только при |p−0.5|>EPS (p ровно 0.5 = нет направления, в hit-тест не идёт)."""
     n = len(outcomes)
     if n == 0 or len(probs) != n:
-        return {"n": n, "brier": None, "hit_rate": None, "hits": 0,
-                "p_value": None, "skill_significant": False,
+        return {"n": n, "n_directional": 0, "base_rate": None, "brier": None,
+                "climatology_brier": None, "bss": None, "hit_rate": None, "hits": 0,
+                "p0": None, "p_value": None, "skill_significant": False,
                 "причина": "нет данных (П8): нет выровненных форвард-исходов"}
-    hits = sum(1 for p, y in zip(probs, outcomes) if (p >= 0.5) == (int(y) == 1))
-    hit_rate = hits / n
-    brier = sum((float(p) - int(y)) ** 2 for p, y in zip(probs, outcomes)) / n
-    p_value = _binom_sf_ge(hits, n, 0.5)
-    significant = (p_value <= ALPHA) and (brier < BASE_BRIER)
-    return {"n": n, "brier": round(brier, 6), "hit_rate": round(hit_rate, 4),
-            "hits": hits, "p_value": round(p_value, 6),
-            "skill_significant": bool(significant)}
+    ys = [int(y) for y in outcomes]
+    base_rate = sum(ys) / n
+    p0 = max(base_rate, 1.0 - base_rate)                    # hit-rate тривиального base-rate-предиктора
+    # направленные вызовы (исключаем p ровно 0.5 — нет направления, F0#5/§2.7 «p==0.5 как вверх»)
+    dir_pairs = [(float(p), y) for p, y in zip(probs, ys) if abs(float(p) - 0.5) > EPS]
+    n_dir = len(dir_pairs)
+    hits = sum(1 for p, y in dir_pairs if (p > 0.5) == (y == 1))
+    hit_rate = (hits / n_dir) if n_dir else None
+    brier = sum((float(p) - y) ** 2 for p, y in zip(probs, ys)) / n
+    clim_brier = base_rate * (1.0 - base_rate)             # Brier предсказания base_rate каждый раз
+    bss = (1.0 - brier / clim_brier) if clim_brier > 0 else None   # вырожденная база (все исходы равны) → скилл недоказуем
+    p_value = _binom_sf_ge(hits, n_dir, p0) if n_dir else None
+    significant = bool(p_value is not None and p_value <= ALPHA
+                       and bss is not None and bss > MIN_BSS)
+    return {"n": n, "n_directional": n_dir, "base_rate": round(base_rate, 4),
+            "brier": round(brier, 6), "climatology_brier": round(clim_brier, 6),
+            "bss": (round(bss, 4) if bss is not None else None),
+            "hit_rate": (round(hit_rate, 4) if hit_rate is not None else None),
+            "hits": hits, "p0": round(p0, 4),
+            "p_value": (round(p_value, 6) if p_value is not None else None),
+            "skill_significant": significant}
 
 
-def reliability_from_skill(hit_rate):
-    """Надёжность ребра из направленного hit-rate: 0.5→0, линейно до потолка. Заработана форвардом,
-    но потолок FORWARD_RELIABILITY_CAP (N=30 — небольшая выборка, не выдаём идеальную уверенность)."""
-    if hit_rate is None:
+def reliability_from_skill(bss):
+    """Надёжность ребра из Brier Skill Score над климатологией (F0#5: скилл НАД базой, не над монеткой).
+    bss≤0 → 0; растёт с реальным скиллом до потолка FORWARD_RELIABILITY_CAP (N мал — не идеальная уверенность)."""
+    if bss is None:
         return 0.0
-    rel = max(0.0, 2.0 * (float(hit_rate) - 0.5))
-    return round(min(rel, FORWARD_RELIABILITY_CAP), 4)
+    return round(min(max(0.0, float(bss)), FORWARD_RELIABILITY_CAP), 4)
 
 
 def promote_decision(probs, outcomes, *, beta_fullsample=None, min_outcomes=MIN_OUTCOMES):
-    """Полный вердикт по ребру: промоутить ли в ярус A. Возвращает запись (промоутится только при
-    N≥min_outcomes И значимом скилле). beta_fullsample — точечная бета (направление/масштаб остаётся
-    исторической оценкой; форвард доказывает ПЕРЕНОС, не калибрует величину)."""
+    """Полный вердикт по ребру: промоутить ли в ярус A. Промоушен только при N≥min_outcomes И значимом
+    скилле НАД базовой ставкой. beta_fullsample — точечная бета (форвард доказывает ПЕРЕНОС, не величину)."""
     sk = forward_skill(probs, outcomes)
     n = sk["n"]
     enough = n >= min_outcomes
@@ -83,17 +103,18 @@ def promote_decision(probs, outcomes, *, beta_fullsample=None, min_outcomes=MIN_
     rec["enough_outcomes"] = enough
     rec["min_outcomes"] = min_outcomes
     rec["promote"] = promote
-    rec["reliability"] = reliability_from_skill(sk.get("hit_rate")) if promote else 0.0
+    rec["reliability"] = reliability_from_skill(sk.get("bss")) if promote else 0.0
     rec["beta_fullsample"] = beta_fullsample
     if promote:
-        rec["причина"] = (f"ПРОМОУШЕН→ярус A: N={n}≥{min_outcomes}, hit-rate {sk['hit_rate']:.0%} "
-                          f"(p={sk['p_value']}≤{ALPHA}), форвард-Brier {sk['brier']}<{BASE_BRIER}")
+        rec["причина"] = (f"ПРОМОУШЕН→ярус A: N={n}≥{min_outcomes}, hit-rate {sk['hit_rate']:.0%} > "
+                          f"база {sk['p0']:.0%} (p={sk['p_value']}≤{ALPHA}), BSS {sk['bss']}>{MIN_BSS}")
     else:
         why = []
         if not enough:
             why.append(f"исходов {n}<{min_outcomes} (§10)")
         if not sk["skill_significant"] and n:
-            why.append(f"скилл незначим (p={sk.get('p_value')}, Brier={sk.get('brier')})")
+            why.append(f"скилл над базой незначим (p={sk.get('p_value')}, BSS={sk.get('bss')}, "
+                       f"base_rate={sk.get('base_rate')})")
         rec["причина"] = "НЕ промоутится (форвард-онли): " + "; ".join(why or ["нет данных (П8)"])
     return rec
 

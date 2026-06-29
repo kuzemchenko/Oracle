@@ -22,14 +22,19 @@ def _make_journals(tmp_path, n_hits, n_total, *, kind="cascade_provisional",
                    path_len=1, with_outcomes=True):
     edge = {"from": "A.US", "to": "B.US", "lag": 30, "tier": "C", "beta_fullsample": 1.2}
     cascade_path = [edge] * path_len
+    # F0#5: РЕАЛЬНЫЙ скилл, а не base-rate-монетка — сбалансированные исходы (base≈0.5) + направленный
+    # прогноз верен в n_hits случаях из n_total при уверенности p_conf=0.8 (иначе промоушен блокируется).
+    n_up = round(n_total * 0.5)
     preds, outs = [], []
     for i in range(n_total):
         h = f"hash{i}"
-        preds.append({"hash": h, "kind": kind, "asset": "B.US", "probability": 0.8,
+        y = 1 if i < n_up else 0
+        predicted_up = (y == 1) if (i < n_hits) else (y == 0)   # верен в первых n_hits
+        p = 0.8 if predicted_up else 0.2
+        preds.append({"hash": h, "kind": kind, "asset": "B.US", "probability": p,
                       "cascade_path": cascade_path})
         if with_outcomes:
-            outs.append({"hash": h, "kind": kind, "asset": "B.US",
-                         "probability": 0.8, "outcome": 1 if i < n_hits else 0})
+            outs.append({"hash": h, "kind": kind, "asset": "B.US", "probability": p, "outcome": y})
     p_path = tmp_path / "preds.jsonl"
     o_path = tmp_path / "outs.jsonl"
     _write(p_path, preds)

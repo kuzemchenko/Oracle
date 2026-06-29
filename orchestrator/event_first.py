@@ -32,6 +32,7 @@ from orchestrator import openrouter as OR             # noqa: E402
 from orchestrator import funnel as F                  # noqa: E402
 from orchestrator import multi_event as ME            # noqa: E402
 from orchestrator import progress as PROG              # noqa: E402
+from orchestrator import run_budget as RB              # noqa: E402
 from mathlib import cascade as CAS                    # noqa: E402
 
 DB = ROOT / "storage" / "oracle.db"
@@ -56,7 +57,9 @@ def _last_return(con, symbol):
 def _window_return(con, symbol):
     """§R2.1: доходность символа за ОКНО реакции на событие — шок корня каскада (выровнен с realized)."""
     rows = con.execute(
-        "SELECT close FROM quotes WHERE symbol=? AND close IS NOT NULL "
+        # F0#8: adjusted_close (корпдействия) — иначе на сплите/дивиденде ложный скачок шока корня
+        "SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+        "AND COALESCE(adjusted_close, close) IS NOT NULL "
         "ORDER BY date DESC LIMIT ?", (symbol, CAS.EVENT_WINDOW_DAYS + 1)).fetchall()
     px = [float(r[0]) for r in rows][::-1]
     return CAS.window_return(px)
@@ -157,7 +160,7 @@ def _proposal_ideas(proposals):
     return ideas
 
 
-def _cartographer_pass(scan, universe, mode, run_id, max_map=10):
+def _cartographer_pass(scan, universe, mode, run_id, max_map=10, guard=None):
     """B2.5 (§R2): картограф ОДИН раз — новостные кластеры вне реестра тем → каскадные карты. Один
     результат кормит И воронку отбора (узлы графа), И стейджинг/поток research-идей (дедуп: раньше
     картограф гонялся дважды). LLM-путь — только live/auto; mock → []. max_map — кэп бюджета §30."""
@@ -165,6 +168,8 @@ def _cartographer_pass(scan, universe, mode, run_id, max_map=10):
         return []
     import os
     client = OR.make_client(mode=mode, run_id=run_id)
+    if guard is not None:
+        client.cost_guard = guard            # F0#9: стоп-на-лету по потолку режима (§24)
     checker = EM.make_eodhd_checker(os.environ.get("EODHD_API_KEY", ""))
     tl = EM.make_eodhd_type_lookup(os.environ.get("EODHD_API_KEY", ""))
     clusters = [{"keywords": ne["ключи"], "sample": ne["пример"], "salience": ne["салиентность"]}
@@ -198,7 +203,10 @@ def _money_kind(verdict):
     if isinstance(verdict, dict) and verdict.get("процедурное_вето"):
         return "cascade_provisional"
     outcome = verdict.get("исход") if isinstance(verdict, dict) else verdict
-    return "cascade_provisional" if outcome in ("РАЗБИТА", "ВЕТО") else "cascade_money"
+    # F0#2: FAIL-CLOSED — деньги ТОЛЬКО при явном «УСТОЯЛА» слепого суда. Всё прочее (None=не судили,
+    # РАЗБИТА/ВЕТО, ПРОПУСК=нет котировки, ОШИБКА_СУДА=сбой) → провизорный. Раньше дефолт был
+    # cascade_money → несуженный хвост и упавшие дебаты протекали в §11-деньги без суда (гейт обходился).
+    return "cascade_money" if outcome == "УСТОЯЛА" else "cascade_provisional"
 
 
 def _событие_из_цепочки(ch_meta):
@@ -222,8 +230,13 @@ def _money_thesis(n, событие=None):
     собираем ровно то, что система уже посчитала (ничего не выдумываем сверх полей узла)."""
     def _p(x):
         return f"{x * 100:+.1f}%" if isinstance(x, (int, float)) else None
-    amp, full = n.get("amplitude"), n.get("amplitude_total")
-    r2, order, lag = n.get("reliability_r2"), n.get("order"), n.get("lag_total")
+    # F0#1: узел приходит как FACT (node_to_facts) — читаем его имена (edge_total/reliability/lag_days)
+    # с фолбэком на сырые имена узла. Раньше читались только сырые → судья видел full/r2/lag=None.
+    amp = n.get("amplitude")
+    full = n.get("edge_total", n.get("amplitude_total"))
+    r2 = n.get("reliability", n.get("reliability_r2"))
+    order = n.get("order")
+    lag = n.get("lag_days", n.get("lag_total"))
     prob, root = n.get("probability"), n.get("root")
     chain = [str(x) for x in (n.get("провенанс_звеньев") or []) if x and "без данных" not in str(x)]
     parts = []
@@ -259,8 +272,7 @@ def _deep_report_money(cand, debate, ctx, client):
     from orchestrator import synthesis as SY
     from orchestrator import agents as A
     thresholds = _C._load_yaml("config/thresholds.yaml") or {}
-    manip_thr = ((thresholds.get("manipulation") or {}).get("балл_порог")
-                 or (thresholds.get("manipulation") or {}).get("score_threshold") or 70)
+    manip_thr = F.manip_block_threshold(thresholds)   # F0#4: единый ключ score_block_threshold (был дефолт 70)
     # пер-кандидатные качественные измерения §8, которых money-vet НЕ делает (тайминг/манип/неочевидн.)
     quality = {}
     for aid, key in (("d_timeliness", "тайминг"), ("d_anti_manipulation", "манипуляция"),
@@ -303,7 +315,7 @@ def _deep_report_money(cand, debate, ctx, client):
     }
 
 
-def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=False):
+def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=False, guard=None):
     """ПЕРЕНАПРАВЛЕНИЕ КОНТУРА: дорогой состязательный суд (генератор/критик/слепой судья П10) на
     топ-K money-каскадов (ярус A → путь к деньгам §11), а НЕ на слепые шок-источники (там бюджет
     горел впустую). Возвращает {symbol: исход}. ~$1/идея (точечный разбор, не вся 21-агентная воронка).
@@ -317,6 +329,8 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
     chain_events = chain_events or {}
     ctx = _C.build_context()
     client = LiveClient(run_id=run_id)
+    if guard is not None:
+        client.cost_guard = guard            # F0#9: стоп-на-лету по потолку режима (§24)
     con = sqlite3.connect(str(_C.DB)) if _C.DB.exists() else None
     out = {}
     try:
@@ -345,9 +359,10 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
                 "якорь_корневого_шока": n.get("root"),
                 "механизм_по_звеньям": [str(x) for x in (n.get("провенанс_звеньев") or []) if x],
                 "порядок_узла": n.get("order"), "чокпоинт": bool(n.get("chokepoint")),
-                "ожидаемый_полный_ход": n.get("amplitude_total"),
-                "неотыгранный_edge": amp, "надёжность_r2": n.get("reliability_r2"),
-                "лаг_дней": n.get("lag_total"),
+                # F0#1: читаем имена FACT (edge_total/reliability/lag_days) с фолбэком на сырые
+                "ожидаемый_полный_ход": n.get("edge_total", n.get("amplitude_total")),
+                "неотыгранный_edge": amp, "надёжность_r2": n.get("reliability", n.get("reliability_r2")),
+                "лаг_дней": n.get("lag_days", n.get("lag_total")),
                 "котировка_терминала": (ctx.get("quotes", {}).get(sym) or {}).get("last"),
             }
             cand = {"актив": sym, "направление": direction,
@@ -376,8 +391,11 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
                     out[sym]["риск"] = deep["риск"]
                     out[sym]["процедурное_вето"] = deep["процедурное_вето"]
                     out[sym]["причина_вето"] = deep["причина_вето"]
-            except Exception:  # noqa: BLE001
-                out[sym] = None
+            except Exception as e:  # noqa: BLE001
+                # F0#2: FAIL-CLOSED — сбой суда (нет ключа/сеть/невалидный JSON) НЕ должен молча
+                # промотировать идею к деньгам. Маркер ОШИБКА_СУДА → _money_kind → провизорный.
+                out[sym] = {"исход": "ОШИБКА_СУДА", "направление": direction,
+                            "примечание": f"сбой состязательного суда: {type(e).__name__}: {e}"}
     finally:
         if con is not None:
             con.close()
@@ -394,6 +412,20 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     universe = yaml.safe_load(open(ROOT / "config" / "universe.yaml", encoding="utf-8")) or {}
     chains_doc = CB.load_chains()   # §3c/D1: резолв в КОНКРЕТНЫЕ компании авторских цепочек
     now = _now()
+    # F0#9: ПРЕД-проверка бюджета (§24/Инв#5) — для live ДО единого LLM-вызова. Отказ → прогон не
+    # начинается (как в funnel/masked). Раньше боевой event_first (--vet --deep) шёл вообще без гарда.
+    guard = None
+    if mode != "mock":
+        budget_decision = RB.precheck("event_first")
+        if not budget_decision["allowed"]:
+            return {"run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
+                    "режим": "event-first контур",
+                    "ОТКАЗ_бюджет": budget_decision,
+                    "spec_ref": "§24 пред-проверка per_run_token_budget; Инв#5 CLAUDE.md",
+                    "следующий_шаг": ("прогон НЕ выполнен: оценка превышает потолок event_first (§24) "
+                                      "или месячный бюджет (§30 п.2); поднять может только пользователь "
+                                      "правкой config/limits.yaml (П12).")}
+        guard = RB.RunBudgetGuard("event_first", budget_decision.get("cap_usd") or 5.0)
     # Прогресс (§15): открываем прогон на K событий; уточним число после скана.
     PROG.begin(run_id, mode, "event-first: поиск идей", outer_total=k)
     PROG.note("скан событий (новости + цены + тренды)…")
@@ -403,7 +435,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         sources = _shock_sources(scan, universe, con, k)
         # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
         # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
-        pcs = _cartographer_pass(scan, universe, mode, run_id)
+        pcs = _cartographer_pass(scan, universe, mode, run_id, guard=guard)
         proposals = _stage_cartographer(pcs, now)
         картограф_идеи = _proposal_ideas(proposals)
         PROG.set_outer_total((len(sources) or 1) if not skip_contour else 1)
@@ -485,7 +517,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
                             for c in каскады if c.get("chain_id")}
             суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events,
-                                   deep_report=deep_money_report)
+                                   deep_report=deep_money_report, guard=guard)
 
         запечатано = {"money": 0, "провизорный": 0, "демотировано_судом": 0}
         if seal_predictions and mode != "mock":

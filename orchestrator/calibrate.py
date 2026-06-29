@@ -105,14 +105,16 @@ def build_calibration_predictions(con, run_id, now_dt=None):
     return preds
 
 
-def _current_brier():
+def _current_brier(kinds=None):
     """Brier по сверенным исходам (journal/outcomes.jsonl, join по hash); иначе None (накапливается).
-    Исходы живут ОТДЕЛЬНО от запечатанных прогнозов (predictions.jsonl неизменяем, П16)."""
+    kinds=None → все; иначе фильтр по kind. Исходы живут ОТДЕЛЬНО от запечатанных прогнозов (П16).
+    F0#6/#1.12: разводим калибровочный трек и денежный edge-трек, чтобы счётчики не расходились с resolve."""
     from orchestrator import resolve as RES
     outs_j = RES.read_outcomes()
     probs, outs = [], []
     for o in outs_j:
-        if o.get("outcome") in (0, 1) and o.get("probability") is not None:
+        if o.get("outcome") in (0, 1) and o.get("probability") is not None \
+                and (kinds is None or o.get("kind") in kinds):
             probs.append(float(o["probability"]))
             outs.append(int(o["outcome"]))
     if not probs:
@@ -143,8 +145,10 @@ def run_calibrate(mode="auto", write=True, now_dt=None):
         for p, _ in good:
             sealed.append(SEAL.seal(p))
 
+    from orchestrator import resolve as RES
     total_recs = len(SEAL.read_predictions())
-    brier, n_resolved = _current_brier()
+    brier, n_resolved = _current_brier(kinds=("calibration",))     # калибровочный трек (свой Brier)
+    _, n_edge = _current_brier(kinds=RES.MONEY_EDGE_KINDS)          # §11 гейт — ТОЛЬКО edge (как в resolve)
     gate = 270
     out = {
         "run_id": run_id,
@@ -155,9 +159,9 @@ def run_calibrate(mode="auto", write=True, now_dt=None):
         "запечатано": len(sealed) if do_seal else 0,
         "запечатывание": ("ДА (боевой)" if do_seal else "НЕТ (mock/no-write — дымовой расчёт)"),
         "всего_в_журнале": total_recs,
-        "разрешено_исходов": n_resolved,
-        "текущий_brier": (None if brier is None else round(brier, 4)),
-        "до_ворот_270": max(0, gate - n_resolved),
+        "разрешено_исходов": n_resolved,                            # калибровочных
+        "текущий_brier": (None if brier is None else round(brier, 4)),   # калибровочный трек
+        "до_ворот_270": max(0, gate - n_edge),                      # F0#6/#1.12: только edge-исходы → §11
         "честность": ("вероятность = базовая линия (гаусс/realized vol), НЕ LLM-edge; "
                       "edge копится в funnel_forward/theme_daily; апгрейд до LLM-калибровки §23.2(в) — карта"),
         "spec_ref": "§17.3, §23.2(в), §10.9; скилл calibrate",

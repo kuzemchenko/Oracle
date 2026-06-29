@@ -38,6 +38,13 @@ TOP_OUTPUT = 3                     # §6 этап 6: выдача топ-3
 MANIP_BLOCK_DEFAULT = 7            # порог манип-балла для стоп-фильтра, если нет в thresholds
 
 
+def manip_block_threshold(thresholds):
+    """F0#4: ЕДИНЫЙ порог стоп-фильтра манипуляции (§4/§14, шкала балла агента 0–10). Раньше funnel
+    читал ключ `block_score`, event_first — `балл_порог`/`score_threshold` (дефолт 70!), а config даёт
+    `score_block_threshold: 7.0` — оба читателя мимо ключа → антиманип-вето было НЕДОСТИЖИМО. Один ключ."""
+    return float((thresholds.get("manipulation") or {}).get("score_block_threshold", MANIP_BLOCK_DEFAULT))
+
+
 def _now_compact():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
@@ -232,7 +239,7 @@ def stage3_coarse_filter(candidates, records_by_id, thresholds, ctx, client):
     с причиной (прозрачность §6 этап 6). Возвращает (выжившие, отсев, пер-кандидатные вердикты).
     """
     dropped = []
-    manip_thr = (thresholds.get("manipulation", {}) or {}).get("block_score", MANIP_BLOCK_DEFAULT)
+    manip_thr = manip_block_threshold(thresholds)
     ctx_filter = records_by_id.get("c_context_filter")
     out_of_competence = bool(ctx_filter and ctx_filter.get("ok") and str(ctx_filter["judgment"].get("вердикт")).upper() == "ШТРАФ")
 

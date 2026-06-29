@@ -18,14 +18,15 @@ from orchestrator import graph_build as GB
 def _mk_db(series, vol=1_000_000):
     """series: {symbol: np.array дневных лог-доходностей}. Строит closes от 100 и кладёт в quotes."""
     con = sqlite3.connect(":memory:")
-    con.execute("CREATE TABLE quotes (symbol TEXT, date TEXT, close REAL, volume REAL)")
+    con.execute("CREATE TABLE quotes (symbol TEXT, date TEXT, close REAL, "
+                "adjusted_close REAL, volume REAL)")   # F0#8: боевая схема (adjusted_close)
     base = datetime.date(2020, 1, 1)
     for sym, rets in series.items():
         price = 100.0
         for i, r in enumerate(rets):
             price *= math.exp(float(r))
             d = (base + datetime.timedelta(days=i)).isoformat()
-            con.execute("INSERT INTO quotes VALUES (?,?,?,?)", (sym, d, price, vol))
+            con.execute("INSERT INTO quotes VALUES (?,?,?,?,?)", (sym, d, price, price, vol))
     con.commit()
     return con
 

@@ -30,6 +30,10 @@ OUTCOMES_PATH = ROOT / "journal" / "outcomes.jsonl"
 # ГЕРМЕТИЧНОСТЬ ТРЕКОВ (B3c §R3, Вариант 2): провизорный трек (ярус B/C — гипотезы) копит СВОЙ Brier
 # и НЕ приближается к денежным воротам §11. Эти kind исключаются из денежного Brier и гейта-270.
 PROVISIONAL_KINDS = ("cascade_provisional",)
+# F0#6: ГЕРМЕТИЧНОСТЬ §11 через АЛОУЛИСТ — в денежный трек/гейт-270 идут ТОЛЬКО реальные edge-прогнозы.
+# Раньше money_out = «всё, что не провизорное» → calibration (baseline-монетка P=0.5, kind='calibration')
+# протекала в денежный Brier и до_ворот_270 (96/96 исходов = calibration). Калибровка — свой трек.
+MONEY_EDGE_KINDS = ("funnel_forward", "theme_daily", "cascade_money")
 
 
 def _now_iso():
@@ -117,7 +121,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
               if o.get("probability") is not None and o.get("outcome") in (0, 1)]
         return pr, ou
 
-    money_out = [o for o in all_out if o.get("kind") not in PROVISIONAL_KINDS]
+    money_out = [o for o in all_out if o.get("kind") in MONEY_EDGE_KINDS]   # F0#6 алоулист
     prov_out = [o for o in all_out if o.get("kind") in PROVISIONAL_KINDS]
     m_probs, m_outs = _bins(money_out)
     p_probs, p_outs = _bins(prov_out)
@@ -133,7 +137,9 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         "всего_исходов": len(all_out),
         "brier": (None if brier is None else round(brier, 4)),                 # ДЕНЕЖНЫЙ трек (§11)
         "калибровка_band_пп": (None if band is None else round(band, 2)),
-        "до_ворот_270": max(0, 270 - len(money_out)),                          # только денежные → §11
+        # F0#7: гейт-270 считаем по ТОМУ ЖЕ подмножеству, что Brier (probability присутствует) —
+        # иначе ворота «созревают» на неизмеримых прогнозах (probability=None в гейт шёл, в Brier нет).
+        "до_ворот_270": max(0, 270 - len(m_probs)),                            # только измеримые денежные → §11
         "провизорный_трек": {"исходов": len(prov_out),                         # отдельный Brier, НЕ в §11
                              "brier": (None if prov_brier is None else round(prov_brier, 4))},
         "spec_ref": "§10.10, §16, §11 ворота; B3c герметичность треков; скилл calibrate п.5",

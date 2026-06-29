@@ -478,7 +478,9 @@ class Bot:
         def _job():
             from orchestrator.event_first import run_event_first
             p = run_event_first(mode="live", k=2, skip_contour=True, write=True)
-            log("прогон из чата завершён:", p.get("run_id"), "·", p.get("итог"))
+            итог = (p.get("ОТКАЗ_бюджет", {}).get("reason") if p.get("ОТКАЗ_бюджет")
+                    else p.get("итог"))           # F0#9: отказ по бюджету тоже логируем внятно
+            log("прогон из чата завершён:", p.get("run_id"), "·", итог)
 
         self._start_job("прогон воронки", _job)
 

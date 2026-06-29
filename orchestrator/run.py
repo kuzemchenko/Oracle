@@ -169,6 +169,12 @@ def _run_event_first(args):
                         skip_contour=vet,            # --vet: НЕ жжём 21-агентный контур на слепых шок-источниках
                         vet_money_k=3 if vet else 0,  # вместо него — точечный слепой суд по топ-K money
                         deep_money_report=deep)       # --deep (решение D в.3): полный §8-контур по пережившим суд
+    if p.get("ОТКАЗ_бюджет"):                          # F0#9: пред-проверка бюджета не пропустила прогон
+        d = p["ОТКАЗ_бюджет"]
+        print(f"[{p['run_id']}] EVENT-FIRST · ОТКАЗ по бюджету (§24/Инв#5)")
+        print(f"  {d.get('reason')}")
+        print(f"  {p.get('следующий_шаг', '')}")
+        return 3                                       # код 3 = превышение потолка (как budget.py)
     print(f"[{p['run_id']}] EVENT-FIRST · {p['mode']}")
     s = p["скан"]
     print(f"  скан §6: {s['сырых_сигналов']} сигналов ({s['источники']}), "

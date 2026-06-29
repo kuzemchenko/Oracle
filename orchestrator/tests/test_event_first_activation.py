@@ -65,12 +65,15 @@ def test_proposal_ideas_promotes_far_node_company_ranked():
     assert ideas[0]["источник_идеи"].startswith("LLM-картограф")
 
 
-def test_money_kind_demotes_broken_by_blind_judge():
-    # перенаправленный контур: слепой суд разбил money-идею → демотируем в провизорный (не к §11)
+def test_money_kind_fail_closed():
+    # F0#2: деньги ТОЛЬКО при явном УСТОЯЛА; всё прочее → провизорный (fail-closed гейт §11/П10)
+    assert EF._money_kind("УСТОЯЛА") == "cascade_money"
     assert EF._money_kind("РАЗБИТА") == "cascade_provisional"
     assert EF._money_kind("ВЕТО") == "cascade_provisional"
-    assert EF._money_kind("УСТОЯЛА") == "cascade_money"
-    assert EF._money_kind(None) == "cascade_money"          # не судили → остаётся money
+    assert EF._money_kind(None) == "cascade_provisional"          # не судили → НЕ в деньги
+    assert EF._money_kind("ОШИБКА_СУДА") == "cascade_provisional"  # сбой суда → НЕ в деньги
+    assert EF._money_kind("ПРОПУСК") == "cascade_provisional"      # нет котировки → НЕ в деньги
+    assert EF._money_kind({"исход": "УСТОЯЛА"}) == "cascade_money"
 
 
 # ── Решение D, вариант 3: полный §8-контур по гейту (пережившие слепой суд money-идеи) ──
@@ -80,12 +83,13 @@ def test_money_kind_procedural_veto_demotes():
     assert EF._money_kind({"исход": "УСТОЯЛА", "процедурное_вето": False}) == "cascade_money"
 
 
-def _patch_deep(monkeypatch, *, timing="ВОВРЕМЯ", manip=10):
+def _patch_deep(monkeypatch, *, timing="ВОВРЕМЯ", manip=3):
     from orchestrator import context as _C
     from orchestrator import synthesis as _SY
     from orchestrator import agents as _A
+    # F0#4: единый ключ score_block_threshold (шкала балла 0–10, дефолт 7.0)
     monkeypatch.setattr(_C, "_load_yaml",
-                        lambda *_a, **_k: {"manipulation": {"балл_порог": 70}, "timing": {},
+                        lambda *_a, **_k: {"manipulation": {"score_block_threshold": 7.0}, "timing": {},
                                            "non_obviousness": {}})
     def _agent(aid, *_a, **_k):
         j = {"d_timeliness": {"вердикт": timing},
@@ -99,7 +103,7 @@ def _patch_deep(monkeypatch, *, timing="ВОВРЕМЯ", manip=10):
 
 
 def test_deep_report_clean_idea_no_veto(monkeypatch):
-    _patch_deep(monkeypatch, timing="ВОВРЕМЯ", manip=10)
+    _patch_deep(monkeypatch, timing="ВОВРЕМЯ", manip=3)   # < порога 7 (шкала 0–10)
     cand = {"актив": "GEV.US", "направление": "лонг", "тезис": "t", "школа": "каскад",
             "дело_каскада": {}, "разрешимость": None}
     debate = {"вердикт": {"исход": "УСТОЯЛА", "вероятность_судьи": 0.62},
@@ -113,7 +117,7 @@ def test_deep_report_clean_idea_no_veto(monkeypatch):
 
 
 def test_deep_report_trap_timing_triggers_veto(monkeypatch):
-    _patch_deep(monkeypatch, timing="ЛОВУШКА", manip=10)
+    _patch_deep(monkeypatch, timing="ЛОВУШКА", manip=3)
     cand = {"актив": "GEV.US", "направление": "лонг", "тезис": "t", "школа": "каскад"}
     debate = {"вердикт": {"исход": "УСТОЯЛА", "вероятность_судьи": 0.62}, "реплики": {}}
     deep = EF._deep_report_money(cand, debate, ctx={"quotes": {}, "indicators": {}, "news": []},
@@ -123,7 +127,7 @@ def test_deep_report_trap_timing_triggers_veto(monkeypatch):
 
 
 def test_deep_report_high_manipulation_triggers_veto(monkeypatch):
-    _patch_deep(monkeypatch, timing="ВОВРЕМЯ", manip=85)   # ≥ порога 70
+    _patch_deep(monkeypatch, timing="ВОВРЕМЯ", manip=8)    # ≥ порога 7 (шкала 0–10)
     cand = {"актив": "GEV.US", "направление": "лонг", "тезис": "t"}
     debate = {"вердикт": {"исход": "УСТОЯЛА"}, "реплики": {}}
     deep = EF._deep_report_money(cand, debate, ctx={"quotes": {}, "indicators": {}, "news": []},

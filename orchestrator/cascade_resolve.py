@@ -105,6 +105,11 @@ def seal_spec(fact, *, kind, run_id, horizon_days, con, now_dt=None):
 
     Направление = знак неотыгранного edge; порог = последний close; вероятность — направленная."""
     now_dt = now_dt or datetime.datetime.now(datetime.timezone.utc)
+    # F0#3: ЯРУС-ГЕЙТ (defense-in-depth §11/П10) — деньги только для НЕ-research узла (sealable all-A +
+    # неотыгранный ход). Если вызывающий просит cascade_money для research-узла — принудительно демотируем.
+    # Герметичность money-трека не должна держаться лишь на дисциплине вызывающего.
+    if kind == "cascade_money" and fact.get("research"):
+        kind = "cascade_provisional"
     symbol = fact.get("symbol")
     amp = fact.get("amplitude")                      # неотыгранный edge
     if not symbol or amp in (None, 0):

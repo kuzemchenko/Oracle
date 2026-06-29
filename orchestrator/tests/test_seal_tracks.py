@@ -24,16 +24,18 @@ def test_resolve_segments_provisional_from_money_gate(tmp_path):
     preds = tmp_path / "preds.jsonl"; preds.write_text("")     # пусто → новых сверок нет
     out = tmp_path / "outcomes.jsonl"
     rows = [
-        {"hash": "a", "probability": 0.7, "outcome": 1, "kind": "calibration"},        # денежный
-        {"hash": "b", "probability": 0.6, "outcome": 0, "kind": "cascade_money"},       # денежный
+        {"hash": "a", "probability": 0.7, "outcome": 1, "kind": "funnel_forward"},      # EDGE-деньги
+        {"hash": "b", "probability": 0.6, "outcome": 0, "kind": "cascade_money"},       # EDGE-деньги
+        {"hash": "z", "probability": 0.5, "outcome": 1, "kind": "calibration"},         # F0#6: НЕ в §11
         {"hash": "c", "probability": 0.9, "outcome": 1, "kind": "cascade_provisional"}, # ПРОВИЗОРНЫЙ
         {"hash": "d", "probability": 0.8, "outcome": 0, "kind": "cascade_provisional"}, # ПРОВИЗОРНЫЙ
     ]
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n")
     res = R.run_resolve(write=False, predictions_path=str(preds), outcomes_path=str(out))
 
-    # гейт-270 и денежный Brier — ТОЛЬКО 2 не-провизорных (провизорные не приближаются к §11)
-    assert res["до_ворот_270"] == 270 - 2
+    # F0#6: гейт-270 и денежный Brier — ТОЛЬКО edge-kind (funnel_forward/cascade_money); calibration
+    # (baseline-монетка) и провизорные к §11 НЕ приближаются (герметичность треков, алоулист).
+    assert res["до_ворот_270"] == 270 - 2                              # a,b — НЕ z(calibration)
     assert res["brier"] == pytest.approx((0.3 ** 2 + 0.6 ** 2) / 2)   # только a,b
     # провизорный трек — отдельно, свой Brier (НЕ подмешан к денежному)
     assert res["провизорный_трек"]["исходов"] == 2

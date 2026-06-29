@@ -86,15 +86,21 @@ def _link_from_sensitivity(up, down, lag, rec, promotions=None):
     # прогнозами (N≥30, значимый скилл, §10). Перенос ДОКАЗАН форвардом; величину берём точечной.
     prom = (promotions or {}).get(FP.edge_key(up, down, lag)) if promotions else None
     if prom and prom.get("promote"):
+        # F0#5/§2.6: форвард доказывает ПЕРЕНОС (направление), НЕ величину. Берём точечную бету из
+        # промоушена/sensitivity; если величина НЕИЗВЕСТНА — НЕ фабрикуем gain=1.0 в money-трек
+        # (это уходило в amplitude/edge_rank как реальная амплитуда). Без величины → механизм (research).
         beta = prom.get("beta_fullsample")
-        beta = float(beta) if beta is not None else ((rec or {}).get("beta_fullsample") or 1.0)
-        return {"tier": "A", "gain": float(beta),
-                "gain_sd": round(abs(float(beta)) * 0.5, 6),     # форвард доказал перенос, не величину
-                "reliability": round(float(prom.get("reliability") or 0.0), 4),
-                "lag": int(lag), "established": True,
-                "провенанс": (f"ярус A (форвард-промоушен): {up}→{down} — "
-                              f"N={prom.get('n')}, hit-rate {prom.get('hit_rate')}, "
-                              f"форвард-Brier {prom.get('brier')} (§10)")}
+        if beta is None:
+            beta = (rec or {}).get("beta_fullsample")
+        if beta is not None:
+            return {"tier": "A", "gain": float(beta),
+                    "gain_sd": round(abs(float(beta)) * 0.5, 6),     # форвард доказал перенос, не величину
+                    "reliability": round(float(prom.get("reliability") or 0.0), 4),
+                    "lag": int(lag), "established": True,
+                    "провенанс": (f"ярус A (форвард-промоушен): {up}→{down} — "
+                                  f"N={prom.get('n')}, hit-rate {prom.get('hit_rate')}, "
+                                  f"BSS {prom.get('bss')} над базой {prom.get('p0')} (§10)")}
+        # величина неизвестна → падаем в механизм-гипотезу ниже (research-only, без фикции 1.0)
     # не пинится / нет данных → механизм-гипотеза карты (низкая надёжность, широкая полоса)
     prior, why = 1.0, "бета не пинится (Этап 3) → механизм карты"
     if rec and rec.get("beta_fullsample") is not None:
@@ -198,7 +204,9 @@ def build_from_db(chain, shock0, *, horizon_days, con, db=None, promotions=None)
         return n >= MIN_BARS
 
     def _closes(sym, limit):
-        rows = con.execute("SELECT close FROM quotes WHERE symbol=? AND close IS NOT NULL "
+        # F0#8: adjusted_close — realized/вола на сыром close искажаются корпдействиями (edge корёжится)
+        rows = con.execute("SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+                           "AND COALESCE(adjusted_close, close) IS NOT NULL "
                            "ORDER BY date DESC LIMIT ?", (sym, limit)).fetchall()
         return [float(r[0]) for r in reversed(rows)]
 
