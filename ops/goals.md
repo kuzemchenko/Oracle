@@ -152,6 +152,12 @@
     # #10 бот мёртвая схема (mode=='live'/этап6_синтез → «идей нет», §6.1/6.2); #11 actionable §8-карточка
     #   money-идеи (A2=§6.5, метку «не рекомендация» НЕ снимать до калибр-гейта §11); #12 самопротиворечие
     #   дайджеста (A4); #13 рудимент top3 (A5); #14 дайджест режет картограф[:3] (C3); #15 «разбери ТИКЕР» (§6.5).
+    # WIP (2026-06-29): КОД ВСЕХ 6 багов написан в рабочем дереве (НЕ закоммичен), база диффа = тег `f1-base`.
+    #   Файлы: ops/bot.py, ops/bot_chat.py, ops/bot_reports.py, orchestrator/event_first.py, orchestrator/run.py
+    #   + 3 новых теста (test_bot_ef_digest, test_bot_f1_agentc, test_event_first_flow_metric). Тесты 488 зелёных
+    #   (2 падения theme-guard — известный LOW/env-долг F0, на чистом HEAD тоже падают, не из-за F1).
+    #   ОСТАЛОСЬ: stage-review F1 (Workflow stage-review {stage:"F1", base:"f1-base"}) + Codex-ревью кросс-вендор
+    #   → починить блокеры → /gate-check → git tag fix-F1 → коммит. БЕЗ ревью этап НЕ закрывать.
 [ ] F2 (P2 честность чисел и запечатывания): /goal числовое ядро без сверхуверенности/выдумок; stage-review F2 ПРОЙДЕН
     # #16 walk-forward только train (§2.1); #17 base_rate из LLM (§2.2, Инв#6); #18 изоляция R² невыровнена
     #   (§2.3); #19 объёмный p-value (§2.4); #20 calibration_band min-N (§1.7); #21 журнал без hash-chain +

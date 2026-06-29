@@ -26,6 +26,7 @@ FIELDS_8 = [
 
 MAX_FIELD = 320          # обрезка одного поля в пуше
 MAX_MSG = 3800           # запас под лимит Telegram 4096
+CARTO_SHOW = 5           # #14: сколько историй картографа показываем в дайджесте; хвост → /progress
 
 
 def _trunc(s, n):
@@ -90,9 +91,164 @@ def scan_protocols(logs_dir=None):
 
 
 def ideas_from_protocol(protocol):
-    """Список карточек идей (отчёты этапа 6) из протокола. Пусто — слабый день §6."""
-    synth = (protocol or {}).get("этап6_синтез") or {}
-    return synth.get("отчёты") or []
+    """ЕДИНЫЙ КОНТРАКТ карточек-идей из любого протокола. Пусто — слабый день §6.
+
+    Возвращает список карточек ЕДИНОЙ ФОРМЫ (пригодной для доставки и заземления чата). Поля как у
+    отчётов этапа 6 в той мере, что нужна боту:
+        {
+          "актив":        тикер мишени,
+          "направление":  'лонг'/'шорт'/None,
+          "балл":         сводная оценка (score графа / тектонический потенциал),
+          "позиция":      {"вероятность": float|None},
+          "событие":      новость-повод (П8: РОВНО активировавшее цепочку), либо None,
+          "трек":         'money'/'провизорный'/'граф'/'картограф' (для маршрутизации),
+          "провизорный":  bool — гипотеза (ценами не подтверждена),
+          "отчёт":        {"поля": {§8-поля}} — минимум 1/2/13, чтобы idea_brief/format_report работали,
+          "_node":        сырой узел/идея-источник (для §8-промоушена агентом C, #11),
+        }
+
+    Два источника по типу протокола:
+      • ЛЕГАСИ 21-агентный синтез (тематический funnel): этап6_синтез.отчёты — уже канонические карточки,
+        отдаём как есть.
+      • EVENT-FIRST (run_id 'ef_*'): этапа 6 нет — идеи живут в воронке отбора графа
+        (граф_отбор.топ_k / .money_трек) и в идеях картографа (картограф_идеи). Собираем из них.
+
+    money-идеи, ПЕРЕЖИВШИЕ слепой суд (под §11-промоушен агентом C), — отдельной точкой
+    money_ideas_from_protocol() (fail-closed: только исход «УСТОЯЛА»)."""
+    protocol = protocol or {}
+    synth = protocol.get("этап6_синтез") or {}
+    legacy = synth.get("отчёты") or []
+    if legacy:
+        return legacy
+    if str(protocol.get("run_id") or "").startswith("ef_"):
+        return _ef_ideas(protocol)
+    return legacy
+
+
+def _money_survived(verdict):
+    """Зеркалит orchestrator.event_first._money_kind: money-идея пережила гейт §11 ТОЛЬКО при явном
+    исходе слепого суда «УСТОЯЛА» И без процедурного вето §6 (fail-closed). РАЗБИТА/ВЕТО/ПРОПУСК/
+    ОШИБКА_СУДА/не судили (None) → НЕ money. verdict — строка-исход или dict {исход,...}."""
+    if isinstance(verdict, dict) and verdict.get("процедурное_вето"):
+        return False
+    outcome = verdict.get("исход") if isinstance(verdict, dict) else verdict
+    return outcome == "УСТОЯЛА"
+
+
+def _ef_card_from_node(node, kind=None):
+    """Узел воронки отбора графа (форма _node_brief) → карточка единого контракта. Каскад (поле 2)
+    строим ТОЛЬКО из посчитанного: событие-повод + шок-якорь + порядок (П8, ничего не выдумываем)."""
+    a = node.get("актив")
+    каскад = []
+    ev = node.get("событие")
+    if ev:
+        каскад.append(ev)
+    як = node.get("якорь")
+    if як:
+        order = node.get("порядок")
+        каскад.append(f"шок по {як}" + (f" → {order}-й порядок" if isinstance(order, int) else ""))
+    if a:
+        каскад.append(a)
+    поля = {
+        "1. Актив/направление/инструмент": f"{a} {node.get('направление') or ''}".strip(),
+        "2. Каскадная цепочка": [x for x in каскад if x],
+        "13. Рамка-дисклеймер": "исследовательский инструмент, не инвестиционная рекомендация",
+    }
+    return {
+        "актив": a, "направление": node.get("направление"), "балл": node.get("score"),
+        "позиция": {"вероятность": node.get("вероятность")},
+        "событие": ev,
+        "трек": kind or ("провизорный" if node.get("провизорный") else "граф"),
+        "провизорный": bool(node.get("провизорный")),
+        "отчёт": {"поля": поля},
+        "_node": node,
+    }
+
+
+def _ef_card_from_carto(ci):
+    """Идея картографа (форма _proposal_ideas) → карточка единого контракта. Каскад — событие +
+    текстовые узлы цепочки по порядкам (П8). Картограф-идеи не запечатываются (research, §16)."""
+    insts = ci.get("все_инструменты") or ([ci.get("актив")] if ci.get("актив") else [])
+    a = insts[0] if insts else ci.get("актив")
+    nodes = sorted((ci.get("узлы_каскада") or []), key=lambda x: x.get("порядок") or 0)
+    каскад = [ci.get("событие")] if ci.get("событие") else []
+    for nd in nodes:
+        u = nd.get("узел")
+        if u:
+            каскад.append(u)
+    if a and a not in каскад:
+        каскад.append(a)
+    поля = {
+        "1. Актив/направление/инструмент": a,
+        "2. Каскадная цепочка": [x for x in каскад if x],
+        "13. Рамка-дисклеймер": "исследовательский инструмент, не инвестиционная рекомендация",
+    }
+    return {
+        "актив": a, "направление": None, "балл": ci.get("тектонический_потенциал"),
+        "позиция": {"вероятность": None},
+        "событие": ci.get("событие"),
+        "трек": "картограф", "провизорный": True,
+        "отчёт": {"поля": поля},
+        "_node": ci,
+    }
+
+
+def _ef_ideas(protocol):
+    """Event-first идеи: топ воронки отбора графа (+ money-трек как фолбэк) ∪ идеи картографа,
+    дедуп по активу (узлы графа приоритетнее — у них богаче расчёт)."""
+    g = protocol.get("граф_отбор") or {}
+    money_assets = {n.get("актив") for n in (g.get("money_трек") or [])}
+    primary = g.get("топ_k") or g.get("money_трек") or []
+    out, seen = [], set()
+    for n in primary:
+        a = n.get("актив")
+        if not a or a in seen:
+            continue
+        seen.add(a)
+        kind = "money" if a in money_assets else ("провизорный" if n.get("провизорный") else "граф")
+        out.append(_ef_card_from_node(n, kind=kind))
+    for ci in (protocol.get("картограф_идеи") or []):
+        insts = ci.get("все_инструменты") or ([ci.get("актив")] if ci.get("актив") else [])
+        a = insts[0] if insts else None
+        if not a or a in seen:
+            continue
+        seen.add(a)
+        out.append(_ef_card_from_carto(ci))
+    return out
+
+
+def money_ideas_from_protocol(protocol):
+    """Карточки money-трека, ПЕРЕЖИВШИЕ слепой суд (исход «УСТОЯЛА», без процедурного вето §6) —
+    ровно то, что гейт §11 разрешает двигать к ставке. Контракт для агента C (#11): промоушен
+    money-идеи в §8-карточку. Обогащены вердиктом суда ('суд') и, если был deep-report, ПОЛНЫМ
+    §8-синтезом (суд_money[акт]['отчёт_§8'] → отчёт.judgment, его и читает _fields_dict/format_report).
+
+    fail-closed: суд не гонялся / РАЗБИТА / ВЕТО / ПРОПУСК → пусто (деньги ТОЛЬКО при «УСТОЯЛА»)."""
+    g = (protocol or {}).get("граф_отбор") or {}
+    суд = g.get("суд_money") or {}
+    out = []
+    for n in (g.get("money_трек") or []):
+        v = суд.get(n.get("актив"))
+        if not _money_survived(v):
+            continue
+        card = _ef_card_from_node(n, kind="money")
+        card["суд"] = v
+        deep = v.get("отчёт_§8") if isinstance(v, dict) else None
+        if isinstance(deep, dict) and deep and not deep.get("_ошибка"):
+            card["отчёт"] = {"judgment": deep}     # полный §8-синтез важнее грубых node-полей
+        out.append(card)
+    return out
+
+
+def _money_after_court(граф):
+    """Полка money ПОСЛЕ слепого суда: (устояло, демотировано). Устояло — узлы money-трека с
+    исходом «УСТОЯЛА» (см. _money_survived); остальные money-узлы демотированы в гипотезу (§11
+    fail-closed). Это и закрывает самопротиворечие дайджеста (#12): «можно довести до ставки»
+    считаем ПОСЛЕ суда, а не по сырому треку до него."""
+    money = граф.get("money_трек") or []
+    суд = граф.get("суд_money") or {}
+    survived = sum(1 for n in money if _money_survived(суд.get(n.get("актив"))))
+    return survived, len(money) - survived
 
 
 def idea_brief(idea_card):
@@ -807,8 +963,13 @@ def format_research_digest(protocol):
     # БЛОК 1 — истории «новость → цепочка → компания» (картограф): это и есть объяснение ПОЧЕМУ.
     if карто:
         lines.append("\n— Как событие дотягивается до компании —")
-        for ci in карто[:3]:
+        # #14: НЕ режем истории до 3 — это хоронило сигнал при 6-7 идеях. Показываем все; если их
+        # много (>CARTO_SHOW) — первые, а хвост отправляем в /progress, чтобы не раздувать пуш.
+        show = карто if len(карто) <= CARTO_SHOW else карто[:CARTO_SHOW]
+        for ci in show:
             lines.append("\n" + _carto_story(ci))
+        if len(карто) > len(show):
+            lines.append(f"\n…ещё {len(карто) - len(show)} таких историй — полный список /progress")
 
     # БЛОК 2 — отобранное графом под форвард-трек: ПОЛНАЯ карточка каждой идеи (что → почему →
     # когда → доводы за/против → вердикт суда). Это и есть разбор, по которому инвестор примет решение.
@@ -818,8 +979,13 @@ def format_research_digest(protocol):
         for n in топ[:6]:
             lines.append(_idea_card(n, суд.get(n.get("актив")), ts))
 
-    lines.append(f"\nДве полки идей: 💰 {треки.get('money', 0)} с проверенной ценами связью "
-                 f"(их можно довести до реальной ставки) · 🧪 {треки.get('провизорный', 0)} пока на уровне "
+    # #12: «можно довести до ставки» считаем ПОСЛЕ слепого суда (fail-closed §11): только money-узлы
+    # с исходом «УСТОЯЛА». Сырой треки['money'] — это ДО суда; те же узлы ниже показаны как РАЗБИТА,
+    # отчего дайджест противоречил сам себе. Демотированные судом money-узлы уходят в полку гипотез.
+    money_ok, money_demoted = _money_after_court(g)
+    prov_total = (треки.get("провизорный", 0) or 0) + money_demoted
+    lines.append(f"\nДве полки идей: 💰 {money_ok} с проверенной ценами связью, ПЕРЕЖИВШИХ слепой суд "
+                 f"(их можно довести до реальной ставки) · 🧪 {prov_total} пока на уровне "
                  f"гипотезы (считаю отдельно, в деньги не пускаю).")
     if зап.get("money") or зап.get("провизорный"):
         lines.append(f"Зафиксировал с отметкой времени, чтобы потом честно сверить прогноз с фактом: "

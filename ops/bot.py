@@ -19,6 +19,7 @@
 доступны посторонним. При первом запуске, если chat_id не задан, бот подсказывает свой chat_id.
 """
 import os
+import re
 import sys
 import json
 import time
@@ -236,12 +237,36 @@ class Bot:
 
     @staticmethod
     def _intent_check_idea(text):
-        """«проверь идею <X>» / «оцени идею <X>» / «разбери идею <X>» → вернуть X (саму идею) или None."""
+        """Намерение «прогони состязательный разбор» в свободной речи. Возвращает текст идеи (из
+        него тикер достанет INTRO._ticker) либо None. Оба класса роутятся в ПОЛНЫЙ контур
+        _cmd_check_idea (генератор → критик → слепой судья §8), НЕ в одно-семейный чат:
+          • явная ИДЕЯ: «проверь/оцени/разбери [мою] идею <X>» (поведение прежнее, не ломаем);
+          • КОМПАНИЯ/ТИКЕР: «разбери/копни/проверь/оцени [компанию|тикер|бумагу] CLF» — именно так
+            дайджест приглашает копнуть: «напиши разбери ТИКЕР».
+        Узко по тикеру: голые «разбери …»/«копни …» перехватываем ТОЛЬКО при тикер-образном токене
+        (2–5 заглавных латинских), иначе это обычный вопрос («разбери ситуацию на рынке») — пусть
+        отвечает Дирижёр. Явные «… компанию/тикер/бумагу X» роутим всегда (намерение однозначно)."""
         low = text.lower().strip()
+        body = text.strip()
+        # — класс 1: явная «идея» (поведение прежнее) —
         for pre in ("проверь мою идею", "оцени мою идею", "проверь идею", "оцени идею",
                     "разбери идею", "проверь идею:"):
             if low.startswith(pre):
-                return text.strip()[len(pre):].lstrip(" :—-").strip() or None
+                return body[len(pre):].lstrip(" :—-").strip() or None
+        # — класс 2a: явный объект «компанию/тикер/бумагу» — намерение однозначно —
+        for pre in ("разбери компанию", "разбери тикер", "разбери бумагу",
+                    "оцени компанию", "оцени тикер", "оцени бумагу",
+                    "проверь компанию", "проверь тикер", "проверь бумагу",
+                    "копни компанию", "копни тикер", "копни бумагу"):
+            if low.startswith(pre):
+                return body[len(pre):].lstrip(" :—-").strip() or None
+        # — класс 2б: голые «разбери/копни <ТИКЕР>» — только при тикер-образном токене —
+        for pre in ("разбери", "копни"):
+            if low.startswith(pre):
+                rest = body[len(pre):].lstrip(" :—-").strip()
+                if rest and re.search(r"\b[A-Z]{2,5}\b", rest):
+                    return rest
+                return None
         return None
 
     def _cmd_check_idea(self, chat, idea_text):
@@ -714,6 +739,30 @@ class Bot:
             if str(run_id).startswith("ef_") and "__" not in str(run_id):
                 # дайджест с разбором новость→цепочка→суд длиннее лимита Telegram (4096) → шлём частями.
                 self._send_card(R.format_research_digest(proto), None)
+                # §11 fail-closed: money-каскады, ПЕРЕЖИВШИЕ слепой суд («УСТОЯЛА», без вето §6),
+                # доходят до пользователя ОТДЕЛЬНОЙ §8-actionable карточкой с кнопками §12. Дайджест —
+                # обзорный поток, карточка — решение по конкретной идее: РАЗНЫЕ форматы одной идеи,
+                # не дубль (а одну и ту же карточку дважды не шлём — гард по токену в pending). Метку
+                # «исследование, НЕ инвестрекомендация» НЕ снимаем (C2/FГ: калибр-гейт §11 не пройден).
+                money_ideas = R.money_ideas_from_protocol(proto)
+                proto_card = dict(proto)
+                if proto_card.get("mode") == "auto":     # auto боевой (run.py: auto→live при ключе) —
+                    proto_card["mode"] = "live"           # рендерим полную §8-карточку, не mock-заглушку
+                for idea in money_ideas:
+                    asset = idea.get("актив")
+                    token = S.idea_token(run_id, asset)
+                    if token in self.state["pending"]:   # идемпотентность: не слать карточку дважды
+                        continue
+                    text = R.format_report(proto_card, idea, pres)
+                    kb = R.build_keyboard(token, issued_at)
+                    mid = self._send_card(text, kb)
+                    self.state["pending"][token] = {
+                        "run_id": run_id, "asset": asset,
+                        "direction": idea.get("направление"), "score": idea.get("балл"),
+                        "issued_at": issued_at, "message_id": mid, "status": "pending",
+                        "idea_brief": R.idea_brief(idea),
+                    }
+                    log("пуш money-карточки §8 (пережила слепой суд)", run_id, asset, "token", token)
                 added = W.ingest_protocol(proto, existing_ids=self.state["seen_watchlist"])
                 for rec in added:
                     self.state["seen_watchlist"].append(rec["id"])

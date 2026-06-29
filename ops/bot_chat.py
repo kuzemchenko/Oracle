@@ -117,13 +117,17 @@ def context_brief():
     try:
         import bot_reports as R
         protos = R.scan_protocols()
-        live = [p for p in protos if p.get("mode") == "live"]
+        # #10: крон пишет mode="auto" (run.py трактует auto→live при наличии ключа OpenRouter), поэтому
+        # «боевыми» считаем И live, И auto — иначе чат заявлял «боевых прогонов нет» при идущем кроне.
+        # mock (дымовой прогон без сети) сюда не попадает by design.
+        live = [p for p in protos if p.get("mode") in ("live", "auto")]
         if live:
             last = live[-1]
             ideas = R.ideas_from_protocol(last)
             tag = f"{last.get('run_id')} (тема {last.get('theme')})"
             if ideas:
-                names = ", ".join(f"{i.get('актив')} {i.get('направление')}" for i in ideas)
+                names = ", ".join(f"{i.get('актив')} {i.get('направление') or ''}".rstrip()
+                                  for i in ideas)
                 lines.append(f"Последний боевой прогон {tag}: выдано идей {len(ideas)} — {names}.")
             else:
                 lines.append(f"Последний боевой прогон {tag}: идей нет — слабый день (§6).")
