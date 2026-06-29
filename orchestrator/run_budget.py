@@ -33,8 +33,15 @@ class RunBudgetRefused(RuntimeError):
         self.decision = decision
 
 
-class RunBudgetExceeded(RuntimeError):
-    """Стоп на лету: реальная стоимость прогона пересекла потолок режима (§24)."""
+class RunBudgetExceeded(BaseException):
+    """Стоп на лету: реальная стоимость прогона пересекла потолок режима (§24).
+
+    Долг[HIGH] из stage-review F0: НАСЛЕДУЕТ BaseException (как KeyboardInterrupt/SystemExit), а НЕ
+    Exception — иначе широкие `except Exception` в контуре (openrouter.complete фолбэк-цикл,
+    agents.call_agent, event_first._vet_money/_deep, funnel-стадии) ГЛОТАЛИ сигнал стопа → прогон
+    продолжал тратить сверх потолка. Теперь сигнал не перехватывается обработчиками ошибок и
+    долетает до входа прогона (run_funnel/run_event_first/masked), где ловится ЯВНО и даёт
+    graceful-остановку. Это управляющее исключение, не «ошибка вызова»."""
     def __init__(self, mode, spent_usd, cap_usd):
         super().__init__(f"прогон '{mode}': потрачено ${spent_usd:.4f} ≥ потолка ${cap_usd} (§24) — стоп")
         self.mode, self.spent_usd, self.cap_usd = mode, spent_usd, cap_usd

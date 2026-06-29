@@ -142,10 +142,10 @@
     #   (A6=§1.10, затрагивает мой код в.3); #5 форвард-промоушен пропускает base-rate-монетку (§1.4/2.6 —
     #   МОЙ код); #6 calibration в §11 (§1.3/1.12); #7 prob=None в гейте-270 (§1.5); #8 сырой close→adj
     #   (§5.1); #9 бюджет-гард event_first (§0.1 КРИТ).
-    # ДОЛГИ из stage-review F0 (не блокеры, перенесены): [HIGH] хард-стоп бюджета мёртв — RunBudgetGuard
-    #   глушится широким except в openrouter.complete()+agents.call_agent() (стоп-на-лету §24 не рвёт во
-    #   ВСЕХ контурах funnel/masked/event_first; precheck-гейт ПЕРЕД прогоном работает) → re-raise до except;
-    #   [LOW] cascade_forward вне MONEY_EDGE_KINDS (унифицировать с cascade_money + assert по неклассиф. kind);
+    # ДОЛГИ из stage-review F0: [HIGH ✓ ЗАКРЫТ коммит ниже] хард-стоп бюджета — RunBudgetExceeded теперь
+    #   BaseException (не глотается except Exception в openrouter/agents/_vet_money); graceful-перехват в
+    #   run_funnel/run_event_first/run_masked → протокол ОСТАНОВ_бюджет; тест test_budget_hardstop (реальный complete).
+    #   ОСТАЛИСЬ (не блокеры): [LOW] cascade_forward вне MONEY_EDGE_KINDS (унифицировать + assert по неклассиф. kind);
     #   [LOW] знаменатели биномтеста (n_dir vs n единообразно); [LOW] precheck-профиль event_first research-only
     #   vs vet/deep (реальный expected_calls); [LOW/env] smoke theme-guard изолировать от боевого oracle.db.
 [ ] F1 (P1 выдача доходит до пользователя): /goal пользователь получает связный поток идей; stage-review F1 ПРОЙДЕН

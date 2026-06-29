@@ -536,6 +536,16 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                 if spec:
                     FC.seal_prediction(spec)
                     запечатано["провизорный"] += 1
+    except RB.RunBudgetExceeded as e:
+        # Долг[HIGH]: хард-стоп бюджета на лету (§24) — прогон ОСТАНОВЛЕН, graceful-протокол (не крэш)
+        PROG.finish(f"остановлен по бюджету (§24): потрачено ${e.spent_usd:.2f} ≥ ${e.cap_usd}")
+        return {"run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
+                "режим": "event-first контур",
+                "ОСТАНОВ_бюджет": {"mode": e.mode, "spent_usd": round(e.spent_usd, 4),
+                                   "cap_usd": e.cap_usd, "reason": str(e)},
+                "spec_ref": "§24 стоп-на-лету RunBudgetGuard; Инв#5 CLAUDE.md",
+                "следующий_шаг": ("прогон ОСТАНОВЛЕН на лету: реальная стоимость превысила потолок "
+                                  "режима event_first; поднять может только пользователь (config/limits.yaml, П12).")}
     finally:
         con.close()
 

@@ -257,6 +257,19 @@ def _now_stamp():
 
 
 def run_masked(*, mode="auto", cases_dir=CASES_DIR, write=True, limits=None):
+    """Обёртка graceful-стопа бюджета (§24, долг[HIGH]): RunBudgetGuard рвёт набор на лету через
+    RunBudgetExceeded(BaseException) — ловим ЯВНО (иначе пролетел бы сквозь except Exception кейса
+    и крэшнул пул). Логика — в _run_masked."""
+    try:
+        return _run_masked(mode=mode, cases_dir=cases_dir, write=write, limits=limits)
+    except RB.RunBudgetExceeded as e:
+        return {"run_id": f"masked_{_now_stamp()}", "mode": mode, "spec_ref": "§23.2(б), §24",
+                "ОСТАНОВ_бюджет": {"mode": e.mode, "spent_usd": round(e.spent_usd, 4),
+                                   "cap_usd": e.cap_usd, "reason": str(e)},
+                "вывод": f"ОСТАНОВ на лету: {e}", "gate_пройден": False}
+
+
+def _run_masked(*, mode="auto", cases_dir=CASES_DIR, write=True, limits=None):
     """Прогон всего регрессионного набора §23.2(б). Возвращает агрегат с gate ≥0.70.
 
     mode: 'auto' (live при ключе, иначе mock) | 'live' | 'mock'.

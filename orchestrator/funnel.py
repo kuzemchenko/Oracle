@@ -412,6 +412,29 @@ def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits
 # ── Прогон воронки ───────────────────────────────────────────────────────────────
 def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
                theme_focused=False):
+    """Обёртка graceful-стопа бюджета (§24, долг[HIGH] из stage-review F0): RunBudgetGuard рвёт
+    прогон на лету через RunBudgetExceeded(BaseException) — ловим ЯВНО здесь и отдаём протокол-стоп
+    (не крэш). Вся логика — в _run_funnel."""
+    try:
+        return _run_funnel(theme=theme, mode=mode, agent_ids=agent_ids, run_id=run_id,
+                           write=write, full=full, theme_focused=theme_focused)
+    except RB.RunBudgetExceeded as e:
+        rid = run_id or f"funnel_{_now_compact()}"
+        if PROG.active():
+            PROG.finish(f"остановлен по бюджету (§24): ${e.spent_usd:.2f} ≥ ${e.cap_usd}")
+        stop = {"run_id": rid, "ts": _now_iso(), "mode": mode, "theme": theme,
+                "ОСТАНОВ_бюджет": {"mode": e.mode, "spent_usd": round(e.spent_usd, 4),
+                                   "cap_usd": e.cap_usd, "reason": str(e)},
+                "spec_ref": "§24 стоп-на-лету RunBudgetGuard; Инв#5 CLAUDE.md",
+                "следующий_шаг": ("прогон ОСТАНОВЛЕН на лету: реальная стоимость превысила потолок "
+                                  "режима; поднять может только пользователь (config/limits.yaml, П12).")}
+        if write:
+            _write_refusal(stop)
+        return stop
+
+
+def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
+                theme_focused=False):
     """Сквозной прогон полной воронки §6 (этапы 1–6).
 
     full=True (по умолчанию): этапы 1–6 — скан+FDR → кандидаты → грубый фильтр → скоринг §7 →
