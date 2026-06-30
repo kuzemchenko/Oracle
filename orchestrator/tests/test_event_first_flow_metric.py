@@ -64,3 +64,34 @@ def test_flow_metric_nonzero_under_skip_contour(monkeypatch):
     assert "идей в поток 5" in p["итог"]
     assert "картограф 2 + граф-топ 3" in p["итог"]
     assert "состязательный контур 0 идей (выключен под --vet)" in p["итог"]
+
+
+def test_flow_metric_dedup_overlap(monkeypatch):
+    """ДОЛГ stage-review F1: поток = УНИКАЛЬНЫЕ активы. Картограф-цепочки питают И картограф_идеи, И
+    граф→топ_k; один тикер не должен считаться дважды (раньше headline завышался). Здесь LRCX в ОБОИХ
+    множествах: картограф {LRCX, AAA} ∪ граф {LRCX, YYY, ZZZ} → 4 уникальных, пересечение 1."""
+    monkeypatch.setattr(EF.ES, "scan_events_live", lambda **kw: _fake_scan())
+    monkeypatch.setattr(EF, "_shock_sources", lambda *a, **k: [])
+    monkeypatch.setattr(EF, "_price_signal_syms", lambda scan: [])
+    monkeypatch.setattr(EF, "_cartographer_pass", lambda *a, **k: [])
+    monkeypatch.setattr(EF, "_stage_cartographer", lambda pcs, now: [])
+    monkeypatch.setattr(EF, "_proposal_ideas",
+                        lambda proposals: [{"актив": "LRCX"}, {"актив": "AAA"}])  # LRCX пересечётся
+    monkeypatch.setattr(EF, "activated_chains", lambda *a, **k: [])
+    топ = [_fake_node_sel(s) for s in ("LRCX", "YYY", "ZZZ")]   # LRCX и в графе
+    monkeypatch.setattr(EF.GB, "select_from_nodes",
+                        lambda *a, **k: {"всего": 3, "ворота_прошли": 3,
+                                         "отсев_по_критериям": {}, "топ_k": топ, "ранжировано": топ})
+    monkeypatch.setattr(EF.GB, "route_tracks",
+                        lambda sel: {"money": топ[:1], "provisional": топ[1:], "digest_only": []})
+
+    p = EF.run_event_first(mode="mock", k=2, write=False, skip_contour=True)
+
+    fl = p["поток_идей"]
+    # Сырые per-source счётчики сохранены, но "всего" = union уникальных (НЕ 2+3=5).
+    assert fl["картограф"] == 2
+    assert fl["граф_топ"] == 3
+    assert fl["пересечение"] == 1            # LRCX в обоих
+    assert fl["всего"] == 4                  # {LRCX, AAA, YYY, ZZZ}
+    assert "идей в поток 4 уникальных" in p["итог"]
+    assert "−1 пересеч." in p["итог"]

@@ -133,3 +133,27 @@ def test_ef_demoted_money_idea_no_card(paths):
     assert any("Идеи дня" in s[1] for s in bot.tg.sent)        # дайджест есть
     assert not any("Идея дня:" in s[1] for s in bot.tg.sent)   # карточки-ставки нет
     assert bot.state["pending"] == {}
+
+
+# ── БЛОКЕР stage-review F1: fail-open на money-пути под --deep ─────────────────────────
+def test_ef_deep_money_card_keeps_disclaimer_fail_closed():
+    """Боевой крон идёт с --deep: money-карточка подменяет отчёт на LLM-judgment, и поле 13
+    (рамка-дисклеймер) пришло бы из LLM. Если LLM вернул поле 13 ПУСТЫМ — метка «не инвестиционная
+    рекомендация» НЕ должна исчезнуть (fix #11 «метку НЕ снимаем», §8/§11 fail-closed).
+    Раньше карточка показала бы «[поле пустое]» в слоте дисклеймера и ушла без рамки."""
+    node = _money_node()
+    deep = {"поля": {"1. Актив/направление/инструмент": "сталь CLF",
+                     "13. Рамка-дисклеймер": ""}}          # LLM вернул рамку ПУСТОЙ
+    proto = {"run_id": "ef_20260629T090001Z", "ts": "2026-06-29T09:00:00+00:00", "mode": "live",
+             "граф_отбор": {"топ_k": [node], "money_трек": [node],
+                            "суд_money": {"CLF.US": {"исход": "УСТОЯЛА", "отчёт_§8": deep}},
+                            "треки": {"money": 1, "провизорный": 0}},
+             "картограф_идеи": []}
+    cards = R.money_ideas_from_protocol(proto)
+    assert len(cards) == 1
+    assert cards[0]["отчёт"] == {"judgment": deep}            # подмена на judgment произошла (deep-путь)
+    text = R.format_report(proto, cards[0])
+    # рамка присутствует, несмотря на пустое поле 13: два слоя — поле13 детерминир. + безусловный футер.
+    # ровно 2 вхождения доказывают, что поле13 отрисовало РАМКУ, а не «[поле пустое]» (footer даёт 1).
+    assert R.RESEARCH_FRAME in text
+    assert text.count("не инвестиционная рекомендация") >= 2
