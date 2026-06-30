@@ -44,15 +44,44 @@ def _adv(con, sym, n=ADV_BARS):
     return sum(vals) / len(vals) if vals else None
 
 
+def _dated_closes(con, sym):
+    """(date, adj_close) по возрастанию даты — для ДАТО-ВЫРОВНЕННОГО R² (F2#18)."""
+    rows = con.execute("SELECT date, COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+                       "AND COALESCE(adjusted_close, close) IS NOT NULL "
+                       "ORDER BY date ASC", (sym,)).fetchall()
+    return [(r[0], float(r[1])) for r in rows]
+
+
+def _aligned_returns(con, root, term, lookback):
+    """Лог-доходности root и term на ОБЩИХ датах (последние lookback). None,None — мало пересечения.
+
+    F2#18 (§2.3): раньше R² считался позиционным zip двух независимо вытянутых _closes. При разной
+    истории (IPO/пропуски; живой триггер SPCX/RKLB) индекс i в двух рядах — РАЗНЫЕ даты → мусорный R².
+    """
+    rd = dict(_dated_closes(con, root))
+    td = dict(_dated_closes(con, term))
+    common = sorted(set(rd) & set(td))[-int(lookback):]
+    if len(common) < 2:
+        return None, None
+    rc = CAS.log_returns([rd[d] for d in common])
+    tc = CAS.log_returns([td[d] for d in common])
+    return rc, tc
+
+
 def _isolation_r2_and_sigma(con, root, term, lookback=ISO_LOOKBACK):
     """Изоляция = R² терминала НА КОРЕНЬ (доля дисперсии инструмента, объяснённая шоком каскада) +
     шумовой пол σ (std дневных доходностей терминала). R² None при недостатке синхронной истории
     (§R2.1 → isolation_factor подставит структурный дефолт, а не выдумает число, П8)."""
-    tc = CAS.log_returns(_closes(con, term, lookback))
-    sigma = float(tc.std()) if tc.size >= 2 else None
-    rc = CAS.log_returns(_closes(con, root, lookback))
-    sens = CAS.node_sensitivity(rc, tc, lag=0)        # None если < MIN_OBS синхронных наблюдений
-    r2 = sens["r2"] if sens else None
+    # σ — собственная вола терминала (выравнивания с корнем не требует), на полном окне его истории.
+    tc_own = CAS.log_returns(_closes(con, term, lookback))
+    sigma = float(tc_own.std()) if tc_own.size >= 2 else None
+    # R² — ТОЛЬКО на дато-выровненных рядах root↔term (F2#18), а не позиционным zip.
+    r2 = None
+    if root and term:
+        rc, tc = _aligned_returns(con, root, term, lookback)
+        if rc is not None:
+            sens = CAS.node_sensitivity(rc, tc, lag=0)    # None если < MIN_OBS синхронных наблюдений
+            r2 = sens["r2"] if sens else None
     return r2, sigma
 
 

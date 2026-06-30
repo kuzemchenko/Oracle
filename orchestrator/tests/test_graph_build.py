@@ -71,6 +71,35 @@ def test_node_to_facts_missing_instrument_is_honest_not_invented():
     assert f["resolvable"] is False
 
 
+# ── F2#18: R² на ДАТО-ВЫРОВНЕННЫХ рядах (а не позиционный zip) ─────────────────────────
+def test_isolation_r2_uses_date_alignment_not_positional_zip():
+    """root и term несут ИДЕНТИЧНЫЕ доходности, но на СДВИНУТЫХ датах. Позиционный zip (старый баг)
+    спарил бы их как одинаковые → ложный R²≈1. Дато-выравнивание сравнивает РАЗНЫЕ участки истории
+    одного блуждания на общих датах → честный низкий R² (триггер SPCX/RKLB)."""
+    rng = np.random.default_rng(7)
+    rets = rng.normal(0, 0.02, 200)
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE quotes (symbol TEXT, date TEXT, close REAL, adjusted_close REAL, volume REAL)")
+    base = datetime.date(2020, 1, 1)
+    for sym, off in (("ROOT.US", 0), ("TERM.US", 100)):   # TERM на 100 дней позже теми же доходностями
+        price = 100.0
+        for i, r in enumerate(rets):
+            price *= math.exp(float(r))
+            d = (base + datetime.timedelta(days=off + i)).isoformat()
+            con.execute("INSERT INTO quotes VALUES (?,?,?,?,?)", (sym, d, price, price, 1_000_000))
+    con.commit()
+    r2, sigma = GB._isolation_r2_and_sigma(con, "ROOT.US", "TERM.US")
+    assert sigma is not None and sigma > 0
+    # на общих датах (100 дней) сравниваются непересекающиеся куски iid-блуждания → корреляции почти нет
+    assert r2 is not None and r2 < 0.3        # старый позиционный zip дал бы ≈1.0
+
+
+def test_aligned_returns_insufficient_overlap_is_none():
+    con = _mk_db(_correlated())
+    rc, tc = GB._aligned_returns(con, "ROOT.US", "GHOST.US", GB.ISO_LOOKBACK)  # GHOST нет в БД
+    assert rc is None and tc is None
+
+
 # ── сквозная воронка ──────────────────────────────────────────────────────────────────
 def test_select_from_nodes_keeps_low_basis_gates_only_actionable():
     con = _mk_db(_correlated())
