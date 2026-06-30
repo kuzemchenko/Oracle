@@ -19,6 +19,59 @@ def load_limits(path=None):
         return yaml.safe_load(f)
 
 
+def gates(limits=None):
+    """Денежные ворота §11 из config (НЕ редактируются кодом). Единый источник вместо хардкода 270."""
+    return (limits or load_limits()).get("gates", {}) or {}
+
+
+def paper_to_money_gate(limits=None, default=270):
+    """Порог Gate Б→Д (разрешённых прогнозов). F2#22: единый источник, раньше 270 был зашит в resolve/calibrate."""
+    return int(gates(limits).get("paper_to_money_predictions", default))
+
+
+def check_kill_criteria(*, calibration_band_pp=None, n_money_resolved=0,
+                        money_brier=None, money_base_rate=None, limits=None):
+    """ДЕТЕРМИНИРОВАННАЯ проверка KILL-критериев §11 (Инв#6: код, не LLM). F2#22 (§1.11): пороги
+    KILL были в limits.yaml без потребителя — KILL проверялся только LLM-скиллом.
+
+    KILL объявляется ТОЛЬКО когда критерий ДОКАЗАН на данных (П8: нехватка данных ≠ KILL):
+      • калибровка хуже kill_calibration_band_pp (band ИЗМЕРИМА, см. brier.MIN_BIN_N);
+      • после kill_no_edge_after_predictions денежных исходов нет скилла над климатологией
+        (Brier Skill Score над base_rate·(1−base_rate) ≤ 0).
+    Возвращает {kill, reasons, checks}."""
+    g = gates(limits)
+    reasons, checks = [], {}
+
+    kb = g.get("kill_calibration_band_pp")
+    if calibration_band_pp is not None and kb is not None:
+        bad = float(calibration_band_pp) > float(kb)
+        checks["калибровка"] = {"band_pp": round(float(calibration_band_pp), 2),
+                                "kill_порог_пп": kb, "нарушен": bad}
+        if bad:
+            reasons.append(f"калибровка {float(calibration_band_pp):.1f} п.п. > KILL-порога {kb} п.п. (§11)")
+    else:
+        checks["калибровка"] = {"статус": "не измерима (нет корзин с достаточным N)"}
+
+    kn = g.get("kill_no_edge_after_predictions")
+    if kn is not None:
+        if n_money_resolved >= int(kn):
+            bss = None
+            if money_brier is not None and money_base_rate is not None:
+                clim = float(money_base_rate) * (1.0 - float(money_base_rate))
+                bss = None if clim <= 0 else 1.0 - float(money_brier) / clim
+            no_edge = (bss is None) or (bss <= 0.0)
+            checks["edge"] = {"N": n_money_resolved, "порог": int(kn),
+                              "bss_над_климатологией": (None if bss is None else round(bss, 4)),
+                              "нет_edge": no_edge}
+            if no_edge:
+                reasons.append(f"после {n_money_resolved} денежных прогнозов нет скилла над "
+                               f"климатологией (BSS={'н/д' if bss is None else round(bss, 4)}) (§11)")
+        else:
+            checks["edge"] = {"N": n_money_resolved, "порог": int(kn), "статус": "до порога — не применимо"}
+
+    return {"kill": bool(reasons), "reasons": reasons, "checks": checks}
+
+
 def _deny(reason, **extra):
     return {"allowed": False, "reason": reason, **extra}
 

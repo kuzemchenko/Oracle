@@ -149,7 +149,8 @@ def run_calibrate(mode="auto", write=True, now_dt=None):
     total_recs = len(SEAL.read_predictions())
     brier, n_resolved = _current_brier(kinds=("calibration",))     # калибровочный трек (свой Brier)
     _, n_edge = _current_brier(kinds=RES.MONEY_EDGE_KINDS)          # §11 гейт — ТОЛЬКО edge (как в resolve)
-    gate = 270
+    from mathlib import limits as L
+    gate = L.paper_to_money_gate()                                 # F2#22: единый источник из config, не хардкод
     out = {
         "run_id": run_id,
         "mode": mode,

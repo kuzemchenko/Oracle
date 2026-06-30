@@ -19,6 +19,39 @@ def test_limits_load_known_anchors():
     assert lim["gates"]["paper_to_money_predictions"] == 270
 
 
+def test_paper_to_money_gate_from_config():
+    # F2#22: единый источник гейта из config (не хардкод 270 в resolve/calibrate)
+    assert lm.paper_to_money_gate() == lm.gates()["paper_to_money_predictions"] == 270
+
+
+def test_kill_band_breach_is_deterministic_kill():
+    # калибровка хуже kill-порога (15 п.п.) → KILL объявляется КОДОМ
+    k = lm.check_kill_criteria(calibration_band_pp=22.0, n_money_resolved=10)
+    assert k["kill"] is True
+    assert any("калибровка" in r for r in k["reasons"])
+    # в пределах нормы → не KILL
+    assert lm.check_kill_criteria(calibration_band_pp=8.0, n_money_resolved=10)["kill"] is False
+
+
+def test_kill_no_edge_only_after_threshold():
+    # до порога прогнозов edge-KILL НЕ применяется (П8: мало данных ≠ KILL)
+    early = lm.check_kill_criteria(n_money_resolved=50, money_brier=0.30, money_base_rate=0.5)
+    assert early["kill"] is False
+    assert "не применимо" in early["checks"]["edge"]["статус"]
+    # после порога: нет скилла над климатологией (BSS≤0) → KILL
+    no_edge = lm.check_kill_criteria(n_money_resolved=300, money_brier=0.26, money_base_rate=0.5)
+    assert no_edge["kill"] is True and no_edge["checks"]["edge"]["нет_edge"] is True
+    # после порога: есть скилл (BSS>0) → не KILL
+    edge = lm.check_kill_criteria(n_money_resolved=300, money_brier=0.10, money_base_rate=0.5)
+    assert edge["kill"] is False and edge["checks"]["edge"]["bss_над_климатологией"] > 0
+
+
+def test_kill_band_not_measurable_is_not_kill():
+    # band=None (нет корзин с N, F2#20) → не KILL, статус «не измерима» (П8)
+    k = lm.check_kill_criteria(calibration_band_pp=None, n_money_resolved=5)
+    assert k["kill"] is False and "не измерима" in k["checks"]["калибровка"]["статус"]
+
+
 def test_idea_risk():
     assert lm.check_idea_risk(500)["allowed"] is True
     assert lm.check_idea_risk(500.01)["allowed"] is False

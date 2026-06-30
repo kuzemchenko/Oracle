@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT))
 from mathlib import sealing as SEAL          # noqa: E402
 from mathlib import outcomes as OUT          # noqa: E402
 from mathlib import brier as BR              # noqa: E402
+from mathlib import limits as L              # noqa: E402  (F2#22: gates/KILL из config)
 
 DB = ROOT / "storage" / "oracle.db"
 OUTCOMES_PATH = ROOT / "journal" / "outcomes.jsonl"
@@ -139,6 +140,12 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     band = BR.calibration_band_pp(m_probs, m_outs) if m_probs else None
     prov_brier = BR.brier_score(p_probs, p_outs) if p_probs else None
 
+    # F2#22: гейт и KILL — из config (единый источник), не хардкод 270; KILL проверяется КОДОМ (Инв#6).
+    gate_n = L.paper_to_money_gate()
+    money_base_rate = (sum(m_outs) / len(m_outs)) if m_outs else None
+    kill = L.check_kill_criteria(calibration_band_pp=band, n_money_resolved=len(m_probs),
+                                 money_brier=brier, money_base_rate=money_base_rate)
+
     return {
         "прогнозов_в_журнале": len(preds),
         "журнал_цел": chain_ok,                                                 # F2#21: hash-chain + печати
@@ -151,8 +158,9 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         "калибровка_band_пп": (None if band is None else round(band, 2)),
         # F0#7: гейт-270 считаем по ТОМУ ЖЕ подмножеству, что Brier (probability присутствует) —
         # иначе ворота «созревают» на неизмеримых прогнозах (probability=None в гейт шёл, в Brier нет).
-        "до_ворот_270": max(0, 270 - len(m_probs)),                            # только измеримые денежные → §11
+        "до_ворот_270": max(0, gate_n - len(m_probs)),                         # только измеримые денежные → §11
+        "KILL_проверка": kill,                                                  # F2#22: детерминир. §11 KILL
         "провизорный_трек": {"исходов": len(prov_out),                         # отдельный Brier, НЕ в §11
                              "brier": (None if prov_brier is None else round(prov_brier, 4))},
-        "spec_ref": "§10.10, §16, §11 ворота; B3c герметичность треков; скилл calibrate п.5",
+        "spec_ref": "§10.10, §16, §11 ворота/KILL; B3c герметичность треков; скилл calibrate п.5",
     }
