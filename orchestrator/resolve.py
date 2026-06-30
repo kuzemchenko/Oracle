@@ -71,13 +71,23 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     done = {o["hash"] for o in read_outcomes(outcomes_path) if o.get("hash")}
     opath = pathlib.Path(outcomes_path) if outcomes_path else OUTCOMES_PATH
 
+    # F2#21/§8.2: ВЕРИФИКАЦИЯ ПЕЧАТИ перед вынесением исхода. verify_all ловит правку записи (content-
+    # hash), а также удаление/перестановку/вставку (hash-chain). По прогнозу с битой печатью/разорванной
+    # цепочкой исход НЕ выносится — это ошибка (П16: журнал неприкосновенен, исход не легитимизирует подделку).
+    chain_ok, bad_idx = SEAL.verify_all(predictions_path)
+    bad_idx = set(bad_idx)
+
     con = sqlite3.connect(DB) if DB.exists() else None
     newly, still_pending, errors = [], 0, []
     try:
-        for p in preds:
+        for i, p in enumerate(preds):
             h = p.get("hash")
             if not h or h in done:
                 continue                       # уже сверён — журнал исходов append-only
+            if i in bad_idx:
+                errors.append({"hash": (h or "?")[:12], "asset": p.get("asset"),
+                               "error": "печать/цепочка НЕ верифицирована (§8.1/8.2) — исход не вынесен"})
+                continue
             asset = p.get("asset")
             resolve_by = str(p.get("resolve_by", ""))
             obs_val, obs_at = (None, None)
@@ -131,6 +141,8 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
 
     return {
         "прогнозов_в_журнале": len(preds),
+        "журнал_цел": chain_ok,                                                 # F2#21: hash-chain + печати
+        "битых_печатей": len(bad_idx),                                          # не сверены (§8.2)
         "сверено_сейчас": len(newly),
         "ещё_pending": still_pending,
         "ошибок": errors,

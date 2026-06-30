@@ -68,6 +68,27 @@ def test_resolve_matured_prediction(tmp_path):
     assert len(RES.read_outcomes(str(opath))) == 1
 
 
+def test_resolve_refuses_tampered_prediction(tmp_path):
+    # F2#21/§8.2: прогноз с подделанной задним числом печатью НЕ резолвится (исход не легитимизирует подделку).
+    import json as _json
+    ppath = tmp_path / "preds.jsonl"
+    opath = tmp_path / "outs.jsonl"
+    pred = {"kind": "calibration", "asset": "BNO.US", "direction": "above", "threshold": 10.0,
+            "resolve_by": "2026-06-09T20:00:00+00:00", "price_source": "EODHD close BNO.US",
+            "probability": 0.6}
+    SEAL.seal(pred, path=str(ppath))
+    # правим порог в обход seal (hash перестаёт сходиться)
+    recs = [_json.loads(x) for x in ppath.read_text(encoding="utf-8").splitlines()]
+    recs[0]["threshold"] = 99999.0
+    ppath.write_text(_json.dumps(recs[0], ensure_ascii=False) + "\n", encoding="utf-8")
+
+    out = RES.run_resolve(write=True, predictions_path=str(ppath), outcomes_path=str(opath))
+    assert out["сверено_сейчас"] == 0
+    assert out["журнал_цел"] is False and out["битых_печатей"] == 1
+    assert any("8.2" in e.get("error", "") for e in out["ошибок"])
+    assert RES.read_outcomes(str(opath)) == []          # ничего не вынесено
+
+
 def test_resolve_pending_when_not_matured(tmp_path):
     ppath = tmp_path / "p.jsonl"
     pred = {"kind": "calibration", "asset": "BNO.US", "direction": "above", "threshold": 50.0,

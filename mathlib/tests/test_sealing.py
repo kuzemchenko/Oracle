@@ -100,6 +100,60 @@ def test_verify_all_flags_corrupted_journal(tmp_path):
     assert not ok and bad == [1]
 
 
+# --- F2#21: hash-chain ловит удаление/перестановку/вставку ----------------
+def _seal_n(path, n):
+    recs = []
+    for i in range(n):
+        p = _good(); p["threshold"] = 90.0 + i
+        recs.append(s.seal(p, path=path, sealed_at=f"2026-06-11T00:0{i}:00+00:00"))
+    return recs
+
+
+def test_chain_links_each_record_to_previous(tmp_path):
+    path = tmp_path / "p.jsonl"
+    recs = _seal_n(path, 3)
+    assert recs[0]["prev_hash"] == s.GENESIS_PREV_HASH          # первая → genesis
+    assert recs[1]["prev_hash"] == recs[0]["hash"]              # звено
+    assert recs[2]["prev_hash"] == recs[1]["hash"]
+    ok, bad = s.verify_all(path)
+    assert ok and bad == []
+
+
+def test_chain_detects_deletion(tmp_path):
+    path = tmp_path / "p.jsonl"
+    _seal_n(path, 3)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    del lines[1]                                                # удаляем СРЕДНЮЮ запись (в обход seal)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    ok, bad = s.verify_all(path)
+    assert not ok and 1 in bad                                 # запись после удалённой рвёт цепочку
+
+
+def test_chain_detects_reorder(tmp_path):
+    path = tmp_path / "p.jsonl"
+    _seal_n(path, 3)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    lines[1], lines[2] = lines[2], lines[1]                     # перестановка
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    ok, bad = s.verify_all(path)
+    assert not ok and bad                                      # перестановка ловится цепочкой
+
+
+def test_legacy_records_without_prev_hash_stay_valid(tmp_path):
+    # Бэк-совместимость: запись БЕЗ prev_hash (как в боевом журнале до F2#21) верифицируется по-старому,
+    # а следующая новая seal-запись подхватывает её hash звеном.
+    path = tmp_path / "p.jsonl"
+    leg = _good(); leg["sealed_at"] = "2026-06-10T00:00:00+00:00"
+    leg["hash"] = s._content_hash(leg)                          # легаси: hash без prev_hash
+    path.write_text(json.dumps(leg, ensure_ascii=False) + "\n", encoding="utf-8")
+    ok, bad = s.verify_all(path)
+    assert ok and bad == []                                    # легаси валидна, цепочка не навязана
+    new = s.seal(_good(), path=path, sealed_at="2026-06-11T00:00:00+00:00")
+    assert new["prev_hash"] == leg["hash"]                      # новая ссылается на легаси
+    ok2, _ = s.verify_all(path)
+    assert ok2
+
+
 def test_hash_stable_regardless_of_key_order(tmp_path):
     # тот же контент, другой порядок ключей → тот же hash (канонизация sort_keys)
     a = _good()
