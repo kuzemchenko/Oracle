@@ -116,6 +116,9 @@ def _indicators(q):
         "atr14": lastval(ind.atr(hi, lo, cl, 14)),
         "ret_z_20": scalar(ind.zscore(ind.returns(px), 20)),
         "vol_z_20": scalar(ind.zscore(vol, 20)),
+        # F2#19: z объёма на ЛОГ-шкале — сырой объём кратно скошен, нормальный z/​p его искажает.
+        # event_scan предпочитает эту метрику и считает p тяжелохвостым t-нулём (mathlib/tailprob).
+        "vol_z_log_20": scalar(ind.zscore([math.log(max(v, 1.0)) for v in vol], 20)),
         "macd_hist": lastval(macd["hist"]),
         "bollinger_pos": (None if up_last is None else
                           "выше верхней" if px[-1] > up_last else

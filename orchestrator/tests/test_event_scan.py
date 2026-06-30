@@ -66,6 +66,27 @@ def test_openness_trend_keyword_outside_universe():
     assert any("lithium" in (lbl or "") for lbl in labels)
 
 
+def test_heavy_tail_p_is_more_conservative_than_normal():
+    """F2#19: тот же z под t-нулём даёт БОЛЬШИЙ p, чем старый нормальный erfc → меньше ложных FDR."""
+    import math
+    sigs = ES.price_vol_signals({"X.US": {"ret_z_20": 3.2, "vol_z_log_20": 3.2}})
+    by_metric = {s["метрика"]: s for s in sigs}
+    erfc_p = math.erfc(3.2 / math.sqrt(2))
+    assert by_metric["ret_z_20"]["p_value"] > erfc_p          # t(5) тяжелее нормали
+    assert by_metric["vol_z_log_20"]["p_value"] > erfc_p      # t(6) тяжелее нормали
+    assert all(s.get("df_нуля") for s in sigs)                # нуль помечен
+
+
+def test_volume_prefers_log_metric_with_raw_fallback():
+    """F2#19: при наличии vol_z_log_20 берём его; иначе — фолбэк на сырой vol_z_20 (df=3)."""
+    log_sig = ES.price_vol_signals({"A.US": {"ret_z_20": 0.1, "vol_z_log_20": 2.0, "vol_z_20": 9.9}})
+    vmetrics = {s["метрика"] for s in log_sig if "vol" in s["метрика"]}
+    assert vmetrics == {"vol_z_log_20"}                       # сырой 9.9 проигнорирован в пользу лог
+    raw_sig = ES.price_vol_signals({"B.US": {"ret_z_20": 0.1, "vol_z_20": 2.0}})  # лог отсутствует
+    vraw = [s for s in raw_sig if s["метрика"] == "vol_z_20"]
+    assert len(vraw) == 1 and vraw[0]["df_нуля"] == 3         # фолбэк на сырой с тяжёлым df=3
+
+
 def test_empty_scan_is_legitimate():
     r = ES.scan_events(news=[], trends_rows=[], indicators={}, q_max=0.1)
     assert r["сырых_сигналов"] == 0

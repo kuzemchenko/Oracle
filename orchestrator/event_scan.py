@@ -26,11 +26,21 @@ import pathlib
 from orchestrator import context as C
 from orchestrator import universe_resolver as U
 from mathlib import fdr
+from mathlib import tailprob as TP
 from mathlib.calibration import backgrounds as BG
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 MIN_TREND_HISTORY = 8   # меньше — фон тренда не оценить честно (П8)
+
+# F2#19 (§2.4): нормальный erfc(|z|/√2) занижал p на тяжелохвостых рядах → почти всё проходило FDR.
+# Моделируем нуль Стьюдентом-t с тяжёлыми хвостами (mathlib/tailprob); объём предпочитаем на ЛОГ-шкале
+# (сырой объём кратно скошен). df подобраны консервативно (тяжелее нормали). FDR q НЕ трогаем (B5).
+_PRICE_METRICS = (
+    ("ret_z_20", 5),        # доходности ~ t(5)
+    ("vol_z_log_20", 6),    # лог-объём ~ t(6); фолбэк на сырой vol_z_20 → ещё тяжелее (t(3))
+)
+_VOL_RAW_FALLBACK_DF = 3
 
 
 # ── Источник 2: тренды (всплеск интереса vs собственная история ключа) ──────────────
@@ -61,15 +71,19 @@ def trend_signals(trends_rows):
 
 # ── Источник 3: цена/объём по §9-универсуму ─────────────────────────────────────────
 def price_vol_signals(indicators):
-    """indicators: {symbol: {ret_z_20, vol_z_20, ...}}. z → двусторонний normal-survival p."""
+    """indicators: {symbol: {ret_z_20, vol_z_log_20|vol_z_20, ...}}. z → двусторонний p под ТЯЖЕЛО-
+    ХВОСТЫМ нулём Стьюдента-t (F2#19), а не нормалью. Объём — лог-шкала, фолбэк на сырой с меньшим df."""
     sigs = []
     for sym, ind in (indicators or {}).items():
-        for metric in ("ret_z_20", "vol_z_20"):
+        for metric, df in _PRICE_METRICS:
             z = ind.get(metric)
+            if metric == "vol_z_log_20" and not isinstance(z, (int, float)):
+                metric, df, z = "vol_z_20", _VOL_RAW_FALLBACK_DF, ind.get("vol_z_20")
             if isinstance(z, (int, float)):
-                p = math.erfc(abs(z) / math.sqrt(2))
+                p = TP.student_t_two_sided_p(z, df)
                 sigs.append({"вид": "price", "символ": sym, "метрика": metric,
-                             "z": round(z, 3), "p_value": round(max(min(p, 1.0), 0.0), 4)})
+                             "z": round(z, 3), "df_нуля": df,
+                             "p_value": round(max(min(p, 1.0), 0.0), 4)})
     return sigs
 
 
