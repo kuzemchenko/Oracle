@@ -7,6 +7,11 @@
 """
 import numpy as np
 
+# F2#20 (§1.7): минимум исходов в корзине, чтобы её разрыв калибровки считался ИЗМЕРИМЫМ. Без него
+# одна точка (obs_freq ∈ {0,1}) давала разрыв до ~95 п.п. → ложный KILL/§11. Правило ≥5 — стандартный
+# минимум для оценки доли (не порог ворот; значения ворот 10/15 п.п. не трогаем).
+MIN_BIN_N = 5
+
 
 def _validate(probs, outcomes):
     p = np.asarray(probs, dtype=float)
@@ -50,11 +55,15 @@ def calibration_table(probs, outcomes, n_bins=10):
     return table
 
 
-def calibration_band_pp(probs, outcomes, n_bins=10):
-    """Максимальный разрыв калибровки в ПРОЦЕНТНЫХ ПУНКТАХ по непустым корзинам.
-    Ворота §11: band ≤ 10 п.п. — норма; > 15 п.п. — KILL. None, если корзин с данными нет."""
+def calibration_band_pp(probs, outcomes, n_bins=10, min_bin_n=MIN_BIN_N):
+    """Максимальный разрыв калибровки в ПРОЦЕНТНЫХ ПУНКТАХ по корзинам с ДОСТАТОЧНЫМ N (≥ min_bin_n).
+    Ворота §11: band ≤ 10 п.п. — норма; > 15 п.п. — KILL.
+
+    F2#20 (§1.7): раньше max брался по всем НЕПУСТЫМ корзинам — корзина из одной точки (obs ∈ {0,1})
+    давала разрыв до ~95 п.п. → ложный KILL/§11. Теперь учитываем только корзины с n ≥ min_bin_n;
+    если ни одна не набрала минимум — None («калибровка ещё НЕ измерима», а не ложный разрыв)."""
     table = calibration_table(probs, outcomes, n_bins=n_bins)
-    gaps = [r["gap"] for r in table if r["n"] and r["gap"] is not None]
+    gaps = [r["gap"] for r in table if r["n"] >= min_bin_n and r["gap"] is not None]
     return max(gaps) * 100.0 if gaps else None
 
 

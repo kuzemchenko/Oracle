@@ -67,7 +67,24 @@ def test_calibration_band_detects_miscalibration():
     assert band == pytest.approx(40.0)
 
 
-def test_band_none_when_empty_filtered():
-    # все попадают в одну корзину — всё равно есть данные; проверим None-ветку через пустые буфферы нельзя
-    # (пустой вход бракуется), поэтому проверяем, что band — число при валидном входе
-    assert br.calibration_band_pp([0.5], [1], n_bins=10) is not None
+def test_band_none_when_no_bin_reaches_min_n():
+    # F2#20: одна точка (n=1 < MIN_BIN_N) НЕ даёт измеримого разрыва → None, а не ложные ~95 п.п.
+    assert br.calibration_band_pp([0.5], [1], n_bins=10) is None
+    # даже несколько точек, но все в разных корзинах по <5 — None (нечего мерить честно)
+    assert br.calibration_band_pp([0.05, 0.25, 0.55, 0.95], [0, 1, 0, 1], n_bins=10) is None
+
+
+def test_band_counts_bin_with_sufficient_n():
+    # корзина с n ≥ MIN_BIN_N учитывается; band — число
+    probs = [0.9] * br.MIN_BIN_N
+    outs = [0] * br.MIN_BIN_N                       # говорим 0.9, сбылось 0 → разрыв 90 п.п.
+    assert br.calibration_band_pp(probs, outs, n_bins=10) == pytest.approx(90.0)
+
+
+def test_single_extreme_bin_does_not_fabricate_kill():
+    # F2#20 ядро: 6 хорошо откалиброванных (0.5, 3/6 сбылось) + 1 одиночная экстремальная точка в др.
+    # корзине НЕ должны давать ложный разрыв ~90 п.п. (одиночка отфильтрована по n<MIN_BIN_N).
+    probs = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.95]
+    outs = [1, 0, 1, 0, 1, 0, 0]
+    band = br.calibration_band_pp(probs, outs, n_bins=10)
+    assert band is not None and band < 15.0          # одиночка не поднимает band до KILL
