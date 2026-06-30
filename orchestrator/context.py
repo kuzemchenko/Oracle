@@ -298,8 +298,13 @@ def build_context(theme="brent", asof=None, theme_focused=False):
             if not q:
                 ctx["data_gaps"].append(f"нет котировок по {s}")
                 continue
+            # adj_closes — серия adjusted_close для ДЕТЕРМИНИРОВАННОЙ base_rate (F2#17, mathlib/base_rate).
+            # Агентам НЕ уходит (в промпт идёт только quotes_brief={last}); используется кодом.
+            adj_series = [float(r["adjusted_close"]) for r in q
+                          if r.get("adjusted_close") is not None]
             ctx["quotes"][s] = {"last": q[-1], "n_bars": len(q),
-                                "first_date": q[0]["date"], "last_date": q[-1]["date"]}
+                                "first_date": q[0]["date"], "last_date": q[-1]["date"],
+                                "adj_closes": adj_series}
             ctx["indicators"][s] = _indicators(q)
             ctx["waves"][s] = _waves(q)
         # Новости: в тематическом фокусе — приоритет по ключевым словам темы (якорь §17.2).

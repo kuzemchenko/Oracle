@@ -17,11 +17,13 @@ from mathlib import cascade as CAS
 from mathlib.calibration import walkforward as WF
 
 TRAIN = 504          # ~2 года торговых дней на train-окно
-TEST = 252           # ~1 год на test (окно сдвигается на step)
-STEP = 126           # шаг сдвига ~полгода
+TEST = 252           # ~1 год на test — на нём меряется OOS-бета (отложенное окно)
+STEP = TEST          # F2#16: шаг = размеру test → НЕПЕРЕСЕКАЮЩИЕСЯ test-окна. Перекрытие окон
+#                      (было step=126 < train) занижало IQR бет → пин был слишком лёгким (§2.1).
 MIN_FOLDS = 3
 REL_DISP_MAX = 0.35  # относительный разброс бет (IQR/|median|) выше → не пиним
 ESTAB_FRAC_MIN = 0.6 # доля фолдов с установленным переносом для пина
+OOS_SIGN_FRAC_MIN = 0.6  # F2#16: доля фолдов, где знак train-беты ПОДТВЕРЖДАЕТСЯ на отложенном test
 
 
 def calibrate_pair_sensitivity(source_ret, node_ret, lag=0,
@@ -35,46 +37,57 @@ def calibrate_pair_sensitivity(source_ret, node_ret, lag=0,
                 "beta_fullsample": (full or {}).get("beta"),
                 "provenance": f"нет данных (П8): история {n} < train+test ({train}+{test}) — "
                               "чувствительность калибруется только форвардом"}
-    betas, established = [], 0
+    # F2#16: бета фолда меряется на ОТЛОЖЕННОМ окне fd.test (OOS), а не на train (раньше fd.test
+    # игнорировался). При step=test окна test непересекающиеся → разброс этих бет ЧЕСТНЫЙ (не занижен
+    # перекрытием). Дополнительно: знак train-беты должен ПОДТВЕРЖДАТЬСЯ на отложенном окне (§23.1 —
+    # обобщение, а не подгонка). П8: фолд без переноса на test просто не даёт OOS-беты.
+    betas, established, oos_sign_ok = [], 0, 0
     folds = WF.walk_forward(n, train, test, step=step)
     for fd in folds:
-        tr = fd.train
-        fit = CAS.node_sensitivity(s[tr], nd[tr], lag=0, min_obs=min_obs)
-        if fit is None:
+        fit_te = CAS.node_sensitivity(s[fd.test], nd[fd.test], lag=0, min_obs=min_obs)
+        if fit_te is None:
             continue
-        betas.append(fit["beta"])
-        established += int(fit["перенос_установлен"])
+        fit_tr = CAS.node_sensitivity(s[fd.train], nd[fd.train], lag=0, min_obs=min_obs)
+        betas.append(fit_te["beta"])
+        established += int(fit_te["перенос_установлен"])
+        if fit_tr is not None and (fit_tr["beta"] > 0) == (fit_te["beta"] > 0):
+            oos_sign_ok += 1
     if len(betas) < MIN_FOLDS:
         return {"lag": int(lag), "n_obs": int(n), "n_folds": len(betas), "pinned": None,
                 "beta_pinned": None, "beta_fullsample": (full or {}).get("beta"),
-                "provenance": f"нет данных (П8): валидных фолдов {len(betas)} < {MIN_FOLDS}"}
+                "provenance": f"нет данных (П8): валидных OOS-фолдов {len(betas)} < {MIN_FOLDS}"}
     med = stat.median(betas)
     sign_consistent = all(b > 0 for b in betas) or all(b < 0 for b in betas)
     iqr = (stat.quantiles(betas, n=4)[2] - stat.quantiles(betas, n=4)[0]) if len(betas) >= 4 else \
         (max(betas) - min(betas))
     rel_disp = abs(iqr / med) if med else float("inf")
     estab_frac = established / len(betas)
-    pinned = bool(sign_consistent and rel_disp <= REL_DISP_MAX and estab_frac >= ESTAB_FRAC_MIN)
+    oos_sign_frac = oos_sign_ok / len(betas)
+    pinned = bool(sign_consistent and rel_disp <= REL_DISP_MAX and estab_frac >= ESTAB_FRAC_MIN
+                  and oos_sign_frac >= OOS_SIGN_FRAC_MIN)
     rec = {
         "lag": int(lag), "n_obs": int(n), "n_folds": len(betas),
         "beta_pinned": round(med, 6) if pinned else None,
         "pinned": pinned,
         "beta_fullsample": (full or {}).get("beta"),
         "beta_ci_folds": [round(min(betas), 6), round(max(betas), 6)],
-        "fold_betas": [round(b, 4) for b in betas],
+        "fold_betas": [round(b, 4) for b in betas],          # OOS-беты по отложенным окнам
         "sign_consistent": sign_consistent,
         "rel_dispersion": round(rel_disp, 4),
         "established_frac": round(estab_frac, 3),
+        "oos_sign_frac": round(oos_sign_frac, 3),
         "r2_fullsample": (full or {}).get("r2"),
     }
     if pinned:
-        rec["provenance"] = (f"ПИН: знак согласован, разброс {rec['rel_dispersion']} ≤ {REL_DISP_MAX}, "
-                             f"перенос установлен в {estab_frac:.0%} фолдов ({len(betas)})")
+        rec["provenance"] = (f"ПИН (OOS): знак согласован, разброс {rec['rel_dispersion']} ≤ {REL_DISP_MAX}, "
+                             f"перенос на отложенном окне в {estab_frac:.0%} фолдов, знак держится OOS в "
+                             f"{oos_sign_frac:.0%} ({len(betas)} непересек. окон)")
     else:
         why = []
-        if not sign_consistent: why.append("знак беты непостоянен по фолдам")
+        if not sign_consistent: why.append("знак OOS-беты непостоянен по фолдам")
         if rel_disp > REL_DISP_MAX: why.append(f"разброс {rec['rel_dispersion']} > {REL_DISP_MAX}")
-        if estab_frac < ESTAB_FRAC_MIN: why.append(f"перенос установлен лишь в {estab_frac:.0%} фолдов")
+        if estab_frac < ESTAB_FRAC_MIN: why.append(f"перенос OOS лишь в {estab_frac:.0%} фолдов")
+        if oos_sign_frac < OOS_SIGN_FRAC_MIN: why.append(f"знак держится OOS лишь в {oos_sign_frac:.0%}")
         rec["provenance"] = "НЕ ПИНИТСЯ (форвард-онли): " + "; ".join(why)
     return rec
 

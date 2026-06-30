@@ -29,6 +29,7 @@ import sys
 sys.path.insert(0, str(ROOT))
 from orchestrator import agents as A          # noqa: E402
 from orchestrator import openrouter as OR     # noqa: E402
+from mathlib import base_rate as BR           # noqa: E402  (F2#17: детерминир. base_rate, Инв#6)
 
 
 def load_rubric(path=RUBRIC_PATH):
@@ -116,13 +117,16 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     # 1. Генератор
     gen = A.call_agent("e_generator", ctx, client, user_prompt=_user_for("e_generator", idea_slice))
     gen_j = (gen.get("judgment") or {}) if gen.get("ok") else {}
-    base_rate = gen_j.get("base_rate")
 
     # Если школа не зафиксировала направление (напр. маскированный кейс §23.2(б)) — идею для
     # ДАЛЬНЕЙШЕГО контура задаёт направление, выведенное генератором, и его §9-формулировка.
     # Так дело судьи когерентно (нет «null на верхнем уровне против long внутри»). Когда школа
     # направление дала — поведение прежнее (eff_* == исходные).
     eff_direction = direction or _norm_direction(gen_j.get("направление"))
+    # F2#17: base_rate — ДЕТЕРМИНИРОВАННАЯ эмпирическая частота направленного хода по истории цен
+    # (mathlib/base_rate), а НЕ выдуманное генератором число (раньше gen_j['base_rate'] → Инв#6).
+    # Нет серии/направления → None (П8), судье/прогнозу не передаём фикцию.
+    base_rate = _empirical_base_rate(ctx, asset, eff_direction)
     eff_resolvability = candidate.get("разрешимость") or gen_j.get("разрешимость")
     down_slice = {**idea_slice, "направление": eff_direction, "разрешимость": eff_resolvability}
 
@@ -188,6 +192,16 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
                         "карта_меток_АУДИТ": label_map},  # судье НЕ передавалась
         "вердикт": verdict,
     }
+
+
+def _empirical_base_rate(ctx, asset, direction):
+    """F2#17: эмпирическая base_rate из истории цен ctx (Инв#6, П8). None — нет серии/направления."""
+    qd = ((ctx or {}).get("quotes", {}) or {}).get(asset) or {}
+    px = qd.get("adj_closes")
+    if not px or not direction:
+        return None
+    rate, _n = BR.empirical_directional_base_rate(px, direction)
+    return None if rate is None else round(rate, 4)
 
 
 def _ok_judgment(rec):
