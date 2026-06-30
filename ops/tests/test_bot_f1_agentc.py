@@ -157,3 +157,27 @@ def test_ef_deep_money_card_keeps_disclaimer_fail_closed():
     # ровно 2 вхождения доказывают, что поле13 отрисовало РАМКУ, а не «[поле пустое]» (footer даёт 1).
     assert R.RESEARCH_FRAME in text
     assert text.count("не инвестиционная рекомендация") >= 2
+
+
+def test_ef_deep_money_card_disclaimer_survives_truncation():
+    """Блокер re-review F1: рамка §16 стояла в хвосте, а format_report резал text[:MAX_MSG]=3800.
+    На длинной --deep money-карточке (13 заполненных полей long-режима > MAX_MSG) обрезка срезала
+    И поле13, И футер → actionable-карточка с кнопками уходила пользователю БЕЗ метки. Здесь карточка
+    ЗАВЕДОМО длиннее лимита: рамка обязана выжить (неприкосновенный хвост доливается ПОСЛЕ усечения)."""
+    node = _money_node()
+    long_v = "длинное содержательное поле §8 разбора идеи — наблюдение, не совет купить; " * 6  # ~440 симв.
+    поля = {f"{i}. поле §8": long_v for i in range(1, 13)}     # поля 1..12 длинные
+    поля["13. Рамка-дисклеймер"] = ""                          # LLM вернул поле13 пустым
+    deep = {"поля": поля}
+    proto = {"run_id": "ef_20260629T090001Z", "ts": "2026-06-29T09:00:00+00:00", "mode": "live",
+             "граф_отбор": {"топ_k": [node], "money_трек": [node],
+                            "суд_money": {"CLF.US": {"исход": "УСТОЯЛА", "отчёт_§8": deep}},
+                            "треки": {"money": 1, "провизорный": 0}},
+             "картограф_идеи": []}
+    cards = R.money_ideas_from_protocol(proto)
+    pres = {"mode": "long", "still_unclear": []}               # боевой режим: ℹ️ у всех 13 полей
+    text = R.format_report(proto, cards[0], pres)
+    assert "…(полный отчёт" in text          # тело реально усечено (путь обрезки задействован)
+    assert R.RESEARCH_FRAME in text          # но рамка §16 ВЫЖИЛА (футер дописан после усечения)
+    assert "(§16)" in text
+    assert "не инвестиционная рекомендация" in text

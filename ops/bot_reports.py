@@ -640,15 +640,21 @@ def format_report(protocol, idea, presentation=None):
             lines.append(f"   ℹ️ {field_help[n]}")
         lines.append(f"   → {_field_content(n, fields, idea_d, pos)}")
 
-    lines += ["", "⚖️ Кнопка «Беру в работу» откроется через 24 ч — это намеренная пауза, "
-              "чтобы решение не было импульсивным.",
-              # ИНВАРИАНТ §16: безусловная рамка на money-карточке (fail-closed, не зависит от поля 13/LLM).
-              f"⚠️ Это {RESEARCH_FRAME} (§16): метка снимается только после калибр-гейта §11.",
-              f"· тех.id {protocol.get('run_id','?')}"]
-    text = "\n".join(lines)
-    if len(text) > MAX_MSG:
-        text = text[:MAX_MSG].rstrip() + "\n…(полный отчёт — в журнале funnel_logs)"
-    return text
+    # ИНВАРИАНТ §16/§8: неприкосновенный хвост (пауза §12 + рамка-дисклеймер + тех.id) НЕ участвует
+    # в усечении. Иначе на длинной --deep money-карточке (13 полей long-режима > MAX_MSG) обрезка
+    # text[:MAX_MSG] срезала бы и поле13, и футер → actionable-карточка с кнопками БЕЗ метки «не
+    # рекомендация» (fail-open). Поэтому усекаем ТОЛЬКО тело полей, рамку доливаем ПОСЛЕ.
+    tail = "\n".join(["",
+                      "⚖️ Кнопка «Беру в работу» откроется через 24 ч — это намеренная пауза, "
+                      "чтобы решение не было импульсивным.",
+                      f"⚠️ Это {RESEARCH_FRAME} (§16): метка снимается только после калибр-гейта §11.",
+                      f"· тех.id {protocol.get('run_id','?')}"])
+    body = "\n".join(lines)
+    cut_note = "\n…(полный отчёт — в журнале funnel_logs)"
+    budget = MAX_MSG - len(tail) - len(cut_note)
+    if len(body) > budget:
+        body = body[:budget].rstrip() + cut_note
+    return body + "\n" + tail
 
 
 def build_keyboard(token, issued_at, now=None):
