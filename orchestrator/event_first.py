@@ -54,13 +54,24 @@ def _last_return(con, symbol):
     return float(r[-1]) if r.size else None
 
 
-def _window_return(con, symbol):
-    """§R2.1: доходность символа за ОКНО реакции на событие — шок корня каскада (выровнен с realized)."""
-    rows = con.execute(
-        # F0#8: adjusted_close (корпдействия) — иначе на сплите/дивиденде ложный скачок шока корня
-        "SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
-        "AND COALESCE(adjusted_close, close) IS NOT NULL "
-        "ORDER BY date DESC LIMIT ?", (symbol, CAS.EVENT_WINDOW_DAYS + 1)).fetchall()
+def _window_return(con, symbol, asof=None):
+    """§R2.1: доходность символа за ОКНО реакции на событие — шок корня каскада (выровнен с realized).
+
+    F3#25 (§5.3): asof-ГЕЙТ — окно оканчивается последним баром НЕ ПОЗЖЕ asof (дата решения/события,
+    'YYYY-MM-DD'), а не «последние N баров в БД» безусловно. Защита от заглядывания вперёд (П16): в
+    masked/backtest в БД есть бары после cutoff — без гейта они протекали бы в шок. asof=None →
+    прежнее поведение (весь доступный хвост)."""
+    if asof:
+        rows = con.execute(
+            "SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+            "AND COALESCE(adjusted_close, close) IS NOT NULL AND date <= ? "
+            "ORDER BY date DESC LIMIT ?", (symbol, asof, CAS.EVENT_WINDOW_DAYS + 1)).fetchall()
+    else:
+        rows = con.execute(
+            # F0#8: adjusted_close (корпдействия) — иначе на сплите/дивиденде ложный скачок шока корня
+            "SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+            "AND COALESCE(adjusted_close, close) IS NOT NULL "
+            "ORDER BY date DESC LIMIT ?", (symbol, CAS.EVENT_WINDOW_DAYS + 1)).fetchall()
     px = [float(r[0]) for r in rows][::-1]
     return CAS.window_return(px)
 
@@ -412,6 +423,9 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     universe = yaml.safe_load(open(ROOT / "config" / "universe.yaml", encoding="utf-8")) or {}
     chains_doc = CB.load_chains()   # §3c/D1: резолв в КОНКРЕТНЫЕ компании авторских цепочек
     now = _now()
+    # F3#25 (§5.3): asof-гейт шока каскада — окно шока не заглядывает за дату решения (П16 forward-only).
+    # Поштучной даты новости в потоке нет → якорим на дату прогона (точка принятия решения).
+    asof_date = now.strftime("%Y-%m-%d")
     # F0#9: ПРЕД-проверка бюджета (§24/Инв#5) — для live ДО единого LLM-вызова. Отказ → прогон не
     # начинается (как в funnel/masked). Раньше боевой event_first (--vet --deep) шёл вообще без гарда.
     guard = None
@@ -452,7 +466,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                 all_ideas.append({**idea, "_событие": src})
             fr = p.get("воронка_отсева") or {}
             per_source.append({
-                "источник": src, "shock": (round(_window_return(con, src) or 0, 5) or None),
+                "источник": src, "shock": (round(_window_return(con, src, asof=asof_date) or 0, 5) or None),
                 "контур": {"run_id": p.get("run_id"), "кандидатов": p.get("candidates_count"),
                            "выдано": fr.get("этап6_выдано_топ", 0),
                            "итог": fr.get("вывод") or "—"},
@@ -487,7 +501,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             # §R2.1: шок корня — за ОКНО реакции (EVENT_WINDOW_DAYS), выровнен с realized терминала
             # (realized_fn=window_return). Раньше тут был _last_return (1 день) → амплитуда занижена
             # в ~√window и систематически перекошена в сторону realized-компоненты edge.
-            shock = _window_return(con, anchor) if anchor else None
+            shock = _window_return(con, anchor, asof=asof_date) if anchor else None
             if shock is None:
                 каскады.append({"chain_id": ch.get("id"), "активация": act["причины"],
                                 "событие_новость": act.get("событие_новость"),
