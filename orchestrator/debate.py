@@ -76,6 +76,21 @@ def _generator_family(models=None):
     return cfg.get("family") or OR.family_of(cfg["primary"], models)
 
 
+def _cascade_rubric(rubric, дело):
+    """FГ B1: под-рубрика каскадов, если дело каскадное И секция задана в rubric.yaml. Иначе None."""
+    return rubric.get("cascade_subrubric") if дело else None
+
+
+def _active_criteria(rubric, дело):
+    """Критерии для судьи: каскадные, когда дело каскадное; иначе базовые 6."""
+    return (_cascade_rubric(rubric, дело) or rubric).get("criteria", [])
+
+
+def _active_mandatory(rubric, дело):
+    """Обязательные вопросы: те же два слота, но текст под каскад, если дело каскадное."""
+    return (_cascade_rubric(rubric, дело) or rubric).get("mandatory_questions")
+
+
 def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, models=None,
                eval_context=None, user_doubt=None):
     """Прогон состязательного контура по одному кандидату.
@@ -167,9 +182,10 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
             "version": rubric.get("version"),
             "scale": rubric.get("scale"),
             "criteria": [{"id": c["id"], "title": c["title"], "desc": c["desc"]}
-                         for c in rubric.get("criteria", [])],
+                         for c in _active_criteria(rubric, дело)],
             "verdict": rubric.get("verdict"),
-            "mandatory_questions": rubric.get("mandatory_questions"),
+            "mandatory_questions": _active_mandatory(rubric, дело),
+            "тип": ("каскадная под-рубрика" if _cascade_rubric(rubric, дело) else "базовая"),
         },
         "напоминание": "ты НЕ знаешь, кто автор какого аргумента; суди по существу (§16.6)",
     }

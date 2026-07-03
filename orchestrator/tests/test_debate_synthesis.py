@@ -145,6 +145,19 @@ def test_rubric_is_versioned_file():
     assert {q["id"] for q in rub["mandatory_questions"]} == {"who_sells", "why_exists"}
 
 
+def test_cascade_subrubric_selected_for_cascade_case():
+    # FГ B1: каскадное дело → критерии переноса (не классические timing/антиманип); порог тот же
+    rub = DBT.load_rubric()
+    cascade = [c["id"] for c in DBT._active_criteria(rub, {"есть": "дело"})]
+    base = [c["id"] for c in DBT._active_criteria(rub, None)]
+    assert "cascade_mechanism_strength" in cascade and "transfer_reliability" in cascade
+    assert "anti_manipulation_passed" in base and "anti_manipulation_passed" not in cascade
+    assert len(cascade) == 6                              # планка/шкала те же, 6 критериев
+    # два обязательных вопроса — те же слоты (who_sells/why_exists), текст под перенос
+    assert {q["id"] for q in DBT._active_mandatory(rub, {"д": 1})} == {"who_sells", "why_exists"}
+    assert DBT._active_mandatory(rub, None) == rub["mandatory_questions"]
+
+
 def _judge_rec(scores, answered=True, says="УСТОЯЛА"):
     j = {"вывод": "v", "вероятность": 0.6, "base_rate": 0.5, "уверенность": "средняя",
          "вердикт": says, "данные_основания": [], "что_неизвестно": [],
