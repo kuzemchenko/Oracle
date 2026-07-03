@@ -26,3 +26,6 @@ ops/crontab.local.txt
 # сторонний токен; НИКОГДА не в git (иначе секрет утечёт через git add -A).
 ops/crontab_installed.bak*.txt
 ops/crontab*.bak*
+
+# системный бэкап sshd — не артефакт проекта
+ops/sshd_backup/
