@@ -159,7 +159,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         # F0#7: гейт-270 считаем по ТОМУ ЖЕ подмножеству, что Brier (probability присутствует) —
         # иначе ворота «созревают» на неизмеримых прогнозах (probability=None в гейт шёл, в Brier нет).
         "до_ворот_270": max(0, gate_n - len(m_probs)),                         # только измеримые денежные → §11
-        "KILL_проверка": kill,                                                  # F2#22: детерминир. §11 KILL
+        "KILL_проверка": kill,                                                  # F2#22: детерминир. KILL §11 (калибровка); edge — прокси-диагностика, не §11
         "провизорный_трек": {"исходов": len(prov_out),                         # отдельный Brier, НЕ в §11
                              "brier": (None if prov_brier is None else round(prov_brier, 4))},
         "spec_ref": "§10.10, §16, §11 ворота/KILL; B3c герметичность треков; скилл calibrate п.5",

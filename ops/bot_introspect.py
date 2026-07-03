@@ -39,9 +39,16 @@ def brier_tracks():
     from orchestrator import resolve as R
     s = R.run_resolve(write=False)
     pv = s.get("провизорный_трек") or {}
+    k = s.get("KILL_проверка") or {}
+    if k.get("kill"):
+        kill_line = "🛑 KILL §11 СРАБОТАЛ (детерминир.): " + "; ".join(k.get("reasons") or [])
+    else:
+        appl = ((k.get("checks") or {}).get("порог_применимости") or {}).get("применимо")
+        kill_line = "KILL §11: чисто" + ("" if appl else " (до порога 270 — не применим)")
     return (f"Brier ДЕНЕЖНЫЙ={s.get('brier')} (всего сверено исходов: {s.get('всего_исходов')}); "
             f"ПРОВИЗОРНЫЙ={pv.get('brier')} ({pv.get('исходов')} исходов, к §11 НЕ идёт); "
-            f"до денежных ворот Б→Д осталось {s.get('до_ворот_270')} разрешённых прогнозов. [resolve §10.10]")
+            f"до денежных ворот Б→Д осталось {s.get('до_ворот_270')} разрешённых прогнозов; "
+            f"{kill_line}. [resolve §10.10]")
 
 
 def borrow(symbol):

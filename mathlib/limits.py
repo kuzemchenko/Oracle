@@ -34,14 +34,35 @@ def check_kill_criteria(*, calibration_band_pp=None, n_money_resolved=0,
     """ДЕТЕРМИНИРОВАННАЯ проверка KILL-критериев §11 (Инв#6: код, не LLM). F2#22 (§1.11): пороги
     KILL были в limits.yaml без потребителя — KILL проверялся только LLM-скиллом.
 
-    KILL объявляется ТОЛЬКО когда критерий ДОКАЗАН на данных (П8: нехватка данных ≠ KILL):
-      • калибровка хуже kill_calibration_band_pp (band ИЗМЕРИМА, см. brier.MIN_BIN_N);
-      • после kill_no_edge_after_predictions денежных исходов нет скилла над климатологией
-        (Brier Skill Score над base_rate·(1−base_rate) ≤ 0).
+    §11 (MASTER_SPEC.md:195) — KILL применяется ТОЛЬКО «после 270 разрешённых прогнозов»
+    (=kill_no_edge_after_predictions). Это порог применимости ОБЕИХ веток: он защищает и от
+    sunk cost, и от ложного KILL на недостатке данных (П8: нехватка данных ≠ KILL). ДО порога
+    критерий НЕ ПРИМЕНИМ — возвращаем kill=False независимо от band/brier.
+
+    После порога KILL объявляется, если ДОКАЗАН на данных:
+      • калибровка хуже kill_calibration_band_pp (band ИЗМЕРИМА, см. brier.MIN_BIN_N) — КАНОН §11;
+        band=None (нет корзин с N) → «не измерима» → НЕ KILL (П8).
+      • edge: канон §11 = нет ЗНАЧИМОГО превышения над БЕНЧМАРКОМ (§30: 0.6SPY+0.4DBC).
+        ВНИМАНИЕ: бенчмарк-контур в resolve пока НЕ подключён. Поэтому edge-ветка выдаёт лишь
+        ДИАГНОСТИКУ (Brier-скилл над климатологией) и НЕ ставит kill=True — иначе это подмена
+        неизменяемого §11 прокси-метрикой (Инв#4: KILL не редактируется). Каноничная edge-ветка
+        (сравнение доходности стратегии с бенчмарком + тест значимости §10) — отдельный долг,
+        требует бенчмарк-ряда и подписи владельца (слой FГ).
     Возвращает {kill, reasons, checks}."""
     g = gates(limits)
     reasons, checks = [], {}
 
+    kn = g.get("kill_no_edge_after_predictions")
+    threshold = int(kn) if kn is not None else None
+    applicable = threshold is not None and n_money_resolved >= threshold
+    checks["порог_применимости"] = {"N": n_money_resolved, "порог": threshold,
+                                    "применимо": bool(applicable)}
+    if not applicable:
+        # §11/П8: до порога разрешённых прогнозов KILL не применяется НИ по одной ветке.
+        checks["статус"] = f"до порога {threshold} разрешённых прогнозов — KILL не применим (§11)"
+        return {"kill": False, "reasons": reasons, "checks": checks}
+
+    # --- Калибровочная ветка: КАНОН §11, детерминирована ---
     kb = g.get("kill_calibration_band_pp")
     if calibration_band_pp is not None and kb is not None:
         bad = float(calibration_band_pp) > float(kb)
@@ -52,22 +73,17 @@ def check_kill_criteria(*, calibration_band_pp=None, n_money_resolved=0,
     else:
         checks["калибровка"] = {"статус": "не измерима (нет корзин с достаточным N)"}
 
-    kn = g.get("kill_no_edge_after_predictions")
-    if kn is not None:
-        if n_money_resolved >= int(kn):
-            bss = None
-            if money_brier is not None and money_base_rate is not None:
-                clim = float(money_base_rate) * (1.0 - float(money_base_rate))
-                bss = None if clim <= 0 else 1.0 - float(money_brier) / clim
-            no_edge = (bss is None) or (bss <= 0.0)
-            checks["edge"] = {"N": n_money_resolved, "порог": int(kn),
-                              "bss_над_климатологией": (None if bss is None else round(bss, 4)),
-                              "нет_edge": no_edge}
-            if no_edge:
-                reasons.append(f"после {n_money_resolved} денежных прогнозов нет скилла над "
-                               f"климатологией (BSS={'н/д' if bss is None else round(bss, 4)}) (§11)")
-        else:
-            checks["edge"] = {"N": n_money_resolved, "порог": int(kn), "статус": "до порога — не применимо"}
+    # --- Edge-ветка: ДИАГНОСТИКА (прокси), НЕ KILL: бенчмарк-контур §30 не подключён ---
+    bss = None
+    if money_brier is not None and money_base_rate is not None:
+        clim = float(money_base_rate) * (1.0 - float(money_base_rate))
+        bss = None if clim <= 0 else 1.0 - float(money_brier) / clim
+    checks["edge_диагностика"] = {
+        "bss_над_климатологией": (None if bss is None else round(bss, 4)),
+        "влияет_на_kill": False,
+        "примечание": "ПРОКСИ (скилл над климатологией), НЕ канонический §11 edge — "
+                      "канон = значимое превышение над бенчмарком §30 (контур не подключён)",
+    }
 
     return {"kill": bool(reasons), "reasons": reasons, "checks": checks}
 

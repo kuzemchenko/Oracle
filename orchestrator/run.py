@@ -70,6 +70,12 @@ def _run_resolve(args):
           f"сверено сейчас: {s['сверено_сейчас']} · ещё pending: {s['ещё_pending']}")
     print(f"  всего исходов: {s['всего_исходов']} · Brier: {s['brier']} · "
           f"калибровка band: {s['калибровка_band_пп']} п.п. · до ворот 270: {s['до_ворот_270']}")
+    k = s.get("KILL_проверка") or {}
+    if k.get("kill"):
+        print(f"  🛑 KILL §11 (детерминир.): {'; '.join(k.get('reasons') or [])}")
+    else:
+        appl = ((k.get("checks") or {}).get("порог_применимости") or {}).get("применимо")
+        print(f"  KILL §11: чисто ({'применим' if appl else 'до порога 270 — не применим'})")
     if s["ошибок"]:
         print(f"  ⚠ ошибок сверки: {s['ошибок']}")
     return 0
