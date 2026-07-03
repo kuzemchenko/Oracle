@@ -57,10 +57,17 @@ def _last_return(con, symbol):
 def _window_return(con, symbol, asof=None):
     """§R2.1: доходность символа за ОКНО реакции на событие — шок корня каскада (выровнен с realized).
 
-    F3#25 (§5.3): asof-ГЕЙТ — окно оканчивается последним баром НЕ ПОЗЖЕ asof (дата решения/события,
-    'YYYY-MM-DD'), а не «последние N баров в БД» безусловно. Защита от заглядывания вперёд (П16): в
-    masked/backtest в БД есть бары после cutoff — без гейта они протекали бы в шок. asof=None →
-    прежнее поведение (весь доступный хвост)."""
+    F3#25 (§5.3): asof-ГЕЙТ — окно оканчивается последним баром НЕ ПОЗЖЕ asof ('YYYY-MM-DD'), а не
+    «последние N баров в БД» безусловно (SQL date<=asof). Это защитный отсекатель случайных
+    БУДУЩИХ/интрадей-баров в момент решения (live). asof=None → прежнее поведение (весь хвост).
+
+    ГРАНИЦЫ (не переоценивать покрытие — stage-review F3):
+      • Полноценного backtest/replay-режима у этого контура НЕТ: run_event_first якорит asof на дату
+        ПРОГОНА (now), а не на исторический cutoff, и параметра cutoff не принимает. Значит для
+        реального masked/replay (событие в прошлом) гейт бесполезен — это ДОЛГ, а не готовая защита.
+      • Гейт наложен ТОЛЬКО на шок КОРНЯ. Терминальные realized/vol считаются внутри
+        cascade_build.build_from_db БЕЗ asof — соосность окон (§R2.1) держится лишь пока asof=now.
+        Настоящий replay потребует протянуть asof и в build_from_db (тот же ДОЛГ)."""
     if asof:
         rows = con.execute(
             "SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
@@ -423,8 +430,9 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     universe = yaml.safe_load(open(ROOT / "config" / "universe.yaml", encoding="utf-8")) or {}
     chains_doc = CB.load_chains()   # §3c/D1: резолв в КОНКРЕТНЫЕ компании авторских цепочек
     now = _now()
-    # F3#25 (§5.3): asof-гейт шока каскада — окно шока не заглядывает за дату решения (П16 forward-only).
-    # Поштучной даты новости в потоке нет → якорим на дату прогона (точка принятия решения).
+    # F3#25 (§5.3): asof-гейт шока — окно не берёт бары ПОЗЖЕ даты прогона (отсекатель случайных
+    # будущих/интрадей-баров в live). НЕ бэктест: cutoff-параметра нет, поштучной даты события в
+    # потоке тоже нет → якорь = дата прогона (точка решения). Реальный replay — долг (см. _window_return).
     asof_date = now.strftime("%Y-%m-%d")
     # F0#9: ПРЕД-проверка бюджета (§24/Инв#5) — для live ДО единого LLM-вызова. Отказ → прогон не
     # начинается (как в funnel/masked). Раньше боевой event_first (--vet --deep) шёл вообще без гарда.
@@ -501,6 +509,8 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             # §R2.1: шок корня — за ОКНО реакции (EVENT_WINDOW_DAYS), выровнен с realized терминала
             # (realized_fn=window_return). Раньше тут был _last_return (1 день) → амплитуда занижена
             # в ~√window и систематически перекошена в сторону realized-компоненты edge.
+            # F3#25: asof-гейт (см. границы в _window_return) — на шок КОРНЯ; realized/vol терминала
+            # внутри build_from_db без гейта, соосность §R2.1 держится пока asof=now (live).
             shock = _window_return(con, anchor, asof=asof_date) if anchor else None
             if shock is None:
                 каскады.append({"chain_id": ch.get("id"), "активация": act["причины"],
