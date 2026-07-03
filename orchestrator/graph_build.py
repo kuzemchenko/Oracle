@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from mathlib import cascade as CAS               # noqa: E402
 from mathlib import graph_select as GS           # noqa: E402
-from orchestrator import cascade_build as CB     # noqa: E402
+# FГ2: импорт cascade_build удалён вместе с build_graph (был его единственным потребителем в модуле).
 from orchestrator import universe_resolver as U  # noqa: E402
 
 ADV_BARS = 20            # окно для среднего объёма (ликвидность)

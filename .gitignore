@@ -22,3 +22,7 @@ journal/bot_state.json
 # Локальные (НЕ «Оракул») задачи cron сторонних сервисов + их секреты — FГ2 (§9.3):
 # вынесены из committed ops/crontab.txt, чтобы плейн-текст токенов не попадал в git.
 ops/crontab.local.txt
+# Рабочие бэкапы УСТАНОВЛЕННОГО crontab (crontab -l перед правкой) — содержат тот же
+# сторонний токен; НИКОГДА не в git (иначе секрет утечёт через git add -A).
+ops/crontab_installed.bak*.txt
+ops/crontab*.bak*
