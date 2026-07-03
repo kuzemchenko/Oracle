@@ -191,6 +191,15 @@
     # B1 каскадная под-рубрика; B2 cap источников≠k; B3 дедуп кластеров; B4 ускорить форвард-промоушены;
     #   B5 НЕ трогать FDR q=0.1 (терреин); фрейминг C2 — метку снять только после калибр-гейта §11.
     # НЕ кодить без явного согласия (CLAUDE.md: веса/критерии — только с подписью владельца).
-[ ] FГ2 (гигиена/секреты): /goal токен femmecode из crontab вынесен+ротирован; мёртвые конфиги/код помечены
+[x] FГ2 (гигиена/секреты): /goal токен femmecode из crontab вынесен+ротирован; мёртвые конфиги/код помечены
+    # ЗАКРЫТ 2026-07-03 (тег fix-FГ2 на 8c9fb06; база fg2-base). stage-review wf_0ca27fe9 ПРОЙДЕН (0 блокеров).
+    # 2a95ec4: §9.3 токен @FemmeCode_Bot вынесен из committed crontab.txt → ops/crontab.local.txt (gitignored);
+    #   §9.1 header cascade_sensitivities.yaml исправлен (не «вход движка» — движок считает бету живьём);
+    #   §3.2 удалён мёртвый build_graph + тест. 8c9fb06: бэкапы crontab_installed.bak* в .gitignore (тот же
+    #   токен, untracked — закрыта латентная дыра add -A) + удалён осиротевший импорт CB в graph_build.
+    # ⚠ ВЛАДЕЛЬЦУ (внешнее): РОТИРОВАТЬ токен femmecode на сервере — он остаётся в git-истории (528900b),
+    #   .gitignore его оттуда не убирает; purge истории (filter-repo/BFG) — решение владельца.
+    # Codex по FГ2 пропущен осознанно (чистая гигиена, кросс-вендор ценен на логике). ДОЛГ: dryrun-рассинхрон §3.3.
+    # ПЛАН 28.06 устарел: _sealed_cascades_for/_pro_con уже live; devops graduation уже с Brier-гейтом.
     # §9.3 plaintext-токен; §9.1 cascade_sensitivities.yaml HEADER лжёт; §3.2 build_graph test-only;
     #   §9.2 devops-петля mock+live; длинный хвост low по мере касания файлов.
