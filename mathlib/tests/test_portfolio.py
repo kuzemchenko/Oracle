@@ -41,6 +41,32 @@ def test_correlation_map_hidden_commodity_concentration():
     assert any(w["тип"] == "скрытая_концентрация" for w in cm["предупреждения"])
 
 
+def test_unmapped_ideas_not_collapsed_into_one_bet():
+    # F3#24 (§7.1): разные тикеры без известного драйвера — РАЗНЫЕ ставки, не одна
+    ideas = [{"актив": "AAA.US", "направление": "лонг", "amount_usd": 500},
+             {"актив": "BBB.US", "направление": "лонг", "amount_usd": 500},
+             {"актив": "CCC.US", "направление": "лонг", "amount_usd": 500}]
+    cm = PF.correlation_map(ideas)
+    assert cm["n_независимых_ставок"] == 3            # не 1 (как было при склейке в '+unmapped')
+    assert cm["n_без_драйвера"] == 3
+    # честное предупреждение о неизвестных драйверах, но НЕ ложное «одна ставка много тикеров»
+    assert any(w["тип"] == "драйвер_неизвестен" for w in cm["предупреждения"])
+    assert not any(w["тип"] == "одна_ставка_много_тикеров" for w in cm["предупреждения"])
+
+
+def test_theme_drivers_from_universe_cluster_related():
+    # F3#24: тикеры одной темы универсума (spacex: SPCX/RKLB/ASTS) делят драйвер (источник — config)
+    assert PF.macro_driver("RKLB.US") == "theme:spacex"
+    assert PF.macro_driver("ASTS.US") == "theme:spacex"
+    ideas = [{"актив": "RKLB.US", "направление": "лонг", "amount_usd": 500},
+             {"актив": "ASTS.US", "направление": "лонг", "amount_usd": 500}]
+    cm = PF.correlation_map(ideas)
+    assert cm["n_независимых_ставок"] == 1            # общий драйвер темы → одна ставка
+    assert any(w["тип"] == "одна_ставка_много_тикеров" for w in cm["предупреждения"])
+    # ядровая сырьевая разметка ПЕРЕКРЫВАЕТ тему (BNO остаётся oil, не theme:brent)
+    assert PF.macro_driver("BNO.US") == "oil"
+
+
 def test_build_portfolio_fixed_microsize_before_gate():
     # §11: до gate калибровки — ФИКС 0.5% капитала/идея, Келли не применяется
     ideas = [{"актив": "BNO.US", "направление": "лонг", "вероятность": 0.8, "b": 2.0}]

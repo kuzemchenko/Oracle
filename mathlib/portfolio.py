@@ -40,29 +40,74 @@ MACRO_DRIVER = {
 COMMODITY_FAMILY = {"oil", "copper", "broad_commodity"}
 
 
+def _theme_driver_map(universe_path=UNIVERSE_PATH):
+    """F3#24: драйверы из ТЕМ универсума (config/universe.yaml) — owner-одобренная группировка (§30).
+    Тикеры одной темы (proxy_etf + related) делят драйвер 'theme:<имя>'. Источник — config, связь
+    НЕ выдумана (П8, «дополнить драйверы С ИСТОЧНИКОМ»). Пусто, если файла нет."""
+    try:
+        with open(universe_path, encoding="utf-8") as f:
+            uni = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        return {}
+    out = {}
+    for name, t in (uni.get("themes") or {}).items():
+        syms = ([t["proxy_etf"]] if t.get("proxy_etf") else []) + list(t.get("related") or [])
+        for s in syms:
+            out.setdefault(s, f"theme:{name}")
+    return out
+
+
+_DRIVER_MAP = None
+
+
+def _driver_map():
+    """Слитая карта тикер→драйвер: темы универсума + ядровая сырьевая разметка (ядро в приоритете)."""
+    global _DRIVER_MAP
+    if _DRIVER_MAP is None:
+        merged = dict(_theme_driver_map())
+        merged.update(MACRO_DRIVER)     # ядро (oil/copper/equity_beta) перекрывает тему
+        _DRIVER_MAP = merged
+    return _DRIVER_MAP
+
+
 def macro_driver(symbol):
-    """Макро-драйвер тикера; неизвестный тикер → 'unmapped' (П8: не выдумываем связь)."""
-    return MACRO_DRIVER.get(symbol, "unmapped")
+    """Макро-драйвер тикера: ядровая разметка + темы универсума (F3#24); неизвестный → 'unmapped'
+    (П8: связь не выдумываем)."""
+    return _driver_map().get(symbol, "unmapped")
+
+
+def _sign(direction):
+    return "+" if str(direction).strip().lower() == "лонг" else "-"
 
 
 def _signed_driver(symbol, direction):
     """Подписанный драйвер: лонг oil и шорт oil — противоположные экспозиции одного фактора."""
-    sign = "+" if str(direction).strip().lower() == "лонг" else "-"
-    return f"{sign}{macro_driver(symbol)}"
+    return f"{_sign(direction)}{macro_driver(symbol)}"
 
 
 def correlation_map(ideas):
     """Карта корреляций по макро-драйверам (§4). ideas: список {актив, направление, amount_usd}.
 
     Группирует по ПОДПИСАННОМУ драйверу: одинаковый знак+драйвер = одна ставка (нетто
-    суммируется). Возвращает кластеры с суммарной экспозицией и предупреждения о скрытой
-    концентрации внутри сырьевого семейства.
+    суммируется). F3#24: тикеры без известного драйвера ('unmapped') НЕ склеиваются в одну
+    ставку — иначе N независимых идей схлопываются в одну (ложная «нулевая диверсификация»);
+    каждый unmapped = собственный кластер, а взаимная независимость помечается как НЕдоказанная.
+    Возвращает кластеры + предупреждения о скрытой концентрации / неизвестных драйверах.
     """
     clusters = {}
+    unmapped = []
     for it in ideas:
-        key = _signed_driver(it["актив"], it.get("направление", "лонг"))
+        sym = it["актив"]
+        drv = macro_driver(sym)
+        if drv == "unmapped":
+            # П8: драйвер неизвестен — не выдумываем ни связь (не в один кластер), ни независимость
+            # (предупреждаем ниже). Ключ уникален по тикеру, чтобы разные unmapped не слиплись.
+            unmapped.append(sym)
+            key = f"{_sign(it.get('направление', 'лонг'))}unmapped:{sym}"
+        else:
+            key = f"{_sign(it.get('направление', 'лонг'))}{drv}"
         c = clusters.setdefault(key, {"подписанный_драйвер": key, "идеи": [], "суммарный_размер_usd": 0.0})
-        c["идеи"].append(it["актив"])
+        c["идеи"].append(sym)
         c["суммарный_размер_usd"] = round(c["суммарный_размер_usd"] + float(it.get("amount_usd", 0.0)), 2)
 
     # предупреждение: несколько РАЗНЫХ сырьевых драйверов в одну сторону → скрытая сырьевая ставка
@@ -74,15 +119,23 @@ def correlation_map(ideas):
             "деталь": f"несколько лонгов сырьевых драйверов {commodity_long} имеют общую сырьевую бету — "
                       "относиться как к усиленной ОДНОЙ сырьевой ставке (§4)",
         })
-    # одна и та же ставка, размазанная по нескольким тикерам
+    # одна и та же ставка, размазанная по нескольким тикерам (только ИЗВЕСТНЫЕ драйверы)
     for key, c in clusters.items():
         if len(c["идеи"]) > 1:
             warnings.append({
                 "тип": "одна_ставка_много_тикеров",
                 "деталь": f"{c['идеи']} делят драйвер '{key}' — это ОДНА ставка, не {len(c['идеи'])} (§4)",
             })
+    # F3#24: неизвестные драйверы — честная неопределённость (не выдаём за диверсификацию)
+    if unmapped:
+        warnings.append({
+            "тип": "драйвер_неизвестен",
+            "деталь": f"драйвер не сопоставлен для {unmapped}: считаем их РАЗНЫМИ ставками (не "
+                      "схлопываем в одну), но взаимную корреляцию исключить нельзя (П8 — связь не "
+                      "выдумываем). Дополнить config/universe.yaml (тема/драйвер) при появлении данных.",
+        })
     return {"кластеры": list(clusters.values()), "предупреждения": warnings,
-            "n_независимых_ставок": len(clusters)}
+            "n_независимых_ставок": len(clusters), "n_без_драйвера": len(unmapped)}
 
 
 def build_portfolio(ideas, *, capital, gate_passed=False, calibration_proven=0.0,
