@@ -57,6 +57,18 @@ def test_edge_branch_is_diagnostic_not_kill():
     assert edge["checks"]["edge_диагностика"]["bss_над_климатологией"] > 0
 
 
+def test_kill_threshold_not_fail_open_without_edge_key():
+    # fail-open защита: удаление kill_no_edge_after_predictions НЕ должно глушить калибровочный KILL.
+    # Порог применимости берётся с дефолтом (paper_to_money_predictions → 270).
+    fake = {"gates": {"kill_calibration_band_pp": 15, "paper_to_money_predictions": 270}}
+    k = lm.check_kill_criteria(calibration_band_pp=99.0, n_money_resolved=100000, limits=fake)
+    assert k["checks"]["порог_применимости"]["порог"] == 270
+    assert k["kill"] is True and any("калибровка" in r for r in k["reasons"])
+    # совсем без gates — дефолт 270, до порога не KILL
+    empty = lm.check_kill_criteria(calibration_band_pp=99.0, n_money_resolved=5, limits={"gates": {}})
+    assert empty["checks"]["порог_применимости"]["порог"] == 270 and empty["kill"] is False
+
+
 def test_kill_band_not_measurable_is_not_kill():
     # band=None за порогом (нет корзин с N, F2#20) → не KILL, статус «не измерима» (П8)
     k = lm.check_kill_criteria(calibration_band_pp=None, n_money_resolved=300)

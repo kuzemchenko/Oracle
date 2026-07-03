@@ -40,11 +40,13 @@ def brier_tracks():
     s = R.run_resolve(write=False)
     pv = s.get("провизорный_трек") or {}
     k = s.get("KILL_проверка") or {}
+    pp = (k.get("checks") or {}).get("порог_применимости") or {}
     if k.get("kill"):
         kill_line = "🛑 KILL §11 СРАБОТАЛ (детерминир.): " + "; ".join(k.get("reasons") or [])
+    elif pp.get("применимо"):
+        kill_line = "KILL §11: чисто (порог достигнут; edge/бенчмарк §30 не измеряется — FГ)"
     else:
-        appl = ((k.get("checks") or {}).get("порог_применимости") or {}).get("применимо")
-        kill_line = "KILL §11: чисто" + ("" if appl else " (до порога 270 — не применим)")
+        kill_line = f"KILL §11: чисто (до порога {pp.get('порог')} разрешённых прогнозов — не применим)"
     return (f"Brier ДЕНЕЖНЫЙ={s.get('brier')} (всего сверено исходов: {s.get('всего_исходов')}); "
             f"ПРОВИЗОРНЫЙ={pv.get('brier')} ({pv.get('исходов')} исходов, к §11 НЕ идёт); "
             f"до денежных ворот Б→Д осталось {s.get('до_ворот_270')} разрешённых прогнозов; "

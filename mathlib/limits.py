@@ -52,9 +52,12 @@ def check_kill_criteria(*, calibration_band_pp=None, n_money_resolved=0,
     g = gates(limits)
     reasons, checks = [], {}
 
-    kn = g.get("kill_no_edge_after_predictions")
-    threshold = int(kn) if kn is not None else None
-    applicable = threshold is not None and n_money_resolved >= threshold
+    # Порог применимости §11 = «270 разрешённых прогнозов». Берём из kill_no_edge_after_predictions,
+    # но с ЯВНЫМ дефолтом (paper_to_money_predictions → 270): иначе удаление одного ключа config
+    # МОЛЧА глушило бы и калибровочную ветку (fail-open на неизменяемом §11 — Инв#4).
+    kn = g.get("kill_no_edge_after_predictions", g.get("paper_to_money_predictions", 270))
+    threshold = int(kn) if kn is not None else 270
+    applicable = n_money_resolved >= threshold
     checks["порог_применимости"] = {"N": n_money_resolved, "порог": threshold,
                                     "применимо": bool(applicable)}
     if not applicable:
