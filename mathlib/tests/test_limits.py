@@ -69,6 +69,14 @@ def test_kill_threshold_not_fail_open_without_edge_key():
     assert empty["checks"]["порог_применимости"]["порог"] == 270 and empty["kill"] is False
 
 
+def test_calibration_band_key_not_fail_open():
+    # Codex F2: удаление kill_calibration_band_pp НЕ должно молча глушить калибровочный KILL.
+    # Порог ±15 п.п. страхуется дефолтом спеки §11 (не fail-open на неизменяемом критерии).
+    fake = {"gates": {"paper_to_money_predictions": 270}}  # нет kill_calibration_band_pp
+    k = lm.check_kill_criteria(calibration_band_pp=99.0, n_money_resolved=300, limits=fake)
+    assert k["kill"] is True and any("калибровка" in r for r in k["reasons"])
+
+
 def test_kill_band_not_measurable_is_not_kill():
     # band=None за порогом (нет корзин с N, F2#20) → не KILL, статус «не измерима» (П8)
     k = lm.check_kill_criteria(calibration_band_pp=None, n_money_resolved=300)

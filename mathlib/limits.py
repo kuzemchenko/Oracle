@@ -66,7 +66,9 @@ def check_kill_criteria(*, calibration_band_pp=None, n_money_resolved=0,
         return {"kill": False, "reasons": reasons, "checks": checks}
 
     # --- Калибровочная ветка: КАНОН §11, детерминирована ---
-    kb = g.get("kill_calibration_band_pp")
+    # Порог ±15 п.п. с дефолтом (спека §11) — страховка от fail-open, если ключ вычищен из config:
+    # молча НЕ отключаем неизменяемую защиту (Инв#4), симметрично дефолту порога 270 выше.
+    kb = g.get("kill_calibration_band_pp", 15)
     if calibration_band_pp is not None and kb is not None:
         bad = float(calibration_band_pp) > float(kb)
         checks["калибровка"] = {"band_pp": round(float(calibration_band_pp), 2),
