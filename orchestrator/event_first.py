@@ -38,6 +38,10 @@ from mathlib import cascade as CAS                    # noqa: E402
 DB = ROOT / "storage" / "oracle.db"
 LOGS = ROOT / "journal" / "funnel_logs"
 
+# FГ B2: сколько шок-источников ИЩЕМ (широта скана) — отдельно от k (сколько прогоняем через
+# дорогой контур). Раньше оба были k=2: узкий скан привязан к бюджету контура. Теперь скан шире.
+MAX_SHOCK_SOURCES = 8
+
 
 def _now():
     return datetime.datetime.now(datetime.timezone.utc)
@@ -421,7 +425,7 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
 
 
 def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
-                    seal_predictions=False, vet_money_k=0, deep_money_report=False):
+                    seal_predictions=False, vet_money_k=0, deep_money_report=False, max_sources=None):
     """Полный event-first прогон. Возвращает сводный протокол.
 
     skip_contour=True — research-only: без дорогого 21-агентного качественного контура по источникам
@@ -454,17 +458,22 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     con = sqlite3.connect(str(DB))
     try:
         scan = ES.scan_events_live(q_max=0.1, con=con)
-        sources = _shock_sources(scan, universe, con, k)
+        # FГ B2: скан ищет до max_sources источников (широта), а дорогой контур ниже режется по k.
+        sources = _shock_sources(scan, universe, con, max_sources or MAX_SHOCK_SOURCES)
         # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
         # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
         pcs = _cartographer_pass(scan, universe, mode, run_id, guard=guard)
         proposals = _stage_cartographer(pcs, now)
         картограф_идеи = _proposal_ideas(proposals)
-        PROG.set_outer_total((len(sources) or 1) if not skip_contour else 1)
+        # FГ B2: дорогой контур — только по первым k источникам (бюджет), остальные найденные
+        # источники сохраняются в протоколе как «найдены, но не в контуре этого прогона».
+        contour_sources = sources[:k] if not skip_contour else []
+        отложенные_источники = sources[k:] if not skip_contour else sources
+        PROG.set_outer_total((len(contour_sources) or 1) if not skip_contour else 1)
         per_source, all_ideas = [], []
         # research-only (дешёвый ежедневный режим): пропускаем дорогой 21-агентный качественный
         # контур по источникам; оставляем картограф + каскады в компании (это и есть поток идей).
-        for _i, src in enumerate(sources if not skip_contour else []):
+        for _i, src in enumerate(contour_sources):
             PROG.outer(_i, src)
             # 1) КАЧЕСТВЕННО: полный состязательный контур, заякоренный на источник события
             p = F.run_funnel(theme=src, mode=mode, theme_focused=True, write=write,
@@ -619,6 +628,8 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                  "статистических_после_FDR": scan["статистических_после_FDR"],
                  "топ_события": [e["метка"] for e in scan["кандидат_события"][:10]]},
         "шок_источники": sources,
+        "источники_разбивка": {"найдено": len(sources), "в_контуре_k": len(contour_sources),
+                               "отложены": отложенные_источники},   # FГ B2: скан шире бюджета контура
         "новые_события_на_регистрацию": proposals,
         "картограф_идеи": картограф_идеи,        # анти-brent: research-идеи по событиям вне реестра тем
         "по_источникам": per_source,
