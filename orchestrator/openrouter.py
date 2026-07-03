@@ -72,22 +72,34 @@ def _model_chain(role_cfg):
     return [role_cfg["primary"]] + list(role_cfg.get("fallbacks", []))
 
 
-def filtered_chain(role_cfg, exclude_family=None, models=None):
-    """Цепочка моделей роли с ИСКЛЮЧЕНИЕМ семейства (П10).
-
-    Для судьи: ни primary, ни один фолбек не должен быть из семейства генератора текущей
-    идеи (требование пользователя Нед.7 «судья и фолбек судьи никогда не из семейства
-    генератора»). Возвращает отфильтрованную цепочку; пустая → RuntimeError (не молчим,
-    лучше явный отказ, чем тихое нарушение П10).
-    """
-    chain = _model_chain(role_cfg)
+def _exclude_set(exclude_family):
+    """Нормализует exclude_family к множеству семейств. Принимает str (одно семейство,
+    обратная совместимость) ИЛИ итерируемое семейств (F3#23: развязка судьи со ВСЕЙ
+    цепочкой дебатёров — генератор+критик+адвокат, не только генератор)."""
     if not exclude_family:
+        return set()
+    if isinstance(exclude_family, str):
+        return {exclude_family}
+    return {f for f in exclude_family if f}
+
+
+def filtered_chain(role_cfg, exclude_family=None, models=None):
+    """Цепочка моделей роли с ИСКЛЮЧЕНИЕМ семейства(-в) (П10).
+
+    exclude_family — семейство (str) ИЛИ набор семейств (F3#23). Для судьи: ни primary, ни
+    один фолбек не должен быть из семейств дебатёров текущей идеи (генератор/критик/адвокат —
+    судья слепо оценивает их аргументы, значит должен быть НЕЗАВИСИМ от каждого). Для критика:
+    не из семейства генератора (адверсария). Возвращает отфильтрованную цепочку; пустая →
+    RuntimeError (не молчим — лучше явный отказ, чем тихое нарушение П10)."""
+    chain = _model_chain(role_cfg)
+    excl = _exclude_set(exclude_family)
+    if not excl:
         return chain
-    kept = [m for m in chain if family_of(m, models) != exclude_family]
+    kept = [m for m in chain if family_of(m, models) not in excl]
     if not kept:
         raise RuntimeError(
-            f"П10: вся цепочка роли из семейства '{exclude_family}' генератора — "
-            f"слепой суд невозможен; нужна модель другого семейства (config/models.yaml)")
+            f"П10: вся цепочка роли из исключённых семейств {sorted(excl)} — "
+            f"слепой суд/развязка невозможны; нужна модель другого семейства (config/models.yaml)")
     return kept
 
 

@@ -95,7 +95,6 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     models = models or OR.load_models()
     asset = candidate.get("актив")
     direction = candidate.get("направление")
-    gen_family = _generator_family(models)
 
     # срез по идее (без выдумок: то, что есть в ctx по активу)
     idea_slice = {
@@ -117,6 +116,10 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     # 1. Генератор
     gen = A.call_agent("e_generator", ctx, client, user_prompt=_user_for("e_generator", idea_slice))
     gen_j = (gen.get("judgment") or {}) if gen.get("ok") else {}
+    # F3#23 (§4.1): семейство генератора — из МОДЕЛИ, что реально ответила (пост-вызов), а НЕ из
+    # config: генератор мог уйти в кросс-семейный фолбек, и развязка судьи должна считаться по факту.
+    gen_family = (OR.family_of(gen["model"], models)
+                  if gen.get("ok") and gen.get("model") else _generator_family(models))
 
     # Если школа не зафиксировала направление (напр. маскированный кейс §23.2(б)) — идею для
     # ДАЛЬНЕЙШЕГО контура задаёт направление, выведенное генератором, и его §9-формулировка.
@@ -130,23 +133,31 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     eff_resolvability = candidate.get("разрешимость") or gen_j.get("разрешимость")
     down_slice = {**idea_slice, "направление": eff_direction, "разрешимость": eff_resolvability}
 
-    # 2. Критик (видит гипотезу; возражение владельца — обязательная линия атаки)
+    # 2. Критик (видит гипотезу; возражение владельца — обязательная линия атаки).
+    # F3#23 (§4.3 симметрия): критик — адверсарий генератора, развязываем по семейству (не из
+    # семейства генератора), чтобы фолбек-коллизия не сделала критика той же моделью/семейством.
     crit_payload = {**down_slice, "гипотеза": _ok_judgment(gen)}
     if user_doubt:
         crit_payload["возражение_владельца_ОБЯЗАТЕЛЬНО_РАЗОБРАТЬ"] = user_doubt
-    crit = A.call_agent("e_critic", ctx, client, user_prompt=_user_for("e_critic", crit_payload))
+    crit = A.call_agent("e_critic", ctx, client, user_prompt=_user_for("e_critic", crit_payload),
+                        exclude_family=gen_family)
+    crit_family = OR.family_of(crit["model"], models) if crit.get("ok") and crit.get("model") else None
 
-    # 3. Адвокат (видит гипотезу + критику)
+    # 3. Адвокат (видит гипотезу + критику). Адвокат защищает тезис генератора — ему НЕ требуется
+    # отличаться от него по семейству (не адверсарий), поэтому исключения не навязываем; его
+    # семейство лишь учитываем в развязке судьи ниже.
     adv_payload = {**down_slice, "гипотеза": _ok_judgment(gen), "критика": _ok_judgment(crit)}
     adv = A.call_agent("e_advocate", ctx, client, user_prompt=_user_for("e_advocate", adv_payload))
+    adv_family = OR.family_of(adv["model"], models) if adv.get("ok") and adv.get("model") else None
 
-    # 4. Reviewer данных (проверка фактов всех реплик)
-    rev_payload = {**down_slice, "гипотеза": _ok_judgment(gen),
-                   "критика": _ok_judgment(crit), "адвокат": _ok_judgment(adv)}
-    rev = A.call_agent("e_data_reviewer", ctx, client, user_prompt=_user_for("e_data_reviewer", rev_payload))
-
-    # 5. СЛЕПОЕ дело судьи: обезличиваем 3 аргумента, рандомизируем порядок
+    # 4. СЛЕПОЕ дело: обезличиваем 3 аргумента, рандомизируем порядок. Строим ДО ревьюера —
+    # чтобы ревьюер видел те же метки A/B/C (§4.4: роли не должны протечь судье через находки).
     blind_case, label_map = _build_blind_case(gen, crit, adv, run_id, asset)
+
+    # 5. Reviewer данных (проверка фактов) — на ОБЕЗЛИЧЕННОМ деле (§4.4): его находки ссылаются на
+    # метки A/B/C, а не на роли «гипотеза/критика/адвокат», иначе судья деанонимизировал бы дело.
+    rev_payload = {**down_slice, "аргументы_обезличенно_в_случайном_порядке": blind_case}
+    rev = A.call_agent("e_data_reviewer", ctx, client, user_prompt=_user_for("e_data_reviewer", rev_payload))
     judge_payload = {
         "идея": {"актив": asset, "направление": eff_direction, "разрешимость": eff_resolvability},
         "base_rate": base_rate,
@@ -175,9 +186,12 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
         judge_payload["напоминание"] += (
             "; владелец поднял возражение (поле 'возражение_владельца') — учти его в баллах "
             "рубрики и в выводе ЯВНО ответь, выдерживает ли идея это возражение")
-    # П10: судья (и все его фолбеки) не из семейства генератора текущей идеи
+    # П10 (F3#23 §4.3): судья (и вся его цепочка фолбеков) НЕ из семейств НИ ОДНОГО дебатёра,
+    # чьи аргументы он слепо судит — генератора, критика И адвоката. Раньше исключался только
+    # генератор → судья мог совпасть по семейству с критиком. Семейства — по факту (пост-вызов).
+    debater_families = {f for f in (gen_family, crit_family, adv_family) if f}
     judge = A.call_agent("e_judge", ctx, client, user_prompt=_user_for("e_judge", judge_payload),
-                         exclude_family=gen_family)
+                         exclude_family=debater_families)
 
     verdict = _adjudicate(judge, rubric)
 
@@ -186,7 +200,13 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
         "возражение_владельца": user_doubt,
         "base_rate": base_rate,
         "семейство_генератора": gen_family,
+        "семейство_критика": crit_family,
+        "семейство_адвоката": adv_family,
         "семейство_судьи": OR.family_of(judge.get("model", ""), models) if judge.get("ok") else None,
+        "развязка_семейств_П10": {"исключено_у_судьи": sorted(debater_families),
+                                  "судья_вне_дебатёров": (
+                                      OR.family_of(judge.get("model", ""), models) not in debater_families
+                                      if judge.get("ok") else None)},
         "реплики": {"генератор": gen, "критик": crit, "адвокат": adv, "reviewer_данных": rev, "судья": judge},
         "слепое_дело": {"метки_в_деле": [b["метка"] for b in blind_case],
                         "карта_меток_АУДИТ": label_map},  # судье НЕ передавалась

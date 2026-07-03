@@ -64,6 +64,39 @@ def test_filtered_chain_raises_when_all_same_family():
         OR.filtered_chain(role_cfg, exclude_family="anthropic")
 
 
+def test_filtered_chain_accepts_family_set():
+    # F3#23 (§4.3): судья исключает НАБОР семейств дебатёров (не только генератора)
+    judge_cfg = OR.resolve_role("judge")            # google/google/qwen
+    chain = OR.filtered_chain(judge_cfg, exclude_family={"anthropic", "openai"})
+    assert chain and all(OR.family_of(m) not in {"anthropic", "openai"} for m in chain)
+    # если исключить и семейство самого судьи — цепочка обязана явно упасть, не молчать
+    with pytest.raises(RuntimeError):
+        OR.filtered_chain(judge_cfg, exclude_family={"google", "qwen"})
+
+
+def test_critic_decoupled_from_generator_under_fallback_collision(monkeypatch):
+    # F3#23 (§4.2/§4.3): даже при config-коллизии (генератор ушёл в openai-фолбек = семейство
+    # критика) критик обязан ОТДЕЛИТЬСЯ по семейству — гарантия кодом, не доверием к config.
+    chain = OR.filtered_chain(OR.resolve_role("critic"), exclude_family="openai")
+    assert chain and OR.family_of(chain[0]) != "openai"     # критик уходит с openai (напр. x-ai)
+
+
+def test_judge_excludes_all_debater_families_end_to_end():
+    # F3#23 (§4.3): судья развязан со ВСЕМИ дебатёрами (ген+крит+адв), семейства по факту вызова
+    ctx = C.build_context(theme="brent")
+    client = OR.MockClient(run_id="t")
+    cand = {"актив": "BNO.US", "направление": "лонг", "тезис": "t",
+            "разрешимость": "срок 4 недели", "школа": "x"}
+    p = DBT.run_debate(cand, ctx, client, run_id="t")
+    dec = p["развязка_семейств_П10"]
+    assert dec["судья_вне_дебатёров"] is True
+    assert p["семейство_судьи"] not in dec["исключено_у_судьи"]
+    # исключённый набор = реальные семейства дебатёров
+    for fam in (p["семейство_генератора"], p["семейство_критика"], p["семейство_адвоката"]):
+        if fam:
+            assert fam in dec["исключено_у_судьи"]
+
+
 def test_mock_client_respects_exclude_family():
     # MockClient тоже обязан соблюдать развязку (берёт первую модель НЕ из исключённого семейства)
     client = OR.MockClient(run_id="t")
