@@ -130,18 +130,5 @@ def test_route_tracks_splits_by_basis():
     assert [x["symbol"] for x in r["provisional"]] == ["C1"]
     assert [x["symbol"] for x in r["digest_only"]] == ["G1"]
 
-
-def test_build_graph_orchestration(monkeypatch):
-    con = _mk_db(_correlated())
-
-    def _stub_build(ch, shock, *, horizon_days, con, db=None):    # подменяем боевой cascade_build
-        return {"chain_id": ch["id"],
-                "узлы": [_node("TERM.US", tiers=["A"], amplitude=0.04, lag=25)]}
-
-    monkeypatch.setattr(GB.CB, "build_from_db", _stub_build)
-    res = GB.build_graph("ROOT.US", -0.05, con=con, horizon_days=20,
-                         chains=[{"id": "t_chain"}])
-    assert res["цепочки"] == ["t_chain"]
-    assert res["граф_узлов"] == 1
-    assert res["отбор"]["ворота_прошли"] == 1
-    assert res["отбор"]["топ_k"][0]["symbol"] == "TERM.US"
+# FГ2 (§3.2): test_build_graph_orchestration удалён вместе с мёртвой обёрткой build_graph —
+# боевой путь (event_first) собирает граф сам; select_from_nodes/route_tracks покрыты выше.

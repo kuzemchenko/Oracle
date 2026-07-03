@@ -11,7 +11,9 @@
 #     срабатывания временной строкой с записью в journal/cron.log (Нед.9, п.4).
 # Рутина идёт НАПРЯМУЮ через python — дешевле и воспроизводимо. Claude Code — для разработки/разбора.
 #
-# Установка:  crontab /root/oracle/ops/crontab.txt
+# Установка:  cat /root/oracle/ops/crontab.txt /root/oracle/ops/crontab.local.txt | crontab -
+#             (crontab.local.txt — сторонние задачи вне git, FГ2 §9.3; если его нет — просто
+#              `crontab /root/oracle/ops/crontab.txt`)
 # Проверка:   crontab -l
 # ════════════════════════════════════════════════════════════════════════════════
 
@@ -57,10 +59,8 @@ MAILTO=""
 # Напоминание о еженедельном разборе (сам разбор — в Claude Code: /review-week): пятница 18:00
 0 18 * * 5   cd /root/oracle && echo "$(date): пора /review-week в Claude Code" >> journal/reminders.log
 
-# @FemmeCode_Bot — ежедневная рассылка встреч (8:00 и 8:30 МСК = 5:00 и 5:30 UTC)
-0 5 * * *   curl -s http://65.109.237.234/femmecode-bot/avto.php?token=gho45pojgwoi5idfhjgfi6fgjhdfggjasdghfgjdfgkjllhjghg67 >> /var/www/femmecode/cron.log 2>&1
-10 5 * * *  curl -s http://65.109.237.234/femmecode-bot/avto.php?token=gho45pojgwoi5idfhjgfi6fgjhdfggjasdghfgjdfgkjllhjghg67 >> /var/www/femmecode/cron.log 2>&1
-20 5 * * *  curl -s http://65.109.237.234/femmecode-bot/avto.php?token=gho45pojgwoi5idfhjgfi6fgjhdfggjasdghfgjdfgkjllhjghg67 >> /var/www/femmecode/cron.log 2>&1
-
-# @aimycode_bot — профилактический перезапуск раз в неделю (воскресенье 3:00 МСК = 00:00 UTC)
-0 0 * * 0   cd /opt/mycode/infra && docker compose restart bot >> /var/log/mycode-bot-restart.log 2>&1
+# ── СТОРОННИЕ (НЕ «Оракул») задачи вынесены (FГ2 §9.3) ──────────────────────────────
+# Задачи femmecode/aimycode содержали plaintext-токен → перенесены в ops/crontab.local.txt
+# (в git НЕ попадает). Токен СКОМПРОМЕТИРОВАН историей — ротировать на сервере femmecode.
+# Устанавливать ВМЕСТЕ (иначе те боты не запустятся):
+#   cat ops/crontab.txt ops/crontab.local.txt | crontab -

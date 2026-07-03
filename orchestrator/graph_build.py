@@ -155,19 +155,7 @@ def route_tracks(selection):
             "digest_only": selection.get("отсев", [])}
 
 
-def build_graph(shock_source, shock_move, *, con, db=None, horizon_days=20, top_k=8, chains=None):
-    """Событие (шок источника) → граф последствий из активированных цепочек → воронка отбора.
-
-    chains=None → авторские цепочки, чей якорь = источник (cascade_build.chains_for_source). Узлы
-    ВСЕХ активированных цепочек объединяются в один граф (коллизии по инструменту видит graph_select).
-    """
-    chains = CB.chains_for_source(shock_source) if chains is None else chains
-    raw_nodes, used = [], []
-    for ch in chains:
-        res = CB.build_from_db(ch, shock_move, horizon_days=horizon_days, con=con, db=db)
-        used.append(res.get("chain_id"))
-        raw_nodes.extend(res.get("узлы") or [])
-    sel = select_from_nodes(raw_nodes, con=con, root_symbol=shock_source,
-                            horizon_days=horizon_days, top_k=top_k)
-    return {"источник": shock_source, "shock": shock_move, "horizon_days": horizon_days,
-            "цепочки": used, "граф_узлов": len(raw_nodes), "отбор": sel}
+# FГ2 (§3.2): устаревшая обёртка build_graph(shock_source,...) удалена — она собирала граф из
+# ОДНОГО источника, а боевой путь (event_first) объединяет узлы ВСЕХ активированных цепочек сам и
+# зовёт select_from_nodes/route_tracks напрямую. Обёртка звалась только тестом (мёртвый код). Живые
+# select_from_nodes/route_tracks/CB.build_from_db покрыты своими тестами.
