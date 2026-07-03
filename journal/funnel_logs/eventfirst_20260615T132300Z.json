@@ -1,0 +1,148 @@
+{
+  "run_id": "eventfirst_20260615T132300Z",
+  "ts": "2026-06-15T13:23:00+00:00",
+  "mode": "mock",
+  "режим": "event-first СУХОЙ ПРОГОН (рядом с боевым, без LLM/seal/run_funnel)",
+  "spec_ref": "§6 Эт.1 скан + §5/П5 каскад + §9 резолв; PLAN_cascade_first Этапы 1/2/4",
+  "скан": {
+    "источники": {
+      "price": 26,
+      "trends": 6,
+      "news_clusters": 50
+    },
+    "сырых_сигналов": 82,
+    "статистических_после_FDR": 1,
+    "топ_события": [
+      "copper market shanghai",
+      "debts thailand collateral",
+      "养生烟 有毒的 神秘厂家难寻",
+      "end deal iran",
+      "peace drop prices",
+      "peace boost deal",
+      "deal set june",
+      "see silver strategic",
+      "deal oil hormuz",
+      "shares open after"
+    ],
+    "ограничение_П8": "частотный FDR по новостям не применён: фон частот слов = null (история новостей < минимума, thresholds.yaml). Новостные кластеры ранжированы по салиентности и не отброшены — их вето даёт каскадный/состязательный контур (§6 Эт.3–5). Тренды и цена прошли единый FDR (есть собственные фоны)."
+  },
+  "шок_источники": [
+    "RKLB.US",
+    "CPER.US",
+    "BNO.US"
+  ],
+  "каскады": [
+    {
+      "источник": "CPER.US",
+      "shock": 0.01554,
+      "резолв": {
+        "источник": "CPER.US",
+        "shock": 0.015543694269609443,
+        "horizon_days": 5,
+        "запечатываемо": [
+          {
+            "kind": "seal",
+            "prediction": {
+              "kind": "cascade_forward",
+              "run_id": "eventfirst_20260615T132300Z",
+              "asset": "COPX.US",
+              "direction": "above",
+              "threshold": 85.97,
+              "resolve_by": "2026-06-22T20:00:00+00:00",
+              "price_source": "EODHD close COPX.US",
+              "probability": 0.6273,
+              "amplitude_expected": 0.013633,
+              "reliability_r2": 0.4993,
+              "horizon_trading_days": 5.0,
+              "threshold_asof_close_date": "2026-06-12",
+              "spec_ref": "§9 разрешимость; §5/П5 каскад; П16 форвард-онли; инвариант 6 (амплитуда — код)"
+            },
+            "узел": "COPX.US"
+          },
+          {
+            "kind": "seal",
+            "prediction": {
+              "kind": "cascade_forward",
+              "run_id": "eventfirst_20260615T132300Z",
+              "asset": "SPY.US",
+              "direction": "above",
+              "threshold": 741.75,
+              "resolve_by": "2026-06-22T20:00:00+00:00",
+              "price_source": "EODHD close SPY.US",
+              "probability": 0.557,
+              "amplitude_expected": 0.003213,
+              "reliability_r2": 0.1627,
+              "horizon_trading_days": 5.0,
+              "threshold_asof_close_date": "2026-06-12",
+              "spec_ref": "§9 разрешимость; §5/П5 каскад; П16 форвард-онли; инвариант 6 (амплитуда — код)"
+            },
+            "узел": "SPY.US"
+          },
+          {
+            "kind": "seal",
+            "prediction": {
+              "kind": "cascade_forward",
+              "run_id": "eventfirst_20260615T132300Z",
+              "asset": "DBC.US",
+              "direction": "above",
+              "threshold": 28.55,
+              "resolve_by": "2026-06-22T20:00:00+00:00",
+              "price_source": "EODHD close DBC.US",
+              "probability": 0.5345,
+              "amplitude_expected": 0.002113,
+              "reliability_r2": 0.0663,
+              "horizon_trading_days": 5.0,
+              "threshold_asof_close_date": "2026-06-12",
+              "spec_ref": "§9 разрешимость; §5/П5 каскад; П16 форвард-онли; инвариант 6 (амплитуда — код)"
+            },
+            "узел": "DBC.US"
+          }
+        ],
+        "лист_ожидания": [
+          {
+            "kind": "watchlist",
+            "актив": "USO.US",
+            "направление": "лонг",
+            "trigger_text": "каскадный узел USO.US: перенос статистически не установлен (CI корреляции включает 0) — П8",
+            "amplitude": 0.00024,
+            "причина": "перенос статистически не установлен (CI корреляции включает 0) — П8"
+          }
+        ],
+        "сводка": "узлов 4: запечатываемо 3, в лист ожидания 1"
+      }
+    },
+    {
+      "источник": "BNO.US",
+      "shock": -0.02703,
+      "резолв": {
+        "источник": "BNO.US",
+        "shock": -0.02702588415037832,
+        "horizon_days": 5,
+        "запечатываемо": [
+          {
+            "kind": "seal",
+            "prediction": {
+              "kind": "cascade_forward",
+              "run_id": "eventfirst_20260615T132300Z",
+              "asset": "USO.US",
+              "direction": "below",
+              "threshold": 125.43,
+              "resolve_by": "2026-06-22T20:00:00+00:00",
+              "price_source": "EODHD close USO.US",
+              "probability": 0.9951,
+              "amplitude_expected": -0.028162,
+              "reliability_r2": 0.9622,
+              "horizon_trading_days": 5.0,
+              "threshold_asof_close_date": "2026-06-12",
+              "spec_ref": "§9 разрешимость; §5/П5 каскад; П16 форвард-онли; инвариант 6 (амплитуда — код)"
+            },
+            "узел": "USO.US"
+          }
+        ],
+        "лист_ожидания": [],
+        "сводка": "узлов 1: запечатываемо 1, в лист ожидания 0"
+      }
+    }
+  ],
+  "итог": "источников 3; §9-прогнозов-кандидатов 4; в лист ожидания 1"
+}

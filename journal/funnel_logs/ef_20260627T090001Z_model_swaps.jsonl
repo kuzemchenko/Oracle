@@ -1,0 +1,1 @@
+{"ts": "2026-06-27T09:12:46Z", "agent": "e_judge", "role": "judge", "attempted": "google/gemini-3.1-pro-preview", "used": "google/gemini-2.5-pro", "reason": "empty: пустой content от google/gemini-3.1-pro-preview: {'id': 'gen-1782551502-gBbddzaesgp5DN59oLXz', 'object': 'chat.completion', 'created': 1782551502, 'model': 'google/gemini-3.1-pro-preview-20260219', 'provider':"}

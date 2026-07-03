@@ -1,0 +1,20 @@
+{
+  "run_id": "pytest_guard_off",
+  "mode": "mock",
+  "title": "воронка · SPCX.US",
+  "outer_total": 1,
+  "outer_i": 0,
+  "outer_label": "SPCX.US",
+  "phase": "synthesis",
+  "phase_label": "синтез отчёта §8",
+  "agents": null,
+  "note": null,
+  "frac": 1.0,
+  "pct": 100,
+  "elapsed_sec": 0.0,
+  "eta_sec": 0.0,
+  "started_at": "2026-07-03T09:32:01Z",
+  "updated_at": "2026-07-03T09:32:01Z",
+  "finished": true,
+  "summary": "воронка · SPCX.US: стоящих идей нет — легитимный результат слабого дня (§6)"
+}

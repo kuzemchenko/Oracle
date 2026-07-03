@@ -1,0 +1,241 @@
+{
+  "run_id": "multi_20260614T002206Z",
+  "ts": "2026-06-14T00:22:07Z",
+  "mode": "mock",
+  "режим": "мульти-событие (§17.1)",
+  "spec_ref": "§17.1 свободная генерация + §5/П5 тектоника + §4 диверсификация по драйверам",
+  "ранжирование_событий": [
+    {
+      "kind": "theme",
+      "id": "ai_power",
+      "anchorable": true,
+      "structural": false,
+      "score": 0.706,
+      "tectonic": {
+        "T": 0.8825,
+        "далёкий_узел": {
+          "order": 3,
+          "node": "Текстурированная электротехническая сталь (GOES) — металл сердечников трансформаторов",
+          "instruments": [
+            "CLF.US"
+          ],
+          "chokepoint": true,
+          "priced": 0.2
+        },
+        "entry": 0.706
+      },
+      "событие": "Бум ИИ-датацентров → структурный спрос на энергию → дефицит трансформаторов → GOES-сталь сердечников"
+    },
+    {
+      "kind": "theme",
+      "id": "spacex",
+      "anchorable": true,
+      "structural": true,
+      "score": 0.6,
+      "tectonic": null,
+      "событие": "IPO SpaceX 11.06.2026, ~$1.77 трлн, 7-я компания США; Fast Entry в Nasdaq-100 (~+15 торг.дней); лок-ап 180д ступенчатый"
+    },
+    {
+      "kind": "theme",
+      "id": "brent",
+      "anchorable": true,
+      "structural": false,
+      "score": 0.4,
+      "tectonic": null,
+      "событие": null
+    },
+    {
+      "kind": "theme",
+      "id": "copper",
+      "anchorable": true,
+      "structural": false,
+      "score": 0.4,
+      "tectonic": null,
+      "событие": null
+    }
+  ],
+  "обнаруженные_кластеры_новостей": [
+    {
+      "size": 2,
+      "salience": 2,
+      "keywords": [
+        "increase",
+        "sea",
+        "deep",
+        "sightings"
+      ],
+      "sample": "Retreating Glaciers Increase Iceberg Sightings and Reshape Deep-Sea Habitats - Online Media Cafe"
+    },
+    {
+      "size": 1,
+      "salience": 1,
+      "keywords": [
+        "sustain",
+        "exports",
+        "khalilur",
+        "compete"
+      ],
+      "sample": "Bangladesh must compete harder to sustain exports: Khalilur"
+    },
+    {
+      "size": 1,
+      "salience": 1,
+      "keywords": [
+        "killed",
+        "says",
+        "tren",
+        "times"
+      ],
+      "sample": "Trump says U.S. killed Tren de Aragua leader in airstrike in Venezuela | US Times Mirror"
+    },
+    {
+      "size": 1,
+      "salience": 1,
+      "keywords": [
+        "petrol",
+        "effect",
+        "levies",
+        "revised"
+      ],
+      "sample": "Petrol and diesel levies revised by government with immediate effect"
+    },
+    {
+      "size": 1,
+      "salience": 1,
+      "keywords": [
+        "morning",
+        "update"
+      ],
+      "sample": "Morning update"
+    },
+    {
+      "size": 1,
+      "salience": 1,
+      "keywords": [
+        "may",
+        "lpg",
+        "gas",
+        "done"
+      ],
+      "sample": "LPG Update: Get this important work done by June 30, otherwise gas subsidy and cylinder delivery may stop"
+    }
+  ],
+  "привязка_кластеров": [
+    {
+      "kind": "no_map",
+      "keywords": [
+        "increase",
+        "sea",
+        "deep",
+        "sightings"
+      ],
+      "why": "торгуемого переноса не найдено"
+    },
+    {
+      "kind": "no_map",
+      "keywords": [
+        "sustain",
+        "exports",
+        "khalilur",
+        "compete"
+      ],
+      "why": "торгуемого переноса не найдено"
+    },
+    {
+      "kind": "skipped",
+      "keywords": [
+        "killed",
+        "says",
+        "tren",
+        "times"
+      ],
+      "why": "лимит маппинга на прогон"
+    },
+    {
+      "kind": "skipped",
+      "keywords": [
+        "petrol",
+        "effect",
+        "levies",
+        "revised"
+      ],
+      "why": "лимит маппинга на прогон"
+    },
+    {
+      "kind": "skipped",
+      "keywords": [
+        "morning",
+        "update"
+      ],
+      "why": "лимит маппинга на прогон"
+    },
+    {
+      "kind": "skipped",
+      "keywords": [
+        "may",
+        "lpg",
+        "gas",
+        "done"
+      ],
+      "why": "лимит маппинга на прогон"
+    }
+  ],
+  "глубоко_проанализировано": [
+    "ai_power",
+    "spacex"
+  ],
+  "по_событиям": [
+    {
+      "событие": "ai_power",
+      "приоритет": 0.706,
+      "тектоника": {
+        "T": 0.8825,
+        "далёкий_узел": {
+          "order": 3,
+          "node": "Текстурированная электротехническая сталь (GOES) — металл сердечников трансформаторов",
+          "instruments": [
+            "CLF.US"
+          ],
+          "chokepoint": true,
+          "priced": 0.2
+        },
+        "entry": 0.706
+      },
+      "run_id": "multi_20260614T002206Z__ai_power",
+      "кандидатов": 8,
+      "выдано": 2,
+      "итог": "выдано идей: 2"
+    },
+    {
+      "событие": "spacex",
+      "приоритет": 0.6,
+      "тектоника": null,
+      "run_id": "multi_20260614T002206Z__spacex",
+      "кандидатов": 8,
+      "выдано": 3,
+      "итог": "выдано идей: 3"
+    }
+  ],
+  "объединённая_выдача_топ3": [
+    {
+      "актив": "SPY.US",
+      "направление": "лонг",
+      "балл": 0.65662,
+      "событие": "ai_power"
+    },
+    {
+      "актив": "CPER.US",
+      "направление": "лонг",
+      "балл": 0.608484,
+      "событие": "ai_power"
+    },
+    {
+      "актив": "DBC.US",
+      "направление": "лонг",
+      "балл": 0.590982,
+      "событие": "spacex"
+    }
+  ],
+  "диверсификация": "лучшая идея на макро-драйвер (§4); громкий 1-й порядок не монополизирует (П5/П13)",
+  "итог": "проанализировано 2 тектонических тем; выдано 3 диверсифицированных идей"
+}

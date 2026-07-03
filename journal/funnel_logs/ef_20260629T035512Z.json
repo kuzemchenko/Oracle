@@ -1,0 +1,216 @@
+{
+  "run_id": "ef_20260629T035512Z",
+  "ts": "2026-06-29T03:55:12+00:00",
+  "mode": "mock",
+  "режим": "event-first контур (§6 скан + §4 контур + §5 каскад + §9 резолв)",
+  "spec_ref": "PLAN_cascade_first Этап 6; §6/§4/§5/П5/§9/П10/П16",
+  "скан": {
+    "источники": {
+      "price": 320,
+      "trends": 14,
+      "news_clusters": 50
+    },
+    "сырых_сигналов": 384,
+    "статистических_после_FDR": 25,
+    "топ_события": [
+      "iran strikes bahrain",
+      "petrol diesel prices",
+      "talks threatens strikes",
+      "homegrown first uae",
+      "midcap stocks picks",
+      "bengal container diesel",
+      "relaxes diesel bengal",
+      "guide street prices",
+      "now stocks buy",
+      "spacex ipo internewscast"
+    ]
+  },
+  "шок_источники": [
+    "ALB.US",
+    "AMZN.US"
+  ],
+  "новые_события_на_регистрацию": [],
+  "картограф_идеи": [],
+  "по_источникам": [],
+  "каскады_в_компании": [
+    {
+      "chain_id": "ai_power_transformers_metal",
+      "якорь": "VRT.US",
+      "shock": -0.09143,
+      "активация": [
+        "тема «ai_power» — новость: US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "ценовой сигнал на узле(ах): ['ETN.US', 'FCX.US']"
+      ],
+      "событие_новость": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+      "источник_карты": "авторская",
+      "узлов_построено": 3
+    }
+  ],
+  "граф_отбор": {
+    "узлов": 3,
+    "ворота_прошли": 3,
+    "отсев_по_критериям": {},
+    "добор_истории": {
+      "скачано": [],
+      "было": 0,
+      "досинк": [],
+      "не_удалось": []
+    },
+    "треки": {
+      "money": 0,
+      "провизорный": 3,
+      "дайджест": 0
+    },
+    "запечатано": {
+      "money": 0,
+      "провизорный": 0,
+      "демотировано_судом": 0
+    },
+    "суд_money": {},
+    "топ_k": [
+      {
+        "актив": "GEV.US",
+        "score": 0.396564,
+        "edge": 0.054615,
+        "направление": "лонг",
+        "ярусы": [
+          "C"
+        ],
+        "лаг_дней": 30,
+        "горизонт_дней": 5,
+        "вероятность": 0.5536,
+        "надёжность_r2": 0.2,
+        "изоляция_r2": 0.5644,
+        "надёжность_метка": 0.2,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 2,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "CLF.US",
+        "score": 0.177031,
+        "edge": 0.210331,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C"
+        ],
+        "лаг_дней": 90,
+        "горизонт_дней": 5,
+        "вероятность": 0.5195,
+        "надёжность_r2": 0.04,
+        "изоляция_r2": 0.0867,
+        "надёжность_метка": 0.04,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 3,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "NUE.US",
+        "score": 0.038641,
+        "edge": 0.016749,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C",
+          "C"
+        ],
+        "лаг_дней": 180,
+        "горизонт_дней": 5,
+        "вероятность": 0.5011,
+        "надёжность_r2": 0.008,
+        "изоляция_r2": 0.1135,
+        "надёжность_метка": 0.008,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 4,
+        "чокпоинт": false,
+        "провизорный": true,
+        "событие": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      }
+    ],
+    "money_трек": [],
+    "провизорный_трек": [
+      {
+        "актив": "GEV.US",
+        "score": 0.396564,
+        "edge": 0.054615,
+        "направление": "лонг",
+        "ярусы": [
+          "C"
+        ],
+        "лаг_дней": 30,
+        "горизонт_дней": 5,
+        "вероятность": 0.5536,
+        "надёжность_r2": 0.2,
+        "изоляция_r2": 0.5644,
+        "надёжность_метка": 0.2,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 2,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "CLF.US",
+        "score": 0.177031,
+        "edge": 0.210331,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C"
+        ],
+        "лаг_дней": 90,
+        "горизонт_дней": 5,
+        "вероятность": 0.5195,
+        "надёжность_r2": 0.04,
+        "изоляция_r2": 0.0867,
+        "надёжность_метка": 0.04,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 3,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "NUE.US",
+        "score": 0.038641,
+        "edge": 0.016749,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C",
+          "C"
+        ],
+        "лаг_дней": 180,
+        "горизонт_дней": 5,
+        "вероятность": 0.5011,
+        "надёжность_r2": 0.008,
+        "изоляция_r2": 0.1135,
+        "надёжность_метка": 0.008,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 4,
+        "чокпоинт": false,
+        "провизорный": true,
+        "событие": "US-Iran War Latest News: Iran Threatens to 'End Talks' If US Continues Strikes, Reiterates 'Dominance' Over Strait of Hormuz in Fresh Warning",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      }
+    ]
+  },
+  "контур_выдал_топ3": [],
+  "итог": "источников 2; контур выдал 0 идей; картограф-идей (вне тем) 0; граф: 3 узлов → ворота 3 → money 0, провизорный 3, дайджест 0; новых событий на регистрацию 0"
+}

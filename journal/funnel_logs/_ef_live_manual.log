@@ -1,0 +1,6 @@
+[ef_20260617T121911Z] EVENT-FIRST · auto
+  скан §6: 82 сигналов ({'price': 26, 'trends': 6, 'news_clusters': 50}), после FDR 0
+  события: guidance lundin mining, tensions geopolitical easing, ease price steady, fall prices oil, nifty declines crude
+  шок-источники: BNO.US
+  ⚡ BNO.US шок=-0.04804 · контур выдал 0 · каскад §9: USO.US below P=1.0
+  Итог: источников 1; контур выдал 0 идей; каскад: §9-спеков 1, в лист ожидания 0

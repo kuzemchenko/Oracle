@@ -1,0 +1,70 @@
+{
+  "run_id": "ef_20260617T125244Z",
+  "ts": "2026-06-17T12:52:44+00:00",
+  "mode": "mock",
+  "режим": "event-first контур (§6 скан + §4 контур + §5 каскад + §9 резолв)",
+  "spec_ref": "PLAN_cascade_first Этап 6; §6/§4/§5/П5/§9/П10/П16",
+  "скан": {
+    "источники": {
+      "price": 26,
+      "trends": 6,
+      "news_clusters": 50
+    },
+    "сырых_сигналов": 82,
+    "статистических_после_FDR": 0,
+    "топ_события": [
+      "mining lundin guidance",
+      "geopolitical easing tensions",
+      "price steady inflation",
+      "fall prices oil",
+      "remains focus flat",
+      "war prices bet",
+      "oil iran deal",
+      "set supply oil",
+      "may not crude",
+      "war goals trump"
+    ]
+  },
+  "шок_источники": [
+    "BNO.US"
+  ],
+  "по_источникам": [
+    {
+      "источник": "BNO.US",
+      "shock": -0.04804,
+      "контур": {
+        "run_id": "ef_20260617T125244Z__BNO.US",
+        "кандидатов": 9,
+        "выдано": 0,
+        "итог": "стоящих идей нет — легитимный результат слабого дня (§6)"
+      },
+      "каскад_резолв": {
+        "запечатываемо": [
+          {
+            "kind": "seal",
+            "prediction": {
+              "kind": "cascade_forward",
+              "run_id": "ef_20260617T125244Z",
+              "asset": "USO.US",
+              "direction": "below",
+              "threshold": 115.47,
+              "resolve_by": "2026-06-24T20:00:00+00:00",
+              "price_source": "EODHD close USO.US",
+              "probability": 1.0,
+              "amplitude_expected": -0.050002,
+              "reliability_r2": 0.9626,
+              "horizon_trading_days": 5.0,
+              "threshold_asof_close_date": "2026-06-16",
+              "spec_ref": "§9 разрешимость; §5/П5 каскад; П16 форвард-онли; инвариант 6 (амплитуда — код)"
+            },
+            "узел": "USO.US"
+          }
+        ],
+        "лист_ожидания": [],
+        "сводка": "узлов 1: запечатываемо 1, в лист ожидания 0"
+      }
+    }
+  ],
+  "контур_выдал_топ3": [],
+  "итог": "источников 1; контур выдал 0 идей; каскад: §9-спеков 1, в лист ожидания 0"
+}

@@ -1,0 +1,8 @@
+[funnel_20260613T142558Z] режим=live тема=spacex
+  агентов ок: 21/21 · школ ок: 12/12 · кандидатов: 13
+  школы с кандидатами: b_behavioral_economist, b_game_theory, b_historian_events, b_omens, b_technical, c_adjacent_domains, c_cascades
+  агрегированная P: 0.5656
+  противоречий: 2 · вето/П8: 0
+  воронка §6: скан 16→FDR 1 · канд 13 → фильтр 0 → дебаты топ 0 → устояло 0 → выдано 0
+  итог: стоящих идей нет — легитимный результат слабого дня (§6)
+  протокол: journal/funnel_logs/funnel_20260613T142558Z.md

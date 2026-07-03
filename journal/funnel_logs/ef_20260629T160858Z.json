@@ -1,0 +1,276 @@
+{
+  "run_id": "ef_20260629T160858Z",
+  "ts": "2026-06-29T16:08:58+00:00",
+  "mode": "auto",
+  "режим": "event-first контур (§6 скан + §4 контур + §5 каскад + §9 резолв)",
+  "spec_ref": "PLAN_cascade_first Этап 6; §6/§4/§5/П5/§9/П10/П16",
+  "скан": {
+    "источники": {
+      "price": 334,
+      "trends": 14,
+      "news_clusters": 50
+    },
+    "сырых_сигналов": 398,
+    "статистических_после_FDR": 25,
+    "топ_события": [
+      "india asia west",
+      "attacks iran halt",
+      "russell growth benchmark",
+      "used oil castrol",
+      "oil following climbs",
+      "copper smm market",
+      "price oil too",
+      "pull oil back",
+      "major iqm idc",
+      "india oil traffic"
+    ]
+  },
+  "шок_источники": [
+    "ALB.US",
+    "AMZN.US"
+  ],
+  "новые_события_на_регистрацию": [],
+  "картограф_идеи": [],
+  "по_источникам": [
+    {
+      "источник": "ALB.US",
+      "shock": 0.01063,
+      "контур": {
+        "run_id": "ef_20260629T160858Z__ALB.US",
+        "кандидатов": null,
+        "выдано": 0,
+        "итог": "—"
+      }
+    },
+    {
+      "источник": "AMZN.US",
+      "shock": 0.01185,
+      "контур": {
+        "run_id": "ef_20260629T160858Z__AMZN.US",
+        "кандидатов": null,
+        "выдано": 0,
+        "итог": "—"
+      }
+    }
+  ],
+  "каскады_в_компании": [
+    {
+      "chain_id": "ai_power_transformers_metal",
+      "якорь": "VRT.US",
+      "shock": -0.09143,
+      "активация": [
+        "тема «ai_power» — новость: 2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "ценовой сигнал на узле(ах): ['ETN.US', 'FCX.US']"
+      ],
+      "событие_новость": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+      "источник_карты": "авторская",
+      "узлов_построено": 3
+    }
+  ],
+  "граф_отбор": {
+    "узлов": 3,
+    "ворота_прошли": 3,
+    "отсев_по_критериям": {},
+    "добор_истории": {
+      "скачано": [],
+      "было": 7,
+      "досинк": [],
+      "не_удалось": [
+        {
+          "symbol": "VRT.US",
+          "почему": "досинк не удался: HTTP 401 для VRT.US"
+        },
+        {
+          "symbol": "GEV.US",
+          "почему": "досинк не удался: HTTP 401 для GEV.US"
+        },
+        {
+          "symbol": "ETN.US",
+          "почему": "досинк не удался: HTTP 401 для ETN.US"
+        },
+        {
+          "symbol": "CLF.US",
+          "почему": "досинк не удался: HTTP 401 для CLF.US"
+        },
+        {
+          "symbol": "NUE.US",
+          "почему": "досинк не удался: HTTP 401 для NUE.US"
+        },
+        {
+          "symbol": "COPX.US",
+          "почему": "досинк не удался: HTTP 401 для COPX.US"
+        },
+        {
+          "symbol": "FCX.US",
+          "почему": "досинк не удался: HTTP 401 для FCX.US"
+        }
+      ]
+    },
+    "треки": {
+      "money": 0,
+      "провизорный": 3,
+      "дайджест": 0
+    },
+    "запечатано": {
+      "money": 0,
+      "провизорный": 0,
+      "демотировано_судом": 0
+    },
+    "суд_money": {},
+    "топ_k": [
+      {
+        "актив": "GEV.US",
+        "score": 0.396564,
+        "edge": 0.054615,
+        "направление": "лонг",
+        "ярусы": [
+          "C"
+        ],
+        "лаг_дней": 30,
+        "горизонт_дней": 5,
+        "вероятность": 0.5536,
+        "надёжность_r2": 0.2,
+        "изоляция_r2": 0.5644,
+        "надёжность_метка": 0.2,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 2,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "CLF.US",
+        "score": 0.177031,
+        "edge": 0.210331,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C"
+        ],
+        "лаг_дней": 90,
+        "горизонт_дней": 5,
+        "вероятность": 0.5195,
+        "надёжность_r2": 0.04,
+        "изоляция_r2": 0.0867,
+        "надёжность_метка": 0.04,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 3,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "NUE.US",
+        "score": 0.038641,
+        "edge": 0.016749,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C",
+          "C"
+        ],
+        "лаг_дней": 180,
+        "горизонт_дней": 5,
+        "вероятность": 0.5011,
+        "надёжность_r2": 0.008,
+        "изоляция_r2": 0.1135,
+        "надёжность_метка": 0.008,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 4,
+        "чокпоинт": false,
+        "провизорный": true,
+        "событие": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      }
+    ],
+    "money_трек": [],
+    "провизорный_трек": [
+      {
+        "актив": "GEV.US",
+        "score": 0.396564,
+        "edge": 0.054615,
+        "направление": "лонг",
+        "ярусы": [
+          "C"
+        ],
+        "лаг_дней": 30,
+        "горизонт_дней": 5,
+        "вероятность": 0.5536,
+        "надёжность_r2": 0.2,
+        "изоляция_r2": 0.5644,
+        "надёжность_метка": 0.2,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 2,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "CLF.US",
+        "score": 0.177031,
+        "edge": 0.210331,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C"
+        ],
+        "лаг_дней": 90,
+        "горизонт_дней": 5,
+        "вероятность": 0.5195,
+        "надёжность_r2": 0.04,
+        "изоляция_r2": 0.0867,
+        "надёжность_метка": 0.04,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 3,
+        "чокпоинт": true,
+        "провизорный": true,
+        "событие": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      },
+      {
+        "актив": "NUE.US",
+        "score": 0.038641,
+        "edge": 0.016749,
+        "направление": "лонг",
+        "ярусы": [
+          "C",
+          "C",
+          "C"
+        ],
+        "лаг_дней": 180,
+        "горизонт_дней": 5,
+        "вероятность": 0.5011,
+        "надёжность_r2": 0.008,
+        "изоляция_r2": 0.1135,
+        "надёжность_метка": 0.008,
+        "цепочка": "ai_power_transformers_metal",
+        "порядок": 4,
+        "чокпоинт": false,
+        "провизорный": true,
+        "событие": "2026-06-29 | VivoPower Selects Global AI Industry Leader as Preferred AI Tenant for Lease of Norway Operational Data Center | Press Release",
+        "якорь": "VRT.US",
+        "источник_карты": "авторская"
+      }
+    ]
+  },
+  "поток_идей": {
+    "всего": 3,
+    "картограф": 0,
+    "граф_топ": 3,
+    "money": 0,
+    "провизорный": 3,
+    "дайджест": 0,
+    "состязательный_контур": 0,
+    "контур_включён": true
+  },
+  "контур_выдал_топ3": [],
+  "итог": "идей в поток 3 (картограф 0 + граф-топ 3); источников 2; граф: 3 узлов → ворота 3 → money 0, провизорный 3, дайджест 0; состязательный контур 0 идей; новых событий на регистрацию 0"
+}

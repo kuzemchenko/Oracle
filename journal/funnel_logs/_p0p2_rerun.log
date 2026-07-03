@@ -1,0 +1,8 @@
+[ef_20260628T180635Z] EVENT-FIRST · auto
+  скан §6: 380 сигналов ({'price': 316, 'trends': 14, 'news_clusters': 50}), после FDR 24
+  события: iran strikes launches, kuwait iran bahrain, iran threatens war, homegrown launches uae, hormuz strait centcom
+  шок-источники: ALB.US, AMZN.US
+  🆕 на регистрацию: «США наносят новые удары по Ирану на фоне обвинений в нарушении перемирия; эскалационная риторика Трампа» (T=0.51) ← ['iran', 'strikes', 'launches', 'more'] → proposed_themes.jsonl
+  🆕 на регистрацию: «Эскалация в Персидском заливе: Иран наносит удары по Бахрейну и Кувейту, США атакуют 10 целей, перемирие под угрозой» (T=0.5225) ← ['kuwait', 'iran', 'bahrain', 'strikes'] → proposed_themes.jsonl
+  🆕 на регистрацию: «Эскалация США–Иран: CENTCOM наносит дополнительные удары после атаки дрона вблизи Ормузского пролива» (T=0.485) ← ['hormuz', 'strait', 'centcom', 'near'] → proposed_themes.jsonl
+  Итог: источников 2; контур выдал 0 идей; картограф-идей (вне тем) 3; граф: 9 узлов → ворота 9 → money 0, провизорный 8, дайджест 0; новых событий на регистрацию 3
