@@ -425,7 +425,7 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
 
 
 def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
-                    seal_predictions=False, vet_money_k=0, deep_money_report=False, max_sources=None):
+                    seal_predictions=False, vet_money_k=0, deep_money_report=False):
     """Полный event-first прогон. Возвращает сводный протокол.
 
     skip_contour=True — research-only: без дорогого 21-агентного качественного контура по источникам
@@ -458,17 +458,20 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     con = sqlite3.connect(str(DB))
     try:
         scan = ES.scan_events_live(q_max=0.1, con=con)
-        # FГ B2: скан ищет до max_sources источников (широта), а дорогой контур ниже режется по k.
-        sources = _shock_sources(scan, universe, con, max_sources or MAX_SHOCK_SOURCES)
+        # FГ B2: скан ищет до max(k, 8) источников — ширина НИКОГДА не меньше запрошенного k
+        # (иначе при k>8 контур голодал бы), но может быть шире для видимости всего фронта событий.
+        sources = _shock_sources(scan, universe, con, max(k, MAX_SHOCK_SOURCES))
         # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
         # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
         pcs = _cartographer_pass(scan, universe, mode, run_id, guard=guard)
         proposals = _stage_cartographer(pcs, now)
         картограф_идеи = _proposal_ideas(proposals)
-        # FГ B2: дорогой контур — только по первым k источникам (бюджет), остальные найденные
-        # источники сохраняются в протоколе как «найдены, но не в контуре этого прогона».
+        # FГ B2: дорогой контур — только по первым k источникам (бюджет). Остальные найденные
+        # источники идут в протокол ТОЛЬКО ДЛЯ ВИДИМОСТИ фронта событий — они НЕ ставятся в очередь
+        # на будущие прогоны (каждый прогон сканирует заново). Поток идей рождается не из этого
+        # контура, а из каскадов+картографа ниже, поэтому ширина скана на выдачу не влияет.
         contour_sources = sources[:k] if not skip_contour else []
-        отложенные_источники = sources[k:] if not skip_contour else sources
+        источники_вне_контура = sources[k:] if not skip_contour else sources
         PROG.set_outer_total((len(contour_sources) or 1) if not skip_contour else 1)
         per_source, all_ideas = [], []
         # research-only (дешёвый ежедневный режим): пропускаем дорогой 21-агентный качественный
@@ -629,7 +632,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                  "топ_события": [e["метка"] for e in scan["кандидат_события"][:10]]},
         "шок_источники": sources,
         "источники_разбивка": {"найдено": len(sources), "в_контуре_k": len(contour_sources),
-                               "отложены": отложенные_источники},   # FГ B2: скан шире бюджета контура
+                               "вне_контура_для_видимости": источники_вне_контура},  # FГ B2: НЕ очередь, только обзор
         "новые_события_на_регистрацию": proposals,
         "картограф_идеи": картограф_идеи,        # анти-brent: research-идеи по событиям вне реестра тем
         "по_источникам": per_source,
