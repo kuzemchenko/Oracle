@@ -704,14 +704,19 @@ class Bot:
         self.save()
 
     def _send_card(self, text, kb):
-        """Длинную карточку шлём частями (лимит Telegram 4096); клавиатуру — на ПОСЛЕДНЮЮ часть."""
+        """Длинную карточку шлём частями (лимит Telegram 4096); клавиатуру — на ПОСЛЕДНЮЮ часть.
+        Ревью 2026-07-04: None, если ХОТЬ ОДНА часть не дошла (Telegram._call при ошибке возвращает
+        None) — вызывающий обязан НЕ помечать доставленным и ретраить в следующий tick."""
         import bot_chat as CH
         parts = [text[i:i + CH.MAX_REPLY_CHUNK] for i in range(0, len(text), CH.MAX_REPLY_CHUNK)] or [text]
-        mid = None
+        mid, ok = None, True
         for i, part in enumerate(parts):
             last = (i == len(parts) - 1)
-            mid = self.tg.send_message(self.chat_id, part, reply_markup=kb if last else None)
-        return mid
+            m = self.tg.send_message(self.chat_id, part, reply_markup=kb if last else None)
+            ok = ok and (m is not None)
+            if last:
+                mid = m
+        return mid if ok else None
 
     def _tick_reports(self):
         pres = R.load_presentation()
@@ -737,8 +742,17 @@ class Bot:
             # Event-first СВОДНЫЙ прогон (ef_<ts>, без '__') → research-дайджест (РЕШЕНИЕ A, анти-brent):
             # поток идей по событиям мира на компаниях, без кнопок-ставок (research-метка §16).
             if str(run_id).startswith("ef_") and "__" not in str(run_id):
-                # дайджест с разбором новость→цепочка→суд длиннее лимита Telegram (4096) → шлём частями.
-                self._send_card(R.format_research_digest(proto), None)
+                # Ревью 2026-07-04 HIGH: run_id раньше помечался pushed НЕЗАВИСИМО от успеха отправки —
+                # сбой сети/лимита Telegram в момент пуша терял money-карточку §11 НАВСЕГДА.
+                # Теперь: дайджест имеет свой маркер доставки (не дублируется при ретрае карточек),
+                # run помечается pushed ТОЛЬКО когда всё дошло; недоставленное ретраится следующим tick.
+                self.state.setdefault("digest_sent", [])
+                if run_id not in self.state["digest_sent"]:
+                    # дайджест с разбором новость→цепочка→суд длиннее лимита Telegram (4096) → частями.
+                    if self._send_card(R.format_research_digest(proto), None) is None:
+                        log("сбой отправки дайджеста — ретрай в следующий tick", run_id)
+                        continue
+                    self.state["digest_sent"].append(run_id)
                 # §11 fail-closed: money-каскады, ПЕРЕЖИВШИЕ слепой суд («УСТОЯЛА», без вето §6),
                 # доходят до пользователя ОТДЕЛЬНОЙ §8-actionable карточкой с кнопками §12. Дайджест —
                 # обзорный поток, карточка — решение по конкретной идее: РАЗНЫЕ форматы одной идеи,
@@ -748,6 +762,7 @@ class Bot:
                 proto_card = dict(proto)
                 if proto_card.get("mode") == "auto":     # auto боевой (run.py: auto→live при ключе) —
                     proto_card["mode"] = "live"           # рендерим полную §8-карточку, не mock-заглушку
+                доставлено_всё = True
                 for idea in money_ideas:
                     asset = idea.get("актив")
                     token = S.idea_token(run_id, asset)
@@ -756,6 +771,10 @@ class Bot:
                     text = R.format_report(proto_card, idea, pres)
                     kb = R.build_keyboard(token, issued_at)
                     mid = self._send_card(text, kb)
+                    if mid is None:                      # карточка НЕ дошла → pending не пишем, ретрай
+                        доставлено_всё = False
+                        log("сбой отправки money-карточки — ретрай в следующий tick", run_id, asset)
+                        continue
                     self.state["pending"][token] = {
                         "run_id": run_id, "asset": asset,
                         "direction": idea.get("направление"), "score": idea.get("балл"),
@@ -763,6 +782,8 @@ class Bot:
                         "idea_brief": R.idea_brief(idea),
                     }
                     log("пуш money-карточки §8 (пережила слепой суд)", run_id, asset, "token", token)
+                if not доставлено_всё:
+                    continue                             # run НЕ помечен pushed — недоставленное ретраится
                 added = W.ingest_protocol(proto, existing_ids=self.state["seen_watchlist"])
                 for rec in added:
                     self.state["seen_watchlist"].append(rec["id"])
@@ -771,12 +792,19 @@ class Bot:
                 continue
             ideas = R.ideas_from_protocol(proto)
             if ideas:
+                доставлено_всё = True
                 for idea in ideas:
                     asset = idea.get("актив")
                     token = S.idea_token(run_id, asset)
+                    if token in self.state["pending"]:   # идемпотентность при ретрае (ревью 04.07)
+                        continue
                     text = R.format_report(proto, idea, pres)
                     kb = R.build_keyboard(token, issued_at)
                     mid = self._send_card(text, kb)
+                    if mid is None:                      # не дошла → pending не пишем, ретрай tick'ом
+                        доставлено_всё = False
+                        log("сбой отправки идеи — ретрай в следующий tick", run_id, asset)
+                        continue
                     self.state["pending"][token] = {
                         "run_id": run_id, "asset": asset,
                         "direction": idea.get("направление"), "score": idea.get("балл"),
@@ -786,8 +814,12 @@ class Bot:
                         "idea_brief": R.idea_brief(idea),
                     }
                     log("пуш идеи", run_id, asset, "token", token)
+                if not доставлено_всё:
+                    continue                             # run НЕ помечен pushed — ретрай недоставленного
             else:
-                self.tg.send_message(self.chat_id, R.format_weak_day(proto))
+                if self.tg.send_message(self.chat_id, R.format_weak_day(proto)) is None:
+                    log("сбой отправки «идей нет» — ретрай в следующий tick", run_id)
+                    continue
                 log("пуш «идей нет»", run_id)
             # РАНО-идеи прогона → лист ожидания (manual_check; авто-триггер привяжет оператор).
             added = W.ingest_protocol(proto, existing_ids=self.state["seen_watchlist"])

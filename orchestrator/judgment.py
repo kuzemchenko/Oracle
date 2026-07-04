@@ -118,6 +118,10 @@ def parse(raw_text, output_kind):
         if not isinstance(cands, list):
             raise JudgmentError("кандидаты должны быть списком")
         for c in cands:
+            if not isinstance(c, dict):
+                # ревью 04.07 H6: LLM вернула список строк → раньше AttributeError мимо JudgmentError
+                # валил весь прогон; теперь это брак ответа роли (ловится agents.call_agent)
+                raise JudgmentError(f"кандидат должен быть объектом, получено {type(c).__name__}: {c!r}"[:200])
             d = str(c.get("направление", "")).strip().lower()
             if d and d not in DIRECTIONS:
                 raise JudgmentError(f"направление кандидата не из {DIRECTIONS}: {d!r}")

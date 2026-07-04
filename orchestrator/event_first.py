@@ -312,6 +312,14 @@ def _deep_report_money(cand, debate, ctx, client):
         причины_вето.append(f"тайминг {tv} без контр-сценария (§6)")
     if isinstance(mscore, (int, float)) and mscore >= manip_thr:
         причины_вето.append(f"манипуляционный балл {mscore} ≥ {manip_thr} (§6)")
+    # Ревью 2026-07-04 M1: сбой вето-несущей проверки (тайминг/манипуляция) раньше был FAIL-OPEN —
+    # quality=None → «вето нет» → идея шла в §11-трек БЕЗ обещанной --deep проверки. Fail-closed,
+    # как F0#2: непройденная проверка на money-пути = процедурное вето с честной причиной
+    # (демотирование в провизорный, не потеря идеи).
+    for key in ("тайминг", "манипуляция"):
+        q = quality.get(key)
+        if q is None or (isinstance(q, dict) and q.get("_ошибка")):
+            причины_вето.append(f"проверка «{key}» не выполнена (сбой агента) — вето fail-closed (§6)")
     # риск-агент (§4 блок F) + синтез 13 полей §8
     prob_j = (debate.get("вердикт") or {}).get("вероятность_судьи")
     risk = SY.run_risk({**cand, "вероятность_судьи": prob_j}, ctx, client, costs={})
@@ -350,7 +358,16 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
     from orchestrator.openrouter import LiveClient
     chain_events = chain_events or {}
     ctx = _C.build_context()
-    client = LiveClient(run_id=run_id)
+    # Ревью 2026-07-04 HIGH: LiveClient без ключа (побитый .env, отозванный ключ) бросал
+    # RuntimeError ВНЕ try — прогон умирал на этапе суда без протокола и уведомления, хотя скан
+    # и картограф уже отработали. Fail-closed + graceful: суд недоступен → ОШИБКА_СУДА для всех
+    # кандидатов (→ демотирование в провизорный через _money_kind), контур доводит прогон до конца.
+    try:
+        client = LiveClient(run_id=run_id)
+    except Exception as e:  # noqa: BLE001
+        return {s.get("symbol"): {"исход": "ОШИБКА_СУДА",
+                                  "примечание": f"суд недоступен (клиент LLM): {e} — money демотированы fail-closed"}
+                for s in (money_members or [])[:top_k] if s.get("symbol")}
     if guard is not None:
         client.cost_guard = guard            # F0#9: стоп-на-лету по потолку режима (§24)
     con = sqlite3.connect(str(_C.DB)) if _C.DB.exists() else None

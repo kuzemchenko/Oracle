@@ -160,7 +160,16 @@ def map_cluster(cluster, universe, client, checker, type_lookup=None):
     theme, overlap = match_cluster_to_theme(cluster, universe)
     if theme:
         return {"kind": "matched", "theme": theme, "overlap": overlap, "cluster": cluster}
-    draft = propose_cascade(cluster, client)
+    # Ревью 2026-07-04 HIGH: отказ LLM (все фолбеки роли исчерпаны → RuntimeError) раньше РОНЯЛ
+    # весь дневной прогон: без протокола, бот молчал, гибла и детерминированная часть (авторские
+    # каскады/граф/seal), которой LLM не нужен. Per-cluster fail-soft: сбой картографа → кластер
+    # честно помечен и пропущен, контур жив. RunBudgetExceeded — BaseException, тут НЕ ловится
+    # и легитимно останавливает прогон (§24).
+    try:
+        draft = propose_cascade(cluster, client)
+    except Exception as e:  # noqa: BLE001
+        return {"kind": "mapper_error", "cluster": cluster,
+                "why": f"сбой LLM-картографа: {type(e).__name__}: {e}"}
     if not draft or not draft.get("каскад"):
         return {"kind": "no_map", "cluster": cluster,
                 "why": (draft or {}).get("обоснование", "торгуемого переноса не найдено")}

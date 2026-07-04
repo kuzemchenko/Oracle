@@ -18,6 +18,7 @@
 import re
 import json
 import pathlib
+import sqlite3
 import datetime
 from collections import defaultdict
 
@@ -192,6 +193,20 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     run_id = f"challenge_{_now_compact()}"
     theme = candidate["актив"]
     ctx = C.build_context(theme=theme)
+    # Ревью 2026-07-04 H7: build_context знает только CORE-инструменты — разбор идеи по компании
+    # каскада шёл с котировка=None/индикаторы=None, и судья штрафовал «нет данных» на пустом месте,
+    # хотя история в oracle.db есть. Инъектируем котировку/индикаторы актива явно (как _vet_money).
+    sym = candidate["актив"]
+    if sym and sym not in (ctx.get("quotes") or {}) and C.DB.exists():
+        con = sqlite3.connect(str(C.DB))
+        try:
+            q = C._quotes(con, sym)
+            if q:
+                ctx.setdefault("quotes", {})[sym] = {"last": q[-1], "n_bars": len(q),
+                                                     "first_date": q[0]["date"], "last_date": q[-1]["date"]}
+                ctx.setdefault("indicators", {})[sym] = C._indicators(q)
+        finally:
+            con.close()
     costs = SY.load_costs()
     cli = client or OR.make_client(mode=mode, run_id=run_id)
 

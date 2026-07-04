@@ -192,13 +192,33 @@ class LiveClient(BaseClient):
         cost = usage.get("cost")  # OpenRouter возвращает реальную стоимость при usage.include
         return text, usage, cost
 
+    def _call_with_retry(self, model, role_cfg, system, user):
+        """_one_call + ретраи с бэкоффом на ТРАНЗИЕНТНЫХ ошибках (429/5xx) той же модели (M6)."""
+        attempt = 0
+        while True:
+            try:
+                return self._one_call(model, role_cfg, system, user)
+            except _Retryable as e:
+                if e.kind not in self.RETRY_KINDS or attempt >= self.RETRIES_PER_MODEL:
+                    raise
+                time.sleep(self.RETRY_BACKOFF_S[min(attempt, len(self.RETRY_BACKOFF_S) - 1)])
+                attempt += 1
+
+    # Ревью 2026-07-04 M6: транзиентный 429/5xx раньше СРАЗУ уводил на следующую модель — короткий
+    # rate-limit выжигал всю цепочку фолбеков за секунды без единой повторной попытки (для П10-ролей
+    # это ещё и меняет фактические семейства). Теперь 1-2 ретрая С БЭКОФФОМ на той же модели, и
+    # только потом фолбек. Пустой ответ/refusal не ретраим (то же самое вернётся) — сразу фолбек.
+    RETRY_KINDS = ("rate_limit", "unavailable")
+    RETRIES_PER_MODEL = 2
+    RETRY_BACKOFF_S = (2.0, 5.0)
+
     def complete(self, role, system, user, *, agent_id, output_kind, exclude_family=None):
         role_cfg = resolve_role(role, self.models)
         chain = filtered_chain(role_cfg, exclude_family, self.models)  # П10: фильтр семейства
         last_err = None
         for i, model in enumerate(chain):
             try:
-                text, usage, cost = self._one_call(model, role_cfg, system, user)
+                text, usage, cost = self._call_with_retry(model, role_cfg, system, user)
                 if i > 0:
                     log_model_swap(self.run_id, agent_id, role, chain[0], model,
                                    reason=str(last_err))
