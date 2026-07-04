@@ -33,7 +33,7 @@ def test_build_from_db_asof_equals_truncated_db(monkeypatch):
     # ТОЖДЕСТВЕНЕН расчёту на БД, физически усечённой по D. Чувствительность — фикс-бета
     # (on_the_fly вне объёма asof v1 и читает свою БД — изолируем).
     monkeypatch.setattr(CB.SEN, "on_the_fly",
-                        lambda up, down, lag=0, db=None: {"источник": up, "узел": down, "lag": lag,
+                        lambda up, down, lag=0, db=None, asof=None: {"источник": up, "узел": down, "lag": lag,
                                                           "pinned": True, "beta_pinned": 0.5,
                                                           "r2": 0.6, "n_obs": 100,
                                                           "provenance": "тест"})

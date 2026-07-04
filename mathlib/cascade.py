@@ -221,15 +221,18 @@ def _lag_for_pair(a, b, links):
     if not links:
         return 0
     au, bu = str(a).upper(), str(b).upper()
-    undirected = None
-    for ln in links:
+    exact = undirected = None
+    for ln in links:                                    # кросс-ревью ночи: directed сканируется ВЕСЬ список
         pair = [str(x).upper() for x in (ln.get("pair") or [])]
         if pair == [au, bu]:
-            return int(ln.get("lag_days") or 0)        # точное направление a→b
-        if ln.get("directed"):
-            continue                                    # направленная запись другой пары/стороны
-        if {au, bu} == set(pair) and undirected is None:
+            if ln.get("directed"):
+                return int(ln.get("lag_days") or 0)     # направленная a→b — высший приоритет
+            if exact is None:
+                exact = int(ln.get("lag_days") or 0)    # ненаправленная, но в нашем порядке
+        elif not ln.get("directed") and {au, bu} == set(pair) and undirected is None:
             undirected = int(ln.get("lag_days") or 0)   # симметричный фолбэк
+    if exact is not None:
+        return exact
     return undirected if undirected is not None else 0
 
 

@@ -625,7 +625,9 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                                 "источник_карты": act.get("источник_карты"),
                                 "пропуск": f"нет шока якоря {anchor} (П8)"})
                 continue
-            nodes = CB.build_from_db(ch, shock, horizon_days=horizon_days, con=con, db=DB)["узлы"]
+            nodes = CB.build_from_db(ch, shock, horizon_days=horizon_days, con=con, db=DB,
+                                     asof=asof_date)["узлы"]   # кросс-ревью ночи: терминалы под тем же
+            # asof-гейтом, что и шок корня (случайный «будущий» бар в БД не течёт в edge/seal — П16)
             каскады.append({"chain_id": ch.get("id"), "якорь": anchor, "shock": round(shock, 5),
                             "активация": act["причины"], "событие_новость": act.get("событие_новость"),
                             "источник_карты": act.get("источник_карты"),

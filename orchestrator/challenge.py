@@ -195,7 +195,9 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     if not (doubt or "").strip():
         return {"ОТКАЗ": "пустое возражение — нечего проверять (П8)"}
 
-    run_id = f"challenge_{_now_compact()}"
+    import os as _os
+    run_id = f"challenge_{_now_compact()}_{_os.getpid()}"   # кросс-ревью ночи: два /debate в одну
+    # секунду больше не пишут ОДИН файл (терялся протокол); pid детерминирован в рамках процесса
     theme = candidate["актив"]
     ctx = C.build_context(theme=theme)
     # Ревью 2026-07-04 H7: build_context знает только CORE-инструменты — разбор идеи по компании
@@ -231,8 +233,9 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     if write:
         d = pathlib.Path(out_dir or CHALLENGE_LOGS)
         d.mkdir(parents=True, exist_ok=True)
-        (d / f"{run_id}.json").write_text(
-            json.dumps(protocol, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        from orchestrator import progress as _PROG
+        _PROG.atomic_write_text(d / f"{run_id}.json",
+                                json.dumps(protocol, ensure_ascii=False, indent=2, default=str))  # M13
     return protocol
 
 

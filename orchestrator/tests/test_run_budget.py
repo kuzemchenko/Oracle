@@ -99,17 +99,27 @@ def test_guard_raises_on_overrun():
     assert g.calls == 3
 
 
-def test_guard_ignores_none_cost():
-    g = RB.RunBudgetGuard("funnel_full", cap_usd=1.0)
-    g.add(None)            # неуспешный вызов без стоимости — не копит
-    assert g.spent_usd == 0.0
+def test_guard_charges_none_cost_with_estimate():
+    # Кросс-ревью ночи 04.07: None-вызовы НЕ бесплатны для стопа — начисляется скользящее
+    # среднее известных стоимостей (до первой известной — консервативный прайор).
+    g = RB.RunBudgetGuard("event_first", 100.0)
+    g.add(None)
+    assert g.spent_usd == g.PRIOR_CALL_USD              # прайор до первой известной стоимости
+    g2 = RB.RunBudgetGuard("event_first", 100.0)
+    g2.add(2.0)
+    g2.add(None)                                        # оценка = среднее известных = 2.0
+    assert g2.spent_usd == 4.0 and g2.estimated_usd == 2.0 and g2.unaccounted_calls == 1
 
 
 def test_unaccounted_calls_visible_not_free():
-    # M7 (ревью 04.07): вызов без стоимости считается явно, а не исчезает из лимитов.
-    from orchestrator.run_budget import RunBudgetGuard
-    g = RunBudgetGuard("event_first", 10.0)
+    # M7 + кросс-ревью ночи: вызов без стоимости считается, платен оценкой и рвёт cap.
+    import pytest
+    g = RB.RunBudgetGuard("event_first", 10.0)
     g.add(1.0)
     g.add(None)
     assert g.calls == 2 and g.unaccounted_calls == 1
-    assert g.spent_usd == 1.0
+    assert g.spent_usd == 2.0                           # 1.0 известная + 1.0 оценка (среднее)
+    tight = RB.RunBudgetGuard("event_first", 0.3)
+    with pytest.raises(RB.RunBudgetExceeded):
+        for _ in range(10):
+            tight.add(None)                             # cap рвётся и на None-вызовах

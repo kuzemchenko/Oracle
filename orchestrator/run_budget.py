@@ -162,17 +162,30 @@ class RunBudgetGuard:
         self.spent_usd = 0.0
         self.calls = 0
         self.unaccounted_calls = 0   # M7: вызовы без cost — видимы, не «бесплатны»
+        self.estimated_usd = 0.0     # сколько начислено оценкой (для честного протокола)
+        self._known_usd = 0.0
+        self._known_calls = 0
         self._lock = threading.Lock()
+
+    # Прайор стоимости вызова без usage.cost (кросс-ревью ночи 04.07: None-вызовы были
+    # БЕСПЛАТНЫ для стопа-на-лету — 100 вызовов при cap=$1 не рвали прогон). Начисляем
+    # скользящее среднее ИЗВЕСТНЫХ стоимостей прогона, а до первого известного — консервативный
+    # прайор (наблюдаемый вызов судьи ~$0.07; берём с запасом).
+    PRIOR_CALL_USD = 0.10
 
     def add(self, cost_usd):
         with self._lock:
             self.calls += 1
             if isinstance(cost_usd, (int, float)):
                 self.spent_usd += float(cost_usd)
+                self._known_usd += float(cost_usd)
+                self._known_calls += 1
             else:
-                # M7 (ревью 04.07): вызов без стоимости (провайдер не вернул usage.cost) раньше
-                # был НЕВИДИМ для лимитов — тихая дыра Инв#5. Считаем явно; протокол показывает.
+                # M7: вызов без стоимости виден И платен для лимита (оценка, честно помечена)
                 self.unaccounted_calls += 1
+                est = (self._known_usd / self._known_calls) if self._known_calls else self.PRIOR_CALL_USD
+                self.spent_usd += est
+                self.estimated_usd += est
             exceeded = self.spent_usd >= self.cap_usd
             spent = self.spent_usd
         if exceeded:

@@ -197,10 +197,10 @@ def build_from_db(chain, shock0, *, horizon_days, con, db=None, promotions=None,
     """build_chain_nodes с боевыми доступами к quotes (чувствительность на лету, отыгранное, вола).
     promotions=None → грузим knowledge/forward_promotions.yaml (форвард-заработанные ярус-A рёбра).
 
-    asof='YYYY-MM-DD' (replay-долг F3/П2а, закрыт ночью 04.07): realized/vol ТЕРМИНАЛОВ и гейт
-    достаточности баров считаются по барам date<=asof — граф «как был бы на дату asof», без
-    look-ahead (П16). ГРАНИЦА v1 (честно): чувствительности (sensitivity.on_the_fly) остаются
-    по полной истории — это калибровочные параметры библиотеки, их asof-срез — отдельный долг."""
+    asof='YYYY-MM-DD' (replay-долг F3/П2а, закрыт ночью 04.07): realized/vol терминалов, гейт
+    достаточности баров И чувствительности звеньев (on_the_fly через loader) считаются по барам
+    date<=asof — граф «как был бы на дату asof», без look-ahead (П16; кросс-ревью ночного
+    пакета закрыло и чувствительности)."""
     if promotions is None:
         promotions = load_promotions()
     _asof_sql = " AND date <= ?" if asof else ""
@@ -232,7 +232,7 @@ def build_from_db(chain, shock0, *, horizon_days, con, db=None, promotions=None,
         return float(r.std()) if r.size >= 2 else 0.0
 
     def sensitivity_fn(up, down, lag):
-        return SEN.on_the_fly(up, down, lag=lag, db=db)
+        return SEN.on_the_fly(up, down, lag=lag, db=db, asof=asof)
 
     return build_chain_nodes(chain, shock0, horizon_days=horizon_days,
                              sensitivity_fn=sensitivity_fn, realized_fn=realized_fn,

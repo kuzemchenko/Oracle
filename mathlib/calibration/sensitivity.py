@@ -92,7 +92,7 @@ def calibrate_pair_sensitivity(source_ret, node_ret, lag=0,
     return rec
 
 
-def on_the_fly(source_sym, node_sym, *, lag=0, db=None,
+def on_the_fly(source_sym, node_sym, *, lag=0, db=None, asof=None,
                train=TRAIN, test=TEST, step=STEP, min_obs=CAS.MIN_OBS):
     """Калибровка чувствительности узла к источнику для ЛЮБЫХ резолвнутых тикеров — на лету из
     oracle.db (§3c/Этап 3–4: динамически-резолвнутые компании, не только реестр 14). Честный «нет
@@ -100,7 +100,7 @@ def on_the_fly(source_sym, node_sym, *, lag=0, db=None,
     """
     from mathlib.calibration import loader as LD
     syms = [source_sym, node_sym]
-    _, series = LD.load_aligned(syms, db=db) if db else LD.load_aligned(syms)
+    _, series = LD.load_aligned(syms, db=db, asof=asof) if db else LD.load_aligned(syms, asof=asof)
     miss = [s for s in syms if s not in series or series[s].adj.size == 0]
     if miss:
         return {"источник": source_sym, "узел": node_sym, "lag": int(lag),

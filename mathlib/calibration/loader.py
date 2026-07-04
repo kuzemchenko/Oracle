@@ -97,17 +97,18 @@ def list_symbols(db=DB):
         con.close()
 
 
-def load_aligned(symbols, db=DB):
+def load_aligned(symbols, db=DB, asof=None):
     """Загрузить несколько инструментов, выровненных по ОБЩИМ датам (пересечение).
 
     Возвращает (dates, {symbol: Series}), где у каждого Series одинаковый набор дат.
     Нужен для измерения lead-lag причинных связей (§23.1 п.2) и кросс-активных
     предвестников (§23.1 п.3) на синхронных рядах.
-    """
+    asof='YYYY-MM-DD' (replay, ночь 04.07): только даты <= asof — чувствительность
+    «как была бы на дату», без look-ahead (П16)."""
     raw = {s: load_series(s, db) for s in symbols}
     common = None
     for s, ser in raw.items():
-        ds = set(ser.dates.tolist())
+        ds = {d for d in ser.dates.tolist() if (asof is None or d <= asof)}
         common = ds if common is None else (common & ds)
     common = np.array(sorted(common)) if common else np.array([])
     out = {}
