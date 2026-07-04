@@ -28,6 +28,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from mathlib import attention as A          # noqa: E402
+from mathlib import sealing as SEAL         # noqa: E402  (межпроцессный лок реестра)
 from data import trends as TR               # noqa: E402
 
 SEEDS_PATH = ROOT / "config" / "attention_keys.yaml"
@@ -47,18 +48,27 @@ def _load_seeds(path=None):
 
 
 def _load_registry(path=None):
-    """Реестр назначенных ключей: {актив: первая_запись} (первый выигрывает — пересдача запрещена)."""
+    """Реестр назначенных ключей: {актив: первая_запись} (первый выигрывает — пересдача запрещена).
+    Битая строка (обрыв записи/ручная правка) НЕ валит реестр целиком (кросс-ревью П2а, HIGH):
+    пропускается с громкой пометкой в stderr — идеи без записи честно получат «не_измерено»."""
     p = pathlib.Path(path) if path else REGISTRY_PATH
     if not p.exists():
         return {}
-    out = {}
+    out, broken = {}, 0
     with open(p, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            rec = json.loads(line)
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                broken += 1
+                continue
             out.setdefault(rec.get("актив"), rec)     # setdefault = первый выигрывает
+    if broken:
+        print(f"⚠ attention_keys.jsonl: {broken} битых строк пропущено (реестр жив, проверь журнал)",
+              file=sys.stderr)
     return out
 
 
@@ -69,27 +79,35 @@ def registry_keywords(path=None):
 
 def assign_key(asset, keyword, source, run_id, ts, path=None):
     """Назначить активу Trends-ключ с журналируемым провенансом. Если ключ УЖЕ назначен —
-    возвращается существующая запись (пересдача запрещена, §R0#5), новая НЕ пишется."""
+    возвращается существующая запись (пересдача запрещена, §R0#5), новая НЕ пишется.
+    Проверка+append — под межпроцессным локом (кросс-ревью П2а, BLOCKER: два одновременных
+    прогона могли назначить активу РАЗНЫЕ ключи, каждый посчитав поле по своему)."""
     p = pathlib.Path(path) if path else REGISTRY_PATH
-    existing = _load_registry(p).get(asset)
-    if existing:
-        return existing
-    rec = {"актив": asset, "ключ": str(keyword), "источник": source, "run_id": run_id, "ts": ts}
     p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "a", encoding="utf-8") as f:          # append-only журнал провенанса
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    with SEAL._locked(p):
+        existing = _load_registry(p).get(asset)
+        if existing:
+            return existing
+        rec = {"актив": asset, "ключ": str(keyword), "источник": source, "run_id": run_id, "ts": ts}
+        with open(p, "a", encoding="utf-8") as f:      # append-only журнал провенанса
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return rec
 
 
 def resolve_key(asset, *, seeds=None, registry=None):
-    """(ключ, источник) для актива: сиды → реестр → (None, None)."""
+    """(ключ, источник) для актива: РЕЕСТР → сиды → (None, None).
+
+    Кросс-ревью П2а (HIGH): реестр (первое журналированное назначение) ВЫШЕ сидов — иначе
+    поздняя правка attention_keys.yaml тихо пересдавала бы ключ мимо append-only журнала.
+    Сид применяется только к активу, который ещё НИКОГДА не фиксировался, и при первом
+    использовании сам журналируется (см. field_for_asset)."""
     seeds = _load_seeds() if seeds is None else seeds
     registry = _load_registry() if registry is None else registry
-    if asset in seeds:
-        return seeds[asset], "seed config/attention_keys.yaml"
     rec = registry.get(asset)
     if rec and rec.get("ключ"):
         return rec["ключ"], f"реестр ({rec.get('источник')}, {rec.get('run_id')})"
+    if asset in seeds:
+        return seeds[asset], "seed config/attention_keys.yaml"
     return None, None
 
 
@@ -100,13 +118,25 @@ def _not_measured(reason, key=None, key_source=None):
 
 
 def field_for_asset(con, asset, *, asof, run_id, candidates=None,
-                    seeds=None, registry=None, registry_path=None):
+                    seeds=None, registry_path=None, fix_keys=True):
     """Поле «внимание» для одного актива. candidates — детерминированные строки-кандидаты ключа
     (напр. ключевые слова кластера картографа): используются ТОЛЬКО если ключа ещё нет; назначение
-    журналируется. Возвращает dict поля (статус ok | не_измерено)."""
+    журналируется. Возвращает dict поля (статус ok | не_измерено).
+
+    Кросс-ревью П2а (HIGH): реестр читается ТОЛЬКО из registry_path (инъекция готового dict
+    позволяла посчитать поле по незажурналированному ключу — обход провенанса). Любой фактически
+    ИСПОЛЬЗУЕМЫЙ ключ (включая сид при первом касании) фиксируется в append-only реестре —
+    после этого правка сидов актив не пересдаёт (resolve_key: реестр выше сидов)."""
+    registry = _load_registry(registry_path)
     key, key_source = resolve_key(asset, seeds=seeds, registry=registry)
-    if key is None and candidates:
-        cand = next((str(c).strip() for c in candidates if c and str(c).strip()), None)
+    if key is not None and asset not in registry and fix_keys:
+        rec = assign_key(asset, key, key_source, run_id, asof, path=registry_path)
+        key = rec["ключ"]                      # гонка: другой прогон успел первым — его ключ окончателен
+        key_source = f"реестр ({rec.get('источник')}, {rec.get('run_id')})"
+    if key is None and candidates and fix_keys:
+        # детерминизм (кросс-ревью LOW): множества сортируем; списки — в порядке значимости кластера
+        cands = sorted(candidates) if isinstance(candidates, (set, frozenset)) else list(candidates)
+        cand = next((str(c).strip() for c in cands if c and str(c).strip()), None)
         if cand:
             rec = assign_key(asset, cand, "ключи новостного кластера картографа",
                              run_id, asof, path=registry_path)
@@ -134,27 +164,27 @@ def field_for_asset(con, asset, *, asof, run_id, candidates=None,
 
 
 def annotate_ideas(con, картограф_идеи, треки, *, asof, run_id,
-                   seeds=None, registry=None, registry_path=None):
+                   seeds=None, registry_path=None, fix_keys=True):
     """Прикрепить поле «внимание» идеям выдачи (мутирует dict'ы) и вернуть покрытие (§R5).
 
     картограф_идеи: candidates = их «ключи» (слова кластера, журналируемое назначение);
     треки (money/provisional/digest_only): только сиды/реестр — кандидатов у узлов графа нет.
-    Поле НЕ влияет на ранжирование: прикрепляется ПОСЛЕ отбора/маршрутизации."""
+    Поле НЕ влияет на ранжирование: прикрепляется ПОСЛЕ отбора/маршрутизации.
+    fix_keys=False (mock/dry): только ЧТЕНИЕ реестра/сидов, назначения НЕ журналируются
+    (конвенция П16: mock журналы не трогает). Реестр перечитывается на каждый актив
+    (объём — единицы идей на прогон)."""
     seeds = _load_seeds() if seeds is None else seeds
-    registry = _load_registry(registry_path) if registry is None else registry
     ok = missing = 0
     for idea in (картограф_идеи or []):
         f = field_for_asset(con, idea.get("актив"), asof=asof, run_id=run_id,
-                            candidates=idea.get("ключи"), seeds=seeds, registry=registry,
-                            registry_path=registry_path)
+                            candidates=idea.get("ключи"), seeds=seeds,
+                            registry_path=registry_path, fix_keys=fix_keys)
         idea["внимание"] = f
         ok, missing = (ok + 1, missing) if f["статус"] == "ok" else (ok, missing + 1)
-        if f["статус"] == "ok" or f.get("ключ"):
-            registry = _load_registry(registry_path)   # свеженазначенные ключи видны следующим идеям
     for track in ("money", "provisional", "digest_only"):
         for s in (треки or {}).get(track, []) or []:
             f = field_for_asset(con, s.get("symbol"), asof=asof, run_id=run_id,
-                                seeds=seeds, registry=registry, registry_path=registry_path)
+                                seeds=seeds, registry_path=registry_path, fix_keys=fix_keys)
             s["внимание"] = f
             ok, missing = (ok + 1, missing) if f["статус"] == "ok" else (ok, missing + 1)
     total = ok + missing

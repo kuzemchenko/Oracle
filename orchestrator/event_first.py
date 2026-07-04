@@ -569,7 +569,8 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # журналируется, пересдача запрещена); узлы треков — по сидам/реестру. Судья увидит поле
         # в проверяемом деле каскада (вход тайминга §8). Покрытие — метрика §R5 в протоколе.
         внимание_покрытие = AF.annotate_ideas(con, картограф_идеи, треки,
-                                              asof=now.isoformat(timespec="seconds"), run_id=run_id)
+                                              asof=now.isoformat(timespec="seconds"), run_id=run_id,
+                                              fix_keys=(mode != "mock"))   # mock реестр не трогает (П16)
 
         # B3c: ЗАПЕЧАТЫВАНИЕ ПО ТРЕКАМ (П16 — только при seal_predictions, иначе журнал не трогаем).
         # money (ярус A) → kind=cascade_money → денежный Brier/§11; провизорный (ярус B/C) →
