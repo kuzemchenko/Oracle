@@ -242,24 +242,32 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     (asset/src_run_id) на выданную идею из journal/funnel_logs. Возвращает протокол разбора
     (с человеческим резюме под ключом 'резюме'); при write=True пишет journal/challenges/{id}.json.
     """
+    import os as _os
+    run_id_early = f"challenge_{_now_compact()}_{_os.getpid()}_{next(_RUN_SEQ)}"
+
+    def _refuse(payload):
+        # кросс-№16: ЛЮБОЙ отказ аудируем при write=True (симметрично бюджетным)
+        payload = {"run_id": run_id_early, "ts": _now_iso(), **payload}
+        if write:
+            _write_challenge_file(run_id_early, payload, out_dir)
+        return payload
+
     src = None
     if candidate is None:
         card, src = find_idea(asset=asset, run_id=src_run_id, logs_dir=logs_dir)
         if card is None:
-            return {"ОТКАЗ": "идея не найдена",
-                    "подсказка": "укажи актив из выданных идей или сделай прогон воронки",
-                    "доступные_идеи": list_ideas(logs_dir=logs_dir)}
+            return _refuse({"ОТКАЗ": "идея не найдена",
+                            "подсказка": "укажи актив из выданных идей или сделай прогон воронки",
+                            "доступные_идеи": list_ideas(logs_dir=logs_dir)})
         candidate = candidate_from_card(card)
     if not candidate.get("актив"):
-        return {"ОТКАЗ": "у идеи нет актива — нечего разбирать"}
+        return _refuse({"ОТКАЗ": "у идеи нет актива — нечего разбирать"})
     if not (doubt or "").strip():
-        return {"ОТКАЗ": "пустое возражение — нечего проверять (П8)"}
+        return _refuse({"ОТКАЗ": "пустое возражение — нечего проверять (П8)"})
 
-    import os as _os
-    # кросс-ревью ночи (№1..№4): два /debate в одну секунду — в т.ч. в одном процессе и из
-    # параллельных потоков — не пишут один файл: pid разводит процессы, атомарный itertools.count
-    # (GIL-безопасный next) — вызовы внутри процесса
-    run_id = f"challenge_{_now_compact()}_{_os.getpid()}_{next(_RUN_SEQ)}"
+    # кросс-ревью ночи (№1..№4): pid + атомарный itertools.count — коллизий имени нет;
+    # run_id создан ДО валидаций (кросс-№16), отказы аудируемы под тем же id
+    run_id = run_id_early
     theme = candidate["актив"]
     ctx = C.build_context(theme=theme)
     # Ревью 2026-07-04 H7: build_context знает только CORE-инструменты — разбор идеи по компании
