@@ -187,3 +187,37 @@ def test_nonlist_nested_cascade_nodes_do_not_crash():
     s = PS.build_session({"ts": "2026-07-04T09:00:00+00:00", "граф_отбор": {},
                           "картограф_идеи": [{"актив": "X.US", "узлы_каскада": 1}]}, asof=ASOF)
     assert s["идей"] == 1 and s["идеи"][0]["аргумент"]["узлы_каскада"] == []
+
+
+def test_brief_argument_carries_event_and_anchor():
+    # Stage-review HIGH-1: «новость → цепочка → компания» — событие и якорь доезжают до сессии.
+    p = _proto()
+    p["граф_отбор"]["money_трек"][0]["событие"] = "Индия ускорила закупки трансформаторов"
+    p["граф_отбор"]["money_трек"][0]["якорь"] = "GEV.US"
+    s = PS.build_session(p, asof=ASOF)
+    assert s["идеи"][0]["аргумент"]["событие"] == "Индия ускорила закупки трансформаторов"
+    assert s["идеи"][0]["аргумент"]["якорь"] == "GEV.US"
+
+
+def test_render_verdict_dependent_headers():
+    # Stage-review HIGH-2: для РАЗБИТА рамка не лжёт «почему неправ»; ПРОПУСК несёт примечание.
+    import bot_reports as R
+    p = _proto()
+    p["граф_отбор"]["суд_money"]["GEV.US"] = {
+        "исход": "РАЗБИТА", "балл": 1.3, "кто_против": "покупатели отскока",
+        "почему_возможность": "edge не доказан"}
+    txt = R.format_partner_session(PS.build_session(p, asof=ASOF))
+    assert "суд встал на их сторону" in txt
+    assert "почему он неправ" not in txt
+    p["граф_отбор"]["суд_money"]["GEV.US"] = {
+        "исход": "ПРОПУСК", "примечание": "нет котировки терминала — research-only"}
+    txt2 = R.format_partner_session(PS.build_session(p, asof=ASOF))
+    assert "ПРОПУСК" in txt2 and "нет котировки терминала" in txt2
+
+
+def test_unhashable_asset_skipped():
+    # Кросс-ревью №4: актив-список не роняет сборку и не становится идеей.
+    s = PS.build_session({"ts": "2026-07-04T09:00:00+00:00",
+                          "граф_отбор": {"money_трек": [{"актив": ["A", "B"]}]},
+                          "картограф_идеи": []}, asof=ASOF)
+    assert s["идей"] == 0
