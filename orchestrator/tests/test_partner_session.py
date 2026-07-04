@@ -58,14 +58,34 @@ def test_build_session_order_dedup_and_fields():
     ccj = s["идеи"][2]
     assert "уран" in ccj["аргумент"]["событие"]
     assert s["мало_идей"] is False and s["идей"] == 3
-    assert s["прогон_устарел"] is False                       # 9 часов < 3 дней
+    assert s["схлопнуто_дублей_актива"] == 1                  # дубль GEV.US схлопнут ЯВНЫМ правилом
+    assert "также_в" in s["идеи"][0]                          # и помечен на карточке
 
 
 def test_build_session_honest_refusal_and_stale():
     assert "ОТКАЗ" in PS.build_session(None, asof=ASOF)
     old = _proto(); old["ts"] = "2026-06-20T09:00:00+00:00"
     s = PS.build_session(old, asof=ASOF)
-    assert s["прогон_устарел"] is True                        # честная пометка, не подмена свежим
+    assert "ОТКАЗ" in s and "устарели" in s["ОТКАЗ"]          # кросс-ревью BLOCKER: не греем вчерашнее
+    assert "идеи" not in s
+    broken = PS.build_session({"_битый_протокол": "ef_x.json"}, asof=ASOF)
+    assert "ОТКАЗ" in broken and "нечитаем" in broken["ОТКАЗ"]  # без подмены старым
+
+
+def test_build_session_survives_malformed_protocol():
+    # Кросс-ревью HIGH: кривые, но валидные JSON-формы не роняют сессию.
+    for bad in ({"ts": ASOF, "граф_отбор": []},
+                {"ts": ASOF, "граф_отбор": {"money_трек": [42]}},
+                {"ts": ASOF, "граф_отбор": {"суд_money": []},
+                 "картограф_идеи": [{"актив": "X.US", "узлы_каскада": [1]}]}):
+        s = PS.build_session(bad, asof=ASOF)
+        assert "идей" in s                                    # собралось (пусть и пусто), не упало
+
+
+def test_record_session_refuses_refusal(tmp_path):
+    p = tmp_path / "s.jsonl"
+    assert PS.record_session({"ОТКАЗ": "нет протокола"}, path=p) is None
+    assert not p.exists()                                     # журнал не загрязнён
 
 
 def test_session_cap_and_few_ideas_flag():
@@ -92,10 +112,14 @@ def test_record_and_metrics(tmp_path):
                             ("challenge_old", "2026-06-01T10:00:00+00:00", "УСТОЯЛА")):
         (ch_dir / f"{name}.json").write_text(json.dumps(
             {"ts": ts, "дебаты": {"вердикт": {"исход": исход}}}, ensure_ascii=False))
+    (ch_dir / "challenge_nc.json").write_text(json.dumps(
+        {"ts": "2026-07-04T11:00:00+00:00",
+         "дебаты": {"вердикт": {"исход": "УСТОЯЛА_БЕЗ_КРИТИКА"}}}, ensure_ascii=False))
     m = PS.session_metrics(asof=ASOF, sessions_path=sessions, challenges_dir=ch_dir)
-    assert m["сессий"] == 1 and m["retention_ok"] is True
-    assert m["докапываний"] == 2 and m["вердиктов"] == 2
-    assert m["выживаемость"] == 0.5
+    assert m["сессий"] == 1 and m["retention_ok"] is True and m["сессий_за_7дн"] == 1
+    assert m["докапываний"] == 3 and m["вердиктов"] == 2
+    assert m["выживаемость"] == 0.5                           # БЕЗ_КРИТИКА не в числителе И не в знаменателе
+    assert m["без_критика"] == 1
 
 
 def test_metrics_empty_is_honest(tmp_path):
@@ -103,6 +127,16 @@ def test_metrics_empty_is_honest(tmp_path):
                            challenges_dir=tmp_path / "noch")
     assert m["сессий"] == 0 and m["retention_ok"] is False
     assert m["выживаемость"] is None                          # нет вердиктов — не 0 и не 1
+
+
+def test_retention_is_weekly_regardless_of_window(tmp_path):
+    # Кросс-ревью LOW: retention_ok — по последним 7 дням, даже если окно метрик шире.
+    sessions = tmp_path / "s.jsonl"
+    sessions.write_text(json.dumps({"ts": "2026-06-10T10:00:00+00:00", "идей": 3}) + "\n")
+    m = PS.session_metrics(asof=ASOF, days=30, sessions_path=sessions,
+                           challenges_dir=tmp_path / "none")
+    assert m["сессий"] == 1                                   # в 30-дневном окне есть
+    assert m["сессий_за_7дн"] == 0 and m["retention_ok"] is False
 
 
 def test_render_partner_session():
