@@ -1,20 +1,20 @@
 {
-  "run_id": "ef_20260704T143208Z",
+  "run_id": "pytest_guard_off",
   "mode": "mock",
-  "title": "event-first: поиск идей",
+  "title": "воронка · SPCX.US",
   "outer_total": 1,
   "outer_i": 0,
-  "outer_label": "BNO.US",
+  "outer_label": "SPCX.US",
   "phase": "synthesis",
   "phase_label": "синтез отчёта §8",
   "agents": null,
-  "note": "скан событий (новости + цены + тренды)…",
+  "note": null,
   "frac": 1.0,
   "pct": 100,
-  "elapsed_sec": 1.3,
+  "elapsed_sec": 0.2,
   "eta_sec": 0.0,
-  "started_at": "2026-07-04T14:32:08Z",
-  "updated_at": "2026-07-04T14:32:09Z",
+  "started_at": "2026-07-04T15:02:34Z",
+  "updated_at": "2026-07-04T15:02:34Z",
   "finished": true,
-  "summary": "Идей в поток 3 уникальных (картограф 0 + граф-топ 3) · источников 2 · граф 3 узлов (ворота 3: money 0/провиз 3/дайдж 0) · состязательный контур 3 идей · новых событий 0."
+  "summary": "воронка · SPCX.US: выдано идей: 3"
 }
