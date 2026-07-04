@@ -440,8 +440,8 @@ def summarize(protocol):
     verdict_line = f"Вердикт слепого судьи: {outcome}"
     if mean is not None and thr is not None:
         verdict_line += f" (средний балл рубрики {mean} против порога {thr})"
-    if outcome == "УСТОЯЛА" and isinstance(prob, (int, float)):
-        verdict_line += f"; вероятность по судье ~{round(prob * 100)}%"
+    if outcome == "УСТОЯЛА" and isinstance(prob, (int, float)) and not isinstance(prob, bool):
+        verdict_line += f"; вероятность по судье ~{round(prob * 100)}%"   # кросс-№9: True ≠ 100%
     if v.get("примечание"):
         verdict_line += f". {v['примечание']}"
 
