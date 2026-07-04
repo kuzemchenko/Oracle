@@ -575,7 +575,11 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             PROG.outer(_i, src)
             # 1) КАЧЕСТВЕННО: полный состязательный контур, заякоренный на источник события
             p = F.run_funnel(theme=src, mode=mode, theme_focused=True, write=write,
-                             run_id=f"{run_id}__{src}")
+                             run_id=f"{run_id}__{src}", cost_guard=guard)
+            # кросс-ревью ночи: внутренняя воронка ловит RunBudgetExceeded сама (graceful) —
+            # если при этом пробит ВНЕШНИЙ потолок event_first, честно останавливаем весь прогон
+            if guard is not None and "ОСТАНОВ_бюджет" in p and guard.spent_usd >= guard.cap_usd:
+                raise RB.RunBudgetExceeded(guard.mode, guard.spent_usd, guard.cap_usd)
             ideas = (p.get("этап6_синтез") or {}).get("отчёты", [])
             for idea in ideas:
                 all_ideas.append({**idea, "_событие": src})

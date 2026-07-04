@@ -25,6 +25,7 @@ from collections import defaultdict
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FUNNEL_LOGS = ROOT / "journal" / "funnel_logs"
 CHALLENGE_LOGS = ROOT / "journal" / "challenges"
+_RUN_SEQ = 0   # внутрипроцессный разводчик run_id (кросс-ревью ночи)
 
 import sys
 sys.path.insert(0, str(ROOT))
@@ -196,8 +197,11 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
         return {"ОТКАЗ": "пустое возражение — нечего проверять (П8)"}
 
     import os as _os
-    run_id = f"challenge_{_now_compact()}_{_os.getpid()}"   # кросс-ревью ночи: два /debate в одну
-    # секунду больше не пишут ОДИН файл (терялся протокол); pid детерминирован в рамках процесса
+    global _RUN_SEQ
+    _RUN_SEQ += 1
+    # кросс-ревью ночи (№1+№2): два /debate в одну секунду — В ТОМ ЧИСЛЕ в одном процессе —
+    # больше не пишут один файл: pid разводит процессы, счётчик — вызовы внутри процесса
+    run_id = f"challenge_{_now_compact()}_{_os.getpid()}_{_RUN_SEQ}"
     theme = candidate["актив"]
     ctx = C.build_context(theme=theme)
     # Ревью 2026-07-04 H7: build_context знает только CORE-инструменты — разбор идеи по компании
@@ -217,7 +221,28 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     costs = SY.load_costs()
     cli = client or OR.make_client(mode=mode, run_id=run_id)
 
-    debate = DBT.run_debate(candidate, ctx, cli, run_id=run_id, costs=costs, user_doubt=doubt)
+    # §24 (кросс-ревью ночи №2): live-разбор БОЛЬШЕ НЕ обходит бюджетный контур — пред-проверка
+    # (месячный потолок/оценка) + стоп-на-лету, как у всех боевых прогонов (Инв#5).
+    if getattr(cli, "mode", None) == "live":
+        from orchestrator import run_budget as RB
+        decision = RB.precheck("challenge")
+        if not decision.get("allowed"):
+            return {"run_id": run_id, "ts": _now_iso(), "mode": cli.mode,
+                    "ОТКАЗ_бюджет": decision,
+                    "spec_ref": "§24 пред-проверка; Инв#5",
+                    "резюме": "разбор НЕ выполнен: бюджет (§24) — поднять потолок может только владелец"}
+        cli.cost_guard = RB.RunBudgetGuard("challenge", decision["cap_usd"])
+    try:
+        debate = DBT.run_debate(candidate, ctx, cli, run_id=run_id, costs=costs, user_doubt=doubt)
+    except Exception as _e:
+        from orchestrator import run_budget as RB
+        if isinstance(_e, RB.RunBudgetExceeded):
+            return {"run_id": run_id, "ts": _now_iso(), "mode": getattr(cli, "mode", mode),
+                    "ОСТАНОВ_бюджет": {"mode": _e.mode, "spent_usd": round(_e.spent_usd, 4),
+                                       "cap_usd": _e.cap_usd},
+                    "spec_ref": "§24 стоп-на-лету; Инв#5",
+                    "резюме": "разбор ОСТАНОВЛЕН на лету: потолок challenge-режима (§24)"}
+        raise
 
     protocol = {
         "run_id": run_id,

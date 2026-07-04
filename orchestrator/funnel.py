@@ -416,14 +416,30 @@ def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits
 
 
 # ── Прогон воронки ───────────────────────────────────────────────────────────────
+class _GuardChain:
+    """Цепочка бюджет-гардов (кросс-ревью ночи 04.07): внутренняя воронка event_first платит и в
+    СВОЙ per-run потолок, и во ВНЕШНИЙ гард контура — раньше траты внутренних funnel были
+    невидимы стопу-на-лету event_first (реальный потолок ≈ k×cap(funnel)+cap(event_first))."""
+    def __init__(self, *guards):
+        self.guards = [g for g in guards if g is not None]
+
+    def add(self, cost_usd):
+        for g in self.guards:
+            g.add(cost_usd)
+
+    def __call__(self, cost_usd):
+        self.add(cost_usd)
+
+
 def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
-               theme_focused=False):
+               theme_focused=False, cost_guard=None):
     """Обёртка graceful-стопа бюджета (§24, долг[HIGH] из stage-review F0): RunBudgetGuard рвёт
     прогон на лету через RunBudgetExceeded(BaseException) — ловим ЯВНО здесь и отдаём протокол-стоп
     (не крэш). Вся логика — в _run_funnel."""
     try:
         return _run_funnel(theme=theme, mode=mode, agent_ids=agent_ids, run_id=run_id,
-                           write=write, full=full, theme_focused=theme_focused)
+                           write=write, full=full, theme_focused=theme_focused,
+                           cost_guard=cost_guard)
     except RB.RunBudgetExceeded as e:
         rid = run_id or f"funnel_{_now_compact()}"
         if PROG.active():
@@ -440,7 +456,7 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
 
 
 def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
-                theme_focused=False):
+                theme_focused=False, cost_guard=None):
     """Сквозной прогон полной воронки §6 (этапы 1–6).
 
     full=True (по умолчанию): этапы 1–6 — скан+FDR → кандидаты → грубый фильтр → скоринг §7 →
@@ -506,8 +522,10 @@ def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=T
             if write:
                 _write_refusal(refusal)
             return refusal
-        # стоп на лету (второй эшелон): рвём прогон при пересечении потолка режима
-        client.cost_guard = RB.RunBudgetGuard(budget_mode, budget_decision["cap_usd"])
+        # стоп на лету (второй эшелон): рвём прогон при пересечении потолка режима.
+        # Внешний cost_guard (event_first) — в цепочке: внутренние траты видны обоим потолкам.
+        own = RB.RunBudgetGuard(budget_mode, budget_decision["cap_usd"])
+        client.cost_guard = _GuardChain(own, cost_guard) if cost_guard is not None else own
 
     ids = agent_ids or [a[0] for a in AGENTS]
     # Прогресс (§15): event-first уже мог открыть прогон и выставить текущее событие через
