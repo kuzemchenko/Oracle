@@ -76,10 +76,31 @@ def _ts_key(protocol):
     # лексикографически компакт ВСЕГДА «новее» ISO ('202607…' > '2026-0…') → find_idea брал не ту
     # идею. Нормализуем к цифрам+T — формы сравнимы между собой.
     ts = (protocol or {}).get("ts") or ""
-    if ts:
-        return _norm_utc_digits(ts)
+    key = _norm_utc_digits(ts) if ts else ""
+    if key:
+        return key
+    # кросс-№12: невалидный ts (голая дата/мусор) → фолбэк на таймстамп из run_id, не «дно»
     m = _TS_RE.search(str((protocol or {}).get("run_id") or ""))
     return _norm_utc_digits(m.group(0)) if m else ""
+
+
+def _write_challenge_file(run_id, payload, out_dir=None):
+    """Запись протокола/отказа разбора: no-clobber АТОМАРНО (кросс-№5/№6) — имя клеймится
+    os.O_EXCL (двум писателям одно имя не достанется даже в гонке), затем атомарная замена."""
+    from orchestrator import progress as _PROG
+    import os as _os2
+    d = pathlib.Path(out_dir or CHALLENGE_LOGS)
+    d.mkdir(parents=True, exist_ok=True)
+    suffix = 0
+    while True:
+        dst = d / (f"{run_id}.json" if not suffix else f"{run_id}-{suffix}.json")
+        try:
+            _os2.close(_os2.open(dst, _os2.O_CREAT | _os2.O_EXCL | _os2.O_WRONLY))
+            break
+        except FileExistsError:
+            suffix += 1
+    _PROG.atomic_write_text(dst, json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+    return dst
 
 
 def _scan_protocols(logs_dir=None):
@@ -100,7 +121,13 @@ def _scan_protocols(logs_dir=None):
 
 
 def _reports_of(protocol):
-    return ((protocol or {}).get("этап6_синтез") or {}).get("отчёты") or []
+    syn = (protocol or {}).get("этап6_синтез")
+    if not isinstance(syn, dict):              # кросс-№12: этап6_синтез=[] не валит листинг
+        return []
+    reps = syn.get("отчёты")
+    if not isinstance(reps, list):
+        return []
+    return [r for r in reps if isinstance(r, dict)]   # битый элемент — пропуск, не крэш
 
 
 def _fields_of(report_card):
@@ -262,10 +289,13 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
         from orchestrator import run_budget as RB
         decision = RB.precheck("challenge")
         if not decision.get("allowed"):
-            return {"run_id": run_id, "ts": _now_iso(), "mode": cli.mode,
-                    "ОТКАЗ_бюджет": decision,
-                    "spec_ref": "§24 пред-проверка; Инв#5",
-                    "резюме": "разбор НЕ выполнен: бюджет (§24) — поднять потолок может только владелец"}
+            refusal = {"run_id": run_id, "ts": _now_iso(), "mode": cli.mode,
+                       "ОТКАЗ_бюджет": decision,
+                       "spec_ref": "§24 пред-проверка; Инв#5",
+                       "резюме": "разбор НЕ выполнен: бюджет (§24) — поднять потолок может только владелец"}
+            if write:                          # кросс-№12 LOW: попытка аудируема, как любой разбор
+                _write_challenge_file(run_id, refusal, out_dir)
+            return refusal
         cli.cost_guard = RB.RunBudgetGuard("challenge", decision["cap_usd"])
     from orchestrator import run_budget as RB
     try:
@@ -293,20 +323,7 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     if write:
         d = pathlib.Path(out_dir or CHALLENGE_LOGS)
         d.mkdir(parents=True, exist_ok=True)
-        from orchestrator import progress as _PROG
-        # кросс-№5/№6: no-clobber АТОМАРНО — имя клеймится os.O_EXCL (двум писателям одно имя
-        # не достанется даже в гонке), затем атомарная замена заклеймленного файла содержимым
-        import os as _os2
-        suffix = 0
-        while True:
-            dst = d / (f"{run_id}.json" if not suffix else f"{run_id}-{suffix}.json")
-            try:
-                _os2.close(_os2.open(dst, _os2.O_CREAT | _os2.O_EXCL | _os2.O_WRONLY))
-                break
-            except FileExistsError:
-                suffix += 1
-        _PROG.atomic_write_text(dst,
-                                json.dumps(protocol, ensure_ascii=False, indent=2, default=str))  # M13
+        _write_challenge_file(run_id, protocol, out_dir)
     return protocol
 
 
