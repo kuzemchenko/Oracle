@@ -49,16 +49,21 @@ _TS_RE = re.compile(r"\d{8}T\d{6}Z")
 
 
 def _norm_utc_digits(x):
-    """ISO-время → сравнимая цифровая форма В UTC (кросс-№5/№6: смещения не ломают порядок)."""
+    """ISO/компакт-время → сравнимая цифровая форма В UTC. НЕ-время (кросс-№8: 'week9_testday'
+    давал ключ '9' > любого таймстампа) → '' — фикстуры сортируются НИЖЕ боевых, как задумано."""
     import datetime as _dt
+    import re as _re
     s = str(x)
     try:
         d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
         if d.tzinfo is not None:
             s = d.astimezone(_dt.timezone.utc).isoformat()
+        return "".join(ch for ch in s if ch.isdigit() or ch == "T")
     except ValueError:
-        pass                                  # компакт-форма уже UTC (…Z из run_id)
-    return "".join(ch for ch in s if ch.isdigit() or ch == "T")
+        pass
+    if _re.fullmatch(r"\d{8}T\d{6}Z?", s):   # компакт-форма из run_id — уже UTC
+        return "".join(ch for ch in s if ch.isdigit() or ch == "T")
+    return ""                                  # мусор временем не является
 
 
 def _ts_key(protocol):
@@ -227,17 +232,21 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     # каскада шёл с котировка=None/индикаторы=None, и судья штрафовал «нет данных» на пустом месте,
     # хотя история в oracle.db есть. Инъектируем котировку/индикаторы актива явно (как _vet_money).
     sym = candidate["актив"]
-    # кросс-№7: ключ мог лежать в ctx со значением None/пустышкой (не только отсутствовать) —
-    # инъекция обязана срабатывать и тогда, иначе судья получает ложное «нет данных» (H7/П8)
-    _have = bool(((ctx.get("quotes") or {}).get(sym) or {}).get("last") if sym else True)
-    if sym and not _have and C.DB.exists():
+    # кросс-№7/№8: ключ мог лежать в ctx None-пустышкой (не только отсутствовать), и котировка
+    # с индикаторами проверяются НЕЗАВИСИМО — иначе судья получает ложное «нет данных» (H7/П8)
+    _have_q = bool(((ctx.get("quotes") or {}).get(sym) or {}).get("last")) if sym else True
+    _have_i = bool((ctx.get("indicators") or {}).get(sym)) if sym else True
+    if sym and (not _have_q or not _have_i) and C.DB.exists():
         con = sqlite3.connect(str(C.DB), timeout=30)
         try:
             q = C._quotes(con, sym)
             if q:
-                ctx.setdefault("quotes", {})[sym] = {"last": q[-1], "n_bars": len(q),
-                                                     "first_date": q[0]["date"], "last_date": q[-1]["date"]}
-                ctx.setdefault("indicators", {})[sym] = C._indicators(q)
+                if not _have_q:
+                    ctx.setdefault("quotes", {})[sym] = {"last": q[-1], "n_bars": len(q),
+                                                         "first_date": q[0]["date"],
+                                                         "last_date": q[-1]["date"]}
+                if not _have_i:
+                    ctx.setdefault("indicators", {})[sym] = C._indicators(q)
         finally:
             con.close()
     costs = SY.load_costs()
@@ -443,7 +452,10 @@ def summarize(protocol):
     lines = [
         head,
         f"Семейства моделей: генератор={deb.get('семейство_генератора')}, "
-        f"судья={deb.get('семейство_судьи')} (П10 — судья другого семейства).",
+        f"судья={deb.get('семейство_судьи')} "
+        + ("(П10: судья вне семейств дебатёров — подтверждено)."
+           if (deb.get('развязка_семейств_П10') or {}).get('судья_вне_дебатёров')
+           else "(⚠ П10 НЕ подтверждён фактическими семействами — см. развязка_семейств_П10)."),
         "",
         f"🟢 Защита (генератор): {_say(reps.get('генератор'))}",
         f"🔴 Атака (критик, учёл твоё возражение): {_say(reps.get('критик'))}",
