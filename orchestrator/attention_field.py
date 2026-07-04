@@ -65,10 +65,17 @@ def _load_registry(path=None):
             except json.JSONDecodeError:
                 broken += 1
                 continue
-            out.setdefault(rec.get("актив"), rec)     # setdefault = первый выигрывает
+            # кросс-ревью №2: запись обязана быть ОБЪЕКТОМ с непустыми актив/ключ — валидный JSON
+            # null/[]/строка ронял бы прогон AttributeError'ом, а объект без ключа затенял бы
+            # (setdefault) более позднюю валидную запись того же актива
+            if (not isinstance(rec, dict) or not str(rec.get("актив") or "").strip()
+                    or not str(rec.get("ключ") or "").strip()):
+                broken += 1
+                continue
+            out.setdefault(rec["актив"], rec)         # setdefault = первый ВАЛИДНЫЙ выигрывает
     if broken:
-        print(f"⚠ attention_keys.jsonl: {broken} битых строк пропущено (реестр жив, проверь журнал)",
-              file=sys.stderr)
+        print(f"⚠ attention_keys.jsonl: {broken} битых/невалидных строк пропущено "
+              f"(реестр жив, проверь журнал)", file=sys.stderr)
     return out
 
 

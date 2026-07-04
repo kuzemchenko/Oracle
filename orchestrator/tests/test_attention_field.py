@@ -157,3 +157,16 @@ def test_mock_mode_reads_but_does_not_journal(tmp_path):
     f2 = AF.field_for_asset(con, "CCJ.US", asof=ASOF, run_id="mock",
                             candidates=["uranium"], seeds={}, registry_path=reg, fix_keys=False)
     assert f2["статус"] == "не_измерено" and not reg.exists() # кандидаты в mock не назначаются
+
+
+def test_registry_rejects_nonobject_and_keyless_records(tmp_path):
+    # Кросс-ревью №2: валидный JSON null/[]/строка и объект БЕЗ ключа — невалидные записи:
+    # пропускаются и НЕ затеняют более позднюю валидную запись того же актива.
+    reg = tmp_path / "reg.jsonl"
+    good = {"актив": "BNO.US", "ключ": "brent oil", "источник": "s", "run_id": "r", "ts": ASOF}
+    reg.write_text("null\n[]\n\"строка\"\n"
+                   '{"актив":"BNO.US"}\n' + json.dumps(good, ensure_ascii=False) + "\n",
+                   encoding="utf-8")
+    registry = AF._load_registry(reg)
+    assert registry.get("BNO.US", {}).get("ключ") == "brent oil"   # валидная запись НЕ затенена
+    assert AF.registry_keywords(reg) == ["brent oil"]
