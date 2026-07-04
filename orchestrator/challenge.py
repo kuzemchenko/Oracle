@@ -25,7 +25,8 @@ from collections import defaultdict
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FUNNEL_LOGS = ROOT / "journal" / "funnel_logs"
 CHALLENGE_LOGS = ROOT / "journal" / "challenges"
-_RUN_SEQ = 0   # внутрипроцессный разводчик run_id (кросс-ревью ночи)
+import itertools as _it
+_RUN_SEQ = _it.count(1)   # потокобезопасный разводчик run_id (next() атомарен в CPython)
 
 import sys
 sys.path.insert(0, str(ROOT))
@@ -197,11 +198,10 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
         return {"ОТКАЗ": "пустое возражение — нечего проверять (П8)"}
 
     import os as _os
-    global _RUN_SEQ
-    _RUN_SEQ += 1
-    # кросс-ревью ночи (№1+№2): два /debate в одну секунду — В ТОМ ЧИСЛЕ в одном процессе —
-    # больше не пишут один файл: pid разводит процессы, счётчик — вызовы внутри процесса
-    run_id = f"challenge_{_now_compact()}_{_os.getpid()}_{_RUN_SEQ}"
+    # кросс-ревью ночи (№1..№4): два /debate в одну секунду — в т.ч. в одном процессе и из
+    # параллельных потоков — не пишут один файл: pid разводит процессы, атомарный itertools.count
+    # (GIL-безопасный next) — вызовы внутри процесса
+    run_id = f"challenge_{_now_compact()}_{_os.getpid()}_{next(_RUN_SEQ)}"
     theme = candidate["актив"]
     ctx = C.build_context(theme=theme)
     # Ревью 2026-07-04 H7: build_context знает только CORE-инструменты — разбор идеи по компании
