@@ -56,7 +56,15 @@ def _ts_key(protocol):
     # лексикографически компакт ВСЕГДА «новее» ISO ('202607…' > '2026-0…') → find_idea брал не ту
     # идею. Нормализуем к цифрам+T — формы сравнимы между собой.
     def _norm(x):
-        return "".join(ch for ch in str(x) if ch.isdigit() or ch == "T")
+        import datetime as _dt
+        s = str(x)
+        try:                                  # кросс-№5 LOW: смещения нормализуем к UTC до цифр
+            d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+            if d.tzinfo is not None:
+                s = d.astimezone(_dt.timezone.utc).isoformat()
+        except ValueError:
+            pass                              # компакт-форма уже UTC (…Z из run_id)
+        return "".join(ch for ch in s if ch.isdigit() or ch == "T")
     ts = (protocol or {}).get("ts") or ""
     if ts:
         return _norm(ts)
@@ -145,9 +153,13 @@ def find_idea(asset=None, run_id=None, logs_dir=None):
         if not reps:
             continue
         if asset:
+            # кросс-№5 (HIGH, он же LOW дневного ревью): подстрочный матч выбирал ЧУЖУЮ идею
+            # («AA» находил AAPL, «SO» — USO.US). Точное совпадение тикера (с/без суффикса .US).
             a = asset.strip().upper()
             for r in reps:
-                if a in str(r.get("актив", "")).upper():
+                cand = str(r.get("актив", "")).upper()
+                # точное совпадение тикера; «AA» ≠ AAPL, «SO» ≠ USO.US
+                if cand == a or cand == f"{a}.US" or cand.split(".")[0] == a:
                     return r, p
         else:
             return reps[0], p
@@ -259,7 +271,14 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
         d = pathlib.Path(out_dir or CHALLENGE_LOGS)
         d.mkdir(parents=True, exist_ok=True)
         from orchestrator import progress as _PROG
-        _PROG.atomic_write_text(d / f"{run_id}.json",
+        # кросс-№5 (BLOCKER-край): даже при коллизии run_id (контейнеры с общим журналом и pid=1)
+        # СУЩЕСТВУЮЩИЙ протокол не перетирается — no-clobber суффикс («ничего не удаляется»)
+        dst = d / f"{run_id}.json"
+        suffix = 1
+        while dst.exists():
+            suffix += 1
+            dst = d / f"{run_id}-{suffix}.json"
+        _PROG.atomic_write_text(dst,
                                 json.dumps(protocol, ensure_ascii=False, indent=2, default=str))  # M13
     return protocol
 

@@ -177,3 +177,19 @@ def test_ts_key_mixed_formats_sort_chronologically():
     older_compact = {"run_id": "challenge_20260701T090000Z"}
     newer_iso = {"ts": "2026-07-04T09:00:00+00:00"}
     assert _ts_key(older_compact) < _ts_key(newer_iso)
+
+
+def test_find_idea_exact_ticker_match(tmp_path):
+    # Кросс-№5 (HIGH): «AA» не должен находить AAPL; «SO» — USO.US.
+    import json as _json
+    d = tmp_path / "logs"; d.mkdir()
+    proto = {"run_id": "funnel_20260704T090000Z", "ts": "2026-07-04T09:00:00+00:00", "mode": "live",
+             "этап6_синтез": {"отчёты": [
+                 {"актив": "AAPL.US", "направление": "лонг", "тезис": "т1"},
+                 {"актив": "USO.US", "направление": "лонг", "тезис": "т2"}]}}
+    (d / "funnel_20260704T090000Z.json").write_text(_json.dumps(proto, ensure_ascii=False))
+    from orchestrator.challenge import find_idea
+    assert find_idea(asset="AA", logs_dir=d)[0] is None       # подстрока — не совпадение
+    assert find_idea(asset="SO", logs_dir=d)[0] is None
+    got, _ = find_idea(asset="AAPL", logs_dir=d)
+    assert got is not None                                     # точный тикер (без .US) находится
