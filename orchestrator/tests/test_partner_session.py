@@ -235,3 +235,12 @@ def test_falsy_nondict_roots_distinguished_from_no_protocols():
         r = PS.build_session(falsy, asof=ASOF)
         assert "не того формата" in r["ОТКАЗ"], falsy
     assert "нет ни одного" in PS.build_session(None, asof=ASOF)["ОТКАЗ"]
+
+
+def test_invalid_utf8_protocol_refused_not_crash(tmp_path):
+    # Кросс-ревью №7: невалидный UTF-8 в последнем протоколе → маркер битого, не UnicodeDecodeError.
+    d = tmp_path / "logs"; d.mkdir()
+    (d / "ef_20260704T090000Z.json").write_bytes(b"\xff\xfe{")
+    proto = PS.load_latest_protocol(logs_dir=d)
+    assert proto.get("_битый_протокол") == "ef_20260704T090000Z.json"
+    assert "нечитаем" in PS.build_session(proto, asof=ASOF)["ОТКАЗ"]

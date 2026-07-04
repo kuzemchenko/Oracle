@@ -46,7 +46,8 @@ def load_latest_protocol(logs_dir=None):
     latest = cands[-1]
     try:
         return json.loads(latest.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError, ValueError):
+        # №7: невалидный UTF-8/любая нечитаемость — тот же честный маркер, не крэш
         return {"_битый_протокол": latest.name}
 
 
