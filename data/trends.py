@@ -142,6 +142,28 @@ def store(con, rows_iot, rows_related, timeframe=CANON_TIMEFRAME):
     return len(rows_iot), len(rows_related)
 
 
+# Кэп на ключи ПОЛЯ «внимание» в суточном фетче (stage-review П2а HIGH-4): реестр append-only
+# растёт (~1-2 ключа картографа/день), пауза 12с/ключ — без кэпа фетч распух бы до десятков минут,
+# и хвост списка систематически выпадал бы по 429. Берутся ПОСЛЕДНИЕ назначенные (свежие идеи
+# актуальнее); выпавшие из окна ключи честно уходят в «фетч устарел» → «не_измерено».
+MAX_ATTENTION_FETCH_KEYS = 30
+
+
+def scan_keywords():
+    """СКАН-ключи (только конфиг: темы news.yaml + extra) — единственные, что порождают
+    кандидат-события и входят в единый FDR event_scan. Ключи поля «внимание» сюда НЕ входят
+    (П2а stage-review HIGH-3: иначе поле влияло бы на отбор будущих прогонов)."""
+    import yaml
+    with open(NEWS_CFG, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    kws = []
+    for theme in cfg.get("themes", []):
+        kws += theme.get("trends_keywords", [])
+    kws += (cfg.get("trends", {}) or {}).get("extra_keywords", [])
+    seen = set()
+    return [k for k in kws if not (k in seen or seen.add(k))]
+
+
 def load_keywords():
     import yaml
     with open(NEWS_CFG, encoding="utf-8") as f:
@@ -150,17 +172,20 @@ def load_keywords():
     timeframe = tr.get("timeframe", CANON_TIMEFRAME)
     geos = tr.get("geos", [""])
     pause = float(tr.get("pause_sec", 10.0))
-    kws = []
-    for theme in cfg.get("themes", []):
-        for kw in theme.get("trends_keywords", []):
-            kws.append(kw)
-    # явный список поверх тем
-    kws += tr.get("extra_keywords", [])
+    kws = list(scan_keywords())
     # П2а (§R4.2): сиды поля «внимание» + назначенные реестром ключи — чтобы у идей появлялись
     # данные со следующего суточного фетча. Ошибка чтения реестра НЕ валит фетч тем (best-effort).
+    # Кэп HIGH-4: сиды (курируемые, ~10) + ПОСЛЕДНИЕ MAX_ATTENTION_FETCH_KEYS ключей реестра.
     try:
         from orchestrator import attention_field as AF
-        kws += list(AF._load_seeds().values()) + AF.registry_keywords()
+        kws += list(AF._load_seeds().values())
+        reg = AF._load_registry()
+        recent = [rec.get("ключ") for rec in list(reg.values())[-MAX_ATTENTION_FETCH_KEYS:]]
+        dropped = max(0, len(reg) - MAX_ATTENTION_FETCH_KEYS)
+        if dropped:
+            print(f"⚠ фетч «внимания»: кэп {MAX_ATTENTION_FETCH_KEYS} — {dropped} старших ключей "
+                  f"реестра не обновляются (их поле честно уйдёт в «не_измерено»)", file=sys.stderr)
+        kws += [k for k in recent if k]
     except Exception as e:  # noqa: BLE001
         print(f"⚠ ключи поля «внимание» не добавлены в фетч: {e}", file=sys.stderr)
     seen = set()

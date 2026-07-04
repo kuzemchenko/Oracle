@@ -151,7 +151,15 @@ def scan_events_live(q_max=0.1, news_limit=300, con=None):
     try:
         news = C._news(con, limit=news_limit)
         try:
-            trends_rows = con.execute("SELECT keyword, date, interest FROM trends").fetchall()
+            # П2а stage-review HIGH-3 (боковой канал): в скан идут ТОЛЬКО скан-ключи конфига
+            # (темы news.yaml + extra) — ключи ПОЛЯ «внимание» (сиды/реестр) фетчатся для датчика,
+            # но НЕ порождают кандидат-события и НЕ раздувают множественность единого FDR
+            # (рост m менял бы порог Бенджамини-Хохберга для всех сигналов). Иначе П2а влиял бы
+            # на отбор будущих прогонов — против инварианта «поле информационное» (§R4.2).
+            from data import trends as TR
+            scan_kws = set(TR.scan_keywords())
+            trends_rows = [r for r in con.execute("SELECT keyword, date, interest FROM trends").fetchall()
+                           if r[0] in scan_kws]
         except sqlite3.OperationalError:
             trends_rows = []
         indicators = {}

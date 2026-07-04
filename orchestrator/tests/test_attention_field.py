@@ -170,3 +170,64 @@ def test_registry_rejects_nonobject_and_keyless_records(tmp_path):
     registry = AF._load_registry(reg)
     assert registry.get("BNO.US", {}).get("ключ") == "brent oil"   # валидная запись НЕ затенена
     assert AF.registry_keywords(reg) == ["brent oil"]
+
+
+def test_asset_normalized_no_reassign_via_case(tmp_path):
+    # LOW-1: «ccj.us » и «CCJ.US» — один актив: регистр/пробелы не обходят запрет пересдачи.
+    reg = tmp_path / "reg.jsonl"
+    con = _con_with_series("x", [10, 20])
+    AF.field_for_asset(con, "CCJ.US", asof=ASOF, run_id="r1",
+                       candidates=["uranium"], seeds={}, registry_path=reg)
+    f2 = AF.field_for_asset(con, " ccj.us ", asof=ASOF, run_id="r2",
+                            candidates=["другой ключ"], seeds={}, registry_path=reg)
+    assert f2["ключ"] == "uranium"
+    assert len(reg.read_text().splitlines()) == 1
+
+
+def test_event_first_mock_integration_field_and_coverage():
+    # LOW-4(2): автотест интеграции — поле в брифах протокола, покрытие в протоколе,
+    # порядок annotate→суд гарантирован наличием поля у money-узлов ДО среза протокола.
+    from orchestrator import event_first as EF
+    r = EF.run_event_first(mode="mock", k=1, write=False)
+    cov = r.get("внимание_покрытие")
+    assert cov and ("покрытие" in cov or "ошибка" in cov)
+    briefs = (r.get("граф_отбор") or {}).get("топ_k") or []
+    assert briefs and all("внимание" in b for b in briefs)
+
+
+def test_scan_keywords_exclude_attention_keys(tmp_path, monkeypatch):
+    # HIGH-3: скан-ключи = только конфиг; ключи реестра «внимания» НЕ попадают в FDR-скан.
+    import data.trends as T
+    reg = tmp_path / "reg.jsonl"
+    AF.assign_key("CCJ.US", "uranium squeeze", "тест", "r", ASOF, path=reg)
+    monkeypatch.setattr(AF, "REGISTRY_PATH", reg)
+    scan = T.scan_keywords()
+    plan, *_ = T.load_keywords()
+    assert "uranium squeeze" not in scan          # в скан/FDR не идёт (боковой канал закрыт)
+    assert "uranium squeeze" in plan              # но фетчится для датчика
+
+
+def test_fetch_cap_limits_registry_keys(tmp_path, monkeypatch):
+    # HIGH-4: кэп MAX_ATTENTION_FETCH_KEYS — в план фетча идут ПОСЛЕДНИЕ ключи реестра.
+    import data.trends as T
+    reg = tmp_path / "reg.jsonl"
+    for i in range(T.MAX_ATTENTION_FETCH_KEYS + 5):
+        AF.assign_key(f"A{i}.US", f"key {i:03d}", "тест", "r", ASOF, path=reg)
+    monkeypatch.setattr(AF, "REGISTRY_PATH", reg)
+    plan, *_ = T.load_keywords()
+    assert "key 000" not in plan                  # старшие выпали из окна фетча
+    assert f"key {T.MAX_ATTENTION_FETCH_KEYS + 4:03d}" in plan   # свежие — в плане
+
+
+def test_attention_line_render_none_safe():
+    # LOW-4(3): рендер поля — None-safe и показывает предупреждение поздней фазы.
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "ops"))
+    import bot_reports as R
+    assert R._attention_line({}) == []                                    # старый протокол — молчим
+    ok = {"внимание": {"статус": "ok", "ключ": "brent oil", "фаза": "ОТЫГРАНО",
+                       "свежесть": 0.88, "предупреждение": "фаза ОТЫГРАНО: тема отгремела"}}
+    lines = R._attention_line(ok)
+    assert any("brent oil" in l for l in lines) and any("⚠️" in l for l in lines)
+    nm = {"внимание": {"статус": "не_измерено", "причина": "ключ Trends не назначен"}}
+    assert any("не измерено" in l for l in R._attention_line(nm))

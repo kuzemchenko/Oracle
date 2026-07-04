@@ -89,6 +89,7 @@ def assign_key(asset, keyword, source, run_id, ts, path=None):
     возвращается существующая запись (пересдача запрещена, §R0#5), новая НЕ пишется.
     Проверка+append — под межпроцессным локом (кросс-ревью П2а, BLOCKER: два одновременных
     прогона могли назначить активу РАЗНЫЕ ключи, каждый посчитав поле по своему)."""
+    asset = str(asset or "").strip().upper()       # LOW-1: нормализация — «ccj.us » не обходит запрет
     p = pathlib.Path(path) if path else REGISTRY_PATH
     p.parent.mkdir(parents=True, exist_ok=True)
     with SEAL._locked(p):
@@ -134,6 +135,7 @@ def field_for_asset(con, asset, *, asof, run_id, candidates=None,
     позволяла посчитать поле по незажурналированному ключу — обход провенанса). Любой фактически
     ИСПОЛЬЗУЕМЫЙ ключ (включая сид при первом касании) фиксируется в append-only реестре —
     после этого правка сидов актив не пересдаёт (resolve_key: реестр выше сидов)."""
+    asset = str(asset or "").strip().upper()       # LOW-1: единая нормализация актива
     registry = _load_registry(registry_path)
     key, key_source = resolve_key(asset, seeds=seeds, registry=registry)
     if key is not None and asset not in registry and fix_keys:
