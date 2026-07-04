@@ -56,6 +56,8 @@ def _norm_utc_digits(x):
     s = str(x)
     try:
         d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if "T" not in s:
+            return ""                          # кросс-№9/№10: голая дата — не таймстамп протокола
         if d.tzinfo is not None:
             s = d.astimezone(_dt.timezone.utc).isoformat()
         return "".join(ch for ch in s if ch.isdigit() or ch == "T")
@@ -88,7 +90,7 @@ def _scan_protocols(logs_dir=None):
     out = []
     for p in sorted(d.glob("*.json")):
         try:
-            out.append(json.loads(p.read_text(encoding="utf-8")))
+            _pr = json.loads(p.read_text(encoding="utf-8")))
         except (json.JSONDecodeError, OSError):
             continue
     out.sort(key=lambda pr: (_ts_key(pr), str(pr.get("run_id") or "")))
