@@ -445,6 +445,80 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
     return out
 
 
+REPLAY_LOGS = ROOT / "journal" / "replay_logs"
+
+
+def run_replay(cutoff, *, top_k=8, horizon_days=5, write=True):
+    """REPLAY-режим (долг F3/П2а, закрыт ночью 04.07): детерминированный граф каскадов
+    «как был бы на дату cutoff» — сырьё для будущего П2б-тюнинга БЕЗ новых LLM-затрат.
+
+    П16-границы (все в протоколе, честно):
+      • LLM НЕ вызывается (картограф/суд — только live-контур): активируются ВСЕ авторские
+        цепочки без новостного гейта — replay отвечает «что показал бы ГРАФ», не «что показал
+        бы весь контур» (новости прошлого дня в БД есть, но их кластеризация под cutoff —
+        отдельный долг);
+      • шок корня и realized/vol терминалов — строго по барам date<=cutoff (asof-гейты);
+      • чувствительности — по полной истории (калибровочные параметры, граница v1);
+      • НИЧЕГО не запечатывается (П16: прогноз задним числом — не прогноз) и не пушится ботом;
+        протокол — в journal/replay_logs/ (ОТДЕЛЬНО от боевых funnel_logs: /session и дашборд
+        replay не видят).
+    """
+    import re as _re
+    if not _re.match(r"^\d{4}-\d{2}-\d{2}$", str(cutoff or "")):
+        return {"ОТКАЗ": f"cutoff должен быть YYYY-MM-DD, получено {cutoff!r}"}
+    now = _now()
+    run_id = f"replay_{cutoff}_{now.strftime('%Y%m%dT%H%M%SZ')}"
+    chains_doc = CB.load_chains()      # авторские цепочки, резолв в конкретные компании (§3c/D1)
+    con = sqlite3.connect(str(DB), timeout=30)
+    try:
+        каскады, graph_nodes = [], []
+        for ch in (chains_doc or []):
+            anchor_nodes = sorted((ch.get("nodes") or []), key=lambda n: n.get("order", 0))
+            anchor_sym = (anchor_nodes[0].get("instruments") or [None])[0] if anchor_nodes else None
+            if not anchor_sym:
+                continue
+            shock = _window_return(con, anchor_sym, asof=cutoff)
+            if shock is None:
+                каскады.append({"chain_id": ch.get("id"), "якорь": anchor_sym,
+                                "пропуск": f"нет баров ≤ {cutoff} для шока корня (П8)"})
+                continue
+            built = CB.build_from_db(ch, shock, horizon_days=horizon_days, con=con, asof=cutoff)
+            for n in built.get("узлы", []):
+                n["_chain"] = ch.get("id")
+            graph_nodes += built.get("узлы", [])
+            каскады.append({"chain_id": ch.get("id"), "якорь": anchor_sym,
+                            "shock": round(shock, 5), "узлов": len(built.get("узлы", []))})
+        отбор = GB.select_from_nodes(graph_nodes, con=con, horizon_days=horizon_days, top_k=top_k)
+        треки = GB.route_tracks(отбор)
+    finally:
+        con.close()
+    protocol = {
+        "run_id": run_id, "ts": now.isoformat(timespec="seconds"), "REPLAY": True,
+        "cutoff": cutoff,
+        "границы_честности": [
+            "LLM не вызывался: все авторские цепочки активированы без новостного гейта",
+            "шок корня и realized/vol терминалов — по барам date<=cutoff (П16 asof-гейты)",
+            "чувствительности — по полной истории (калибровочные параметры; asof-срез — долг)",
+            "ничего не запечатано и не доставлено (задним числом прогнозов не бывает)"],
+        "каскады": каскады,
+        "граф_отбор": {"узлов": len(graph_nodes),
+                       "топ_k": [{"актив": s.get("symbol"), "score": s.get("score"),
+                                  "edge": (s.get("node") or {}).get("amplitude"),
+                                  "цепочка": (s.get("node") or {}).get("_chain"),
+                                  "провизорный": bool((s.get("node") or {}).get("research"))}
+                                 for s in отбор.get("топ_k", [])],
+                       "треки": {"money": len(треки["money"]),
+                                 "провизорный": len(треки["provisional"]),
+                                 "дайджест": len(треки["digest_only"])}},
+        "spec_ref": "replay-долг F3/П2а; §R2 граф; П16 asof-гейты",
+    }
+    if write:
+        REPLAY_LOGS.mkdir(parents=True, exist_ok=True)
+        PROG.atomic_write_text(REPLAY_LOGS / f"{run_id}.json",
+                               json.dumps(protocol, ensure_ascii=False, indent=2))
+    return protocol
+
+
 def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
                     seal_predictions=False, vet_money_k=0, deep_money_report=False):
     """Полный event-first прогон. Возвращает сводный протокол.

@@ -193,22 +193,32 @@ def build_chain_nodes(chain, shock0, *, horizon_days,
 
 
 # ── боевая обвязка: источники данных из storage/oracle.db ────────────────────────────
-def build_from_db(chain, shock0, *, horizon_days, con, db=None, promotions=None):
+def build_from_db(chain, shock0, *, horizon_days, con, db=None, promotions=None, asof=None):
     """build_chain_nodes с боевыми доступами к quotes (чувствительность на лету, отыгранное, вола).
-    promotions=None → грузим knowledge/forward_promotions.yaml (форвард-заработанные ярус-A рёбра)."""
+    promotions=None → грузим knowledge/forward_promotions.yaml (форвард-заработанные ярус-A рёбра).
+
+    asof='YYYY-MM-DD' (replay-долг F3/П2а, закрыт ночью 04.07): realized/vol ТЕРМИНАЛОВ и гейт
+    достаточности баров считаются по барам date<=asof — граф «как был бы на дату asof», без
+    look-ahead (П16). ГРАНИЦА v1 (честно): чувствительности (sensitivity.on_the_fly) остаются
+    по полной истории — это калибровочные параметры библиотеки, их asof-срез — отдельный долг."""
     if promotions is None:
         promotions = load_promotions()
+    _asof_sql = " AND date <= ?" if asof else ""
+
     def has_data_fn(sym):
         # F0#8: гейт достаточности баров считаем по ТОЙ ЖЕ выборке, что _closes (COALESCE adj/close)
+        args = (sym, asof) if asof else (sym,)
         n = con.execute("SELECT COUNT(*) FROM quotes WHERE symbol=? "
-                        "AND COALESCE(adjusted_close, close) IS NOT NULL", (sym,)).fetchone()[0]
+                        "AND COALESCE(adjusted_close, close) IS NOT NULL" + _asof_sql,
+                        args).fetchone()[0]
         return n >= MIN_BARS
 
     def _closes(sym, limit):
         # F0#8: adjusted_close — realized/вола на сыром close искажаются корпдействиями (edge корёжится)
+        args = (sym, asof, limit) if asof else (sym, limit)
         rows = con.execute("SELECT COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
-                           "AND COALESCE(adjusted_close, close) IS NOT NULL "
-                           "ORDER BY date DESC LIMIT ?", (sym, limit)).fetchall()
+                           "AND COALESCE(adjusted_close, close) IS NOT NULL" + _asof_sql +
+                           " ORDER BY date DESC LIMIT ?", args).fetchall()
         return [float(r[0]) for r in reversed(rows)]
 
     def realized_fn(sym, h):

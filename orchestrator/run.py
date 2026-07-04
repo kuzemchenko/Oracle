@@ -223,7 +223,7 @@ def _run_event_first(args):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Прогон «Оракула»: воронка §6 / масккейсы §23.2 / абляция §11.1")
     ap.add_argument("--mode",
-                    choices=["auto", "live", "mock", "funnel", "theme", "multi", "event_first",
+                    choices=["auto", "live", "mock", "funnel", "theme", "multi", "event_first", "replay",
                              "calibrate", "resolve", "masked", "ablation", "challenge", "challenge-digest"],
                     default="auto",
                     help="auto/live/mock/funnel — полная воронка §6; theme — тематический режим §17.2 "
@@ -249,6 +249,9 @@ def main(argv=None):
     ap.add_argument("--field-only", action="store_true",
                     help="только поле суждений (этапы 1–2), без дебатов/синтеза")
     ap.add_argument("--k", type=int, default=3, help="мульти-режим: сколько топ-событий анализировать")
+    ap.add_argument("--cutoff", default=None,
+                    help="replay-режим: дата YYYY-MM-DD — детерминированный граф «как был бы на дату» "
+                         "(без LLM/запечатывания; протокол в journal/replay_logs/)")
     ap.add_argument("--doubt", default=None,
                     help="challenge-режим: твоё возражение/сомнение по идее (текст в кавычках)")
     ap.add_argument("--from-run", default=None,
@@ -267,6 +270,19 @@ def main(argv=None):
         return _run_multi(args)
     if args.mode == "event_first":
         return _run_event_first(args)
+    if args.mode == "replay":
+        from orchestrator.event_first import run_replay
+        r = run_replay(args.cutoff, write=not args.no_write)
+        if r.get("ОТКАЗ"):
+            print(f"ОТКАЗ: {r['ОТКАЗ']}")
+            return 1
+        g = r.get("граф_отбор") or {}
+        print(f"[{r['run_id']}] REPLAY на {r['cutoff']}: узлов {g.get('узлов')}, "
+              f"треки {g.get('треки')}; топ: "
+              + ", ".join(x.get("актив") or "?" for x in g.get("топ_k", [])[:5]))
+        for b in r.get("границы_честности", []):
+            print(f"  граница: {b}")
+        return 0
     if args.mode == "ablation":
         return _run_ablation(args)
     if args.mode == "calibrate":
