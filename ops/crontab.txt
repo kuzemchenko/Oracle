@@ -1,38 +1,38 @@
 # ════════════════════════════════════════════════════════════════════════════════
 # Оракул — расписание cron (рутина §27). АДАПТИРОВАНО ПОД ЭТУ МАШИНУ (Нед.9):
 #   • cron НЕ наследует ни venv, ни .env → КАЖДАЯ команда сама поднимает окружение:
-#         cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ...
-#     - `cd /root/oracle` — рабочая директория (относительные пути storage/journal/.env);
+#         cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ...
+#     - `cd /home/oracle/oracle` — рабочая директория (относительные пути storage/journal/.env);
 #     - `set -a && . ./.env && set +a` — экспорт ВСЕХ ключей (.env = строки export KEY=val):
 #         OPENROUTER_API_KEY (LLM), EODHD_API_KEY (котировки), NEWSAPI_AI_KEY (новости);
-#     - АБСОЛЮТНЫЙ /root/oracle/.venv/bin/python — голого `python` на PATH НЕТ,
+#     - АБСОЛЮТНЫЙ /home/oracle/oracle/.venv/bin/python — голого `python` на PATH НЕТ,
 #       /usr/bin/python3 зависимостей НЕ видит.
 #   • Каждая строка проверена ручным запуском перед установкой (журнал Нед.9) + проверка
 #     срабатывания временной строкой с записью в journal/cron.log (Нед.9, п.4).
 # Рутина идёт НАПРЯМУЮ через python — дешевле и воспроизводимо. Claude Code — для разработки/разбора.
 #
-# Установка:  cat /root/oracle/ops/crontab.txt /root/oracle/ops/crontab.local.txt | crontab -
-#             (crontab.local.txt — сторонние задачи вне git, FГ2 §9.3; если его нет — просто
-#              `crontab /root/oracle/ops/crontab.txt`)
-# Проверка:   crontab -l
+# Установка (ревью 04.07 — разделение привилегий):
+#   задачи «Оракула» — от НЕПРИВИЛЕГИРОВАННОГО пользователя oracle:  crontab -u oracle /home/oracle/oracle/ops/crontab.txt
+#   сторонние локальные задачи (crontab.local.txt, вне git, FГ2 §9.3) — в crontab root:  crontab /home/oracle/oracle/ops/crontab.local.txt
+# Проверка:   crontab -u oracle -l  и  crontab -l
 # ════════════════════════════════════════════════════════════════════════════════
 
 SHELL=/bin/bash
 MAILTO=""
 
 # Суточный новостной сбор (GDELT + NewsAPI.ai + pytrends → нормализация/теги/дедуп): ежедневно 06:45
-45 6 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python data/news_ingest.py >> journal/cron.log 2>&1
+45 6 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python data/news_ingest.py >> journal/cron.log 2>&1
 
 # Суточная дозагрузка котировок ядра + Tier 0 (фундаментал/инсайдеры/календарь) + опционы
 # (Unicorn Bay IV/OI/skew) из EODHD в storage/oracle.db: 06:50. --extras/--options освежают
 # флоат/short%float/IV ежедневно (иначе устаревают). Нужен EODHD_API_KEY → source .env.
-50 6 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python data/eodhd.py --extras --options >> journal/cron.log 2>&1
+50 6 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python data/eodhd.py --extras --options >> journal/cron.log 2>&1
 
 # Калибровочный режим §17.3 (мелкие недельные §9-прогнозы, запечатывание): вторник и пятница 08:00
-0 8 * * 2,5  cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
+0 8 * * 2,5  cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
 
 # Сверка исходов §10.10 (дозревшие прогнозы → close из oracle.db → outcomes.jsonl): ежедневно 21:00
-0 21 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
+0 21 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
 
 # Боевой прогон EVENT-FIRST воронки (§6 скан событий → каскад → инструмент): КАЖДОЕ УТРО 09:00 —
 # ЕДИНСТВЕННЫЙ боевой контур скана. Brent-тема снесена 20.06 (REVISION_2026-06 §R1, аменд §30):
@@ -42,22 +42,22 @@ MAILTO=""
 # вместо 21-агентного контура на слепых шок-источниках (там бюджет горел впустую); сломанные → провизорный.
 # --deep (решение D в.3): полный §8-контур (тайминг/манип/неочевидн./риск/синтез 13 полей + процедурное
 # вето §6) ТОЧЕЧНО на money-идеи, пережившие слепой суд — глубина тратится только на то, что идёт в деньги.
-0 9 * * *   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet --deep >> journal/cron.log 2>&1
+0 9 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet --deep >> journal/cron.log 2>&1
 
 # Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
-0 7 * * *    cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1
+0 7 * * *    cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1
 
 # Devops-петля-предложитель §R6 (автономия 0): еженедельный анализ террейна/калибровки → ПРЕДЛОЖЕНИЯ
 # на подпись в journal/proposals/. НИЧЕГО не применяет сам (П16/§10/инвариант 5). Воскресенье 08:00.
-0 8 * * 0   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/devops_loop.py >> journal/cron.log 2>&1
+0 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/devops_loop.py >> journal/cron.log 2>&1
 
 # Форвард-промоушен рёбер C→A (решение 28.06): DRY-предложения по запечатанным форвард-исходам
 # (N≥30, §10). НЕ применяет — пишет ops/reports/promotions/. Применение — рукой владельца
 # `ops/promote_edges.py --apply` ежемесячно (§25, инвариант 5). Воскресенье 08:30 (после devops-петли).
-30 8 * * 0   cd /root/oracle && set -a && . ./.env && set +a && /root/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
+30 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
 
 # Напоминание о еженедельном разборе (сам разбор — в Claude Code: /review-week): пятница 18:00
-0 18 * * 5   cd /root/oracle && echo "$(date): пора /review-week в Claude Code" >> journal/reminders.log
+0 18 * * 5   cd /home/oracle/oracle && echo "$(date): пора /review-week в Claude Code" >> journal/reminders.log
 
 # ── СТОРОННИЕ (НЕ «Оракул») задачи вынесены (FГ2 §9.3) ──────────────────────────────
 # Задачи femmecode/aimycode содержали plaintext-токен → перенесены в ops/crontab.local.txt
