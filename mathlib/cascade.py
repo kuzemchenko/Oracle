@@ -209,14 +209,28 @@ def cascade_from_quotes(shock_symbol, shock_move, node_symbols, *, horizon_days,
 
 
 def _lag_for_pair(a, b, links):
-    """Лаг переноса a→b из библиотеки связей (если есть); иначе 0 (эмпирически дневные ETF синхронны)."""
+    """Лаг переноса a→b из библиотеки связей; иначе 0 (эмпирически дневные ETF синхронны).
+
+    Известный баг (ревью 03-04.07, закрыт ночью 04.07): сравнение {a,b}==set(pair) было
+    направленно-агностичным — лаг A→B применялся и к B→A. Теперь:
+      • запись с ТОЧНЫМ порядком pair==[a,b] — направленный лаг, берётся первой;
+      • запись с directed:true и обратным порядком — НЕ наш лаг (пропуск);
+      • ненаправленная запись ({a,b} без directed) — симметричный лаг-величина (знак/направление
+        НЕ несёт; факт данных 04.07: библиотека causal_links undirected, эмпирические лаги = 0).
+    """
     if not links:
         return 0
+    au, bu = str(a).upper(), str(b).upper()
+    undirected = None
     for ln in links:
         pair = [str(x).upper() for x in (ln.get("pair") or [])]
-        if {a.upper(), b.upper()} == set(pair):
-            return int(ln.get("lag_days") or 0)
-    return 0
+        if pair == [au, bu]:
+            return int(ln.get("lag_days") or 0)        # точное направление a→b
+        if ln.get("directed"):
+            continue                                    # направленная запись другой пары/стороны
+        if {au, bu} == set(pair) and undirected is None:
+            undirected = int(ln.get("lag_days") or 0)   # симметричный фолбэк
+    return undirected if undirected is not None else 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════════

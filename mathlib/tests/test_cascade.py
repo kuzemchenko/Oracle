@@ -84,3 +84,15 @@ def test_no_transmission_no_seal():
 def test_ols_beta_degenerate():
     assert CAS.ols_beta([1, 1, 1, 1], [1, 2, 3, 4]) is None   # нулевая дисперсия x
     assert CAS.ols_beta([1], [1]) is None
+
+
+def test_lag_for_pair_directed_semantics():
+    # Ночная смена 04.07: лаг A→B больше не применяется слепо к B→A.
+    from mathlib.cascade import _lag_for_pair
+    links = [{"pair": ["OIL", "AIR"], "lag_days": 3, "directed": True},
+             {"pair": ["CU", "COPX"], "lag_days": 2}]           # ненаправленная
+    assert _lag_for_pair("OIL", "AIR", links) == 3              # точное направление
+    assert _lag_for_pair("AIR", "OIL", links) == 0              # обратное к directed — НЕ наш лаг
+    assert _lag_for_pair("CU", "COPX", links) == 2              # undirected симметричен
+    assert _lag_for_pair("COPX", "CU", links) == 2
+    assert _lag_for_pair("X", "Y", links) == 0

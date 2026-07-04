@@ -161,6 +161,7 @@ class RunBudgetGuard:
         self.cap_usd = float(cap_usd)
         self.spent_usd = 0.0
         self.calls = 0
+        self.unaccounted_calls = 0   # M7: вызовы без cost — видимы, не «бесплатны»
         self._lock = threading.Lock()
 
     def add(self, cost_usd):
@@ -168,6 +169,10 @@ class RunBudgetGuard:
             self.calls += 1
             if isinstance(cost_usd, (int, float)):
                 self.spent_usd += float(cost_usd)
+            else:
+                # M7 (ревью 04.07): вызов без стоимости (провайдер не вернул usage.cost) раньше
+                # был НЕВИДИМ для лимитов — тихая дыра Инв#5. Считаем явно; протокол показывает.
+                self.unaccounted_calls += 1
             exceeded = self.spent_usd >= self.cap_usd
             spent = self.spent_usd
         if exceeded:

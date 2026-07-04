@@ -736,7 +736,34 @@ class Bot:
             self._tick_budget(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick budget ошибка", repr(e))
+        try:
+            self._tick_alerts()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick alerts ошибка", repr(e))
         self.save()
+
+    def _tick_alerts(self):
+        """Ревью 04.07: падение боевого cron-прогона больше не тихое — ops/cron_alert.sh пишет
+        journal/alerts.jsonl, мы пушим новые строки (курсор в state, доставка с ретраем)."""
+        import json as _json
+        path = ROOT / "journal" / "alerts.jsonl"
+        if not path.exists():
+            return
+        seen = int(self.state.get("alerts_seen", 0))
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines[seen:], start=seen):
+            try:
+                rec = _json.loads(line)
+            except ValueError:
+                self.state["alerts_seen"] = i + 1     # битую строку не перечитываем вечно
+                continue
+            msg = (f"🚨 Боевой прогон «{rec.get('label')}» упал (код {rec.get('exit')}, "
+                   f"{rec.get('ts')}). Протокола нет — идей сегодня из него не будет. "
+                   f"Хвост ошибки: journal/cron.log; повторить можно командой /run-funnel.")
+            if self.tg.send_message(self.chat_id, msg) is None:
+                break                                  # не дошло — ретрай со следующего tick
+            self.state["alerts_seen"] = i + 1
+            log("пуш алерта cron", rec.get("label"), rec.get("exit"))
 
     def _send_card(self, text, kb):
         """Длинную карточку шлём частями (лимит Telegram 4096); клавиатуру — на ПОСЛЕДНЮЮ часть.

@@ -103,3 +103,13 @@ def test_guard_ignores_none_cost():
     g = RB.RunBudgetGuard("funnel_full", cap_usd=1.0)
     g.add(None)            # неуспешный вызов без стоимости — не копит
     assert g.spent_usd == 0.0
+
+
+def test_unaccounted_calls_visible_not_free():
+    # M7 (ревью 04.07): вызов без стоимости считается явно, а не исчезает из лимитов.
+    from orchestrator.run_budget import RunBudgetGuard
+    g = RunBudgetGuard("event_first", 10.0)
+    g.add(1.0)
+    g.add(None)
+    assert g.calls == 2 and g.unaccounted_calls == 1
+    assert g.spent_usd == 1.0

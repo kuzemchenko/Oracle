@@ -118,3 +118,22 @@ def test_call_does_not_mask_failures_as_429():
 def test_canonical_constants_in_sync():
     # L-5: локальная копия канона в trends.py обязана совпадать с mathlib.attention
     assert T.CANON_TIMEFRAME == A.TRENDS_TIMEFRAME
+
+
+def test_cron_alert_wrapper(tmp_path):
+    # Ночная смена 04.07: ненулевой код команды пишет алерт; нулевой — нет; код пробрасывается.
+    # ГЕРМЕТИЧНО: путь журнала через ORACLE_ALERTS (первая версия теста написала в БОЕВОЙ журнал
+    # и бот запушил бы ложную тревогу владельцу — урок зафиксирован).
+    import json as _json
+    import os
+    import subprocess
+    wrapper = ROOT / "ops" / "cron_alert.sh"
+    alerts = tmp_path / "alerts.jsonl"
+    env = {**os.environ, "ORACLE_ALERTS": str(alerts)}
+    ok = subprocess.run(["bash", str(wrapper), "test_ok", "true"], env=env)
+    assert ok.returncode == 0
+    assert not alerts.exists()                                  # успех не шумит
+    fail = subprocess.run(["bash", str(wrapper), "test_fail", "false"], env=env)
+    assert fail.returncode == 1                                 # код проброшен
+    rec = _json.loads(alerts.read_text().splitlines()[-1])
+    assert rec["label"] == "test_fail" and rec["exit"] == 1

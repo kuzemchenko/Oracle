@@ -139,7 +139,7 @@ def correlation_map(ideas):
 
 
 def build_portfolio(ideas, *, capital, gate_passed=False, calibration_proven=0.0,
-                    kelly_multiplier=0.5, limits=None):
+                    kelly_multiplier=0.5, limits=None, monthly_spent_usd=None):
     """Соберать портфель из идей (§4 портфельный менеджер).
 
     Каждая идея: {актив, направление, вероятность, b (net-оддсы)}. Размер — mathlib.kelly:
@@ -171,7 +171,14 @@ def build_portfolio(ideas, *, capital, gate_passed=False, calibration_proven=0.0
     total = round(sum(p["amount_usd"] for p in positions), 2)
     per_idea_checks = [{"актив": p["актив"], **lim.check_idea_risk(p["amount_usd"], limits=limits)}
                        for p in positions]
-    monthly = lim.check_monthly_risk(0.0, total, limits=limits)
+    # Известный баг (ревью 03-04.07, закрыт ночью 04.07): 0.0 выдавался за ИЗВЕСТНЫЙ накопленный
+    # месячный риск — ложь (П8). Правда: до этапа Д журнала принятых СУММ нет — накопленный месяц
+    # неизвестен. Проверяем то, что можем (текущая корзина), и говорим об охвате ЯВНО;
+    # monthly_spent_usd прокинет реальные траты, когда этап Д их заведёт (Инв#5).
+    monthly = dict(lim.check_monthly_risk(monthly_spent_usd or 0.0, total, limits=limits))
+    if monthly_spent_usd is None:
+        monthly["охват"] = ("только текущий прогон: накопленный месячный риск НЕИЗВЕСТЕН "
+                            "(журнала принятых сумм нет до этапа Д)")
     return {
         "позиции": positions,
         "суммарный_риск_usd": total,

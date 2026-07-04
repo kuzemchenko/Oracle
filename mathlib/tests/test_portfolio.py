@@ -93,3 +93,16 @@ def test_build_portfolio_monthly_limit_check():
     port = PF.build_portfolio(ideas, capital=100000, gate_passed=False)
     assert port["проверка_лимитов"]["месячный"]["allowed"] is True
     assert port["суммарный_риск_usd"] == 1500.0
+
+
+def test_monthly_risk_coverage_is_honest():
+    # Ночная смена 04.07: 0.0 больше не выдаётся за ИЗВЕСТНЫЙ накопленный месячный риск.
+    from mathlib.portfolio import build_portfolio
+    ideas = [{"актив": "BNO.US", "направление": "лонг", "вероятность_судьи": 0.6}]
+    p = build_portfolio(ideas, capital=100000, gate_passed=False)
+    monthly = p["проверка_лимитов"]["месячный"]
+    assert "НЕИЗВЕСТЕН" in monthly.get("охват", "")             # охват заявлен явно
+    p2 = build_portfolio(ideas, capital=100000, gate_passed=False, monthly_spent_usd=2900.0)
+    m2 = p2["проверка_лимитов"]["месячный"]
+    assert "охват" not in m2                                    # известный расход — без оговорки
+    assert m2["would_be"] >= 2900.0                             # реальная сумма участвует в лимите
