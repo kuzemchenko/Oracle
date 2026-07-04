@@ -49,22 +49,25 @@ _TS_RE = re.compile(r"\d{8}T\d{6}Z")
 
 
 def _norm_utc_digits(x):
-    """ISO/компакт-время → сравнимая цифровая форма В UTC. НЕ-время (кросс-№8: 'week9_testday'
-    давал ключ '9' > любого таймстампа) → '' — фикстуры сортируются НИЖЕ боевых, как задумано."""
+    """ISO/компакт-время → ЕДИНАЯ каноническая форма UTC 'YYYYMMDDTHHMMSS' (кросс-№5..№14).
+    НЕ-время (мусор, голая дата, календарно-невалидный компакт) → '' — фикстуры ниже боевых."""
     import datetime as _dt
     import re as _re
     s = str(x)
     try:
         d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
         if "T" not in s:
-            return ""                          # кросс-№9/№10: голая дата — не таймстамп протокола
+            return ""                          # голая дата — не таймстамп протокола
         if d.tzinfo is not None:
-            s = d.astimezone(_dt.timezone.utc).isoformat()
-        return "".join(ch for ch in s if ch.isdigit() or ch == "T")
+            d = d.astimezone(_dt.timezone.utc)
+        return d.strftime("%Y%m%dT%H%M%S")
     except ValueError:
         pass
-    if _re.fullmatch(r"\d{8}T\d{6}Z?", s):   # компакт-форма из run_id — уже UTC
-        return "".join(ch for ch in s if ch.isdigit() or ch == "T")
+    if _re.fullmatch(r"\d{8}T\d{6}Z?", s):   # компакт-форма из run_id — уже UTC (старые Python)
+        try:
+            return _dt.datetime.strptime(s.rstrip("Z"), "%Y%m%dT%H%M%S").strftime("%Y%m%dT%H%M%S")
+        except ValueError:
+            return ""                          # 99999999T999999 — не календарное время
     return ""                                  # мусор временем не является
 
 
@@ -303,11 +306,14 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     except RB.RunBudgetExceeded as _e:
         # кросс-№3: RunBudgetExceeded — BaseException, «except Exception» его НЕ ловил (500 вместо
         # честного бюджетного стопа); отдельная ветка, как в funnel/event_first
-        return {"run_id": run_id, "ts": _now_iso(), "mode": getattr(cli, "mode", mode),
+        stop = {"run_id": run_id, "ts": _now_iso(), "mode": getattr(cli, "mode", mode),
                 "ОСТАНОВ_бюджет": {"mode": _e.mode, "spent_usd": round(_e.spent_usd, 4),
                                    "cap_usd": _e.cap_usd},
                 "spec_ref": "§24 стоп-на-лету; Инв#5",
                 "резюме": "разбор ОСТАНОВЛЕН на лету: потолок challenge-режима (§24)"}
+        if write:                              # кросс-№13: стоп аудируем, как и пред-отказ
+            _write_challenge_file(run_id, stop, out_dir)
+        return stop
 
     protocol = {
         "run_id": run_id,
