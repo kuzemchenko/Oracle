@@ -227,7 +227,10 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     # каскада шёл с котировка=None/индикаторы=None, и судья штрафовал «нет данных» на пустом месте,
     # хотя история в oracle.db есть. Инъектируем котировку/индикаторы актива явно (как _vet_money).
     sym = candidate["актив"]
-    if sym and sym not in (ctx.get("quotes") or {}) and C.DB.exists():
+    # кросс-№7: ключ мог лежать в ctx со значением None/пустышкой (не только отсутствовать) —
+    # инъекция обязана срабатывать и тогда, иначе судья получает ложное «нет данных» (H7/П8)
+    _have = bool(((ctx.get("quotes") or {}).get(sym) or {}).get("last") if sym else True)
+    if sym and not _have and C.DB.exists():
         con = sqlite3.connect(str(C.DB), timeout=30)
         try:
             q = C._quotes(con, sym)

@@ -207,3 +207,22 @@ def test_find_idea_two_way_us_suffix_and_dotted(tmp_path):
     assert find_idea(asset="AAPL.US", logs_dir=d)[0]["актив"] == "AAPL"   # .US ↔ без
     assert find_idea(asset="BRK", logs_dir=d)[0] is None                   # точечный тикер не срезан
     assert find_idea(asset="BRK.B", logs_dir=d)[0]["актив"] == "BRK.B"
+
+
+def test_context_injection_overrides_none_placeholder(monkeypatch):
+    # Кросс-№7 (HIGH): ctx.quotes[sym]=None (пустышка) не блокирует инъекцию истории из oracle.db.
+    from orchestrator import challenge as CH
+    fake_ctx = {"quotes": {"CLF.US": None}, "indicators": {"CLF.US": None}}
+    monkeypatch.setattr(CH.C, "build_context", lambda theme=None, **k: dict(fake_ctx))
+    injected = []
+    monkeypatch.setattr(CH.C, "_quotes", lambda con, sym: injected.append(sym) or
+                        [{"date": "2026-07-01", "close": 10.0, "adjusted_close": 10.0}])
+    monkeypatch.setattr(CH.C, "_indicators", lambda q: {"rsi": 50})
+    monkeypatch.setattr(CH.DBT, "run_debate",
+                        lambda cand, ctx, cli, **k: {"вердикт": {"исход": "УСТОЯЛА"},
+                                                     "реплики": {}, "актив": cand["актив"]})
+    r = CH.run_challenge("сомнение", candidate={"актив": "CLF.US", "направление": "лонг",
+                                                "тезис": "т", "разрешимость": None},
+                         mode="mock", write=False)
+    assert injected == ["CLF.US"]                       # инъекция сработала несмотря на None-ключ
+    assert "дебаты" in r
