@@ -110,7 +110,15 @@ class Bot:
         self._job = None            # текущая фоновая задача (прогон/калибровка/сверка)
         self._job_label = None      # её человеческое имя для /progress и сообщений
 
+    # Кэп бессрочно растущих списков state (ревью 04.07 LOW): помним хвост — старые run_id/уже
+    # увиденные записи никогда не понадобятся (протоколы старше и так не «новые» для new_runs).
+    _STATE_CAPS = {"pushed_runs": 500, "digest_sent": 500, "seen_watchlist": 1000}
+
     def save(self):
+        for key, cap in self._STATE_CAPS.items():
+            v = self.state.get(key)
+            if isinstance(v, list) and len(v) > cap:
+                self.state[key] = v[-cap:]
         S.save_state(self.state)
 
     def _allowed(self, incoming_chat_id):
