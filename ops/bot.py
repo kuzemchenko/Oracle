@@ -209,6 +209,10 @@ class Bot:
         if idea:
             self._cmd_check_idea(chat, idea)
             return
+        # П3 (§17.6): «сессия», «дай идеи» → сессия партнёра из ГОТОВОГО прогона (без запуска).
+        if self._intent_session(text):
+            self._cmd_session(chat)
+            return
         # Намерение в свободной речи: «сделай прогон», «найди идеи» → боевой прогон (узкий
         # вайтлист, чтобы не перехватывать настоящие вопросы). Прочее — диалог с Дирижёром.
         if self._intent_run_funnel(text):
@@ -216,6 +220,17 @@ class Bot:
             return
         # Свободный текст → диалог с Дирижёром (как в терминале).
         self._chat(chat, text)
+
+    @staticmethod
+    def _intent_session(text):
+        """П3: «дай идеи»/«сессия» = ПОКАЗАТЬ готовые идеи (не путать с «найди идеи» = ПРОГОН:
+        поиск нового скана — дороже и дольше; показ — мгновенный, из последнего протокола)."""
+        t = text.lower().strip().strip(".!?…")
+        for pre in ("да, ", "да ", "ок, ", "ок ", "окей ", "хорошо, ", "хорошо ", "давай, ", "давай "):
+            if t.startswith(pre):
+                t = t[len(pre):].strip()
+        return t in {"сессия", "сессия партнёра", "сессия партнера", "дай идеи", "идеи",
+                     "идеи дня", "покажи идеи", "что по идеям", "дай идеи дня"}
 
     @staticmethod
     def _intent_run_funnel(text):
@@ -342,7 +357,7 @@ class Bot:
                 "🥊 Сомневаешься в идее? Напиши «/debate <твоё возражение>» — и я НЕ отвечу сам, "
                 "а сведу спор разных моделей: одна защищает идею, другая атакует твоим возражением, "
                 "третья (слепой судья) выносит вердикт — выдержала идея твоё сомнение или нет.\n\n"
-                "Команды: /run-funnel — запустить прогон; /calibrate — калибровочный прогон (копим "
+                "Команды: /session (или просто «дай идеи») — сессия партнёра: 3-5 идей с готовой защитой из последнего прогона; /run-funnel — запустить прогон; /calibrate — калибровочный прогон (копим "
                 "статистику точности); /resolve — сверить созревшие прогнозы с фактом; /status — идеи, "
                 "ждущие решения; /progress — что я делаю прямо сейчас; /budget — расход на работу "
                 "системы; /watchlist — что я отслеживаю; /debate — оспорить идею; /format — короче/"
@@ -372,6 +387,8 @@ class Bot:
                 self.tg.send_message(chat, PROG.format_line())
         elif cmd in ("run-funnel", "run_funnel", "runfunnel", "прогон", "воронка"):
             self._cmd_run_funnel(chat)
+        elif cmd in ("session", "сессия"):
+            self._cmd_session(chat)
         elif cmd == "calibrate":
             self._cmd_calibrate(chat)
         elif cmd == "resolve":
@@ -476,6 +493,24 @@ class Bot:
         self.tg.send_message(
             chat, f"Уже идёт задача «{self._job_label}». Дождись её конца — ход смотри в /progress. "
                   f"Параллельный запуск не делаю, чтобы не задвоить траты (ворота §11).")
+
+    def _cmd_session(self, chat):
+        """П3 (§17.6): сессия партнёра — 3-5 идей из ПОСЛЕДНЕГО прогона с готовой защитой.
+        Детерминированно и мгновенно (LLM не зовётся); сессия журналируется (метрики §R5)."""
+        import datetime as _dt
+        from orchestrator import partner_session as PS
+        asof = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+        try:
+            proto = PS.load_latest_protocol()
+            session = PS.build_session(proto, asof=asof)
+            if not session.get("ОТКАЗ"):
+                PS.record_session(session)
+            metrics = PS.session_metrics(asof=asof)
+            self._send_card(R.format_partner_session(session, metrics), None)
+            log("сессия партнёра", session.get("run_id_источника"), "идей", session.get("идей"))
+        except Exception as e:  # noqa: BLE001 — сессия не должна ронять бота
+            log("сессия партнёра ошибка", repr(e))
+            self.tg.send_message(chat, f"Не собрал сессию: {e}. Попробуй /run-funnel — соберу свежий прогон.")
 
     def _cmd_run_funnel(self, chat):
         """Боевой прогон воронки прямо из Telegram (РЕШЕНИЕ владельца 19.06: event-first,
