@@ -232,17 +232,17 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
                     "spec_ref": "§24 пред-проверка; Инв#5",
                     "резюме": "разбор НЕ выполнен: бюджет (§24) — поднять потолок может только владелец"}
         cli.cost_guard = RB.RunBudgetGuard("challenge", decision["cap_usd"])
+    from orchestrator import run_budget as RB
     try:
         debate = DBT.run_debate(candidate, ctx, cli, run_id=run_id, costs=costs, user_doubt=doubt)
-    except Exception as _e:
-        from orchestrator import run_budget as RB
-        if isinstance(_e, RB.RunBudgetExceeded):
-            return {"run_id": run_id, "ts": _now_iso(), "mode": getattr(cli, "mode", mode),
-                    "ОСТАНОВ_бюджет": {"mode": _e.mode, "spent_usd": round(_e.spent_usd, 4),
-                                       "cap_usd": _e.cap_usd},
-                    "spec_ref": "§24 стоп-на-лету; Инв#5",
-                    "резюме": "разбор ОСТАНОВЛЕН на лету: потолок challenge-режима (§24)"}
-        raise
+    except RB.RunBudgetExceeded as _e:
+        # кросс-№3: RunBudgetExceeded — BaseException, «except Exception» его НЕ ловил (500 вместо
+        # честного бюджетного стопа); отдельная ветка, как в funnel/event_first
+        return {"run_id": run_id, "ts": _now_iso(), "mode": getattr(cli, "mode", mode),
+                "ОСТАНОВ_бюджет": {"mode": _e.mode, "spent_usd": round(_e.spent_usd, 4),
+                                   "cap_usd": _e.cap_usd},
+                "spec_ref": "§24 стоп-на-лету; Инв#5",
+                "резюме": "разбор ОСТАНОВЛЕН на лету: потолок challenge-режима (§24)"}
 
     protocol = {
         "run_id": run_id,
