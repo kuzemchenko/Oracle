@@ -1,20 +1,20 @@
 {
-  "run_id": "pytest_guard_off",
+  "run_id": "ef_20260704T143208Z",
   "mode": "mock",
-  "title": "воронка · SPCX.US",
+  "title": "event-first: поиск идей",
   "outer_total": 1,
   "outer_i": 0,
-  "outer_label": "SPCX.US",
+  "outer_label": "BNO.US",
   "phase": "synthesis",
   "phase_label": "синтез отчёта §8",
   "agents": null,
-  "note": null,
+  "note": "скан событий (новости + цены + тренды)…",
   "frac": 1.0,
   "pct": 100,
-  "elapsed_sec": 0.0,
+  "elapsed_sec": 1.3,
   "eta_sec": 0.0,
-  "started_at": "2026-07-03T09:32:01Z",
-  "updated_at": "2026-07-03T09:32:01Z",
+  "started_at": "2026-07-04T14:32:08Z",
+  "updated_at": "2026-07-04T14:32:09Z",
   "finished": true,
-  "summary": "воронка · SPCX.US: стоящих идей нет — легитимный результат слабого дня (§6)"
+  "summary": "Идей в поток 3 уникальных (картограф 0 + граф-топ 3) · источников 2 · граф 3 узлов (ворота 3: money 0/провиз 3/дайдж 0) · состязательный контур 3 идей · новых событий 0."
 }
