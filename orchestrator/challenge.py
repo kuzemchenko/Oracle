@@ -90,9 +90,11 @@ def _scan_protocols(logs_dir=None):
     out = []
     for p in sorted(d.glob("*.json")):
         try:
-            _pr = json.loads(p.read_text(encoding="utf-8")))
-        except (json.JSONDecodeError, OSError):
+            pr = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             continue
+        if isinstance(pr, dict):               # кросс-№10 LOW: JSON-массив/строка — не протокол
+            out.append(pr)
     out.sort(key=lambda pr: (_ts_key(pr), str(pr.get("run_id") or "")))
     return out
 
