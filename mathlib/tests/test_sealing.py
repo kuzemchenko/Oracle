@@ -154,6 +154,80 @@ def test_legacy_records_without_prev_hash_stay_valid(tmp_path):
     assert ok2
 
 
+# --- Ревью 2026-07-04: якорь ловит усечение хвоста; легаси-вписывание в цепь ловится ---
+def test_anchor_detects_tail_truncation(tmp_path):
+    # Известная дыра: удаление ПОСЛЕДНИХ строк оставляет валидную цепь — verify_all слеп.
+    path = tmp_path / "p.jsonl"
+    _seal_n(path, 3)
+    ok_a, why = s.verify_anchor(path)
+    assert ok_a and why is None
+    lines = path.read_text(encoding="utf-8").splitlines()
+    path.write_text("\n".join(lines[:2]) + "\n", encoding="utf-8")   # усечение хвоста
+    ok, bad = s.verify_all(path)
+    assert ok                                                        # цепь по построению не видит
+    ok_a, why = s.verify_anchor(path)
+    assert not ok_a and "усечение" in why                            # якорь видит
+
+
+def test_anchor_missing_on_nonempty_journal_fails_closed(tmp_path):
+    path = tmp_path / "p.jsonl"
+    _seal_n(path, 2)
+    s._anchor_path(path).unlink()                                    # «пропавший» якорь
+    ok_a, why = s.verify_anchor(path)
+    assert not ok_a and "якорь отсутствует" in why
+    # пустой журнал без якоря — легитимно (журнал ещё не заводили)
+    ok_b, _ = s.verify_anchor(tmp_path / "empty.jsonl")
+    assert ok_b
+
+
+def test_init_anchor_migrates_existing_journal(tmp_path):
+    # Миграция боевого журнала: журнал существует, якоря ещё нет → init_anchor, дальше всё ок.
+    path = tmp_path / "p.jsonl"
+    _seal_n(path, 2)
+    s._anchor_path(path).unlink()
+    info = s.init_anchor(path)
+    assert info["count"] == 2
+    ok_a, _ = s.verify_anchor(path)
+    assert ok_a
+
+
+def test_forged_legacy_record_in_tail_is_flagged(tmp_path):
+    # HIGH-2 ревью: сфабрикованная «легаси»-запись (без prev_hash, с самосогласованным hash),
+    # дописанная ПОСЛЕ начала цепочки, раньше проходила verify_all. Теперь — битая.
+    path = tmp_path / "p.jsonl"
+    _seal_n(path, 2)
+    forged = _good(); forged["threshold"] = 555.0
+    forged["sealed_at"] = "2026-07-01T00:00:00+00:00"
+    forged["hash"] = s._content_hash(forged)                         # hash есть, prev_hash нет
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(forged, ensure_ascii=False) + "\n")
+    ok, bad = s.verify_all(path)
+    assert not ok and 2 in bad
+
+
+def test_append_chained_generic_journal(tmp_path):
+    # Универсальная цепочка для outcomes-подобного журнала: rec_hash/prev_rec_hash,
+    # поле hash остаётся свободным под ссылку на прогноз; легаси-префикс допустим.
+    path = tmp_path / "outcomes.jsonl"
+    legacy = {"hash": "pred-hash-1", "outcome": 1}                   # запись до миграции: без rec_hash
+    path.write_text(json.dumps(legacy) + "\n", encoding="utf-8")
+    r1 = s.append_chained(path, {"hash": "pred-hash-2", "outcome": 0})
+    r2 = s.append_chained(path, {"hash": "pred-hash-3", "outcome": 1})
+    assert r1["prev_rec_hash"] == s.GENESIS_PREV_HASH                # легаси-хвост без rec_hash → GENESIS
+    assert r2["prev_rec_hash"] == r1["rec_hash"]
+    ok, bad = s.verify_chain(path, hash_field="rec_hash", prev_field="prev_rec_hash", require_hash=False)
+    assert ok and bad == []
+    ok_a, _ = s.verify_anchor(path, hash_field="rec_hash")
+    assert ok_a
+    # правка chained-записи ловится
+    lines = path.read_text(encoding="utf-8").splitlines()
+    rec = json.loads(lines[1]); rec["outcome"] = 1
+    lines[1] = json.dumps(rec, ensure_ascii=False)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    ok, bad = s.verify_chain(path, hash_field="rec_hash", prev_field="prev_rec_hash", require_hash=False)
+    assert not ok and 1 in bad
+
+
 def test_hash_stable_regardless_of_key_order(tmp_path):
     # тот же контент, другой порядок ключей → тот же hash (канонизация sort_keys)
     a = _good()

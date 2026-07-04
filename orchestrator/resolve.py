@@ -78,10 +78,28 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     chain_ok, bad_idx = SEAL.verify_all(predictions_path)
     bad_idx = set(bad_idx)
 
+    # Ревью 2026-07-04 Блок 1: усечение ХВОСТА predictions цепочка не видит — его ловит внешний
+    # якорь. Журнал ИСХОДОВ — вторая половина уравнения Brier/§11 — теперь тоже под цепочкой
+    # (rec_hash/prev_rec_hash; поле hash занято ссылкой на прогноз) и якорем. Любой из журналов
+    # не верифицирован → сверка НЕ ведётся и Brier НЕ считается (П16 fail-closed: числа с
+    # подозрительного журнала хуже, чем отсутствие чисел).
+    pred_anchor_ok, pred_anchor_why = SEAL.verify_anchor(predictions_path)
+    out_chain_ok, out_bad = SEAL.verify_chain(opath, hash_field="rec_hash",
+                                              prev_field="prev_rec_hash", require_hash=False)
+    out_anchor_ok, out_anchor_why = SEAL.verify_anchor(opath, hash_field="rec_hash")
+    outcomes_ok = out_chain_ok and out_anchor_ok
+    resolve_allowed = pred_anchor_ok and outcomes_ok
+
     con = sqlite3.connect(DB) if DB.exists() else None
     newly, still_pending, errors = [], 0, []
+    if not pred_anchor_ok:
+        errors.append({"error": f"якорь predictions.jsonl: {pred_anchor_why} — сверка остановлена (П16)"})
+    if not out_chain_ok:
+        errors.append({"error": f"hash-цепь outcomes.jsonl: битые записи {out_bad} — сверка остановлена (П16)"})
+    if not out_anchor_ok:
+        errors.append({"error": f"якорь outcomes.jsonl: {out_anchor_why} — сверка остановлена (П16)"})
     try:
-        for i, p in enumerate(preds):
+        for i, p in enumerate(preds if resolve_allowed else []):
             h = p.get("hash")
             if not h or h in done:
                 continue                       # уже сверён — журнал исходов append-only
@@ -114,14 +132,24 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
             con.close()
 
     if write and newly:
+        # Ревью 2026-07-04: запись — цепочкой (rec_hash/prev_rec_hash) под межпроцессным локом;
+        # done-набор ПЕРЕЧИТЫВАЕТСЯ под тем же локом — конкурентный run_resolve (cron + ручной)
+        # больше не порождает дубли исходов, искажающие Brier и гейт-270.
         opath.parent.mkdir(parents=True, exist_ok=True)
-        with open(opath, "a", encoding="utf-8") as f:     # ТОЛЬКО append
-            for rec in newly:
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        with SEAL._locked(opath):
+            done_now = {o["hash"] for o in read_outcomes(opath) if o.get("hash")}
+            deduped = [rec for rec in newly if rec["hash"] not in done_now]
+            for rec in deduped:
+                SEAL.append_chained(opath, rec, lock=False)   # лок уже взят
+        newly = deduped
 
     # Brier по ВСЕМ сверенным исходам (старые + новые). Если записали — перечитываем журнал
     # (он уже содержит newly); если write=False — склеиваем в памяти.
-    all_out = read_outcomes(outcomes_path) if (write and newly) else (read_outcomes(outcomes_path) + newly)
+    # Журнал исходов не верифицирован → Brier/KILL по нему НЕ считаются (П16 fail-closed).
+    if outcomes_ok:
+        all_out = read_outcomes(outcomes_path) if (write and newly) else (read_outcomes(outcomes_path) + newly)
+    else:
+        all_out = []
 
     # B3c: денежный Brier + гейт-270 — ТОЛЬКО не-провизорные; провизорный трек копит свой Brier ОТДЕЛЬНО
     # и к §11 не приближается (герметичность Варианта 2).
@@ -148,7 +176,8 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
 
     return {
         "прогнозов_в_журнале": len(preds),
-        "журнал_цел": chain_ok,                                                 # F2#21: hash-chain + печати
+        "журнал_цел": chain_ok and pred_anchor_ok,                              # F2#21 цепь + якорь (усечение хвоста)
+        "исходы_целы": outcomes_ok,                                             # ревью 2026-07-04: цепь+якорь outcomes
         "битых_печатей": len(bad_idx),                                          # не сверены (§8.2)
         "сверено_сейчас": len(newly),
         "ещё_pending": still_pending,

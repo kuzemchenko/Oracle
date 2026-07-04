@@ -5,9 +5,11 @@ import json, sys
 
 PROTECTED = [
     "journal/predictions.jsonl",
+    "journal/outcomes.jsonl",       # ревью 2026-07-04: вторая половина Brier/§11 — та же защита
     "journal/holdout_access.log",
     "journal/decisions_user.jsonl",
 ]
+# Подстрочное совпадение прикрывает и сайдкары <журнал>.anchor.json / .lock (внешний якорь цепочки).
 
 def main():
     try:

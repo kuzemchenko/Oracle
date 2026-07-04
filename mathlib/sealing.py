@@ -11,9 +11,12 @@
 Запись — ТОЛЬКО append одной строкой в journal/predictions.jsonl, ТОЛЬКО через seal().
 Ничего не удаляется и не редактируется (хук guard_journal.py блокирует прямую правку журнала).
 """
+import contextlib
+import fcntl
 import json
 import hashlib
 import datetime
+import os
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -32,6 +35,80 @@ GENESIS_PREV_HASH = "0" * 64
 
 def now_utc_iso():
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+
+# ─── Межпроцессная синхронизация и внешний якорь (ревью 2026-07-04, Блок 1) ───
+# Конкурентные писатели журнала РЕАЛЬНЫ (cron event_first --seal, /calibrate из бота, ручной
+# funnel live). Без лока два одновременных seal() читают один prev_hash → вторая запись навсегда
+# «бита» для verify_all и никогда не сверяется. Лок — fcntl.flock на сайдкар-файле <журнал>.lock.
+#
+# Якорь <журнал>.anchor.json = {count, last_hash} ВНЕ журнала: ловит усечение хвоста, которое
+# hash-chain по построению не видит (удаление последних K строк оставляет валидную цепь).
+# Якорь обновляется атомарно (tmp+replace) при каждом append под тем же локом.
+
+
+@contextlib.contextmanager
+def _locked(path):
+    """Эксклюзивный межпроцессный лок на журнал (сайдкар <path>.lock, fcntl.flock)."""
+    lock_path = pathlib.Path(str(path) + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "a", encoding="utf-8") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+
+def _anchor_path(path):
+    return pathlib.Path(str(path) + ".anchor.json")
+
+
+def _write_anchor(path, count, last_hash):
+    """Атомарная запись якоря (tmp+os.replace) — обрыв процесса не оставит битый якорь."""
+    ap = _anchor_path(path)
+    tmp = ap.with_suffix(ap.suffix + ".tmp")
+    payload = {"count": count, "last_hash": last_hash, "updated_at": now_utc_iso()}
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
+    os.replace(tmp, ap)
+
+
+def verify_anchor(path=None, hash_field="hash"):
+    """Сверить журнал с внешним якорем. Возвращает (ok, причина|None).
+
+    Fail-closed: непустой журнал БЕЗ якоря — НЕ ок (после миграции каждый append пишет якорь;
+    пропавший якорь = кто-то трогал журнал в обход seal/append_chained). Пустой журнал без
+    якоря — ок (журнал ещё не заводили)."""
+    path = pathlib.Path(path) if path is not None else PREDICTIONS_PATH
+    recs = read_predictions(path)
+    ap = _anchor_path(path)
+    if not ap.exists():
+        if not recs:
+            return True, None
+        return False, "якорь отсутствует при непустом журнале — усечение/правка в обход seal()"
+    try:
+        a = json.loads(ap.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False, "якорь нечитаем"
+    if a.get("count") != len(recs):
+        return False, (f"записей в журнале {len(recs)}, в якоре {a.get('count')} — "
+                       f"усечение хвоста или дописка мимо цепочки")
+    last = recs[-1].get(hash_field) if recs else None
+    if a.get("last_hash") != last:
+        return False, "hash хвоста журнала не совпадает с якорем"
+    return True, None
+
+
+def init_anchor(path=None, hash_field="hash"):
+    """Одноразовая миграция: создать якорь для СУЩЕСТВУЮЩЕГО журнала (до этой версии якоря не было).
+    Дальше якорь ведётся автоматически каждым seal()/append_chained()."""
+    path = pathlib.Path(path) if path is not None else PREDICTIONS_PATH
+    with _locked(path):
+        recs = read_predictions(path)
+        last = recs[-1].get(hash_field) if recs else None
+        _write_anchor(path, len(recs), last)
+    return {"count": len(recs), "last_hash": last}
 
 
 def validate_resolvable(prediction):
@@ -68,10 +145,12 @@ def is_resolvable(prediction):
     return not validate_resolvable(prediction)
 
 
-def _content_hash(record):
-    """sha256 канонической (sort_keys) сериализации всего, КРОМЕ самого поля hash.
-    Любая правка любого поля (включая sealed_at) меняет хэш → подделка задним числом видна."""
-    payload = {k: v for k, v in record.items() if k != "hash"}
+def _content_hash(record, hash_field="hash"):
+    """sha256 канонической (sort_keys) сериализации всего, КРОМЕ самого хэш-поля.
+    Любая правка любого поля (включая sealed_at) меняет хэш → подделка задним числом видна.
+    hash_field параметризован: у predictions это "hash", у outcomes — "rec_hash"
+    (там "hash" занят ссылкой на прогноз)."""
+    payload = {k: v for k, v in record.items() if k != hash_field}
     blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -97,11 +176,14 @@ def seal(prediction, path=None, sealed_at=None):
     record = dict(prediction)
     record.pop("hash", None)
     record["sealed_at"] = sealed_at or now_utc_iso()
-    record["prev_hash"] = _last_hash(path)            # F2#21: звено цепочки (входит в content-hash)
-    record["hash"] = _content_hash(record)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:      # ТОЛЬКО append
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    with _locked(path):                               # межпроцессный лок: read-last+append атомарны
+        recs = read_predictions(path)
+        record["prev_hash"] = (recs[-1].get("hash") if recs else GENESIS_PREV_HASH)  # F2#21: звено цепочки
+        record["hash"] = _content_hash(record)
+        with open(path, "a", encoding="utf-8") as f:  # ТОЛЬКО append
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        _write_anchor(path, len(recs) + 1, record["hash"])   # якорь против усечения хвоста
     return record
 
 
@@ -127,22 +209,68 @@ def verify_seal(record):
     return stored == _content_hash(record)
 
 
-def verify_all(path=None):
-    """Проверить целостность всего журнала: (а) хэш каждой записи; (б) hash-chain (F2#21).
+def verify_chain(path, hash_field="hash", prev_field="prev_hash", require_hash=True):
+    """Универсальная проверка hash-цепочки jsonl-журнала. Возвращает (ok, индексы_битых).
 
-    Цепочка: у записи с prev_hash он ОБЯЗАН совпадать с hash предыдущей записи (или GENESIS для
-    первой) — это ловит УДАЛЕНИЕ/ПЕРЕСТАНОВКУ/ВСТАВКУ, чего одиночный content-hash не видит.
-    Легаси-записи без prev_hash цепочку не несут — их звено пропускаем (бэк-совместимость).
-    Возвращает (ok, отсортированные_индексы_битых_записей)."""
+    Правила:
+    - запись с хэшем: content-hash обязан сходиться (любая правка видна);
+    - запись со звеном (prev_field): звено обязано указывать на hash предыдущей записи
+      (или GENESIS для первой) — ловит удаление/перестановку/вставку в середине;
+    - ЛЕГАСИ-записи (без звена) допустимы ТОЛЬКО сплошным префиксом до начала цепочки.
+      Ревью 2026-07-04 HIGH-2: раньше «легаси»-запись, дописанная в ХВОСТ, проходила verify —
+      в цепь можно было вписать подделку. Теперь после первой записи со звеном любая запись
+      без звена = битая;
+    - require_hash=True (predictions): каждая запись обязана нести content-hash;
+      require_hash=False (outcomes): записи до миграции не имеют rec_hash — легитимное легаси."""
     recs = read_predictions(path)
     bad = set()
+    chain_started = False
     for i, r in enumerate(recs):
-        if not verify_seal(r):
-            bad.add(i)
+        stored = r.get(hash_field)
+        pv = r.get(prev_field)
+        if stored is None and pv is None:
+            if require_hash or chain_started:
+                bad.add(i)                            # для predictions хэш обязателен; легаси после цепи — подделка
             continue
-        pv = r.get("prev_hash")
-        if pv is not None:
-            expected = recs[i - 1].get("hash") if i > 0 else GENESIS_PREV_HASH
-            if pv != expected:
-                bad.add(i)                            # звено цепочки разорвано → запись/соседи тронуты
+        if stored is None or stored != _content_hash(r, hash_field):
+            bad.add(i)                                # содержимое записи тронуто
+            continue
+        if pv is None:
+            if chain_started:
+                bad.add(i)                            # «легаси» ПОСЛЕ начала цепочки = вписанная подделка
+            continue
+        chain_started = True
+        expected = (recs[i - 1].get(hash_field) if i > 0 else None) or GENESIS_PREV_HASH
+        if pv != expected:
+            bad.add(i)                                # звено цепочки разорвано → запись/соседи тронуты
     return (not bad, sorted(bad))
+
+
+def verify_all(path=None):
+    """Проверить целостность журнала прогнозов: (а) хэш каждой записи; (б) hash-chain (F2#21);
+    (в) легаси-записи только сплошным префиксом (ревью 2026-07-04).
+    Возвращает (ok, отсортированные_индексы_битых_записей).
+    ВАЖНО: усечение ХВОСТА цепочка не видит по построению — его ловит verify_anchor()."""
+    return verify_chain(path if path is not None else PREDICTIONS_PATH)
+
+
+def append_chained(path, record, hash_field="rec_hash", prev_field="prev_rec_hash", lock=True):
+    """Append-запись с hash-цепочкой и якорем для ПРОИЗВОЛЬНОГО jsonl-журнала (напр. outcomes.jsonl).
+
+    Под межпроцессным локом: prev = hash последней записи (GENESIS, если журнал пуст или хвост —
+    легаси без хэша), content-hash поверх всех полей включая звено, атомарное обновление якоря.
+    lock=False — ТОЛЬКО если вызывающий уже держит _locked(path) (вложенный flock на другом fd
+    того же лок-файла = дедлок). Возвращает записанную запись."""
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rec = dict(record)
+    rec.pop(hash_field, None)
+    ctx = _locked(path) if lock else contextlib.nullcontext()
+    with ctx:
+        recs = read_predictions(path)
+        rec[prev_field] = (recs[-1].get(hash_field) if recs else None) or GENESIS_PREV_HASH
+        rec[hash_field] = _content_hash(rec, hash_field)
+        with open(path, "a", encoding="utf-8") as f:  # ТОЛЬКО append
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        _write_anchor(path, len(recs) + 1, rec[hash_field])
+    return rec

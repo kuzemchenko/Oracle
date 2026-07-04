@@ -29,3 +29,7 @@ ops/crontab*.bak*
 
 # системный бэкап sshd — не артефакт проекта
 ops/sshd_backup/
+
+# сайдкар-локи журналов (ревью 2026-07-04): межпроцессная синхронизация, не данные
+journal/*.lock
+journal/*.anchor.json.tmp

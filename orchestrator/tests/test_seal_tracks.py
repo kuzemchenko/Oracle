@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 from orchestrator import resolve as R              # noqa: E402
 from orchestrator import cascade_resolve as CR     # noqa: E402
 from data import eodhd as E                        # noqa: E402
+from mathlib import sealing as SEAL                # noqa: E402
 
 
 def test_resolve_segments_provisional_from_money_gate(tmp_path):
@@ -31,6 +32,8 @@ def test_resolve_segments_provisional_from_money_gate(tmp_path):
         {"hash": "d", "probability": 0.8, "outcome": 0, "kind": "cascade_provisional"}, # ПРОВИЗОРНЫЙ
     ]
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n")
+    # ревью 2026-07-04: outcomes под якорем — легаси-журнал без якоря требует одноразовой миграции
+    SEAL.init_anchor(str(out), hash_field="rec_hash")
     res = R.run_resolve(write=False, predictions_path=str(preds), outcomes_path=str(out))
 
     # F0#6: гейт-270 и денежный Brier — ТОЛЬКО edge-kind (funnel_forward/cascade_money); calibration

@@ -97,3 +97,36 @@ def test_resolve_pending_when_not_matured(tmp_path):
     SEAL.seal(pred, path=str(ppath))
     out = RES.run_resolve(write=False, predictions_path=str(ppath), outcomes_path=str(tmp_path / "o.jsonl"))
     assert out["сверено_сейчас"] == 0 and out["ещё_pending"] == 1
+
+
+# --- Ревью 2026-07-04 Блок 1: журнал ИСХОДОВ под той же обороной, что и прогнозы ---
+def test_resolve_refuses_tampered_outcome(tmp_path):
+    # Подмена outcome 0↔1 задним числом раньше незаметно меняла Brier/KILL. Теперь исходы несут
+    # rec_hash/prev_rec_hash + якорь: правка ловится, сверка и Brier останавливаются (П16 fail-closed).
+    import json as _json
+    ppath = tmp_path / "preds.jsonl"; ppath.write_text("")
+    opath = tmp_path / "outs.jsonl"
+    rec = {"hash": "pred-1", "kind": "funnel_forward", "probability": 0.7, "outcome": 0}
+    SEAL.append_chained(str(opath), rec)
+    # честное состояние: сверка идёт, Brier считается
+    ok = RES.run_resolve(write=False, predictions_path=str(ppath), outcomes_path=str(opath))
+    assert ok["исходы_целы"] is True and ok["brier"] is not None
+    # подмена исхода в обход цепочки
+    rows = [_json.loads(x) for x in opath.read_text(encoding="utf-8").splitlines()]
+    rows[0]["outcome"] = 1
+    opath.write_text(_json.dumps(rows[0], ensure_ascii=False) + "\n", encoding="utf-8")
+    res = RES.run_resolve(write=False, predictions_path=str(ppath), outcomes_path=str(opath))
+    assert res["исходы_целы"] is False
+    assert res["brier"] is None and res["всего_исходов"] == 0          # числа с подделки не считаются
+    assert any("outcomes" in e.get("error", "") for e in res["ошибок"])
+
+
+def test_resolve_detects_outcomes_tail_truncation(tmp_path):
+    ppath = tmp_path / "preds.jsonl"; ppath.write_text("")
+    opath = tmp_path / "outs.jsonl"
+    SEAL.append_chained(str(opath), {"hash": "p1", "kind": "funnel_forward", "probability": 0.6, "outcome": 1})
+    SEAL.append_chained(str(opath), {"hash": "p2", "kind": "funnel_forward", "probability": 0.4, "outcome": 0})
+    lines = opath.read_text(encoding="utf-8").splitlines()
+    opath.write_text(lines[0] + "\n", encoding="utf-8")                 # усечение хвоста (неудобный исход)
+    res = RES.run_resolve(write=False, predictions_path=str(ppath), outcomes_path=str(opath))
+    assert res["исходы_целы"] is False and res["brier"] is None
