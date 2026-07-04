@@ -62,6 +62,23 @@ def test_store_writes_timeframe_and_migration_adds_column():
     assert row == (42, A.TRENDS_TIMEFRAME)
 
 
+def test_legacy_rows_get_null_and_are_excluded_from_canon():
+    # Кросс-ревью №2 (BLOCKER): каким окном тянули легаси-строки — знать нельзя; миграция даёт им
+    # NULL (не «канон по умолчанию»), и канонический расчёт их НЕ использует до перефетча.
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE trends (keyword TEXT NOT NULL, geo TEXT NOT NULL, date TEXT NOT NULL,"
+                " interest INTEGER, is_partial INTEGER DEFAULT 0, source TEXT DEFAULT 'google_trends',"
+                " fetched_at TEXT, PRIMARY KEY (keyword, geo, date))")
+    con.execute("INSERT INTO trends (keyword,geo,date,interest,fetched_at)"
+                " VALUES ('uranium','','2026-05-01',77,'2026-05-02T00:00:00+00:00')")
+    nc._migrate(con)
+    assert con.execute("SELECT timeframe FROM trends").fetchone() == (None,)
+    assert T.rows_for_attention(con, "uranium") == []        # NULL ≠ канон — честно пусто
+    # свежий канонический фетч наполняет канон
+    T.store(con, [("uranium", "", "2026-06-01", 55, 0)], [], timeframe=A.TRENDS_TIMEFRAME)
+    assert len(T.rows_for_attention(con, "uranium")) == 1
+
+
 def test_canonical_constants_in_sync():
     # L-5: локальная копия канона в trends.py обязана совпадать с mathlib.attention
     assert T.CANON_TIMEFRAME == A.TRENDS_TIMEFRAME

@@ -51,6 +51,27 @@ def test_unreadable_staleness_stamps_are_visible():
     assert "ПРОПУЩЕНА" in r["заметка"]
 
 
+def test_freshness_demanded_but_no_fetched_at_gives_none():
+    # Кросс-ревью №2 (HIGH): требование свежести (asof+max_age_days) при строках БЕЗ fetched_at
+    # не обходится молча — гарантировать свежесть нечем → честный None.
+    rows = [("2020-01-%02d" % d, 10 + d, 0) for d in range(1, 10)]        # 3-элементные строки
+    r = A.attention_from_rows(rows, asof="2026-07-04T09:00:00+00:00", max_age_days=7)
+    assert r["score"] is None
+    assert "нет метки свежести" in r["провенанс"]
+    # без требования свежести те же строки считаются как раньше
+    r2 = A.attention_from_rows(rows)
+    assert r2["score"] is not None
+
+
+def test_naive_aware_timestamp_mix_does_not_crash():
+    # Кросс-ревью №2 (HIGH): naive fetched_at + aware asof раньше давали TypeError.
+    rows = [("2026-05-%02d" % d, 10 + d * 5, 0, "2026-06-01T00:00:00") for d in range(1, 10)]
+    stale = A.attention_from_rows(rows, asof="2026-07-04T09:00:00+00:00", max_age_days=7)
+    assert stale["score"] is None and "устарел" in stale["провенанс"]     # naive = UTC, честно устарел
+    fresh = A.attention_from_rows(rows, asof="2026-06-02T00:00:00", max_age_days=7)
+    assert fresh["score"] is not None
+
+
 def test_hot_peak_high_score_late():
     # Внимание на историческом пике окна и плато → перегрето, фаза ПОЗДНО.
     interest = [5, 8, 10, 20, 40, 70, 95, 96, 97, 96]

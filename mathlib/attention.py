@@ -222,17 +222,30 @@ def attention_from_rows(rows, asof=None, max_age_days=None, **opts):
     if last_fetch is not None:
         clean = [c for c in clean if c[3] == last_fetch]   # одна нормировка — без швов
     stale_check_note = None
-    if last_fetch is not None and asof is not None and max_age_days is not None:
+    freshness_demanded = asof is not None and max_age_days is not None
+    if freshness_demanded and last_fetch is None:
+        # Кросс-ревью №2 (HIGH): вызывающий ТРЕБУЕТ гарантию свежести, а метки fetched_at нет
+        # (2-3-элементные строки / NULL в БД) — гарантировать нечем, честный None, не обход проверки.
+        res = _empty_result(len(clean), "нет метки свежести (fetched_at) — свежесть не гарантируется",
+                            "строки без fetched_at при требовании asof/max_age_days (П8)")
+        res["фетч_utc"] = None
+        return res
+    if freshness_demanded:
         import datetime as _dt
+
+        def _parse_utc(x):
+            d = _dt.datetime.fromisoformat(str(x).replace("Z", "+00:00"))
+            return d.replace(tzinfo=_dt.timezone.utc) if d.tzinfo is None else d
+
         try:
-            f_dt = _dt.datetime.fromisoformat(str(last_fetch).replace("Z", "+00:00"))
-            a_dt = _dt.datetime.fromisoformat(str(asof).replace("Z", "+00:00"))
-            if (a_dt - f_dt).total_seconds() > float(max_age_days) * 86400:
+            # naive-метка трактуется как UTC (весь проект пишет UTC) — вычитание не падает
+            # TypeError на смеси naive/aware (кросс-ревью №2, HIGH)
+            if (_parse_utc(asof) - _parse_utc(last_fetch)).total_seconds() > float(max_age_days) * 86400:
                 res = _empty_result(len(clean), f"фетч устарел (> {max_age_days} дн от asof)",
                                     "старый ряд не выдаём за текущий сигнал (П8)")
                 res["фетч_utc"] = last_fetch
                 return res
-        except ValueError:
+        except (ValueError, TypeError):
             # stage-review L-4 (П8): отказ проверки честности обязан быть ВИДЕН, не молчать
             stale_check_note = "staleness-проверка ПРОПУЩЕНА: нечитаемые метки fetched_at/asof"
     clean.sort(key=lambda x: x[0])

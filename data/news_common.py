@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS trends (
     is_partial  INTEGER DEFAULT 0,
     source      TEXT DEFAULT 'google_trends',
     fetched_at  TEXT,
-    timeframe   TEXT DEFAULT 'today 3-m',  -- окно фетча Trends (П1-гейт: нормировки окон несравнимы)
+    timeframe   TEXT,                  -- окно фетча Trends; ТОЛЬКО явная запись store() (NULL = неизвестно)
     PRIMARY KEY (keyword, geo, date)
 );
 CREATE TABLE IF NOT EXISTS trends_related (
@@ -339,9 +339,11 @@ def _migrate(con):
     колонок тихо ронял бы store() («no column named ...»), а cron глотал бы это как пропуск."""
     cols = {r[1] for r in con.execute("PRAGMA table_info(trends)")}
     if cols and "timeframe" not in cols:
-        # окно фетча Trends (П1-гейт 04.07): нормировки окон несравнимы; исторические фетчи
-        # шли с config-дефолтом 'today 3-m' — дефолт колонки честен для легаси-строк
-        con.execute("ALTER TABLE trends ADD COLUMN timeframe TEXT DEFAULT 'today 3-m'")
+        # окно фетча Trends (П1-гейт 04.07): нормировки окон несравнимы. Легаси-строки получают
+        # NULL (кросс-ревью №2, BLOCKER: чем каким окном их реально тянули — знать нельзя, и
+        # маркировать их каноном = сохранить timeframe-подмену). NULL-строки канонический расчёт
+        # НЕ использует (rows_for_attention фильтрует по окну) — канон наполняется перефетчем.
+        con.execute("ALTER TABLE trends ADD COLUMN timeframe TEXT")
         con.commit()
 
 
