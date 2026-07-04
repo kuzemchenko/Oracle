@@ -211,8 +211,20 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
 
     verdict = _adjudicate(judge, rubric)
 
+    # Ревью 2026-07-04 M16 / Инв#2: «УСТОЯЛА» без валидного ответа критика — не состязательный
+    # вердикт (ред-тима не было). Fail-closed по образцу F0#2: исход помечается, money-гейт
+    # (_money_kind принимает только точное «УСТОЯЛА») его не пропустит; research-выдаче идея
+    # остаётся с честной пометкой.
+    if not crit.get("ok") and isinstance(verdict, dict) and verdict.get("исход") == "УСТОЯЛА":
+        verdict = {**verdict, "исход": "УСТОЯЛА_БЕЗ_КРИТИКА",
+                   "ограничение_П10": ("критик не дал валидного ответа — состязательности не было; "
+                                       "к деньгам §11 не допускается (Инв#2 fail-closed)")}
+
     return {
-        "актив": asset, "направление": direction, "школа": candidate.get("школа"),
+        # известный баг (ревью 04.07): дело велось по eff_direction (критик/судья/base_rate),
+        # а протокол показывал сырое направление школы (None у masked/каскадных) — теперь честно
+        "актив": asset, "направление": eff_direction, "направление_школы": direction,
+        "школа": candidate.get("школа"),
         "возражение_владельца": user_doubt,
         "base_rate": base_rate,
         "семейство_генератора": gen_family,
@@ -282,8 +294,13 @@ def _rubric_mean(judge_rec):
     if not judge_rec.get("ok"):
         return None
     rub = (judge_rec["judgment"] or {}).get("рубрика", {})
+    if not isinstance(rub, dict):
+        return None                                   # ревью 04.07 H6: кривая ФОРМА ответа ≠ крэш
+    оценки = rub.get("оценки")
     scores = []
-    for o in (rub.get("оценки") or []):
+    for o in (оценки if isinstance(оценки, list) else []):
+        if not isinstance(o, dict):
+            continue                                  # элемент-строка от LLM — пропуск, не AttributeError
         b = o.get("балл")
         if isinstance(b, (int, float)) and not isinstance(b, bool):
             scores.append(float(b))
@@ -295,6 +312,8 @@ def _mandatory_answered(judge_rec):
     if not judge_rec.get("ok"):
         return False, ["судья не дал валидного вердикта"]
     j = judge_rec["judgment"]
+    if not isinstance(j, dict):
+        return False, ["судья вернул невалидную форму ответа"]   # ревью 04.07 H6
     missing = []
     for key, q in (("кто_продаёт_нам_и_почему_неправ", "кто продаёт нам"),
                    ("почему_возможность_ещё_существует", "почему возможность существует")):
@@ -312,7 +331,8 @@ def _adjudicate(judge_rec, rubric):
     thr = float(rubric.get("verdict", {}).get("break_threshold", 3.0))
     mean = _rubric_mean(judge_rec)
     answered, missing_q = _mandatory_answered(judge_rec)
-    judge_says = (judge_rec["judgment"].get("вердикт") if judge_rec.get("ok") else None)
+    _j = judge_rec.get("judgment") if judge_rec.get("ok") else None
+    judge_says = _j.get("вердикт") if isinstance(_j, dict) else None   # ревью 04.07 H6: форма ≠ крэш
 
     if not answered:
         return {"исход": "ВЕТО", "причина": "процедурное вето §5.6: не отвечены обязательные вопросы",
@@ -324,7 +344,7 @@ def _adjudicate(judge_rec, rubric):
                 "средний_балл_рубрики": None, "судья_заявил": judge_says, "вероятность_судьи": None}
 
     code_verdict = "УСТОЯЛА" if mean >= thr else "РАЗБИТА"
-    prob = (judge_rec["judgment"] or {}).get("вероятность")
+    prob = _j.get("вероятность") if isinstance(_j, dict) else None
     note = None
     if judge_says and judge_says != code_verdict:
         note = (f"расхождение: судья заявил {judge_says}, но средний балл рубрики {mean} "

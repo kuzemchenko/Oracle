@@ -31,6 +31,7 @@ import yaml  # noqa: E402
 from mathlib import brier as B          # noqa: E402
 from mathlib import sealing             # noqa: E402
 from mathlib import outcomes as OUT     # noqa: E402
+from orchestrator import resolve as RES  # noqa: E402  (join прогноз↔исход по hash, ревью 04.07 H1)
 from ops import budget as BUD           # noqa: E402
 
 FUNNEL_LOGS = ROOT / "journal" / "funnel_logs"
@@ -62,9 +63,13 @@ def _load_funnel_runs():
 # ── (1) Калибровочная кривая по корзинам ─────────────────────────────────────────
 def metric_calibration():
     recs = [r for r in sealing.read_predictions() if r.get("tag") != "test"]
+    # ревью 04.07 H1: исходы живут в outcomes.jsonl (predictions append-only и исходов не содержит) —
+    # без join по hash калибровка вечно «накапливается» при реально идущей сверке
+    outs_map = RES.outcomes_by_hash()
     resolved = []
     for pred in recs:
-        res = OUT.resolve_prediction(pred, pred.get("observed_value"), pred.get("observed_at"))
+        o = outs_map.get(pred.get("hash")) or {}
+        res = OUT.resolve_prediction(pred, o.get("observed_value"), o.get("observed_at"))
         resolved.append(res)
     probs, outs = OUT.to_brier_inputs(resolved)
     if not probs:
@@ -74,16 +79,19 @@ def metric_calibration():
                 "корзины": [{"lo": i / 10, "hi": (i + 1) / 10, "n": 0,
                              "mean_pred": None, "obs_freq": None, "gap": None} for i in range(10)],
                 "brier": None, "band_pp": None}
+    band = B.calibration_band_pp(probs, outs)   # None, пока ни одна корзина не набрала MIN_BIN_N (H2)
     return {"статус": "есть данные", "n_разрешённых": len(probs),
             "корзины": B.calibration_table(probs, outs),
             "brier": round(B.brier_score(probs, outs), 4),
-            "band_pp": round(B.calibration_band_pp(probs, outs), 2)}
+            "band_pp": (None if band is None else round(band, 2))}
 
 
 # ── (2) Hit rate и P&L по школам/источникам/типам ────────────────────────────────
 def metric_hitrate_pnl():
     recs = [r for r in sealing.read_predictions() if r.get("tag") != "test"]
-    resolved = [OUT.resolve_prediction(p, p.get("observed_value"), p.get("observed_at"))
+    outs_map = RES.outcomes_by_hash()               # ревью 04.07 H1: join прогноз↔исход по hash
+    resolved = [OUT.resolve_prediction(p, (outs_map.get(p.get("hash")) or {}).get("observed_value"),
+                                       (outs_map.get(p.get("hash")) or {}).get("observed_at"))
                 for p in recs]
     n_res = sum(1 for r in resolved if r["status"] == "resolved")
     dims = ["школы", "источники", "типы_идей"]

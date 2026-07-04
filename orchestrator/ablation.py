@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT))
 from mathlib import brier as B          # noqa: E402
 from mathlib import sealing             # noqa: E402
 from mathlib import outcomes as OUT     # noqa: E402
+from orchestrator import resolve as RES  # noqa: E402  (join прогноз↔исход по hash, ревью 04.07 H1)
 
 FUNNEL_LOGS = ROOT / "journal" / "funnel_logs"
 PROPOSED = ROOT / "journal" / "proposed_adjustments.md"
@@ -144,14 +145,16 @@ def load_resolved_links(predictions_path=None):
     этап (Нед.8, до Бумаги) разрешённых исходов не имеет — это ожидаемое «нет данных» (П8)."""
     recs = sealing.read_predictions(predictions_path)
     runs = {r["run_id"]: r for r in load_run_counterfactuals()}
+    # ревью 04.07 H1: исходы — в outcomes.jsonl (join по hash); в predictions их нет и не бывает,
+    # без join часть 2 абляции («вклад агента в Brier», петля §25) не наступила бы никогда
+    outs_map = RES.outcomes_by_hash()
     linked = []
     for pred in recs:
         if pred.get("tag") == "test":
             continue                                   # демо-записи запечатывания — не прогноз
         run_id = pred.get("run_id")
-        observed = pred.get("observed_value")
-        observed_at = pred.get("observed_at")
-        res = OUT.resolve_prediction(pred, observed, observed_at)
+        o = outs_map.get(pred.get("hash")) or {}
+        res = OUT.resolve_prediction(pred, o.get("observed_value"), o.get("observed_at"))
         if res["status"] != "resolved" or run_id not in runs:
             continue
         agent_cf = runs[run_id]["контрфакты"]

@@ -54,6 +54,13 @@ def read_outcomes(path=None):
     return out
 
 
+def outcomes_by_hash(path=None):
+    """Join-карта: hash прогноза → запись исхода. Ревью 2026-07-04 H1: дашборд и абляция читали
+    observed_value из predictions.jsonl, где исходов НЕТ (журнал append-only, исходы живут здесь) —
+    оба механизма §15/§25 были слепы. Единая точка join для всех читателей."""
+    return {o["hash"]: o for o in read_outcomes(path) if o.get("hash")}
+
+
 def _observed_close_after(con, symbol, resolve_by_date):
     """Первый close НА или ПОСЛЕ даты resolve_by. Возвращает (observed_value, observed_at) или (None,None).
     observed_at = дата close + T20:00 UTC (закрытие US-сессии) — чтобы быть ≥ resolve_by при сверке."""
