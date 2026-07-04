@@ -162,3 +162,21 @@ def test_bot_session_intent():
         assert B.Bot._intent_session(t), t
     for t in no:
         assert not B.Bot._intent_session(t), t
+
+
+def test_unprovable_or_future_ts_refused():
+    # Кросс-ревью №2 (BLOCKER): свежесть ДОКАЗЫВАЕТСЯ — нечитаемый/будущий ts = отказ, не идеи.
+    bad_ts = _proto(); bad_ts["ts"] = "not-a-date"
+    r = PS.build_session(bad_ts, asof=ASOF)
+    assert "ОТКАЗ" in r and "нечитаемое время" in r["ОТКАЗ"]
+    future = _proto(); future["ts"] = "2099-01-01T00:00:00+00:00"
+    r2 = PS.build_session(future, asof=ASOF)
+    assert "ОТКАЗ" in r2 and "будущем" in r2["ОТКАЗ"]
+
+
+def test_nonlist_track_fields_do_not_crash():
+    # Кросс-ревью №2 (HIGH): money_трек=1 / картограф_идеи=1 — не итерируем, а игнорируем.
+    s = PS.build_session({"ts": "2026-07-04T09:00:00+00:00",
+                          "граф_отбор": {"money_трек": 1, "провизорный_трек": "x"},
+                          "картограф_идеи": 1}, asof=ASOF)
+    assert s["идей"] == 0 and s["мало_идей"] is True

@@ -67,6 +67,11 @@ def _dict(x):
     return x if isinstance(x, dict) else {}
 
 
+def _list(x):
+    """Кривое (не-list) списковое поле → [] (кросс-ревью П3 №2: money_трек=1 не роняет сессию)."""
+    return x if isinstance(x, list) else []
+
+
 def _idea_from_brief(brief, суд):
     """Идея сессии из брифа узла графа (money/провизорный/топ-K)."""
     brief = _dict(brief)
@@ -122,7 +127,15 @@ def build_session(protocol, *, asof, n_max=SESSION_MAX):
         return {"ОТКАЗ": f"последний протокол нечитаем ({protocol['_битый_протокол']}) — "
                          f"не подменяю его старым; запусти /run-funnel"}
     age = _protocol_age_days(protocol, asof)
-    if age is not None and age > PROTOCOL_MAX_AGE_DAYS:
+    # Кросс-ревью П3 №2 (BLOCKER): свежесть должна быть ДОКАЗАНА. Нечитаемый ts (age=None) и
+    # «будущий» ts (age<0 — сломанные часы/подделка) — отказ, а не выдача идей без гейта.
+    if age is None:
+        return {"ОТКАЗ": "у протокола нечитаемое время (ts) — свежесть не доказать; "
+                         "запусти /run-funnel", "run_id_источника": protocol.get("run_id")}
+    if age < 0:
+        return {"ОТКАЗ": f"время протокола в будущем (возраст {round(age, 2)} дн) — часы/данные "
+                         f"не в порядке; запусти /run-funnel", "run_id_источника": protocol.get("run_id")}
+    if age > PROTOCOL_MAX_AGE_DAYS:
         # Кросс-ревью П3 №1 (BLOCKER): устаревший прогон НЕ упаковывается в сессию —
         # «греть вчерашнее» нечестно; честный отказ + приглашение к свежему прогону.
         return {"ОТКАЗ": f"последний прогон был {round(age, 1)} дн назад (порог "
@@ -145,11 +158,11 @@ def build_session(protocol, *, asof, n_max=SESSION_MAX):
             return
         seen[a] = idea
         ideas.append(idea)
-    for brief in (g.get("money_трек") or []):
+    for brief in _list(g.get("money_трек")):
         _add(_idea_from_brief(brief, суд))
-    for brief in (g.get("провизорный_трек") or []):
+    for brief in _list(g.get("провизорный_трек")):
         _add(_idea_from_brief(brief, суд))
-    for ci in (protocol.get("картограф_идеи") or []):
+    for ci in _list(protocol.get("картограф_идеи")):
         _add(_idea_from_carto(ci))
     ideas = ideas[:n_max]
     return {
