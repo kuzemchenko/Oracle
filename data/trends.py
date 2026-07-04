@@ -88,15 +88,32 @@ def fetch_keyword(keyword, geo="", timeframe=CANON_TIMEFRAME):
     rows_related = []
     try:
         rq = _call(pt.related_queries)
-        block = (rq or {}).get(keyword) or {}
-        for kind in ("top", "rising"):
-            df = block.get(kind)
-            if df is not None and not df.empty:
-                for _, r in df.iterrows():
-                    rows_related.append((keyword, geo, kind, str(r["query"]), int(r["value"])))
-    except RateLimited:
-        pass  # ряд интереса важнее related — отдаём что есть
+        rows_related = _related_rows(rq, keyword, geo)
+    except Exception:  # noqa: BLE001 — related строго best-effort: ряд интереса важнее (кросс-ревью №3)
+        pass
     return rows_iot, rows_related
+
+
+def _related_value(v):
+    """Значение related-запроса → int|None. Google для rising отдаёт и НЕчисловое 'Breakout'
+    (рост >5000%) — раньше int() ронял ВЕСЬ fetch_keyword и терял уже полученный ряд интереса
+    (кросс-ревью №3, HIGH). Нечисловое → None (честное «величина не числом»)."""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _related_rows(rq, keyword, geo):
+    """Разбор related_queries в строки БД (вынесен для тестируемости без сети)."""
+    out = []
+    block = (rq or {}).get(keyword) or {}
+    for kind in ("top", "rising"):
+        df = block.get(kind)
+        if df is not None and not df.empty:
+            for _, r in df.iterrows():
+                out.append((keyword, geo, kind, str(r["query"]), _related_value(r["value"])))
+    return out
 
 
 def store(con, rows_iot, rows_related, timeframe=CANON_TIMEFRAME):

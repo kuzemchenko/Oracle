@@ -218,7 +218,24 @@ def attention_from_rows(rows, asof=None, max_age_days=None, **opts):
         fetched = row[3] if len(row) > 3 else None
         clean.append((date, interest, part, fetched))
     fetches = {c[3] for c in clean if c[3] is not None}
-    last_fetch = max(fetches) if fetches else None
+    # Кросс-ревью №3 (HIGH): «последний» фетч — ХРОНОЛОГИЧЕСКИ, не лексикографически: строковый
+    # max ломается на смеси смещений ('...T10:00+02:00' < '...T09:00+00:00' по времени, но > по
+    # строке). Нечитаемые метки → детерминированный строковый фолбек.
+    def _fetch_ts(x):
+        import datetime as _dt
+        try:
+            d = _dt.datetime.fromisoformat(str(x).replace("Z", "+00:00"))
+            return (d.replace(tzinfo=_dt.timezone.utc) if d.tzinfo is None else d).timestamp()
+        except ValueError:
+            return None
+
+    last_fetch = None
+    if fetches:
+        stamps = {f: _fetch_ts(f) for f in fetches}
+        if all(v is not None for v in stamps.values()):
+            last_fetch = max(stamps, key=lambda k: (stamps[k], str(k)))   # хронологически, тай-брейк детерминирован
+        else:
+            last_fetch = max(fetches, key=str)                            # нечитаемые метки — строковый фолбек
     if last_fetch is not None:
         clean = [c for c in clean if c[3] == last_fetch]   # одна нормировка — без швов
     stale_check_note = None

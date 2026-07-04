@@ -63,6 +63,16 @@ def test_freshness_demanded_but_no_fetched_at_gives_none():
     assert r2["score"] is not None
 
 
+def test_latest_fetch_chosen_chronologically_not_lexicographically():
+    # Кросс-ревью №3 (HIGH): '2026-07-04T10:00:00+02:00' (=08:00 UTC) СТАРШЕ '...T09:00:00+00:00'
+    # по строке, но МЛАДШЕ по времени — выбираться должен хронологически последний фетч.
+    older = [("2026-06-%02d" % d, 90, 0, "2026-07-04T10:00:00+02:00") for d in range(1, 10)]
+    newer = [("2026-06-%02d" % d, 10 + d, 0, "2026-07-04T09:00:00+00:00") for d in range(1, 10)]
+    r = A.attention_from_rows(older + newer)
+    assert r["фетч_utc"] == "2026-07-04T09:00:00+00:00"      # хронологически свежий
+    assert r["последний"] is not None and r["последний"] < 30  # ряд именно свежего фетча
+
+
 def test_naive_aware_timestamp_mix_does_not_crash():
     # Кросс-ревью №2 (HIGH): naive fetched_at + aware asof раньше давали TypeError.
     rows = [("2026-05-%02d" % d, 10 + d * 5, 0, "2026-06-01T00:00:00") for d in range(1, 10)]

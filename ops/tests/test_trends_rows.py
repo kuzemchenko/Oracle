@@ -79,6 +79,19 @@ def test_legacy_rows_get_null_and_are_excluded_from_canon():
     assert len(T.rows_for_attention(con, "uranium")) == 1
 
 
+def test_related_breakout_value_does_not_crash():
+    # Кросс-ревью №3 (HIGH): rising related с value='Breakout' (нечисловое, Google так отдаёт
+    # рост >5000%) не роняет разбор и не теряет остальные строки; нечисловое → None.
+    import pandas as pd
+    rq = {"uranium": {"top": pd.DataFrame([{"query": "uranium etf", "value": 100}]),
+                      "rising": pd.DataFrame([{"query": "uranium squeeze", "value": "Breakout"},
+                                              {"query": "uranium price", "value": 250}])}}
+    rows = T._related_rows(rq, "uranium", "")
+    assert ("uranium", "", "top", "uranium etf", 100) in rows
+    assert ("uranium", "", "rising", "uranium squeeze", None) in rows    # честный None, не крэш
+    assert ("uranium", "", "rising", "uranium price", 250) in rows
+
+
 def test_canonical_constants_in_sync():
     # L-5: локальная копия канона в trends.py обязана совпадать с mathlib.attention
     assert T.CANON_TIMEFRAME == A.TRENDS_TIMEFRAME
