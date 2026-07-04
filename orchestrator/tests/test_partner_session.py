@@ -221,3 +221,9 @@ def test_unhashable_asset_skipped():
                           "граф_отбор": {"money_трек": [{"актив": ["A", "B"]}]},
                           "картограф_идеи": []}, asof=ASOF)
     assert s["идей"] == 0
+
+
+def test_nondict_protocol_root_is_refused():
+    # Кросс-ревью №5: валидный JSON-список в файле протокола → честный отказ, не AttributeError.
+    r = PS.build_session(["not", "protocol"], asof=ASOF)
+    assert "ОТКАЗ" in r and "не того формата" in r["ОТКАЗ"]
