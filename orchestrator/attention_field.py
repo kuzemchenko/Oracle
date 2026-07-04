@@ -72,7 +72,9 @@ def _load_registry(path=None):
                     or not str(rec.get("ключ") or "").strip()):
                 broken += 1
                 continue
-            out.setdefault(rec["актив"], rec)         # setdefault = первый ВАЛИДНЫЙ выигрывает
+            # кросс-ревью №4: нормализация И при чтении — легаси-запись « ccj.us » обязана
+            # участвовать в «первый выигрывает» для CCJ.US, иначе пересдача через регистр
+            out.setdefault(str(rec["актив"]).strip().upper(), rec)   # первый ВАЛИДНЫЙ выигрывает
     if broken:
         print(f"⚠ attention_keys.jsonl: {broken} битых/невалидных строк пропущено "
               f"(реестр жив, проверь журнал)", file=sys.stderr)

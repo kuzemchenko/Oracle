@@ -231,3 +231,15 @@ def test_attention_line_render_none_safe():
     assert any("brent oil" in l for l in lines) and any("⚠️" in l for l in lines)
     nm = {"внимание": {"статус": "не_измерено", "причина": "ключ Trends не назначен"}}
     assert any("не измерено" in l for l in R._attention_line(nm))
+
+
+def test_legacy_nonnormalized_registry_record_still_wins(tmp_path):
+    # Кросс-ревью №4: легаси-запись « ccj.us » участвует в «первый выигрывает» для CCJ.US.
+    reg = tmp_path / "reg.jsonl"
+    rec = {"актив": " ccj.us ", "ключ": "uranium squeeze", "источник": "old", "run_id": "r1", "ts": ASOF}
+    reg.write_text(json.dumps(rec, ensure_ascii=False) + "\n", encoding="utf-8")
+    con = _con_with_series("x", [10, 20])
+    f = AF.field_for_asset(con, "CCJ.US", asof=ASOF, run_id="r2",
+                           candidates=["другой ключ"], seeds={}, registry_path=reg)
+    assert f["ключ"] == "uranium squeeze"                     # легаси-фиксация уважена
+    assert len(reg.read_text().splitlines()) == 1             # новая запись НЕ дописана
