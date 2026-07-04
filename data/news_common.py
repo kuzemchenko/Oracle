@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS trends (
     is_partial  INTEGER DEFAULT 0,
     source      TEXT DEFAULT 'google_trends',
     fetched_at  TEXT,
+    timeframe   TEXT DEFAULT 'today 3-m',  -- окно фетча Trends (П1-гейт: нормировки окон несравнимы)
     PRIMARY KEY (keyword, geo, date)
 );
 CREATE TABLE IF NOT EXISTS trends_related (
@@ -328,7 +329,20 @@ def db_connect():
     DB.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB)
     con.executescript(SCHEMA)
+    _migrate(con)
     return con
+
+
+def _migrate(con):
+    """Идемпотентные миграции схемы (stage-review П1-гейта, HIGH): CREATE TABLE IF NOT EXISTS
+    не изменяет СУЩЕСТВУЮЩИЕ таблицы — восстановленная из бэкапа/чужого хоста БД без новых
+    колонок тихо ронял бы store() («no column named ...»), а cron глотал бы это как пропуск."""
+    cols = {r[1] for r in con.execute("PRAGMA table_info(trends)")}
+    if cols and "timeframe" not in cols:
+        # окно фетча Trends (П1-гейт 04.07): нормировки окон несравнимы; исторические фетчи
+        # шли с config-дефолтом 'today 3-m' — дефолт колонки честен для легаси-строк
+        con.execute("ALTER TABLE trends ADD COLUMN timeframe TEXT DEFAULT 'today 3-m'")
+        con.commit()
 
 
 _COLS = ["id", "source", "url", "canonical_url", "domain", "title", "body",

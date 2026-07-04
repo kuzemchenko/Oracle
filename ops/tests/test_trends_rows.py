@@ -1,0 +1,67 @@
+# -*- coding: utf-8 -*-
+"""Тесты загрузчика rows_for_attention и миграции схемы trends (П1-гейт 04.07, stage-review L-7/B-1)."""
+import pathlib
+import sqlite3
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "data"))
+
+from data import trends as T           # noqa: E402
+import news_common as nc               # noqa: E402
+from mathlib import attention as A     # noqa: E402
+
+
+def _mem_db():
+    con = sqlite3.connect(":memory:")
+    con.executescript(nc.SCHEMA)
+    return con
+
+
+def _ins(con, kw, date, interest, fetched_at, timeframe, partial=0):
+    con.execute("INSERT OR REPLACE INTO trends (keyword,geo,date,interest,is_partial,source,fetched_at,timeframe)"
+                " VALUES (?,?,?,?,?,'google_trends',?,?)", (kw, "", date, interest, partial, fetched_at, timeframe))
+
+
+def test_rows_for_attention_latest_fetch_and_canonical_only():
+    con = _mem_db()
+    # старый фетч канонического окна
+    for d in range(1, 5):
+        _ins(con, "uranium", f"2026-05-0{d}", 90, "2026-05-05T00:00:00+00:00", A.TRENDS_TIMEFRAME)
+    # свежий фетч канонического окна
+    for d in range(1, 5):
+        _ins(con, "uranium", f"2026-06-0{d}", 10 + d, "2026-06-05T00:00:00+00:00", A.TRENDS_TIMEFRAME)
+    # неканонический фетч (кросс-ревью BLOCKER: не должен подменять шкалу) — ещё свежее
+    _ins(con, "uranium", "2026-06-09", 50, "2026-06-10T00:00:00+00:00", "today 12-m")
+    rows = T.rows_for_attention(con, "uranium")
+    assert len(rows) == 4                                    # только свежий КАНОНИЧЕСКИЙ фетч
+    assert all(r[3] == "2026-06-05T00:00:00+00:00" for r in rows)
+    assert [r[1] for r in rows] == [11, 12, 13, 14]
+
+
+def test_rows_for_attention_empty_table_and_missing_keyword():
+    con = _mem_db()
+    assert T.rows_for_attention(con, "нет такого") == []
+
+
+def test_store_writes_timeframe_and_migration_adds_column():
+    # B-1 stage-review: старая схема (без timeframe) обязана мигрироваться КОДОМ (db_connect._migrate),
+    # иначе восстановленная из бэкапа БД тихо роняет суточный фетч.
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE trends (keyword TEXT NOT NULL, geo TEXT NOT NULL, date TEXT NOT NULL,"
+                " interest INTEGER, is_partial INTEGER DEFAULT 0, source TEXT DEFAULT 'google_trends',"
+                " fetched_at TEXT, PRIMARY KEY (keyword, geo, date))")
+    nc._migrate(con)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(trends)")}
+    assert "timeframe" in cols
+    nc._migrate(con)                                         # идемпотентно
+    # store() после миграции работает и пишет timeframe
+    T.store(con, [("brent oil", "", "2026-07-01", 42, 0)], [], timeframe=A.TRENDS_TIMEFRAME)
+    row = con.execute("SELECT interest, timeframe FROM trends WHERE keyword='brent oil'").fetchone()
+    assert row == (42, A.TRENDS_TIMEFRAME)
+
+
+def test_canonical_constants_in_sync():
+    # L-5: локальная копия канона в trends.py обязана совпадать с mathlib.attention
+    assert T.CANON_TIMEFRAME == A.TRENDS_TIMEFRAME
