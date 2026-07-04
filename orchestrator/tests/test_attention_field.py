@@ -243,3 +243,12 @@ def test_legacy_nonnormalized_registry_record_still_wins(tmp_path):
                            candidates=["другой ключ"], seeds={}, registry_path=reg)
     assert f["ключ"] == "uranium squeeze"                     # легаси-фиксация уважена
     assert len(reg.read_text().splitlines()) == 1             # новая запись НЕ дописана
+
+
+def test_string_candidates_is_single_key_not_chars(tmp_path):
+    # Кросс-ревью №5: строка-кандидат — один ключ, не список символов («u» не фиксируется навсегда).
+    reg = tmp_path / "reg.jsonl"
+    con = _con_with_series("x", [10, 20])
+    f = AF.field_for_asset(con, "CCJ.US", asof=ASOF, run_id="r",
+                           candidates="uranium squeeze", seeds={}, registry_path=reg)
+    assert f["ключ"] == "uranium squeeze"

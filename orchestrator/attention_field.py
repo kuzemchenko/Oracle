@@ -145,8 +145,15 @@ def field_for_asset(con, asset, *, asof, run_id, candidates=None,
         key = rec["ключ"]                      # гонка: другой прогон успел первым — его ключ окончателен
         key_source = f"реестр ({rec.get('источник')}, {rec.get('run_id')})"
     if key is None and candidates and fix_keys:
-        # детерминизм (кросс-ревью LOW): множества сортируем; списки — в порядке значимости кластера
-        cands = sorted(candidates) if isinstance(candidates, (set, frozenset)) else list(candidates)
+        # кросс-ревью №5: голая строка — ОДИН кандидат, не iterable символов (иначе для актива
+        # навсегда фиксировался бы ключ «u»); детерминизм: множества сортируем, списки — в порядке
+        # значимости кластера
+        if isinstance(candidates, str):
+            cands = [candidates]
+        elif isinstance(candidates, (set, frozenset)):
+            cands = sorted(candidates)
+        else:
+            cands = list(candidates)
         cand = next((str(c).strip() for c in cands if c and str(c).strip()), None)
         if cand:
             rec = assign_key(asset, cand, "ключи новостного кластера картографа",
