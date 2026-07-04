@@ -58,7 +58,9 @@ def _trendreq():
 
 
 def _call(fn, *a, tries=4, pause=8.0, **kw):
-    """Вызвать метод pytrends с backoff. Поднимает RateLimited при устойчивом 429."""
+    """Вызвать метод pytrends с backoff. RateLimited — ТОЛЬКО при реальном устойчивом 429;
+    прочие устойчивые сбои (смена API, KeyError, таймауты) пробрасываются КАК ЕСТЬ — кросс-ревью
+    №4 (HIGH): маскировка поломки источника под «внешний лимит 429» — нечестная диагностика."""
     from pytrends.exceptions import TooManyRequestsError
     last = None
     for i in range(tries):
@@ -70,7 +72,9 @@ def _call(fn, *a, tries=4, pause=8.0, **kw):
         except Exception as e:  # noqa: BLE001 — сетевые сбои тоже под backoff
             last = e
             time.sleep(pause * (i + 1))
-    raise RateLimited(str(last))
+    if isinstance(last, TooManyRequestsError):
+        raise RateLimited(str(last))
+    raise last
 
 
 def fetch_keyword(keyword, geo="", timeframe=CANON_TIMEFRAME):
@@ -181,18 +185,18 @@ def run_all(con, verbose=True):
 
 
 def rows_for_attention(con, keyword, geo="", timeframe=None):
-    """Строки ряда для mathlib.attention (П1-гейт 04.07): ТОЛЬКО последний фетч ключа и ТОЛЬКО
-    канонического окна timeframe — одна нормировка, без «швов» от INSERT OR REPLACE разных окон
-    и без подмены шкалы неканоническим фетчем (кросс-ревью, BLOCKER).
+    """Строки ряда для mathlib.attention (П1-гейт 04.07): ТОЛЬКО каноническое окно timeframe —
+    без подмены шкалы неканоническим фетчем (кросс-ревью, BLOCKER). Выбор ПОСЛЕДНЕГО фетча здесь
+    НЕ делается: SQL MAX(fetched_at) — лексикографический и ломается на смеси смещений (кросс-
+    ревью №4, HIGH); хронологический выбор — ЕДИНСТВЕННЫМ местом в attention_from_rows.
     Возвращает [(date, interest, is_partial, fetched_at), ...] по возрастанию даты."""
     if timeframe is None:
         from mathlib import attention as A
         timeframe = A.TRENDS_TIMEFRAME
     return con.execute(
         "SELECT date, interest, is_partial, fetched_at FROM trends"
-        " WHERE keyword=? AND geo=? AND timeframe=? AND fetched_at ="
-        "   (SELECT MAX(fetched_at) FROM trends WHERE keyword=? AND geo=? AND timeframe=?)"
-        " ORDER BY date ASC", (keyword, geo, timeframe, keyword, geo, timeframe)).fetchall()
+        " WHERE keyword=? AND geo=? AND timeframe=?"
+        " ORDER BY date ASC", (keyword, geo, timeframe)).fetchall()
 
 
 def _warn_if_not_canonical(timeframe):

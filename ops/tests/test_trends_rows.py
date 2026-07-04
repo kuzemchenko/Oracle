@@ -24,20 +24,24 @@ def _ins(con, kw, date, interest, fetched_at, timeframe, partial=0):
                 " VALUES (?,?,?,?,?,'google_trends',?,?)", (kw, "", date, interest, partial, fetched_at, timeframe))
 
 
-def test_rows_for_attention_latest_fetch_and_canonical_only():
+def test_rows_for_attention_canonical_only_and_chronological_fetch():
     con = _mem_db()
-    # старый фетч канонического окна
+    # старый фетч канонического окна — с НЕнулевым смещением (кросс-ревью №4: SQL MAX по строке
+    # выбрал бы его; хронологический выбор — в attention_from_rows)
     for d in range(1, 5):
-        _ins(con, "uranium", f"2026-05-0{d}", 90, "2026-05-05T00:00:00+00:00", A.TRENDS_TIMEFRAME)
-    # свежий фетч канонического окна
-    for d in range(1, 5):
-        _ins(con, "uranium", f"2026-06-0{d}", 10 + d, "2026-06-05T00:00:00+00:00", A.TRENDS_TIMEFRAME)
+        _ins(con, "uranium", f"2026-05-0{d}", 90, "2026-06-05T10:00:00+02:00", A.TRENDS_TIMEFRAME)
+    # свежий фетч канонического окна (по времени позже: 09:00Z > 08:00Z, хотя по строке «меньше»)
+    for d in range(1, 9):
+        _ins(con, "uranium", f"2026-06-0{d}", 10 + d, "2026-06-05T09:00:00+00:00", A.TRENDS_TIMEFRAME)
     # неканонический фетч (кросс-ревью BLOCKER: не должен подменять шкалу) — ещё свежее
     _ins(con, "uranium", "2026-06-09", 50, "2026-06-10T00:00:00+00:00", "today 12-m")
     rows = T.rows_for_attention(con, "uranium")
-    assert len(rows) == 4                                    # только свежий КАНОНИЧЕСКИЙ фетч
-    assert all(r[3] == "2026-06-05T00:00:00+00:00" for r in rows)
-    assert [r[1] for r in rows] == [11, 12, 13, 14]
+    assert len(rows) == 12                                   # весь канон (оба фетча), 12-m исключён
+    assert all(len(r) == 4 for r in rows)
+    # end-to-end: датчик берёт ХРОНОЛОГИЧЕСКИ последний фетч канона
+    r = A.attention_from_rows(rows)
+    assert r["фетч_utc"] == "2026-06-05T09:00:00+00:00"
+    assert r["n"] == 8 and r["последний"] < 30               # ряд именно свежего фетча
 
 
 def test_rows_for_attention_empty_table_and_missing_keyword():
@@ -90,6 +94,25 @@ def test_related_breakout_value_does_not_crash():
     assert ("uranium", "", "top", "uranium etf", 100) in rows
     assert ("uranium", "", "rising", "uranium squeeze", None) in rows    # честный None, не крэш
     assert ("uranium", "", "rising", "uranium price", 250) in rows
+
+
+def test_call_does_not_mask_failures_as_429():
+    # Кросс-ревью №4 (HIGH): устойчивый НЕ-429 сбой (смена API/KeyError) не маскируется под
+    # «внешний лимит 429» — пробрасывается как есть; настоящий 429 → RateLimited.
+    import pytest
+    from pytrends.exceptions import TooManyRequestsError
+
+    def broken():
+        raise KeyError("api changed")
+
+    with pytest.raises(KeyError):
+        T._call(broken, tries=2, pause=0)
+
+    def limited():
+        raise TooManyRequestsError("429", type("Resp", (), {"status_code": 429})())
+
+    with pytest.raises(T.RateLimited):
+        T._call(limited, tries=2, pause=0)
 
 
 def test_canonical_constants_in_sync():
