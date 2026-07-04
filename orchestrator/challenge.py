@@ -48,6 +48,19 @@ def _now_iso():
 _TS_RE = re.compile(r"\d{8}T\d{6}Z")
 
 
+def _norm_utc_digits(x):
+    """ISO-время → сравнимая цифровая форма В UTC (кросс-№5/№6: смещения не ломают порядок)."""
+    import datetime as _dt
+    s = str(x)
+    try:
+        d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if d.tzinfo is not None:
+            s = d.astimezone(_dt.timezone.utc).isoformat()
+    except ValueError:
+        pass                                  # компакт-форма уже UTC (…Z из run_id)
+    return "".join(ch for ch in s if ch.isdigit() or ch == "T")
+
+
 def _ts_key(protocol):
     """Хронологический ключ: timestamp из ts/run_id боевого прогона. Статичные тест-фикстуры
     (week7_testday и т.п.) без timestamp идут НИЖЕ реальных прогонов — чтобы «последняя идея»
@@ -55,21 +68,11 @@ def _ts_key(protocol):
     # M9 (ревью 04.07): ts бывает ISO ('2026-07-04T09:00:02+00:00') и компакт ('20260704T090002Z');
     # лексикографически компакт ВСЕГДА «новее» ISO ('202607…' > '2026-0…') → find_idea брал не ту
     # идею. Нормализуем к цифрам+T — формы сравнимы между собой.
-    def _norm(x):
-        import datetime as _dt
-        s = str(x)
-        try:                                  # кросс-№5 LOW: смещения нормализуем к UTC до цифр
-            d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
-            if d.tzinfo is not None:
-                s = d.astimezone(_dt.timezone.utc).isoformat()
-        except ValueError:
-            pass                              # компакт-форма уже UTC (…Z из run_id)
-        return "".join(ch for ch in s if ch.isdigit() or ch == "T")
     ts = (protocol or {}).get("ts") or ""
     if ts:
-        return _norm(ts)
+        return _norm_utc_digits(ts)
     m = _TS_RE.search(str((protocol or {}).get("run_id") or ""))
-    return _norm(m.group(0)) if m else ""
+    return _norm_utc_digits(m.group(0)) if m else ""
 
 
 def _scan_protocols(logs_dir=None):
@@ -156,10 +159,14 @@ def find_idea(asset=None, run_id=None, logs_dir=None):
             # кросс-№5 (HIGH, он же LOW дневного ревью): подстрочный матч выбирал ЧУЖУЮ идею
             # («AA» находил AAPL, «SO» — USO.US). Точное совпадение тикера (с/без суффикса .US).
             a = asset.strip().upper()
+
+            def _base(t):                     # кросс-№6: канонический суффикс проекта — ТОЛЬКО .US;
+                return t[:-3] if t.endswith(".US") else t   # BRK.B не срезается до BRK
+
             for r in reps:
                 cand = str(r.get("актив", "")).upper()
-                # точное совпадение тикера; «AA» ≠ AAPL, «SO» ≠ USO.US
-                if cand == a or cand == f"{a}.US" or cand.split(".")[0] == a:
+                # точное совпадение тикера в обе стороны: AAPL↔AAPL.US; «AA» ≠ AAPL, BRK ≠ BRK.B
+                if _base(cand) == _base(a):
                     return r, p
         else:
             return reps[0], p
@@ -271,13 +278,17 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
         d = pathlib.Path(out_dir or CHALLENGE_LOGS)
         d.mkdir(parents=True, exist_ok=True)
         from orchestrator import progress as _PROG
-        # кросс-№5 (BLOCKER-край): даже при коллизии run_id (контейнеры с общим журналом и pid=1)
-        # СУЩЕСТВУЮЩИЙ протокол не перетирается — no-clobber суффикс («ничего не удаляется»)
-        dst = d / f"{run_id}.json"
-        suffix = 1
-        while dst.exists():
-            suffix += 1
-            dst = d / f"{run_id}-{suffix}.json"
+        # кросс-№5/№6: no-clobber АТОМАРНО — имя клеймится os.O_EXCL (двум писателям одно имя
+        # не достанется даже в гонке), затем атомарная замена заклеймленного файла содержимым
+        import os as _os2
+        suffix = 0
+        while True:
+            dst = d / (f"{run_id}.json" if not suffix else f"{run_id}-{suffix}.json")
+            try:
+                _os2.close(_os2.open(dst, _os2.O_CREAT | _os2.O_EXCL | _os2.O_WRONLY))
+                break
+            except FileExistsError:
+                suffix += 1
         _PROG.atomic_write_text(dst,
                                 json.dumps(protocol, ensure_ascii=False, indent=2, default=str))  # M13
     return protocol
@@ -339,7 +350,7 @@ def digest_challenges(since=None, logs_dir=None, break_threshold=3.0):
             p = json.loads(f.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             continue
-        if since and str(p.get("ts", "")) < str(since):
+        if since and _norm_utc_digits(p.get("ts", "")) < _norm_utc_digits(since):   # кросс-№6 LOW: UTC
             continue
         if p.get("mode") != "live":          # П16: mock-разборы не питают обучение
             n_mock += 1

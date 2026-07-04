@@ -193,3 +193,17 @@ def test_find_idea_exact_ticker_match(tmp_path):
     assert find_idea(asset="SO", logs_dir=d)[0] is None
     got, _ = find_idea(asset="AAPL", logs_dir=d)
     assert got is not None                                     # точный тикер (без .US) находится
+
+
+def test_find_idea_two_way_us_suffix_and_dotted(tmp_path):
+    # Кросс-№6: AAPL↔AAPL.US в обе стороны; BRK не находит BRK.B.
+    import json as _json
+    d = tmp_path / "logs"; d.mkdir()
+    proto = {"run_id": "funnel_20260704T090001Z", "ts": "2026-07-04T09:00:01+00:00", "mode": "live",
+             "этап6_синтез": {"отчёты": [{"актив": "AAPL", "направление": "лонг", "тезис": "т"},
+                                          {"актив": "BRK.B", "направление": "лонг", "тезис": "т"}]}}
+    (d / "funnel_20260704T090001Z.json").write_text(_json.dumps(proto, ensure_ascii=False))
+    from orchestrator.challenge import find_idea
+    assert find_idea(asset="AAPL.US", logs_dir=d)[0]["актив"] == "AAPL"   # .US ↔ без
+    assert find_idea(asset="BRK", logs_dir=d)[0] is None                   # точечный тикер не срезан
+    assert find_idea(asset="BRK.B", logs_dir=d)[0]["актив"] == "BRK.B"
