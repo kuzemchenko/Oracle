@@ -227,3 +227,11 @@ def test_nondict_protocol_root_is_refused():
     # Кросс-ревью №5: валидный JSON-список в файле протокола → честный отказ, не AttributeError.
     r = PS.build_session(["not", "protocol"], asof=ASOF)
     assert "ОТКАЗ" in r and "не того формата" in r["ОТКАЗ"]
+
+
+def test_falsy_nondict_roots_distinguished_from_no_protocols():
+    # Кросс-ревью №6: [] / "" / 0 — «не того формата», а не «нет протоколов»; None — «нет».
+    for falsy in ([], "", 0):
+        r = PS.build_session(falsy, asof=ASOF)
+        assert "не того формата" in r["ОТКАЗ"], falsy
+    assert "нет ни одного" in PS.build_session(None, asof=ASOF)["ОТКАЗ"]
