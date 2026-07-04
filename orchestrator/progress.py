@@ -55,6 +55,19 @@ def _phase_offset(key):
 _run = None
 
 
+def atomic_write_text(path, text):
+    """Атомарная запись файла (tmp+os.replace) — M13 ревью 04.07: обрыв процесса больше не
+    оставляет битый JSON протокола (ablation молча скипал, бот/дашборд падали; /session после
+    stage-review П3 честно отказывал бы на полузаписанном файле). Побочный бонус: читатель
+    никогда не видит частичной записи."""
+    import pathlib as _pl
+    p = _pl.Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, p)
+
+
 def _write(d):
     try:
         STATE.parent.mkdir(parents=True, exist_ok=True)

@@ -371,7 +371,7 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
                 for s in (money_members or [])[:top_k] if s.get("symbol")}
     if guard is not None:
         client.cost_guard = guard            # F0#9: стоп-на-лету по потолку режима (§24)
-    con = sqlite3.connect(str(_C.DB)) if _C.DB.exists() else None
+    con = sqlite3.connect(str(_C.DB), timeout=30) if _C.DB.exists() else None
     out = {}
     try:
         for s in (money_members or [])[:top_k]:
@@ -476,7 +476,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     # Прогресс (§15): открываем прогон на K событий; уточним число после скана.
     PROG.begin(run_id, mode, "event-first: поиск идей", outer_total=k)
     PROG.note("скан событий (новости + цены + тренды)…")
-    con = sqlite3.connect(str(DB))
+    con = sqlite3.connect(str(DB), timeout=30)
     try:
         scan = ES.scan_events_live(q_max=0.1, con=con)
         # FГ B2: скан ищет до max(k, 8) источников — ширина НИКОГДА не меньше запрошенного k
@@ -725,8 +725,8 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     }
     if write:
         LOGS.mkdir(parents=True, exist_ok=True)
-        (LOGS / f"{run_id}.json").write_text(json.dumps(protocol, ensure_ascii=False, indent=2),
-                                             encoding="utf-8")
+        PROG.atomic_write_text(LOGS / f"{run_id}.json",
+                               json.dumps(protocol, ensure_ascii=False, indent=2))   # M13: без битых JSON
     PROG.finish(f"Идей в поток {поток_n} уникальных ({_поток_разбивка}) · "
                 f"источников {len(sources)} · граф {отбор['всего']} узлов "
                 f"(ворота {отбор['ворота_прошли']}: money {money_n}/провиз {prov_n}/дайдж {dig_n}) · "

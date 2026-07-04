@@ -623,11 +623,10 @@ def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=T
 
 
 def _write_refusal(p):
-    """Протокол ОТКАЗА до прогона (§24 бюджет ИЛИ §6 гард темы): прогон не выполнялся, след в журнале."""
+    """Протокол ОТКАЗА/ОСТАНОВА (§24 бюджет ДО или НА ЛЕТУ, §6 гард темы): след в журнале."""
     FUNNEL_LOGS.mkdir(parents=True, exist_ok=True)
     jpath = FUNNEL_LOGS / f"{p['run_id']}.json"
-    with open(jpath, "w", encoding="utf-8") as f:
-        json.dump(p, f, ensure_ascii=False, indent=2)
+    PROG.atomic_write_text(jpath, json.dumps(p, ensure_ascii=False, indent=2))   # M13: без битых JSON
     head = (f"- Время: {p['ts']} · режим: {p['mode']} · тема: {p['theme']}\n"
             f"- Спецификация: {p['spec_ref']}\n\n")
     if "ОТКАЗ_бюджет" in p:
@@ -639,6 +638,15 @@ def _write_refusal(p):
               f"${d['avg_call_usd']} ({d['basis_avg']}, n_истории={d['n_history']})\n"
               f"- Месячный спенд: ${d['spent_month_usd']} / потолок ${d['month_cap_usd']}\n\n"
               f"> {p['следующий_шаг']}\n")
+    elif "ОСТАНОВ_бюджет" in p:
+        # M2 (ревью 04.07): стоп-на-лету раньше журналировался как «тема вне универсума» с
+        # reason=None — ложная запись на money-пути §24. Теперь честный md.
+        d = p["ОСТАНОВ_бюджет"]
+        md = (f"# ОСТАНОВ прогона по бюджету НА ЛЕТУ · {p['run_id']}\n" + head +
+              f"**{d.get('reason')}**\n\n"
+              f"- Потрачено к моменту стопа: ${d.get('spent_usd')} ≥ потолка ${d.get('cap_usd')} "
+              f"(контур {d.get('mode')})\n\n"
+              f"> {p.get('следующий_шаг')}\n")
     else:
         d = p.get("ОТКАЗ_тема", {})
         md = (f"# ОТКАЗ прогона: тема вне универсума · {p['run_id']}\n" + head +
@@ -653,10 +661,9 @@ def _write_refusal(p):
 def _write_protocol(p):
     FUNNEL_LOGS.mkdir(parents=True, exist_ok=True)
     jpath = FUNNEL_LOGS / f"{p['run_id']}.json"
-    with open(jpath, "w", encoding="utf-8") as f:
-        json.dump(p, f, ensure_ascii=False, indent=2)
+    PROG.atomic_write_text(jpath, json.dumps(p, ensure_ascii=False, indent=2))   # M13
     mpath = FUNNEL_LOGS / f"{p['run_id']}.md"
-    mpath.write_text(_render_md(p), encoding="utf-8")
+    PROG.atomic_write_text(mpath, _render_md(p))
     return jpath, mpath
 
 

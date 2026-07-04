@@ -128,7 +128,7 @@ def run_calibrate(mode="auto", write=True, now_dt=None):
     run_id = f"calibrate_{(now_dt or datetime.datetime.now(datetime.timezone.utc)).strftime('%Y%m%dT%H%M%SZ')}"
     if not DB.exists():
         return {"run_id": run_id, "ОТКАЗ": "storage/oracle.db отсутствует — нет цен для §9"}
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(DB, timeout=30)
     try:
         preds = build_calibration_predictions(con, run_id, now_dt=now_dt)
     finally:

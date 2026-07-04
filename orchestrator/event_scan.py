@@ -147,7 +147,7 @@ def scan_events_live(q_max=0.1, news_limit=300, con=None):
     if con is None:
         if not C.DB.exists():
             return {"error": "нет storage/oracle.db", "кандидат_события": [], "discovery_open": True}
-        con = sqlite3.connect(str(C.DB))
+        con = sqlite3.connect(str(C.DB), timeout=30)
     try:
         news = C._news(con, limit=news_limit)
         try:

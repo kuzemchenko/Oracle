@@ -31,11 +31,18 @@ _DIR_SHORT = ("шорт", "short", "sell", "продажа", "вниз", "пад
 
 
 def direction_to_side(direction):
-    """'лонг'/'шорт' → 'above'/'below' (VALID_DIRECTIONS §9). None — не распознано."""
+    """'лонг'/'шорт' → 'above'/'below' (VALID_DIRECTIONS §9). None — не распознано.
+
+    M12 (ревью 04.07): матч по ТОКЕНАМ, не подстрочный — «не лонг» раньше давал above и уходил
+    в ЗАПЕЧАТАННЫЙ прогноз с перевёрнутой стороной. Отрицание рядом с токеном → None (честный
+    отказ формализовать, идея не запечатывается — П8)."""
     d = str(direction or "").strip().lower()
-    if any(w in d for w in _DIR_LONG):
+    tokens = d.replace("-", " ").split()
+    if any(neg in tokens for neg in ("не", "not", "без")):
+        return None
+    if any(w in tokens for w in _DIR_LONG):
         return "above"
-    if any(w in d for w in _DIR_SHORT):
+    if any(w in tokens for w in _DIR_SHORT):
         return "below"
     return None
 

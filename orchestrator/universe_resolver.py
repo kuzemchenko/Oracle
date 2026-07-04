@@ -65,7 +65,7 @@ def _connect(db=None):
     db = pathlib.Path(db) if db else DB
     if not db.exists():
         return None
-    return sqlite3.connect(str(db))
+    return sqlite3.connect(str(db), timeout=30)
 
 
 def _bar_counts(con):

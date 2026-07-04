@@ -96,3 +96,11 @@ def test_lag_for_pair_directed_semantics():
     assert _lag_for_pair("CU", "COPX", links) == 2              # undirected симметричен
     assert _lag_for_pair("COPX", "CU", links) == 2
     assert _lag_for_pair("X", "Y", links) == 0
+
+
+def test_unpriced_realized_none_is_none_not_crash():
+    # M11 (ревью 04.07): realized_move=None (короткая история) → честный None, не TypeError.
+    from mathlib.cascade import cascade_edge
+    assert cascade_edge(0.05, None) is None
+    r = cascade_edge(0.05, 0.01)
+    assert r is not None and r["edge"] == 0.04

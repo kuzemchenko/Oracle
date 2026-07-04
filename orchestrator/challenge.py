@@ -50,11 +50,16 @@ def _ts_key(protocol):
     """Хронологический ключ: timestamp из ts/run_id боевого прогона. Статичные тест-фикстуры
     (week7_testday и т.п.) без timestamp идут НИЖЕ реальных прогонов — чтобы «последняя идея»
     бралась из настоящего прогона, а не из артефакта тестов."""
+    # M9 (ревью 04.07): ts бывает ISO ('2026-07-04T09:00:02+00:00') и компакт ('20260704T090002Z');
+    # лексикографически компакт ВСЕГДА «новее» ISO ('202607…' > '2026-0…') → find_idea брал не ту
+    # идею. Нормализуем к цифрам+T — формы сравнимы между собой.
+    def _norm(x):
+        return "".join(ch for ch in str(x) if ch.isdigit() or ch == "T")
     ts = (protocol or {}).get("ts") or ""
     if ts:
-        return ts
+        return _norm(ts)
     m = _TS_RE.search(str((protocol or {}).get("run_id") or ""))
-    return m.group(0) if m else ""
+    return _norm(m.group(0)) if m else ""
 
 
 def _scan_protocols(logs_dir=None):
@@ -198,7 +203,7 @@ def run_challenge(doubt, *, asset=None, src_run_id=None, candidate=None, mode="a
     # хотя история в oracle.db есть. Инъектируем котировку/индикаторы актива явно (как _vet_money).
     sym = candidate["актив"]
     if sym and sym not in (ctx.get("quotes") or {}) and C.DB.exists():
-        con = sqlite3.connect(str(C.DB))
+        con = sqlite3.connect(str(C.DB), timeout=30)
         try:
             q = C._quotes(con, sym)
             if q:

@@ -364,6 +364,10 @@ def cascade_edge(amplitude, realized_move, *, amplitude_sd=0.0):
     всегда; вырождается только ДОЛЯ."""
     if amplitude is None:
         return None
+    if realized_move is None:
+        # M11 (ревью 04.07): штатный window_return(None на короткой истории) раньше давал
+        # TypeError; «отыграно неизвестно» — это None-результат, не крэш (П8)
+        return None
     amp = float(amplitude)
     edge = amp - float(realized_move)
     frac = None if abs(amp) < UNPRICED_MIN_AMP else round(edge / amp, 4)

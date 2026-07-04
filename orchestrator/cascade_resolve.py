@@ -61,7 +61,7 @@ def resolve_node(node, *, run_id, horizon_days, now_dt=None, con=None, db=None):
     # 3) Цена — динамически из quotes
     own = con is None
     if con is None:
-        con = sqlite3.connect(str(db or DB))
+        con = sqlite3.connect(str(db or DB), timeout=30)
     try:
         lc = _latest_close(symbol, con)
     finally:
@@ -143,7 +143,7 @@ def resolve_cascade(cascade_result, *, run_id, horizon_days=None, now_dt=None, c
     hd = horizon_days or cascade_result.get("horizon_days") or 5
     own = con is None
     if con is None and (db or DB.exists()):
-        con = sqlite3.connect(str(db or DB))
+        con = sqlite3.connect(str(db or DB), timeout=30)
     try:
         seal, watch = [], []
         for node in cascade_result.get("узлы", []):

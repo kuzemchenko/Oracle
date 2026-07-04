@@ -81,3 +81,12 @@ def test_stage6_seals_before_report(tmp_path):
     assert sd["sealed"] is True and sd["asset"] == "BNO.US"
     recs = SEAL.read_predictions(str(jpath))
     assert len(recs) == 1 and SEAL.verify_seal(recs[0])
+
+
+def test_direction_negation_refused():
+    # M12 (ревью 04.07): «не лонг» больше не превращается в above у ЗАПЕЧАТАННОГО прогноза.
+    from orchestrator.forecast import direction_to_side
+    assert direction_to_side("не лонг") is None
+    assert direction_to_side("not long") is None
+    assert direction_to_side("лонг") == "above"
+    assert direction_to_side("short") == "below"

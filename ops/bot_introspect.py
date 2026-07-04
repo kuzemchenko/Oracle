@@ -21,7 +21,7 @@ DB = ROOT / "storage" / "oracle.db"
 
 
 def _con():
-    return sqlite3.connect(str(DB)) if DB.exists() else None
+    return sqlite3.connect(str(DB), timeout=30) if DB.exists() else None
 
 
 def _latest_ef():

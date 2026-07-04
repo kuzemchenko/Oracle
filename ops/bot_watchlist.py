@@ -171,7 +171,7 @@ def latest_close(symbol, db_path=None):
     p = pathlib.Path(db_path or DB_PATH)
     if not p.exists():
         return None
-    con = sqlite3.connect(str(p))
+    con = sqlite3.connect(str(p), timeout=30)
     try:
         row = con.execute(
             "SELECT date, close FROM quotes WHERE symbol=? AND close IS NOT NULL "

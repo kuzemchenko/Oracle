@@ -97,7 +97,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     outcomes_ok = out_chain_ok and out_anchor_ok
     resolve_allowed = pred_anchor_ok and outcomes_ok
 
-    con = sqlite3.connect(DB) if DB.exists() else None
+    con = sqlite3.connect(DB, timeout=30) if DB.exists() else None
     newly, still_pending, errors = [], 0, []
     if not pred_anchor_ok:
         errors.append({"error": f"якорь predictions.jsonl: {pred_anchor_why} — сверка остановлена (П16)"})

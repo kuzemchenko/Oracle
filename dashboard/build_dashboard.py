@@ -112,7 +112,7 @@ def metric_cost_of_insight(funnel_runs):
     lim = BUD.load_budget_limits()
     total, by_mode, _ = BUD.oracle_monthly_spend(lim["costs_log"])
     live_runs = [r for r in funnel_runs if r.get("mode") == "live"]
-    ideas = sum((r.get("воронка_отсева") or {}).get("этап6_выдано_топ", 0) for r in live_runs)
+    ideas = sum(((r.get("воронка_отсева") or {}).get("этап6_выдано_топ") or 0) for r in live_runs)  # M15: явный None в логе
     n_live = len(live_runs)
     return {
         "месячный_спенд_usd": round(total, 4),
@@ -321,9 +321,9 @@ def _funnel_card(m):
         return _card("4 · Статус воронки", "нет прогонов в журнале")
     body = (f"Последний: <b>{_h(m['последний_run_id'])}</b> ({_h(m['mode'])}, {_h(m['ts'])}) · "
             f"тема {_h(m['тема'])}<br>"
-            f"скан {m['скан_сырых']} → FDR {m['после_FDR']} → кандидатов {m['кандидатов']} → "
-            f"дебаты {m['в_дебаты']} → устояло {m['устояло']} → <b>выдано {m['выдано']}</b>"
-            f"<p style='color:#444;font-size:13px'>{_h(m['вывод'])}</p>")
+            f"скан {_h(m['скан_сырых'])} → FDR {_h(m['после_FDR'])} → кандидатов {_h(m['кандидатов'])} → "
+            f"дебаты {_h(m['в_дебаты'])} → устояло {_h(m['устояло'])} → <b>выдано {_h(m['выдано'])}</b>"
+            f"<p style='color:#444;font-size:13px'>{_h(m['вывод'])}</p>")   # M15: всё из логов — через _h
     return _card("4 · Статус воронки (последний прогон §6)", body)
 
 

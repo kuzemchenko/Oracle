@@ -76,8 +76,19 @@ def macro_driver(symbol):
     return _driver_map().get(symbol, "unmapped")
 
 
+_LONG_WORDS = ("лонг", "long", "buy", "покупка", "вверх", "рост")
+
+
 def _sign(direction):
-    return "+" if str(direction).strip().lower() == "лонг" else "-"
+    """M12 (ревью 04.07): раньше «+» получал только точный «лонг» — 'long'/'buy'/None молча
+    становились ШОРТОМ, и знак нетто-экспозиции/карта корреляций врали. Синонимы — как в
+    forecast; нераспознанное → '?', отдельная группа (не выдуманный шорт, П8)."""
+    d = str(direction or "").strip().lower()
+    if d in _LONG_WORDS:
+        return "+"
+    if d in ("шорт", "short", "sell", "продажа", "вниз", "падение"):
+        return "-"
+    return "?"
 
 
 def _signed_driver(symbol, direction):

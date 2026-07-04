@@ -25,8 +25,9 @@ LOGS = ROOT / "journal" / "funnel_logs"
 
 def _write(protocol):
     LOGS.mkdir(parents=True, exist_ok=True)
-    (LOGS / f"{protocol['run_id']}.json").write_text(
-        json.dumps(protocol, ensure_ascii=False, indent=2), encoding="utf-8")
+    from orchestrator import progress as _PROG
+    _PROG.atomic_write_text(LOGS / f"{protocol['run_id']}.json",
+                            json.dumps(protocol, ensure_ascii=False, indent=2))   # M13
     lines = [f"# Мульти-событийный прогон {protocol['run_id']}", "",
              f"_{protocol['режим']} · {protocol['spec_ref']}_", "",
              "## Ранжирование событий по тектоническому потенциалу", ""]
@@ -143,7 +144,7 @@ def recent_news(limit=300):
     import sqlite3
     if not C.DB.exists():
         return []
-    con = sqlite3.connect(C.DB)
+    con = sqlite3.connect(C.DB, timeout=30)
     try:
         return C._news(con, limit=limit)
     finally:

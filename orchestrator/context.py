@@ -247,8 +247,16 @@ def _theme_keywords(theme, universe):
 def build_context(theme="brent", asof=None, theme_focused=False):
     """Полный рыночный срез из реальных данных. asof=None → последние доступные данные.
 
+    M8 (ревью 04.07, риск П16): asof ПРИНИМАЛСЯ И ИГНОРИРОВАЛСЯ — вызывающий с replay-намерением
+    молча получал look-ahead (свежие данные под видом исторических). До реализации replay-режима
+    (долг) непустой asof — ЯВНЫЙ отказ, не тихая ложь.
+
     theme_focused=True (§17.2): новости приоритизируются по сущности темы (тема-якорь против
     дрейфа к топ-новости дня — урок SPCX/Иран), и в контекст кладётся блок theme_anchor."""
+    if asof is not None:
+        raise NotImplementedError(
+            "build_context(asof=...) не реализован: контекст всегда «сейчас». Передача asof "
+            "означала бы look-ahead под видом replay (П16). Реализация — долг replay-режима.")
     universe = _load_yaml("config/universe.yaml")
     thresholds = _load_yaml("config/thresholds.yaml")
     causal = _load_yaml("knowledge/causal_links.yaml")
@@ -294,7 +302,7 @@ def build_context(theme="brent", asof=None, theme_focused=False):
         ctx["data_gaps"].append("storage/oracle.db отсутствует — котировки и новости недоступны")
         return ctx
 
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(DB, timeout=30)
     try:
         for s in CORE:
             q = _quotes(con, s)

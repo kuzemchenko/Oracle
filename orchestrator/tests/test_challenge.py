@@ -169,3 +169,11 @@ def test_digest_empty_when_no_live(tmp_path):
     dg = CH.digest_challenges(logs_dir=tmp_path)
     assert dg["n_разборов"] == 0
     assert "Предлагать нечего" in CH.format_digest(dg)
+
+
+def test_ts_key_mixed_formats_sort_chronologically():
+    # M9 (ревью 04.07): ISO и компакт сравнимы — компакт больше не «всегда новее».
+    from orchestrator.challenge import _ts_key
+    older_compact = {"run_id": "challenge_20260701T090000Z"}
+    newer_iso = {"ts": "2026-07-04T09:00:00+00:00"}
+    assert _ts_key(older_compact) < _ts_key(newer_iso)

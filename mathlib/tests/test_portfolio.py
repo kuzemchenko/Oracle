@@ -106,3 +106,11 @@ def test_monthly_risk_coverage_is_honest():
     m2 = p2["проверка_лимитов"]["месячный"]
     assert "охват" not in m2                                    # известный расход — без оговорки
     assert m2["would_be"] >= 2900.0                             # реальная сумма участвует в лимите
+
+
+def test_sign_synonyms_and_unknown():
+    # M12: 'long'/'buy' — лонг; нераспознанное → '?', не выдуманный шорт.
+    from mathlib.portfolio import _sign
+    assert _sign("long") == "+" and _sign("покупка") == "+"
+    assert _sign("short") == "-" and _sign("шорт") == "-"
+    assert _sign(None) == "?" and _sign("вбок") == "?"
