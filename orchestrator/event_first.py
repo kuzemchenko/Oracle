@@ -555,7 +555,9 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events,
                                    deep_report=deep_money_report, guard=guard)
 
-        запечатано = {"money": 0, "провизорный": 0, "демотировано_судом": 0}
+        # Ревью 2026-07-04: seal_prediction идемпотентен (дедуп той же ставки) — перезапуск прогона
+        # в тот же день не плодит дубли, искусственно приближающие ворота-270. Дубли считаем честно.
+        запечатано = {"money": 0, "провизорный": 0, "демотировано_судом": 0, "дубль_пропущен": 0}
         if seal_predictions and mode != "mock":
             for s in треки["money"]:
                 kind = _money_kind(суд_money.get(s["symbol"]))
@@ -564,14 +566,18 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                 spec = CR.seal_spec(s["node"], kind=kind, run_id=run_id,
                                     horizon_days=horizon_days, con=con, now_dt=now)
                 if spec:
-                    FC.seal_prediction(spec)
-                    запечатано["money" if kind == "cascade_money" else "провизорный"] += 1
+                    if FC.seal_prediction(spec):
+                        запечатано["money" if kind == "cascade_money" else "провизорный"] += 1
+                    else:
+                        запечатано["дубль_пропущен"] += 1
             for s in треки["provisional"]:
                 spec = CR.seal_spec(s["node"], kind="cascade_provisional", run_id=run_id,
                                     horizon_days=horizon_days, con=con, now_dt=now)
                 if spec:
-                    FC.seal_prediction(spec)
-                    запечатано["провизорный"] += 1
+                    if FC.seal_prediction(spec):
+                        запечатано["провизорный"] += 1
+                    else:
+                        запечатано["дубль_пропущен"] += 1
     except RB.RunBudgetExceeded as e:
         # Долг[HIGH]: хард-стоп бюджета на лету (§24) — прогон ОСТАНОВЛЕН, graceful-протокол (не крэш)
         PROG.finish(f"остановлен по бюджету (§24): потрачено ${e.spent_usd:.2f} ≥ ${e.cap_usd}")

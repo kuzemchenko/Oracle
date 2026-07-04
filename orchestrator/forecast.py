@@ -95,6 +95,13 @@ def build_forward_prediction(candidate, ctx, *, run_id, kind, now_dt=None,
     return pred, "ok"
 
 
+# Идентичность СТАВКИ для идемпотентности (ревью 2026-07-04): тот же актив, та же сторона,
+# тот же порог, тот же срок = тот же прогноз. Перезапуск прогона в тот же день (ручной рестарт
+# после сбоя, дубль cron) не должен плодить коррелированные дубли в журнале.
+DEDUP_FIELDS = ("asset", "direction", "threshold", "resolve_by")
+
+
 def seal_prediction(prediction, path=None):
-    """Запечатать готовый §9-прогноз (mathlib.seal: append + hash). Возвращает запечатанную запись."""
-    return SEAL.seal(prediction, path=path)
+    """Запечатать готовый §9-прогноз (mathlib.seal: append + hash).
+    Возвращает запечатанную запись или None, если ИДЕНТИЧНАЯ ставка уже в журнале (дедуп)."""
+    return SEAL.seal(prediction, path=path, dedup_fields=DEDUP_FIELDS)

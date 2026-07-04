@@ -161,13 +161,17 @@ def _last_hash(path):
     return recs[-1].get("hash") if recs else GENESIS_PREV_HASH
 
 
-def seal(prediction, path=None, sealed_at=None):
+def seal(prediction, path=None, sealed_at=None, dedup_fields=None):
     """Запечатать прогноз и дописать ОДНУ строку в predictions.jsonl (только append).
 
     §9: неразрешимый прогноз → ValueError, в журнал НЕ попадает.
     sealed_at можно задать явно (детерминизм тестов); иначе текущее UTC-время.
     F2#21: проставляется prev_hash = hash предыдущей записи (hash-chain против удаления/перестановки).
-    Возвращает запечатанную запись (с полями sealed_at, prev_hash и hash).
+    dedup_fields (ревью 2026-07-04): кортеж имён полей идентичности ставки — если запись с теми же
+    значениями УЖЕ в журнале, повторно НЕ запечатываем и возвращаем None (идемпотентность
+    перезапуска: дубли искусственно приближали ворота-270 и искажали Brier). Проверка — под тем же
+    межпроцессным локом, что и append (гонка двух прогонов тоже закрыта).
+    Возвращает запечатанную запись (с полями sealed_at, prev_hash и hash) или None (дубль).
     """
     problems = validate_resolvable(prediction)
     if problems:
@@ -179,6 +183,10 @@ def seal(prediction, path=None, sealed_at=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     with _locked(path):                               # межпроцессный лок: read-last+append атомарны
         recs = read_predictions(path)
+        if dedup_fields:
+            key = tuple(record.get(f) for f in dedup_fields)
+            if any(tuple(r.get(f) for f in dedup_fields) == key for r in recs):
+                return None                           # та же ставка уже запечатана — не плодим дубль
         record["prev_hash"] = (recs[-1].get("hash") if recs else GENESIS_PREV_HASH)  # F2#21: звено цепочки
         record["hash"] = _content_hash(record)
         with open(path, "a", encoding="utf-8") as f:  # ТОЛЬКО append

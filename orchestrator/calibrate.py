@@ -29,6 +29,7 @@ from mathlib import sealing as SEAL          # noqa: E402
 from mathlib import indicators as IND        # noqa: E402
 from mathlib import brier as BR              # noqa: E402
 from orchestrator import context as C        # noqa: E402
+from orchestrator import forecast as FC      # noqa: E402  (DEDUP_FIELDS: идентичность ставки)
 
 DB = ROOT / "storage" / "oracle.db"
 CORE = C.CORE
@@ -143,7 +144,11 @@ def run_calibrate(mode="auto", write=True, now_dt=None):
     do_seal = write and mode != "mock"
     if do_seal:
         for p, _ in good:
-            sealed.append(SEAL.seal(p))
+            # ревью 2026-07-04: дедуп той же ставки — повторный /calibrate в тот же день
+            # не плодит дубли в калибровочном треке
+            rec = SEAL.seal(p, dedup_fields=FC.DEDUP_FIELDS)
+            if rec is not None:
+                sealed.append(rec)
 
     from orchestrator import resolve as RES
     total_recs = len(SEAL.read_predictions())

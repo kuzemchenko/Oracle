@@ -378,6 +378,12 @@ def stage6_synthesis(debate_survivors, records_by_id, ctx, client, costs, limits
             continue
         if seal_predictions:
             sealed = FC.seal_prediction(pred, path=predictions_path)
+            if sealed is None:
+                # ревью 2026-07-04: идентичная ставка уже в журнале (перезапуск того же дня) —
+                # дубль честно НЕ запечатан, идея из выдачи не выпадает
+                c["_seal"] = {"sealed": False,
+                              "причина": "дубль: идентичная ставка уже запечатана (идемпотентность)"}
+                continue
             c["_seal"] = {"sealed": True, "hash": sealed["hash"], "sealed_at": sealed["sealed_at"],
                           "asset": sealed["asset"], "direction": sealed["direction"],
                           "threshold": sealed["threshold"], "resolve_by": sealed["resolve_by"],

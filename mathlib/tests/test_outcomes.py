@@ -33,6 +33,15 @@ def test_below_hit_and_miss():
     assert r["outcome"] == 0
 
 
+def test_exact_threshold_is_miss_both_sides():
+    # Ревью 2026-07-04: «закроется ВЫШЕ $X» при закрытии РОВНО на $X — не сбылось (строгое
+    # неравенство). Раньше равенство было успехом и для above, и для below — смещение в пользу системы.
+    r = oc.resolve_prediction(_pred("above", 90.0), 90.0, "2026-07-01T00:00:00+00:00")
+    assert r["status"] == "resolved" and r["outcome"] == 0
+    r = oc.resolve_prediction(_pred("below", 90.0), 90.0, "2026-07-01T00:00:00+00:00")
+    assert r["status"] == "resolved" and r["outcome"] == 0
+
+
 def test_pending_before_deadline_does_not_invent_outcome():
     # П8: срок не наступил → исход не выдумываем
     r = oc.resolve_prediction(_pred(), 200.0, "2026-06-15T00:00:00+00:00")

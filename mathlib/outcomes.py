@@ -44,10 +44,14 @@ def resolve_prediction(pred, observed_value, observed_at):
         res["status"] = "error"
         res["error"] = "threshold/observed_value не число"
         return res
+    # Ревью 2026-07-04: СТРОГИЕ неравенства. Прогноз §9 звучит «закроется ВЫШЕ/НИЖЕ $X» —
+    # точное равенство порогу не «выше» и не «ниже». Раньше >=/<= засчитывали равенство как
+    # успех В ОБЕ СТОРОНЫ (порог = округлённый close, равенство реально достижимо) — маленькое,
+    # но всегда в пользу форкастера смещение. Теперь равенство = исход 0 для обеих сторон.
     if direction == "above":
-        hit = val >= thr
+        hit = val > thr
     elif direction == "below":
-        hit = val <= thr
+        hit = val < thr
     else:
         res["status"] = "error"
         res["error"] = f"неизвестное direction {direction!r}"

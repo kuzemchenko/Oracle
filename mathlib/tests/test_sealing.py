@@ -228,6 +228,21 @@ def test_append_chained_generic_journal(tmp_path):
     assert not ok and 1 in bad
 
 
+def test_seal_dedup_same_bet_not_resealed(tmp_path):
+    # Идемпотентность перезапуска: та же ставка (asset+direction+threshold+resolve_by) → None,
+    # журнал не растёт; другая ставка — запечатывается.
+    path = tmp_path / "p.jsonl"
+    fields = ("asset", "direction", "threshold", "resolve_by")
+    r1 = s.seal(_good(), path=path, sealed_at="2026-06-11T00:00:00+00:00", dedup_fields=fields)
+    assert r1 is not None
+    r2 = s.seal(_good(), path=path, sealed_at="2026-06-11T09:00:00+00:00", dedup_fields=fields)
+    assert r2 is None                                              # дубль (иное время не спасает)
+    assert len(s.read_predictions(path)) == 1
+    other = _good(); other["threshold"] = 91.0
+    r3 = s.seal(other, path=path, sealed_at="2026-06-11T09:01:00+00:00", dedup_fields=fields)
+    assert r3 is not None and len(s.read_predictions(path)) == 2
+
+
 def test_hash_stable_regardless_of_key_order(tmp_path):
     # тот же контент, другой порядок ключей → тот же hash (канонизация sort_keys)
     a = _good()
