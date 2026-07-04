@@ -184,14 +184,25 @@ def test_data_gaps_reported_honestly(protocol):
 
 
 # ── Гард темы (§6/§8/П8): тематический фокус только по активу универсума ──────────
-def test_resolve_theme_maps_name_core_and_unknown():
+def test_resolve_theme_maps_name_core_and_unknown(monkeypatch):
     assert C.resolve_theme("brent") == ("BNO.US", "theme")     # имя темы → proxy_etf
     assert C.resolve_theme("SPY.US") == ("SPY.US", "core")     # прямой тикер ядра
-    assert C.resolve_theme("NVDA.US") == (None, None)          # вне универсума (не в CORE)
+    # ГЕРМЕТИЧНОСТЬ (закрытие env-долга F0, ночная смена 04.07): раньше тест зависел от боевого
+    # oracle.db — как только динамический добор дал NVDA историю, sealable-резолвер стал ЧЕСТНО
+    # возвращать ('NVDA.US','dynamic') по дизайну 18.06, и тест месяцами шумел «2 failed».
+    # Проверяем ЛОГИКУ (нет §9-источника → None), а не текущее наполнение боевой БД.
+    from orchestrator import universe_resolver as _U
+    monkeypatch.setattr(_U, "is_sealable", lambda sym, con=None: False)
+    assert C.resolve_theme("NVDA.US") == (None, None)          # без цены/истории — вне универсума
+    monkeypatch.setattr(_U, "is_sealable", lambda sym, con=None: True)
+    assert C.resolve_theme("NVDA.US") == ("NVDA.US", "dynamic")  # с историей — динамический (18.06)
 
 
-def test_theme_guard_refuses_out_of_universe():
+def test_theme_guard_refuses_out_of_universe(monkeypatch):
     # Тематический фокус по активу вне универсума → ранний отказ (0 трат), даже в mock.
+    # Герметично: «вне универсума» моделируем monkeypatch'ем (см. test_resolve_theme_* выше).
+    from orchestrator import universe_resolver as _U
+    monkeypatch.setattr(_U, "is_sealable", lambda sym, con=None: False)
     p = F.run_funnel(theme="NVDA.US", mode="mock", run_id="pytest_guard",
                      write=False, theme_focused=True)
     assert "ОТКАЗ_тема" in p

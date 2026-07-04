@@ -6,13 +6,15 @@
 ## План на смену
 1. [x] П3 «Сессия партнёра» — ✅ ЗАКРЫТ, тег gate-P3, бот перезапущен с /session
 2. [ ] Квартет известных багов: cascade-лаг, portfolio месячный риск, cost=None, cron-алерт
-3. [ ] Env-долг theme-guard → 0 failed
+3. [x] Env-долг theme-guard — ✅ 544 passed / 0 failed (впервые)
 4. [ ] MEDIUM-пакет ревью 04.07 (атомарные протоколы, sqlite timeout, refusal, ts-форматы, направления, XSS, cascade None, context.asof)
 5. [ ] Ops-гигиена: logrotate + кэп bot_state
 6. [ ] Replay-режим event_first (если успею)
 7. [ ] Финал: goals/CLAUDE.md/память + детальный отчёт владельцу (файл + веб-страница)
 
 ## Хронология (свежее сверху)
+- 15:1x Env-долг theme-guard ЗАКРЫТ: тесты герметичны (monkeypatch is_sealable), 544/0 — впервые
+  полностью зелёный прогон; CLAUDE.md обновлён (падения больше не «ожидаемые»).
 - 15:0x П3 ГЕЙТ ЗАКРЫТ: stage-агент (2 HIGH: событие/якорь в аргументе; вердикт-зависимая рамка
   суда) + кросс-вендор 8 прогонов (2 BLOCKER + 9 HIGH закрыты) → №8 ПРОЙДЕН. 542 passed.
   Тег gate-P3, goals/CLAUDE.md обновлены, бот перезапущен (команда /session живая).
