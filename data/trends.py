@@ -156,6 +156,15 @@ def load_keywords():
             kws.append(kw)
     # явный список поверх тем
     kws += tr.get("extra_keywords", [])
+    # П2а (§R4.2): сиды поля «внимание» + назначенные реестром ключи — чтобы у идей появлялись
+    # данные со следующего суточного фетча. Ошибка чтения реестра НЕ валит фетч тем (best-effort).
+    try:
+        from orchestrator import attention_field as AF
+        kws += list(AF._load_seeds().values()) + AF.registry_keywords()
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠ ключи поля «внимание» не добавлены в фетч: {e}", file=sys.stderr)
+    seen = set()
+    kws = [k for k in kws if not (k in seen or seen.add(k))]   # дедуп с сохранением порядка
     return kws, timeframe, geos, pause
 
 

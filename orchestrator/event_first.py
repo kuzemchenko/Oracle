@@ -33,6 +33,7 @@ from orchestrator import funnel as F                  # noqa: E402
 from orchestrator import multi_event as ME            # noqa: E402
 from orchestrator import progress as PROG              # noqa: E402
 from orchestrator import run_budget as RB              # noqa: E402
+from orchestrator import attention_field as AF         # noqa: E402  (П2а §R4.2: инфо-поле «внимание»)
 from mathlib import cascade as CAS                    # noqa: E402
 
 DB = ROOT / "storage" / "oracle.db"
@@ -403,6 +404,9 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
                 "неотыгранный_edge": amp, "надёжность_r2": n.get("reliability", n.get("reliability_r2")),
                 "лаг_дней": n.get("lag_days", n.get("lag_total")),
                 "котировка_терминала": (ctx.get("quotes", {}).get(sym) or {}).get("last"),
+                # П2а (§R4.2): детерминированное поле «внимание» (Trends, gate-P1) — вход тайминга §8;
+                # судья видит данные, вердикт остаётся за ним (на ранжирование поле не влияет)
+                "внимание_trends": s.get("внимание"),
             }
             cand = {"актив": sym, "направление": direction,
                     "тезис": _money_thesis(n, событие),
@@ -559,6 +563,14 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         отбор = GB.select_from_nodes(graph_nodes, con=con, horizon_days=horizon_days, top_k=8)
         треки = GB.route_tracks(отбор)
 
+        # П2а (§R4.2, подписано 04.07): поле «внимание» (датчик gate-P1) — ИНФОРМАЦИОННО, ПОСЛЕ
+        # отбора/маршрутизации (на ранжирование не влияет; пере-ранжирование = П2б, отдельная
+        # подпись). Картограф-идеи получают кандидатов ключа из слов своего кластера (назначение
+        # журналируется, пересдача запрещена); узлы треков — по сидам/реестру. Судья увидит поле
+        # в проверяемом деле каскада (вход тайминга §8). Покрытие — метрика §R5 в протоколе.
+        внимание_покрытие = AF.annotate_ideas(con, картограф_идеи, треки,
+                                              asof=now.isoformat(timespec="seconds"), run_id=run_id)
+
         # B3c: ЗАПЕЧАТЫВАНИЕ ПО ТРЕКАМ (П16 — только при seal_predictions, иначе журнал не трогаем).
         # money (ярус A) → kind=cascade_money → денежный Brier/§11; провизорный (ярус B/C) →
         # kind=cascade_provisional → СВОЙ Brier, к §11 не приближается (resolve сегментирует герметично).
@@ -649,6 +661,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                 "надёжность_метка": s["prerank"].get("reliability"), "цепочка": n.get("_chain"),
                 "порядок": n.get("order"), "чокпоинт": n.get("chokepoint"),
                 "провизорный": bool(n.get("research")),
+                "внимание": s.get("внимание"),          # П2а: инфо-поле (ранжирование не трогает)
                 # «почему»: событие, активировавшее цепочку, и её якорь (источник корневого шока)
                 "событие": _событие_из_цепочки(ch),
                 "якорь": ch.get("якорь"), "источник_карты": ch.get("источник_карты")}
@@ -666,6 +679,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         "картограф_идеи": картограф_идеи,        # анти-brent: research-идеи по событиям вне реестра тем
         "по_источникам": per_source,
         "каскады_в_компании": каскады,                     # лог активации цепочек (счётчики построенных узлов)
+        "внимание_покрытие": внимание_покрытие,             # П2а §R5: доля идей с данными датчика
         "граф_отбор": {                                     # §R2/§R3: воронка отбора объединённого графа + треки seal
             "узлов": отбор["всего"], "ворота_прошли": отбор["ворота_прошли"],
             "отсев_по_критериям": отбор["отсев_по_критериям"],

@@ -791,6 +791,22 @@ def format_analyst_report(idea):
     return "\n".join(L)
 
 
+
+def _attention_line(obj, indent="   "):
+    """П2а (§R4.2): строка поля «внимание» для карточки/истории. None-safe: поля нет — молчим
+    (старые протоколы); «не_измерено» — честная категория, не штраф (§R0#5)."""
+    att = obj.get("внимание") or {}
+    if not att:
+        return []
+    if att.get("статус") == "ok":
+        L = [f"{indent}🌡 Внимание толпы (Trends «{att.get('ключ')}»): фаза {att.get('фаза')}, "
+             f"свежесть {att.get('свежесть')}"]
+        if att.get("предупреждение"):
+            L.append(f"{indent}⚠️ {att['предупреждение']}")
+        return L
+    return [f"{indent}🌡 Внимание толпы: не измерено ({_trunc(att.get('причина') or 'нет данных', 90)})"]
+
+
 def _carto_story(ci):
     """Картограф-идея → читаемый блок «новость → цепочка-аргументация → компания» (то, что владелец
     и хочет видеть: ПОЧЕМУ идея, а не голый тикер). Источник «почему» — событие новости + узлы каскада
@@ -800,6 +816,7 @@ def _carto_story(ci):
     target = insts[0] if insts else "?"
     nm = _safe_name(target); label = target if nm == target else f"{nm} ({target})"
     L = [f"📰 {ev}", f"   → ставит под удар: {label}" + (f" (и {', '.join(insts[1:3])})" if len(insts) > 1 else "")]
+    L += _attention_line(ci)                    # П2а: инфо-поле «внимание» (§R4.2)
     nodes = sorted((ci.get("узлы_каскада") or []), key=lambda n: n.get("порядок") or 0)
     if nodes:
         L.append("   Цепочка последствий:")
@@ -921,6 +938,7 @@ def _idea_card(n, court, ts):
         if isinstance(edge, (int, float)) and edge:
             side = "лонг" if edge > 0 else "шорт"
     L = [f"\n• {label} — {_human_dir(side)} · {track}"]
+    L += _attention_line(n)                     # П2а: инфо-поле «внимание» (§R4.2)
     # ПОЧЕМУ смотрим: новость-повод + где это в цепочке последствий
     ev = n.get("событие")
     if ev:
