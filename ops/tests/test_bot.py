@@ -362,13 +362,16 @@ def test_chat_free_text_routes_to_conductor(paths, monkeypatch):
     assert bot.state["chat_history"][-1]["role"] == "assistant"
 
 
-def test_chat_answer_uses_conductor_role_and_grounds(paths):
+def test_chat_answer_uses_partner_role_and_grounds(paths):
+    # решение владельца 05.07: мозг чата — partner_chat (Fable 5), персона спорящего партнёра
     import bot_chat as C
     fake = _FakeLLM("ок")
     reply, cost = C.answer("объясни воронку", history=[], client=fake)
     assert reply == "ок"
-    assert fake.calls[0]["role"] == "conductor"
+    assert fake.calls[0]["role"] == "partner_chat"
     assert "СОСТОЯНИЕ СИСТЕМЫ" in fake.calls[0]["user"]   # ответ заземлён на контекст
+    assert "П8" in C.SYSTEM_PROMPT and "П10" in C.SYSTEM_PROMPT   # границы честности в персоне
+    assert "спор" in C.SYSTEM_PROMPT.lower()                      # партнёр спорит, а не диспетчерит
 
 
 # ── состязательный разбор идеи по возражению (/debate, §4 блок E) ─────────────────────
