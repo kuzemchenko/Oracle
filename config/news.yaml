@@ -30,6 +30,21 @@ themes:
     gdelt_query: 'SpaceX OR Starlink OR "rocket launch" OR satellite launch'
     newsapi_keyword: SpaceX
     trends_keywords: ["SpaceX", "Starlink", "rocket launch"]
+  - name: iran_transition
+    # ПОДПИСЬ ВЛАДЕЛЬЦА 05.07.2026 (§30, из proposed_themes прогона ef_20260705T090002Z):
+    # транзит власти в Иране после смерти Хаменеи — риск Ормуза, военная премия фрахта танкеров,
+    # замещающий СПГ США, защитные активы. Тема ДВУСТОРОННЯЯ: эскалация (КСИР) ↔ прагматичная
+    # нормализация — скан следит за обеими ветками ежедневно.
+    gdelt_query: 'Khamenei OR IRGC OR "Revolutionary Guard" OR "supreme leader" OR "Iran succession" OR "strait of hormuz"'
+    newsapi_keyword: Iran
+    trends_keywords: ["Khamenei", "Iran war", "Strait of Hormuz"]
+  - name: lng_normalization
+    # ПОДПИСЬ ВЛАДЕЛЬЦА 05.07.2026 (§30, из proposed_themes ef_20260705T090002Z): нормализация
+    # СПГ-потоков после Ормузского сбоя — снятие газовых ограничений (Индия и др.), фрахт
+    # газовозов, риск-премия газа, маржа энергоёмких потребителей. Обратная ветка iran_transition.
+    gdelt_query: 'LNG OR "liquefied natural gas" OR "natural gas" OR "gas restrictions" OR "LNG shipping" OR "LNG freight" OR "gas prices"'
+    newsapi_keyword: LNG
+    trends_keywords: ["LNG", "natural gas price", "LNG shipping"]
   - name: market_catalysts
     # A (динамическое открытие, одобрено владельцем 28.06): ШИРОКИЙ КАТАЛИЗАТОР-поток, НЕ привязанный
     # к 4 якорям — чтобы открытый кластер-скан (multi_event.detect_news_clusters, ранг по салиентности)
