@@ -184,10 +184,20 @@ def test_asset_normalized_no_reassign_via_case(tmp_path):
     assert len(reg.read_text().splitlines()) == 1
 
 
-def test_event_first_mock_integration_field_and_coverage():
+def test_event_first_mock_integration_field_and_coverage(monkeypatch):
     # LOW-4(2): автотест интеграции — поле в брифах протокола, покрытие в протоколе,
-    # порядок annotate→суд гарантирован наличием поля у money-узлов ДО среза протокола.
+    # порядок annotate→суд гарантирован наличием поля у узлов ДО среза протокола.
+    # Герметичность (05.07): воронка отбора подменяется детерминированным узлом — раньше
+    # тест зависел от состояния боевой БД (активируются ли цепочки «сегодня») и падал
+    # в дни без узлов графа (ложная тревога). Путь annotate→треки→брифы — реальный.
     from orchestrator import event_first as EF
+    node = {"amplitude": 0.02, "tiers": ["C"], "lag_total": 0, "reliability_r2": 0.1,
+            "probability": 0.55, "order": 2, "chokepoint": None, "research": True,
+            "_chain": "тест-мок", "root": "BNO.US"}
+    s = {"symbol": "BNO.US", "score": 1.0, "prerank": {"reliability": "низкая"}, "node": node}
+    fake_selection = {"всего": 1, "ворота_прошли": 1, "отсев_по_критериям": {},
+                      "топ_k": [s], "ранжировано": [s], "отсев": []}
+    monkeypatch.setattr(EF.GB, "select_from_nodes", lambda *a, **k: fake_selection)
     r = EF.run_event_first(mode="mock", k=1, write=False)
     cov = r.get("внимание_покрытие")
     assert cov and ("покрытие" in cov or "ошибка" in cov)
