@@ -51,6 +51,12 @@ MAILTO=""
 # Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
 0 7 * * *    cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1
 
+# B4 (§R4.5, закрыт 05.07): форвард-тест ВСЕХ рёбер библиотеки — детерминированные однозвенные
+# §9-прогнозы (kind=edge_forward, свой герметичный трек) кормят форвард-промоушен §10. LLM нет, ~$0.
+# Активация: |shock|≥0.5·σ_ист·√окна И unpriced_fraction>0 (P1#5) И |edge|≥0.5·σ_h; кулдаун — один
+# открытый прогноз на ребро. 07:30 — после фетча котировок (06:50), до боевого прогона (09:00).
+30 7 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh edge_forward /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode edge_forward --seal >> journal/cron.log 2>&1
+
 # Devops-петля-предложитель §R6 (автономия 0): еженедельный анализ террейна/калибровки → ПРЕДЛОЖЕНИЯ
 # на подпись в journal/proposals/. НИЧЕГО не применяет сам (П16/§10/инвариант 5). Воскресенье 08:00.
 0 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/devops_loop.py >> journal/cron.log 2>&1
