@@ -363,6 +363,11 @@ def main():
                     help="подтянуть свёртку опционов (Unicorn Bay marketplace-аддон) для символов")
     ap.add_argument("--also", default="",
                     help="доп. символы через запятую (помимо core_symbols), напр. SPCX.US,RKLB.US")
+    ap.add_argument("--known", action="store_true",
+                    help="досинкивать ВСЕ символы, уже живущие в quotes (добранные B2.6 на лету): "
+                         "иначе тикер, выпавший из текущих цепочек, замерзает и его запечатанные "
+                         "прогнозы НЕ сверяются (дыра честности табло, найдена 05.07 — 100/212 "
+                         "символов застряли). Котировки — для всех known; extras/опционы — только ядро.")
     args = ap.parse_args()
 
     con = db_connect()
@@ -379,9 +384,17 @@ def main():
     history_from = uni.get("history_from", "2015-01-01")
     also = [s.strip() for s in args.also.split(",") if s.strip()]
     symbols = [args.symbol] if args.symbol else (uni["core_symbols"] + also)
+    # --known: котировки досинкиваем ВСЕМ символам из quotes (инкрементально от last_date+1 —
+    # актуальные не ходят в API). extras/опционы ниже остаются по base-набору symbols (ядро):
+    # фундаментал/опционы на 200+ тикеров ежедневно — лишний расход API без потребителя.
+    quote_symbols = symbols
+    if args.known and not args.symbol:
+        known = [r[0] for r in con.execute(
+            "SELECT DISTINCT symbol FROM quotes ORDER BY symbol").fetchall()]
+        quote_symbols = list(dict.fromkeys(symbols + known))
 
     failures = 0
-    for sym in symbols:
+    for sym in quote_symbols:
         try:
             n, span = sync_symbol(con, sym, api_key, history_from, full=args.full)
             print(f"✅ {sym:12} +{n:5d} строк  ({span})")

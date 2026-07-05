@@ -30,7 +30,9 @@ MAILTO=""
 # Суточная дозагрузка котировок ядра + Tier 0 (фундаментал/инсайдеры/календарь) + опционы
 # (Unicorn Bay IV/OI/skew) из EODHD в storage/oracle.db: 06:50. --extras/--options освежают
 # флоат/short%float/IV ежедневно (иначе устаревают). Нужен EODHD_API_KEY → source .env.
-50 6 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh eodhd /home/oracle/oracle/.venv/bin/python data/eodhd.py --extras --options >> journal/cron.log 2>&1
+# --known (05.07): досинк ВСЕХ символов из quotes, не только ядра — иначе добранные B2.6 тикеры
+# замерзают при выпадении из цепочек и их запечатанные прогнозы не сверяются (стояло 100/212).
+50 6 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh eodhd /home/oracle/oracle/.venv/bin/python data/eodhd.py --extras --options --known >> journal/cron.log 2>&1
 
 # Калибровочный режим §17.3 (мелкие недельные §9-прогнозы, запечатывание): вторник и пятница 08:00
 0 8 * * 2,5  cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh calibrate /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
