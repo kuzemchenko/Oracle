@@ -133,6 +133,66 @@ def _reports_of(protocol):
     return [r for r in reps if isinstance(r, dict)]   # битый элемент — пропуск, не крэш
 
 
+def _ef_cards_of(protocol):
+    """Идеи БОЕВОГО event-first протокола как карточки для разбора (гейт продукта 05.07: под --vet
+    этап6_синтез пуст — идеи живут в граф_отбор/картограф_идеи, и /debate по выдаче дня был слеп).
+    Карточка несёт готовый кандидат (_ef_candidate) — только посчитанное протоколом (П8)."""
+    cards = []
+    g = (protocol or {}).get("граф_отбор")
+    g = g if isinstance(g, dict) else {}
+    for track, метка in (("money_трек", "money-трек"), ("провизорный_трек", "провизорный трек")):
+        briefs = g.get(track)
+        for b in (briefs if isinstance(briefs, list) else []):
+            if not isinstance(b, dict) or not b.get("актив"):
+                continue
+            части = []
+            if b.get("событие"):
+                части.append(f"событие: {_humanize(b['событие'], 180)}")
+            if b.get("цепочка"):
+                части.append(f"цепочка {b['цепочка']}" + (f" от якоря {b['якорь']}" if b.get("якорь") else ""))
+            if b.get("edge") is not None:
+                части.append(f"неотыгранный ход {float(b['edge']) * 100:+.1f}%")
+            if b.get("надёжность_r2") is not None:
+                части.append(f"надёжность связи r²={b['надёжность_r2']}")
+            if b.get("лаг_дней") is not None:
+                части.append(f"лаг переноса {b['лаг_дней']} дн")
+            тезис = "; ".join(части) or str(b.get("актив"))
+            разреш = (f"§9: {b['актив']} {'выше' if str(b.get('направление')) == 'лонг' else 'ниже'} "
+                      f"close даты запечатывания, горизонт {b.get('горизонт_дней')} торг. дн "
+                      f"(запечатан в {метка} прогона {protocol.get('run_id')})"
+                      if b.get("направление") else None)
+            cards.append({"актив": b["актив"], "направление": b.get("направление"),
+                          "балл": b.get("score"), "школа": f"граф каскадов ({метка})",
+                          "_ef_candidate": {"актив": b["актив"], "направление": b.get("направление"),
+                                            "тезис": тезис, "разрешимость": разреш,
+                                            "школа": f"граф каскадов ({метка})"},
+                          "_тезис": тезис})
+    карто = (protocol or {}).get("картограф_идеи")
+    for ci in (карто if isinstance(карто, list) else []):
+        if not isinstance(ci, dict) or not ci.get("актив"):
+            continue
+        узлы = "; ".join(f"{n.get('порядок')}: {_humanize(n.get('узел'), 90)}"
+                         for n in (ci.get("узлы_каскада") or []) if isinstance(n, dict))
+        тезис = "; ".join(x for x in (
+            f"событие: {_humanize(ci.get('событие'), 180)}" if ci.get("событие") else None,
+            f"каскад: {узлы}" if узлы else None,
+            f"тектонический потенциал {ci.get('тектонический_потенциал')}",
+            "research-гипотеза картографа: направление/вероятность не мерены") if x)
+        cards.append({"актив": ci["актив"], "направление": None, "балл": None,
+                      "школа": "LLM-картограф (research)",
+                      "_ef_candidate": {"актив": ci["актив"], "направление": None,
+                                        "тезис": тезис, "разрешимость": None,
+                                        "школа": "LLM-картограф (research)"},
+                      "_тезис": тезис})
+    return cards
+
+
+def _cards_of(protocol):
+    """Все идеи протокола, доступные разбору: этап6_синтез (полная воронка/калибровка) ЛИБО
+    боевой event-first (граф+картограф). Синтез приоритетнее — у него больше §8-полей."""
+    return _reports_of(protocol) or _ef_cards_of(protocol)
+
+
 def _fields_of(report_card):
     """13 полей §8 из карточки идеи (терпимо к уровню вложенности)."""
     rep = report_card.get("отчёт") or {}
@@ -167,18 +227,18 @@ def list_ideas(protocol=None, logs_dir=None):
     с непустой выдачей). Для подсказки пользователю «по какой идее спорим»."""
     if protocol is None:
         for p in reversed(_scan_protocols(logs_dir)):
-            if _reports_of(p):
+            if _cards_of(p):
                 protocol = p
                 break
     ideas = []
-    for r in _reports_of(protocol):
+    for r in _cards_of(protocol):
         f = _fields_of(r)
         ideas.append({
             "run_id": (protocol or {}).get("run_id"),
             "актив": r.get("актив"),
             "направление": r.get("направление"),
             "балл": r.get("балл"),
-            "тезис": _humanize(_field(f, "1")) or r.get("актив"),
+            "тезис": _humanize(_field(f, "1")) or r.get("_тезис") or r.get("актив"),
             "каскад": _humanize(_field(f, "2")),
         })
     return ideas
@@ -191,7 +251,7 @@ def find_idea(asset=None, run_id=None, logs_dir=None):
     if run_id:
         protos = [p for p in protos if p.get("run_id") == run_id]
     for p in reversed(protos):
-        reps = _reports_of(p)
+        reps = _cards_of(p)
         if not reps:
             continue
         if asset:
@@ -217,7 +277,10 @@ def candidate_from_card(report_card):
 
     Котировки/индикаторы НЕ берём из карточки — их пересоберёт свежий build_context. Тезис и
     §9-разрешимость восстанавливаем из полей отчёта, чтобы дело судьи было когерентно выданному.
+    Карточка боевого event-first (гейт продукта 05.07) несёт готовый кандидат — отдаём его как есть.
     """
+    if isinstance(report_card.get("_ef_candidate"), dict):
+        return dict(report_card["_ef_candidate"])
     f = _fields_of(report_card)
     seal = report_card.get("запечатанный_прогноз_§9") or {}
     thesis_parts = [_humanize(_field(f, "1"), 160), _humanize(_field(f, "2"), 240)]
