@@ -224,7 +224,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Прогон «Оракула»: воронка §6 / масккейсы §23.2 / абляция §11.1")
     ap.add_argument("--mode",
                     choices=["auto", "live", "mock", "funnel", "theme", "multi", "event_first", "replay",
-                             "calibrate", "resolve", "masked", "ablation", "challenge", "challenge-digest"],
+                             "edge_forward", "calibrate", "resolve", "masked", "ablation", "challenge",
+                             "challenge-digest"],
                     default="auto",
                     help="auto/live/mock/funnel — полная воронка §6; theme — тематический режим §17.2 "
                          "(полный цикл по --asset, запечатывание прогноза); calibrate — калибровка §17.3; "
@@ -282,6 +283,17 @@ def main(argv=None):
               + ", ".join(x.get("актив") or "?" for x in g.get("топ_k", [])[:5]))
         for b in r.get("границы_честности", []):
             print(f"  граница: {b}")
+        return 0
+    if args.mode == "edge_forward":
+        # B4 (§R4.5): детерминированный форвард-тест рёбер библиотеки. LLM нет (~$0), бюджет-гард
+        # не нужен. Без --seal — сухой прогон (протокол пишется, журнал прогнозов не трогается).
+        from orchestrator.edge_forward import run_edge_forward
+        r = run_edge_forward(write=not args.no_write, seal=args.seal)
+        и = r["итоги"]
+        print(f"[{r['run_id']}] B4 форвард-тест рёбер: библиотека {и['рёбер_в_библиотеке']} · "
+              f"запечатано {и['запечатано']}{'' if args.seal else ' (DRY, без --seal)'} · "
+              f"спит {и['спит_под_порогом']} · нет шока {и['нет_шока_источника']} · "
+              f"нет edge {и['нет_edge_на_узле']} · дубль {и['дубль_пропущен']}")
         return 0
     if args.mode == "ablation":
         return _run_ablation(args)

@@ -44,8 +44,11 @@ def collect_rows(predictions_path=None, outcomes_path=None):
     preds = SEAL.read_predictions(predictions_path)
     outs = {o["hash"]: o for o in RES.read_outcomes(outcomes_path) if o.get("hash")}
     rows, multi, no_path, pending = [], 0, 0, 0
+    # B4 (§R4.5): фарм-поток edge_forward — основной корм промоушена (однозвенные по построению);
+    # провизорные однозвенные прогнозы выдачи остаются вторым источником, как раньше.
+    kinds = tuple(RES.PROVISIONAL_KINDS) + tuple(RES.EDGE_FORWARD_KINDS)
     for p in preds:
-        if p.get("kind") not in RES.PROVISIONAL_KINDS:
+        if p.get("kind") not in kinds:
             continue
         path = p.get("cascade_path") or []
         if not path:
