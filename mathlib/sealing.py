@@ -161,7 +161,7 @@ def _last_hash(path):
     return recs[-1].get("hash") if recs else GENESIS_PREV_HASH
 
 
-def seal(prediction, path=None, sealed_at=None, dedup_fields=None):
+def seal(prediction, path=None, sealed_at=None, dedup_fields=None, dedup_normalize=None):
     """Запечатать прогноз и дописать ОДНУ строку в predictions.jsonl (только append).
 
     §9: неразрешимый прогноз → ValueError, в журнал НЕ попадает.
@@ -184,8 +184,12 @@ def seal(prediction, path=None, sealed_at=None, dedup_fields=None):
     with _locked(path):                               # межпроцессный лок: read-last+append атомарны
         recs = read_predictions(path)
         if dedup_fields:
-            key = tuple(record.get(f) for f in dedup_fields)
-            if any(tuple(r.get(f) for f in dedup_fields) == key for r in recs):
+            # dedup_normalize (гейт B4 05.07): применяется к ОБЕИМ сторонам сравнения ТОЛЬКО на
+            # время дедупа — выводит производные поля identity для ЛЕГАСИ-записей, у которых их
+            # нет (пример: track из kind). Журнал НЕ редактируется (П16) — нормализация в сравнении.
+            norm = dedup_normalize or (lambda r: r)
+            key = tuple(norm(record).get(f) for f in dedup_fields)
+            if any(tuple(norm(r).get(f) for f in dedup_fields) == key for r in recs):
                 return None                           # та же ставка уже запечатана — не плодим дубль
         record["prev_hash"] = (recs[-1].get("hash") if recs else GENESIS_PREV_HASH)  # F2#21: звено цепочки
         record["hash"] = _content_hash(record)

@@ -118,8 +118,7 @@ def test_quiet_source_below_shock_floor(tmp_path, monkeypatch):
     assert r["итоги"]["запечатано"] == 0
     assert r["итоги"]["шок_под_порогом"] == 1
     assert not preds.exists()                                  # журнал не тронут
-    assert r["рёбра"][0]["статус"] == "спит" and "shock" in r["рёбра"][0]["причина"].lower() \
-        or "шок" in r["рёбра"][0]["причина"]                   # причина журналируется (П8)
+    assert r["рёбра"][0]["статус"] == "спит" and "шок" in r["рёбра"][0]["причина"]  # причина — П8
 
 
 def test_reverse_bet_blocked_by_p1_5(tmp_path, monkeypatch):
@@ -154,6 +153,20 @@ def test_cooldown_one_open_prediction_per_edge(tmp_path, monkeypatch):
     r2 = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=next_day,
                               sens_path=sens, predictions_path=preds)
     assert r2["итоги"]["запечатано"] == 0 and r2["итоги"]["кулдаун_pending"] == 1
+    assert len(SEAL.read_predictions(preds)) == 1
+
+
+def test_legacy_records_without_track_still_dedup(tmp_path):
+    # повторный гейт B4 (блокер): записи, запечатанные ДО введения поля track, при повторе
+    # прогона в тот же день обязаны дедупиться — track выводится из kind ПРИ СРАВНЕНИИ,
+    # журнал не редактируется (П16).
+    bet = {"kind": "cascade_provisional", "asset": "SPY.US", "direction": "above",
+           "threshold": 500.0, "resolve_by": "2026-07-12T20:00:00+00:00",
+           "price_source": "EODHD close SPY.US", "probability": 0.6}
+    preds = tmp_path / "pred.jsonl"
+    assert SEAL.seal(bet, path=preds) is not None              # легаси: запечатано БЕЗ track
+    assert "track" not in SEAL.read_predictions(preds)[0]
+    assert FC.seal_prediction(bet, path=preds) is None         # повтор дня — дубль пойман
     assert len(SEAL.read_predictions(preds)) == 1
 
 

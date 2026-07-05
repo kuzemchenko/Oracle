@@ -244,7 +244,8 @@ def run_edge_forward(*, write=True, seal=True, con=None, now_dt=None,
                                "причина": f"кэп {max_seals} прогнозов/прогон (гигиена) — НЕ запечатано"})
                 continue
             if seal:
-                sealed = SEAL.seal(spec, path=predictions_path, dedup_fields=DEDUP_FIELDS)
+                sealed = SEAL.seal(spec, path=predictions_path, dedup_fields=DEDUP_FIELDS,
+                                   dedup_normalize=FC.dedup_normalize)
                 if sealed is None:
                     итоги["дубль_пропущен"] += 1
                     детали.append({**rec, "статус": "дубль", "причина": "та же ставка уже в журнале"})

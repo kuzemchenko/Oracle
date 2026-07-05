@@ -115,6 +115,16 @@ def build_forward_prediction(candidate, ctx, *, run_id, kind, now_dt=None,
 DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
 
 
+def dedup_normalize(rec):
+    """Нормализация записи ДЛЯ СРАВНЕНИЯ дедупа (журнал не редактируется, П16): у легаси-записей
+    (до 05.07) поля track нет — выводим его из kind, иначе повтор прогона в переходный день
+    задваивал бы ставки, запечатанные до деплоя (повторный гейт B4, блокер)."""
+    if rec.get("track") is not None:
+        return rec
+    from orchestrator import resolve as RES      # локально: не тянуть resolve при импорте forecast
+    return {**rec, "track": RES.track_for_kind(rec.get("kind"))}
+
+
 def seal_prediction(prediction, path=None):
     """Запечатать готовый §9-прогноз (mathlib.seal: append + hash). Проставляет класс трека
     (prediction['track']) для внутри-трекового дедупа. Возвращает запечатанную запись или None,
@@ -122,4 +132,5 @@ def seal_prediction(prediction, path=None):
     from orchestrator import resolve as RES      # локально: не тянуть resolve при импорте forecast
     prediction = dict(prediction)
     prediction["track"] = RES.track_for_kind(prediction.get("kind"))
-    return SEAL.seal(prediction, path=path, dedup_fields=DEDUP_FIELDS)
+    return SEAL.seal(prediction, path=path, dedup_fields=DEDUP_FIELDS,
+                     dedup_normalize=dedup_normalize)
