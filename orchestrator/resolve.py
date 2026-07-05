@@ -35,6 +35,20 @@ PROVISIONAL_KINDS = ("cascade_provisional",)
 # к §11 не приближается И в провизорный трек выдачи не подмешивается (механический ежедневный поток
 # по библиотеке рёбер — другая популяция, смешение мутит оба табло). Потребитель — forward_promotion.
 EDGE_FORWARD_KINDS = ("edge_forward",)
+
+
+def track_for_kind(kind):
+    """Класс ТРЕКА для kind — единый источник герметичности треков (B3c/§R3 + B4 §R4.5).
+    Дедуп идентичной ставки — внутри-ТРЕКОВЫЙ (stage-review B4): kind'ы одного money-трека
+    (funnel_forward/theme_daily/cascade_money) сливаются в один Brier и счёт ворот-270, поэтому
+    идентичная ставка между ними — дубль; ставки РАЗНЫХ треков — независимые счета, не дубль."""
+    if kind in MONEY_EDGE_KINDS:
+        return "money"
+    if kind in PROVISIONAL_KINDS:
+        return "provisional"
+    if kind in EDGE_FORWARD_KINDS:
+        return "edge_forward"
+    return kind or "?"
 # F0#6: ГЕРМЕТИЧНОСТЬ §11 через АЛОУЛИСТ — в денежный трек/гейт-270 идут ТОЛЬКО реальные edge-прогнозы.
 # Раньше money_out = «всё, что не провизорное» → calibration (baseline-монетка P=0.5, kind='calibration')
 # протекала в денежный Brier и до_ворот_270 (96/96 исходов = calibration). Калибровка — свой трек.

@@ -145,8 +145,9 @@ def run_calibrate(mode="auto", write=True, now_dt=None):
     if do_seal:
         for p, _ in good:
             # ревью 2026-07-04: дедуп той же ставки — повторный /calibrate в тот же день
-            # не плодит дубли в калибровочном треке
-            rec = SEAL.seal(p, dedup_fields=FC.DEDUP_FIELDS)
+            # не плодит дубли в калибровочном треке. B4: через seal_prediction — он проставляет
+            # класс трека (track) для внутри-трекового дедупа (единый путь запечатывания).
+            rec = FC.seal_prediction(p)
             if rec is not None:
                 sealed.append(rec)
 

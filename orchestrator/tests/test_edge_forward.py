@@ -49,6 +49,16 @@ def _series_quiet(n=110, base=50.0):
     return [base + 0.05 * (i % 5) for i in range(n)]
 
 
+def _series_calm_tail(n=110, base=100.0):
+    """Колеблется в истории (σ_ист > 0), но ПОСЛЕДНЕЕ окно реакции плоское — шока НЕТ."""
+    return [base + 0.5 * (i % 5) for i in range(n - 10)] + [base] * 10
+
+
+def _series_terminal_ran_away(n=110, base=50.0, jump=1.10):
+    """Терминал сам убежал на +10% в окне реакции (переотыграно, unpriced_fraction<0)."""
+    return [base + 0.05 * (i % 5) for i in range(n - 5)] + [base * jump] * 5
+
+
 def _sens_yaml(tmp_path, edges):
     p = tmp_path / "sens.yaml"
     p.write_text(yaml.safe_dump({"sensitivities": edges, "chain_sensitivities": []},
@@ -96,18 +106,67 @@ def test_activated_edge_seals_single_link(tmp_path, monkeypatch):
     assert "§R4.5" in rec["spec_ref"]
 
 
-def test_quiet_source_not_sealed_with_reason(tmp_path, monkeypatch):
-    # источник без шока → нет неотыгранного хода/под порогом — прогноз НЕ печатается (подпись 05.07)
+def test_quiet_source_below_shock_floor(tmp_path, monkeypatch):
+    # гейт stage-review B4 (блокер): источник БЕЗ шока (плоское окно при живой σ) — ребро спит,
+    # даже если у терминала есть собственный ход. Прогноз НЕ печатается (подпись 05.07).
     _fix_beta(monkeypatch)
-    con = _db({"AAA.US": _series_quiet(base=100.0), "BBB.US": _series_quiet()})
+    con = _db({"AAA.US": _series_calm_tail(), "BBB.US": _series_quiet()})
     sens = _sens_yaml(tmp_path, [{"источник": "AAA.US", "узел": "BBB.US", "lag": 0}])
     preds = tmp_path / "pred.jsonl"
     r = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
                              sens_path=sens, predictions_path=preds)
     assert r["итоги"]["запечатано"] == 0
+    assert r["итоги"]["шок_под_порогом"] == 1
     assert not preds.exists()                                  # журнал не тронут
-    assert r["рёбра"] and r["рёбра"][0]["статус"] in ("спит", "пропуск")
-    assert r["рёбра"][0].get("причина")                        # причина журналируется (П8)
+    assert r["рёбра"][0]["статус"] == "спит" and "shock" in r["рёбра"][0]["причина"].lower() \
+        or "шок" in r["рёбра"][0]["причина"]                   # причина журналируется (П8)
+
+
+def test_reverse_bet_blocked_by_p1_5(tmp_path, monkeypatch):
+    # ЯДРО блокера stage-review B4: источник с реальным шоком, но терминал сам УЖЕ убежал
+    # дальше расчётной амплитуды → edge = ставка на РЕВЕРС собственного хода терминала
+    # (unpriced_fraction<0). Такое НЕ печатается и НЕ кормит промоушен ребра.
+    _fix_beta(monkeypatch)
+    con = _db({"AAA.US": _series_shocked(), "BBB.US": _series_terminal_ran_away()})
+    sens = _sens_yaml(tmp_path, [{"источник": "AAA.US", "узел": "BBB.US", "lag": 0}])
+    preds = tmp_path / "pred.jsonl"
+    r = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
+                             sens_path=sens, predictions_path=preds)
+    assert r["итоги"]["запечатано"] == 0
+    assert r["итоги"]["реверс_или_шум_P1#5"] == 1
+    assert not preds.exists()
+    d = r["рёбра"][0]
+    assert d["статус"] == "пропуск" and d["unpriced_fraction"] is not None \
+        and d["unpriced_fraction"] <= 0
+
+
+def test_cooldown_one_open_prediction_per_edge(tmp_path, monkeypatch):
+    # гейт stage-review B4 (серийная псевдорепликация): пока прогноз ребра не разрешён,
+    # тот же 5-барный эпизод шока НЕ печатает новый «независимый» исход в биномтест §10.
+    _fix_beta(monkeypatch)
+    con = _db({"AAA.US": _series_shocked(), "BBB.US": _series_quiet()})
+    sens = _sens_yaml(tmp_path, [{"источник": "AAA.US", "узел": "BBB.US", "lag": 0}])
+    preds = tmp_path / "pred.jsonl"
+    r1 = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
+                              sens_path=sens, predictions_path=preds)
+    assert r1["итоги"]["запечатано"] == 1
+    next_day = NOW + datetime.timedelta(days=1)                # эпизод ещё в окне, прогноз открыт
+    r2 = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=next_day,
+                              sens_path=sens, predictions_path=preds)
+    assert r2["итоги"]["запечатано"] == 0 and r2["итоги"]["кулдаун_pending"] == 1
+    assert len(SEAL.read_predictions(preds)) == 1
+
+
+def test_money_track_cross_kind_dedup_kept(tmp_path):
+    # регрессия stage-review B4: kind'ы ОДНОГО money-трека сливаются в один §11-счёт —
+    # идентичная ставка между ними остаётся дублем (дедуп по КЛАССУ трека, не по сырому kind).
+    bet = {"asset": "SPY.US", "direction": "above", "threshold": 500.0,
+           "resolve_by": "2026-07-12T20:00:00+00:00", "price_source": "EODHD close SPY.US",
+           "probability": 0.6}
+    preds = tmp_path / "pred.jsonl"
+    assert FC.seal_prediction({**bet, "kind": "theme_daily"}, path=preds) is not None
+    assert FC.seal_prediction({**bet, "kind": "cascade_money"}, path=preds) is None   # тот же трек
+    assert FC.seal_prediction({**bet, "kind": "cascade_provisional"}, path=preds) is not None
 
 
 def test_rerun_same_day_is_idempotent(tmp_path, monkeypatch):
@@ -120,7 +179,8 @@ def test_rerun_same_day_is_idempotent(tmp_path, monkeypatch):
     r2 = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
                               sens_path=sens, predictions_path=preds)
     assert r1["итоги"]["запечатано"] == 1
-    assert r2["итоги"]["запечатано"] == 0 and r2["итоги"]["дубль_пропущен"] == 1
+    # повтор в тот же день гасится КУЛДАУНОМ (открытый прогноз ребра); дедуп-поля — вторая линия
+    assert r2["итоги"]["запечатано"] == 0 and r2["итоги"]["кулдаун_pending"] == 1
     assert len(SEAL.read_predictions(preds)) == 1
 
 
@@ -136,9 +196,9 @@ def test_no_cross_track_dedup_collision(tmp_path, monkeypatch):
     prov = {k: rec[k] for k in ("asset", "direction", "threshold", "resolve_by",
                                 "price_source", "probability")}
     prov["kind"] = "cascade_provisional"
-    assert FC.seal_prediction(prov, path=preds) is not None    # провизорный НЕ погашен (kind в identity)
+    assert FC.seal_prediction(prov, path=preds) is not None    # провизорный НЕ погашен (track в identity)
     # а РАЗНЫЕ рёбра к одному терминалу с равными полями ставки — тоже разные прогнозы
-    spec2 = {k: rec[k] for k in ("kind", "asset", "direction", "threshold", "resolve_by",
+    spec2 = {k: rec[k] for k in ("kind", "track", "asset", "direction", "threshold", "resolve_by",
                                  "price_source", "probability", "cascade_path")}
     spec2["edge_key"] = "CCC.US->BBB.US@lag0"
     assert SEAL.seal(spec2, path=preds, dedup_fields=EFW.DEDUP_FIELDS) is not None
@@ -158,21 +218,29 @@ def test_resolve_third_track_and_promotion_feed(tmp_path, monkeypatch):
     con.execute("INSERT INTO quotes (symbol, date, close) VALUES ('BBB.US','2026-07-01',51.0)")
     con.commit(); con.close()
     monkeypatch.setattr(RES, "DB", dbfile)
-    spec = {"kind": "edge_forward", "run_id": "b4_t", "asset": "BBB.US", "direction": "above",
+    spec = {"kind": "edge_forward", "track": "edge_forward", "run_id": "b4_t",
+            "asset": "BBB.US", "direction": "above",
             "threshold": 50.0, "resolve_by": "2026-07-01T20:00:00+00:00",
             "price_source": "EODHD close BBB.US", "probability": 0.7,
             "cascade_path": [{"from": "AAA.US", "to": "BBB.US", "lag": 0,
                               "tier": "C", "beta_fullsample": 0.5}],
             "edge_key": "AAA.US->BBB.US@lag0", "spec_ref": "тест"}
     assert SEAL.seal(spec, path=preds, dedup_fields=EFW.DEDUP_FIELDS)
+    # та же ставка в треке ВЫДАЧИ (сознательно не дубль печати: треки герметичны)…
+    prov = {k: spec[k] for k in ("asset", "direction", "threshold", "resolve_by",
+                                 "price_source", "probability", "cascade_path")}
+    prov["kind"] = "cascade_provisional"
+    assert FC.seal_prediction(prov, path=preds) is not None
     s = RES.run_resolve(write=True, predictions_path=preds, outcomes_path=outs)
     assert s["edge_forward_трек"]["исходов"] == 1              # третий трек видит исход
     assert s["edge_forward_трек"]["brier"] is not None
     assert s["brier"] is None                                  # §11/money не тронут
-    assert s["провизорный_трек"]["исходов"] == 0               # и провизорный не подмешан
+    assert s["провизорный_трек"]["исходов"] == 1               # у выдачи свой счёт
+    # …но в КОРМ промоушена ребра одно рыночное событие входит ОДИН раз (high-а stage-review)
     rows, stats = PE.collect_rows(preds, outs)
     assert len(rows) == 1 and rows[0]["edge_key"] == "AAA.US->BBB.US@lag0"
     assert rows[0]["outcome"] == 1 and rows[0]["probability"] == 0.7
+    assert stats["дубль_событий_между_треками"] == 1
 
 
 def test_seal_flag_off_never_touches_journal(tmp_path, monkeypatch):

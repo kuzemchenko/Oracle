@@ -67,9 +67,31 @@ def collect_rows(predictions_path=None, outcomes_path=None):
             "from": e.get("from"), "to": e.get("to"), "lag": int(e.get("lag") or 0),
             "probability": p.get("probability"), "outcome": int(o["outcome"]),
             "beta_fullsample": e.get("beta_fullsample"),
+            # identity СОБЫТИЯ для меж-трекового дедупа корма (stage-review B4 high-а)
+            "_bet": (p.get("asset"), p.get("direction"), p.get("threshold"), p.get("resolve_by")),
         })
+    # stage-review B4 (high-а): одна и та же ставка, запечатанная в ДВУХ треках (cascade_provisional
+    # выдачи + edge_forward фарм-потока — дедуп треков сознательно внутри-трековый), — это ОДНО
+    # рыночное событие. В корм промоушена оно обязано войти ОДИН раз, иначе N ребра надувается
+    # двойным счётом зависимых исходов (биномтест §10 считает их независимыми). Keep-first — порядок
+    # журнала детерминирован. Дедуп ТОЛЬКО при полной identity ставки: равенство по отсутствующим
+    # полям не выдумываем (П8) — неполные записи различает hash-джойн исходов.
+    seen, deduped, cross_dupes = set(), [], 0
+    for r in rows:
+        bet = r.pop("_bet")
+        if any(v is None for v in bet):
+            deduped.append(r)
+            continue
+        key = (r["edge_key"],) + bet
+        if key in seen:
+            cross_dupes += 1
+            continue
+        seen.add(key)
+        deduped.append(r)
+    rows = deduped
     stats = {"провизорных_исходов_однозвенных": len(rows), "многозвенных_пропущено": multi,
-             "без_cascade_path": no_path, "ещё_pending": pending}
+             "без_cascade_path": no_path, "ещё_pending": pending,
+             "дубль_событий_между_треками": cross_dupes}
     return rows, stats
 
 

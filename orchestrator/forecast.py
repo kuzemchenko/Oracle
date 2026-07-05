@@ -105,14 +105,21 @@ def build_forward_prediction(candidate, ctx, *, run_id, kind, now_dt=None,
 # Идентичность СТАВКИ для идемпотентности (ревью 2026-07-04): тот же актив, та же сторона,
 # тот же порог, тот же срок = тот же прогноз. Перезапуск прогона в тот же день (ручной рестарт
 # после сбоя, дубль cron) не должен плодить коррелированные дубли в журнале.
-# B4 (05.07): + kind — дедуп внутри-трековый, как и сами треки (герметичность B3c/§R3). Иначе
-# утренний edge_forward (lag 0 → тот же close/resolve_by) молча гасил бы легитимный провизорный
-# прогноз выдачи 09:00 по тому же активу — кросс-трековый дедуп ложен, у каждого трека свой счёт.
-# Внутри трека защита от дублей (ворота-270, Brier) не ослаблена: kind у дублей одинаков.
-DEDUP_FIELDS = ("kind", "asset", "direction", "threshold", "resolve_by")
+# B4 (05.07, stage-review): + track — дедуп внутри-ТРЕКОВЫЙ, как и сами счета (B3c/§R3):
+#   • сырой kind в identity был БЫ регрессией — kind'ы одного money-трека (funnel_forward/
+#     theme_daily/cascade_money) сливаются в один §11-Brier и счёт ворот-270, идентичная ставка
+#     между ними — дубль, надувающий ворота (гейт stage-review B4);
+#   • совсем без track'а edge_forward (lag 0 → тот же close/resolve_by) молча гасил бы легитимный
+#     провизорный прогноз выдачи 09:00 — кросс-трековый дедуп ложен, у каждого трека свой счёт.
+# Класс трека — resolve.track_for_kind (единый источник герметичности); поле пишется в запись.
+DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
 
 
 def seal_prediction(prediction, path=None):
-    """Запечатать готовый §9-прогноз (mathlib.seal: append + hash).
-    Возвращает запечатанную запись или None, если ИДЕНТИЧНАЯ ставка уже в журнале (дедуп)."""
+    """Запечатать готовый §9-прогноз (mathlib.seal: append + hash). Проставляет класс трека
+    (prediction['track']) для внутри-трекового дедупа. Возвращает запечатанную запись или None,
+    если ИДЕНТИЧНАЯ ставка ТОГО ЖЕ ТРЕКА уже в журнале (дедуп)."""
+    from orchestrator import resolve as RES      # локально: не тянуть resolve при импорте forecast
+    prediction = dict(prediction)
+    prediction["track"] = RES.track_for_kind(prediction.get("kind"))
     return SEAL.seal(prediction, path=path, dedup_fields=DEDUP_FIELDS)
