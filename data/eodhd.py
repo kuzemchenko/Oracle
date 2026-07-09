@@ -110,6 +110,9 @@ def load_universe():
 def db_connect():
     DB.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB)
+    # WAL: утренний сборщик пишет долго (ретраи GDELT), читатели (edge_forward 07:30)
+    # в режиме delete ловят «database is locked» дольше своего timeout=30.
+    con.execute("PRAGMA journal_mode=WAL")
     con.executescript(SCHEMA)
     return con
 
@@ -416,7 +419,10 @@ def main():
                 ni = sync_insider(con, sym, api_key)
                 row = con.execute("SELECT shares_float, pct_insiders, pct_institutions, market_cap_mln "
                                   "FROM fundamentals WHERE symbol=?", (sym,)).fetchone()
-                fl = f"float={row[0]:,.0f} инсайд={row[1]}% инст={row[2]}% mcap=${row[3]:,.0f}млн" if row else "—"
+                # у ETF/индексов float/инсайдеров нет — None печатаем как «н/д» (П8), не падаем
+                _n = lambda v, spec="": ("н/д" if v is None else format(v, spec))
+                fl = (f"float={_n(row[0], ',.0f')} инсайд={_n(row[1])}% "
+                      f"инст={_n(row[2])}% mcap=${_n(row[3], ',.0f')}млн") if row else "—"
                 print(f"📊 {sym:12} fund={nf} инсайд_сделок={ni} · {fl}")
             except Exception as e:
                 failures += 1
@@ -434,8 +440,13 @@ def main():
                           f"put/call_OI={s['put_call_oi_ratio']} OI={s['total_open_interest']} "
                           f"ликвид={s['liquid']}")
             except Exception as e:
-                failures += 1
-                print(f"❌ {sym:12} опционы: {e}", file=sys.stderr)
+                # HTTP 404 цепочки = у инструмента опционов нет (индексы-бенчмарки) — это
+                # «нет данных» (П8), а не сбой: не роняем exit-код и не будим алерт каждый день
+                if "HTTP 404" in str(e):
+                    print(f"🟦 {sym:12} опционов нет (HTTP 404)")
+                else:
+                    failures += 1
+                    print(f"❌ {sym:12} опционы: {e}", file=sys.stderr)
 
     print()
     cmd_status(con)
