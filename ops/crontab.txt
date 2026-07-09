@@ -68,8 +68,15 @@ MAILTO=""
 # `ops/promote_edges.py --apply` ежемесячно (§25, инвариант 5). Воскресенье 08:30 (после devops-петли).
 30 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
 
-# Напоминание о еженедельном разборе (сам разбор — в Claude Code: /review-week): пятница 18:00
-0 18 * * 5   cd /home/oracle/oracle && echo "$(date): пора /review-week в Claude Code" >> journal/reminders.log
+# АВТОПЕТЛЯ §25 (решение владельца 09.07): система сама запускает разборы и инсайты.
+# Еженедельный авторазбор (детерминированный, LLM нет): пятница 18:00 → отчёт в
+# reports/auto_review/ + сводка владельцу в бота (journal/notices.jsonl; notices НЕ ротировать —
+# бот читает по курсору-номеру строки). Глубокий разбор с объяснениями — /review-week (сводка зовёт).
+0 18 * * 5   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh auto_review /home/oracle/oracle/.venv/bin/python ops/auto_review.py >> journal/cron.log 2>&1
+# Ежедневный дозор §25: 21:15 (после сверки 21:00) — инсайт-алерты в бота ТОЛЬКО при срабатывании
+# (засуха money-печати; суд валит 100%; ДОСТУПНА корректировка-промоушен). Корректировку НЕ
+# применяет — только подписью владельца (`promote_edges.py --apply`): открыт долг B4(а).
+15 21 * * *  cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh auto_review_watch /home/oracle/oracle/.venv/bin/python ops/auto_review.py --watch >> journal/cron.log 2>&1
 
 # ── СТОРОННИЕ (НЕ «Оракул») задачи вынесены (FГ2 §9.3) ──────────────────────────────
 # Задачи femmecode/aimycode содержали plaintext-токен → перенесены в ops/crontab.local.txt

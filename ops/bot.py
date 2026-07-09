@@ -748,6 +748,10 @@ class Bot:
             self._tick_alerts()
         except Exception as e:                                   # noqa: BLE001
             log("tick alerts ошибка", repr(e))
+        try:
+            self._tick_notices()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick notices ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):
@@ -772,6 +776,28 @@ class Bot:
                 break                                  # не дошло — ретрай со следующего tick
             self.state["alerts_seen"] = i + 1
             log("пуш алерта cron", rec.get("label"), rec.get("exit"))
+
+    def _tick_notices(self):
+        """Автопетля §25 (решение владельца 09.07): ops/auto_review.py пишет заметки
+        (разборы/инсайты/доступные корректировки) в journal/notices.jsonl — пушим новые
+        по курсору, как алерты (доставка с ретраем; текст готов на стороне автора заметки)."""
+        import json as _json
+        path = ROOT / "journal" / "notices.jsonl"
+        if not path.exists():
+            return
+        seen = int(self.state.get("notices_seen", 0))
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines[seen:], start=seen):
+            try:
+                rec = _json.loads(line)
+            except ValueError:
+                self.state["notices_seen"] = i + 1     # битую строку не перечитываем вечно
+                continue
+            text = str(rec.get("text") or "").strip()
+            if text and self._send_card(text, None) is None:   # None = часть не дошла (ретрай)
+                break                                  # не дошло — ретрай со следующего tick
+            self.state["notices_seen"] = i + 1
+            log("пуш заметки §25", (text[:60] or "<пусто>"))
 
     def _send_card(self, text, kb):
         """Длинную карточку шлём частями (лимит Telegram 4096); клавиатуру — на ПОСЛЕДНЮЮ часть.
