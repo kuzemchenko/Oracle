@@ -65,7 +65,13 @@ def collect_rows(predictions_path=None, outcomes_path=None):
         rows.append({
             "edge_key": FP.edge_key(e.get("from"), e.get("to"), e.get("lag")),
             "from": e.get("from"), "to": e.get("to"), "lag": int(e.get("lag") or 0),
-            "probability": p.get("probability"), "outcome": int(o["outcome"]),
+            # П-1 (подпись 09.07): скилл ребра меряем по СЫРОЙ уверенности модели (probability_raw,
+            # до сжатия к базовой частоте) — иначе сжатая официальная шкала (λ=0 → p≈p0) даёт
+            # BSS≈0 и промоушен структурно никогда не срабатывает. Официальный Brier табло — по
+            # сжатой; скилл/промоушен — по сырой. Легаси-записи без raw — как раньше.
+            "probability": (p.get("probability_raw")
+                            if p.get("probability_raw") is not None else p.get("probability")),
+            "outcome": int(o["outcome"]),
             "beta_fullsample": e.get("beta_fullsample"),
             # identity СОБЫТИЯ для меж-трекового дедупа корма (stage-review B4 high-а)
             "_bet": (p.get("asset"), p.get("direction"), p.get("threshold"), p.get("resolve_by")),

@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 from orchestrator import universe_resolver as U     # noqa: E402
 from orchestrator import forecast as FC             # noqa: E402
 from mathlib import sealing as SEAL                 # noqa: E402
+from mathlib.calibration import prob_shrink as PS   # noqa: E402
 
 DB = ROOT / "storage" / "oracle.db"
 
@@ -120,12 +121,26 @@ def seal_spec(fact, *, kind, run_id, horizon_days, con, now_dt=None):
     side = "above" if amp > 0 else "below"
     p_ge0 = fact.get("probability")
     prob = None if p_ge0 is None else round(p_ge0 if side == "above" else 1.0 - p_ge0, 4)
+    # П-1 (подпись 09.07, §10): official probability каскадных треков сжимается к базовой
+    # частоте (knowledge/prob_shrink.yaml, λ по walk-forward) — уверенность 0.75–0.79 при
+    # попадании 40–45% не заслужена. Сырая уверенность сохраняется (probability_raw): по ней
+    # меряется скилл рёбер (forward_promotion) и ежемесячная пере-подгонка λ. Нет политики → сырая.
+    prob_raw, shrink_ref = None, None
+    policy = PS.load_policy()
+    if prob is not None and policy and kind in (policy.get("applies_to") or []):
+        prob_raw = prob
+        prob = round(PS.shrink(prob, float(policy["p0"]), float(policy["lambda"])), 4)
+        shrink_ref = {"lambda": policy["lambda"], "p0": policy["p0"],
+                      "fitted_at": policy.get("fitted_at"),
+                      "policy": "knowledge/prob_shrink.yaml (П-1 подпись 09.07)"}
     pred = {
         "kind": kind, "run_id": run_id, "asset": symbol, "direction": side,
         "threshold": round(float(lc["close"]), 4),
         "resolve_by": FC._resolve_by(now_dt, horizon_days),
         "price_source": f"EODHD close {symbol}",
         "probability": prob,
+        "probability_raw": prob_raw,                 # None = сжатие не применялось (П-1)
+        "prob_shrink": shrink_ref,
         "amplitude_expected": amp, "reliability_r2": fact.get("reliability"),
         "ярусы": fact.get("tiers"),
         # рёбра пути для ФОРВАРД-промоушена (forward_promotion): однозвенный путь (len==1) →

@@ -13,10 +13,32 @@
 ПРИМЕНЕНИЕ — только с подписью владельца (инвариант 5 CLAUDE.md: критерии/веса — с согласия).
 Этот модуль только СЧИТАЕТ предложение (детерминированно, инвариант 6). LLM нет.
 """
+import pathlib
+
 from mathlib.brier import brier_score
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+POLICY_PATH = ROOT / "knowledge" / "prob_shrink.yaml"
 
 GRID = [round(x * 0.05, 2) for x in range(0, 21)]     # λ ∈ {0.00, 0.05, …, 1.00}
 MIN_N_FIT = 30                                         # §10: порог применимости поправки
+
+
+def load_policy(path=None):
+    """Подписанная политика сжатия (П-1 09.07) из knowledge/prob_shrink.yaml.
+    Нет файла / битый / нет обязательных полей → None (сжатие НЕ применяется — fail-open
+    сознательно: отсутствие политики = поправка не подписана, печатаем сырую вероятность)."""
+    import yaml
+    p = pathlib.Path(path) if path else POLICY_PATH
+    if not p.exists():
+        return None
+    try:
+        pol = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except Exception:                                  # noqa: BLE001 — битый YAML = нет политики
+        return None
+    if pol.get("lambda") is None or pol.get("p0") is None or not pol.get("applies_to"):
+        return None
+    return pol
 
 
 def shrink(p, p0, lam):

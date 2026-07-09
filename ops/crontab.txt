@@ -68,6 +68,11 @@ MAILTO=""
 # `ops/promote_edges.py --apply` ежемесячно (§25, инвариант 5). Воскресенье 08:30 (после devops-петли).
 30 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
 
+# Ежемесячная пере-подгонка шкалы уверенности (П-1, ПОДПИСЬ 09.07 — авто-apply авторизован
+# именно для этого цикла): walk-forward λ/p0 по сверенным исходам → knowledge/prob_shrink.yaml.
+# 1-е число, 07:45 (после budget 07:00, до edge_forward не влияет — тот вне applies_to).
+45 7 1 * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh refit_prob_shrink /home/oracle/oracle/.venv/bin/python ops/refit_prob_shrink.py --apply >> journal/cron.log 2>&1
+
 # АВТОПЕТЛЯ §25 (решение владельца 09.07): система сама запускает разборы и инсайты.
 # Еженедельный авторазбор (детерминированный, LLM нет): пятница 18:00 → отчёт в
 # reports/auto_review/ + сводка владельцу в бота (journal/notices.jsonl; notices НЕ ротировать —

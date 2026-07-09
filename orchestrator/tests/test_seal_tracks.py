@@ -53,7 +53,11 @@ def _db_with_close(sym, close):
     return con
 
 
-def test_seal_spec_tags_track_and_ignores_tier():
+def test_seal_spec_tags_track_and_ignores_tier(monkeypatch):
+    # герметичность от боевой политики П-1 (сжатие шкалы — свои тесты test_prob_shrink_seal):
+    # этот тест проверяет маркировку ТРЕКА и направление, шкала тут — сырая
+    from mathlib.calibration import prob_shrink as PS
+    monkeypatch.setattr(PS, "load_policy", lambda path=None: None)
     con = _db_with_close("ZZZ.US", 50.0)
     now = datetime.datetime(2026, 6, 21, tzinfo=datetime.timezone.utc)
     # ярус C — НЕ гейтит, идёт в провизорный трек

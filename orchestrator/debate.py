@@ -186,6 +186,9 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
             "verdict": rubric.get("verdict"),
             "mandatory_questions": _active_mandatory(rubric, дело),
             "тип": ("каскадная под-рубрика" if _cascade_rubric(rubric, дело) else "базовая"),
+            # П-2 (v1.4, подпись 09.07): судья знает границы данных системы — «нет внутридневных
+            # котировок» = «не измерено» (нейтрально), а не довод «отыграно» (П8)
+            "границы_данных": rubric.get("data_context"),
         },
         "напоминание": "ты НЕ знаешь, кто автор какого аргумента; суди по существу (§16.6)",
     }
