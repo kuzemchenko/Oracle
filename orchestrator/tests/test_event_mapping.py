@@ -102,3 +102,27 @@ def test_stage_proposal_writes_jsonl(tmp_path):
     assert rec["узлы"][0]["тикеры"] == ["REAL.US"]
     assert "НЕ торгуется" in rec["статус"]
     assert json.loads(p.read_text(encoding="utf-8").strip())["событие"] == "Бум X"
+
+
+def test_ticker_key_not_matched_as_substring():
+    """Разбор 09.07 (GEV-инцидент): тикерный ключ «nue» (NUE.US) находился ПОДСТРОКОЙ в слове
+    «contiNUE» — новость юниорного горняка активировала цепочку ai_power. Словограничный матч."""
+    uni = {"themes": {"ai_power": {"proxy_etf": "VRT.US",
+                                   "related": ["GEV.US", "NUE.US"], "cascade_chain": "x"}}}
+    cl = {"keywords": ["drilling", "geophysics"],
+          "sample": "Riverside Resources and Questcorp Complete Geophysics Programs and Continue Drilling"}
+    theme, overlap = EM.match_cluster_to_theme(cl, uni)
+    assert theme is None and overlap == 0
+
+    # честный словограничный матч тикера при этом ЖИВ (NUE как отдельное слово)
+    cl2 = {"keywords": [], "sample": "NUE reports record electrical steel backlog"}
+    theme2, overlap2 = EM.match_cluster_to_theme(cl2, uni)
+    assert theme2 == "ai_power" and overlap2 > 0
+
+
+def test_kw_in_text_word_boundaries():
+    assert EM.kw_in_text("nue", "nue rallies") is True
+    assert EM.kw_in_text("nue", "continue drilling") is False
+    assert EM.kw_in_text("data center", "new data center built") is True
+    assert EM.kw_in_text("power", "ai power demand") is True
+    assert EM.kw_in_text("power", "empowered teams") is False

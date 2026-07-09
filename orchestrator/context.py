@@ -145,8 +145,11 @@ def _news(con, limit=12, keywords=None):
         "WHERE dup_of IS NULL ORDER BY published_at DESC LIMIT 400").fetchall()
     items = [{"published_at": r[0], "source": r[1], "title": r[2], "lang": r[3]} for r in rows]
     if keywords:
+        from orchestrator import event_mapping as EM
         kw = [k.lower() for k in keywords if k]
-        hit = [it for it in items if any(k in (it["title"] or "").lower() for k in kw)]
+        # словограничный матч (не подстрока): тикерный ключ «nue» ловился внутри «continue»
+        # и тянул нерелевантные заголовки в тематический срез (разбор 09.07, GEV)
+        hit = [it for it in items if any(EM.kw_in_text(k, (it["title"] or "").lower()) for k in kw)]
         rest = [it for it in items if it not in hit]
         items = hit + rest
     return items[:limit]

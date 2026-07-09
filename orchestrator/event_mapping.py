@@ -14,6 +14,7 @@
 """
 import json
 import pathlib
+import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROPOSED = ROOT / "journal" / "proposed_themes.jsonl"
@@ -56,6 +57,14 @@ def make_eodhd_type_lookup(api_key):
     return type_of
 
 
+def kw_in_text(kw, text):
+    """Словограничное вхождение ключа в текст. Подстрочный `k in sample` давал ложную
+    активацию цепочек: тикерный ключ «nue» (NUE) находился ВНУТРИ слова «contiNUE» —
+    так новость про юниорного горняка разбудила цепочку ai_power и родила GEV-идею
+    с чужим поводом (разбор 09.07). Мультисловные ключи («data center») работают как раньше."""
+    return re.search(r"(?<!\w)" + re.escape(kw) + r"(?!\w)", text) is not None
+
+
 def match_cluster_to_theme(cluster, universe):
     """Детерминированный матч кластера к зарегистрированной теме по пересечению ключевых слов.
 
@@ -67,7 +76,7 @@ def match_cluster_to_theme(cluster, universe):
     best, best_n = None, 0
     for name in themes:
         tkw = set(C._theme_keywords(name, universe))
-        overlap = len(ckw & tkw) + sum(1 for k in tkw if k in sample)
+        overlap = len(ckw & tkw) + sum(1 for k in tkw if kw_in_text(k, sample))
         if overlap > best_n:
             best, best_n = name, overlap
     return (best, best_n) if best_n > 0 else (None, 0)
