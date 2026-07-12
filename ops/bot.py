@@ -59,6 +59,7 @@ def log(*a):
 class Telegram:
     def __init__(self, token, session=None):
         self.base = f"https://api.telegram.org/bot{token}"
+        self.file_base = f"https://api.telegram.org/file/bot{token}"
         self.s = session or requests.Session()
 
     def _call(self, method, params=None, timeout=HTTP_TIMEOUT):
@@ -99,6 +100,22 @@ class Telegram:
 
     def send_chat_action(self, chat_id, action="typing"):
         return self._call("sendChatAction", {"chat_id": chat_id, "action": action})
+
+    def get_file(self, file_id):
+        """Метаданные файла (file_path) для скачивания — голосовые владельца (STT)."""
+        return self._call("getFile", {"file_id": file_id})
+
+    def download_file(self, file_path):
+        """Байты файла с CDN Telegram (лимит Bot API 20 МБ — голосовым хватает с запасом)."""
+        try:
+            r = self.s.get(f"{self.file_base}/{file_path}", timeout=HTTP_TIMEOUT)
+        except requests.RequestException as e:
+            log("telegram download ошибка", repr(e))
+            return None
+        if r.status_code != 200:
+            log("telegram download !200", r.status_code)
+            return None
+        return r.content
 
 
 # ── сервис ──────────────────────────────────────────────────────────────────────────
@@ -195,6 +212,11 @@ class Bot:
                 self.tg.send_message(chat, f"Твой chat_id: {chat}. Пропиши в .env "
                                            f"TELEGRAM_CHAT_ID={chat} и перезапусти сервис.")
             return
+        # Голосовое → текст (STT, ops/bot_voice) → дальше ОБЫЧНЫЙ путь: голос эквивалентен
+        # печати (мотив, «дай идеи», «разбери ТИКЕР», свободный вопрос). Раньше голосовые
+        # молча отбрасывались здесь пустым text (владелец наговаривал — бот не реагировал).
+        if not text and (msg.get("voice") or msg.get("audio")):
+            text = self._voice_text(chat, msg) or ""
         if not text:
             return
         # Ожидаем мотив к последнему решению?
@@ -228,6 +250,41 @@ class Bot:
             return
         # Свободный текст → диалог с Дирижёром (как в терминале).
         self._chat(chat, text)
+
+    def _voice_text(self, chat, msg):
+        """Голосовое сообщение → распознанный текст (или None + человеческое объяснение в чат).
+
+        Гейты как у диалога: бюджет §11 (STT = LLM-вызов, пишется в costs.jsonl) и ключ
+        OpenRouter. Распознаём СИНХРОННО (секунды, flash-модель) — фоновый поток не нужен,
+        а текст должен попасть в тот же путь роутинга, что и печатный."""
+        voice = msg.get("voice") or msg.get("audio") or {}
+        import bot_voice as V
+        if self._budget_blocked(chat, "распознавание голосовых"):
+            return None
+        if not os.environ.get("OPENROUTER_API_KEY"):
+            self.tg.send_message(chat, "Нет ключа OpenRouter — распознать голосовое не могу. "
+                                       "Напиши, пожалуйста, текстом.")
+            return None
+        dur = voice.get("duration") or 0
+        if dur > V.MAX_VOICE_SEC:
+            self.tg.send_message(chat, f"Голосовое длиннее {V.MAX_VOICE_SEC // 60} минут — такое "
+                                       f"не распознаю (защита бюджета). Скажи короче или напиши текстом.")
+            return None
+        if hasattr(self.tg, "send_chat_action"):
+            self.tg.send_chat_action(chat, "typing")
+        try:
+            text = V.voice_to_text(self.tg, voice)
+        except Exception as e:                               # noqa: BLE001 — бот не падает из-за STT
+            log("voice STT ошибка", repr(e))
+            self.tg.send_message(chat, f"Не смог распознать голосовое ({e}). Напиши текстом, пожалуйста.")
+            return None
+        if not text:
+            self.tg.send_message(chat, "Не разобрал слова в голосовом — запиши ещё раз или напиши текстом.")
+            return None
+        log("voice STT ок,", len(text), "симв")
+        # Эхо распознанного — владелец видит, ЧТО именно я услышал (П8: не выдумываем команду).
+        self.tg.send_message(chat, f"🎙 Услышал: «{text}»")
+        return text
 
     @staticmethod
     def _intent_session(text):
@@ -358,6 +415,8 @@ class Bot:
                 "• Я НЕ даю инвест-рекомендаций и не торгую — последнее слово и деньги всегда за тобой.\n\n"
                 "💬 Можешь просто писать мне вопросы обычным текстом — отвечу по-человечески. "
                 "Например: «объясни последнюю идею», «что сейчас происходит?», «почему ты выбрал медь?».\n\n"
+                "🎙 Голосовые тоже понимаю: распознаю речь, покажу «что услышал» и выполню как "
+                "обычное сообщение («дай идеи», «разбери GEV», вопрос словами).\n\n"
                 "🚀 Можешь сам запустить прогон: напиши «/run-funnel» (или просто «сделай прогон» / "
                 "«найди идеи») — я прогоню воронку (открытый скан мира → каскады в компании) и пришлю "
                 "дайджест. Прогон идёт несколько минут; ход — в /progress. Может выйти и «идей нет» — "
