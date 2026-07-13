@@ -83,9 +83,10 @@ def test_edge_library_dedup_direction_selfloop(tmp_path):
         {"источник": None, "узел": "D.US", "lag": 0},        # битая запись
     ])
     lib = EFW.edge_library(p)
-    assert lib == [{"from": "A.US", "to": "B.US", "lag": 0},
-                   {"from": "A.US", "to": "B.US", "lag": 30},
-                   {"from": "B.US", "to": "A.US", "lag": 0}]
+    # Э4(ж): у рёбер появился провенанс origin (library | world_enum) — решение владельца 13.07 №7
+    assert lib == [{"from": "A.US", "to": "B.US", "lag": 0, "origin": "library"},
+                   {"from": "A.US", "to": "B.US", "lag": 30, "origin": "library"},
+                   {"from": "B.US", "to": "A.US", "lag": 0, "origin": "library"}]
 
 
 def test_activated_edge_seals_single_link(tmp_path, monkeypatch):

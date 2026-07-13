@@ -118,3 +118,31 @@ def test_watch_промоушен_доступен(tmp_path, monkeypatch):
     # повтор без нового отчёта — тишина (дедуп по mtime)
     AR.run_watch(notices_path=notices, state_path=state, now=NOW, **j)
     assert len(notices.read_text(encoding="utf-8").splitlines()) == len(lines)
+
+
+def test_weekly_edge_candidates_section(tmp_path, monkeypatch):
+    """Э4(ж), решение №7: недельный отчёт показывает добавленные за неделю кандидат-рёбра."""
+    monkeypatch.setattr(AR.SEAL, "read_predictions",
+                        lambda p=None: [json.loads(l) for l in open(p, encoding="utf-8")])
+    j = _journals(tmp_path)
+    cand = _write_jsonl(tmp_path / "edge_candidates.jsonl", [
+        {"ts": "2026-07-05T09:00:00+00:00", "edge_key": "VRT.US->NEW.US@lag0",
+         "событие": "ai_power", "сегмент": "трансформаторы"},          # в окне 7д (NOW=09.07)
+        {"ts": "2026-06-01T09:00:00+00:00", "edge_key": "OLD.US->X.US@lag0",
+         "событие": "старое", "сегмент": "s"},                          # вне окна
+    ])
+    r = AR.compute_review(now=NOW, candidates_path=cand, **j)
+    ec = r["рёбра_кандидаты"]
+    assert ec["всего_в_реестре"] == 2 and ec["за_7д"] == 1
+    assert ec["рёбра_7д"][0]["ребро"] == "VRT.US->NEW.US@lag0"
+    md = AR.render_md(r)
+    assert "Добавленные рёбра за неделю" in md and "VRT.US->NEW.US@lag0" in md
+
+
+def test_weekly_edge_candidates_empty_registry(tmp_path, monkeypatch):
+    monkeypatch.setattr(AR.SEAL, "read_predictions",
+                        lambda p=None: [json.loads(l) for l in open(p, encoding="utf-8")])
+    j = _journals(tmp_path)
+    r = AR.compute_review(now=NOW, candidates_path=tmp_path / "нет_файла.jsonl", **j)
+    assert r["рёбра_кандидаты"]["всего_в_реестре"] == 0
+    assert "Реестр кандидат-рёбер пуст" in AR.render_md(r)

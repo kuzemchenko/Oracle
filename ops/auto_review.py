@@ -39,6 +39,7 @@ STATE = ROOT / "journal" / "auto_review_state.json"
 REPORTS_DIR = ROOT / "reports" / "auto_review"
 FUNNEL_GLOB = str(ROOT / "journal" / "funnel_logs" / "ef_*.json")
 PROMO_REPORT = ROOT / "ops" / "reports" / "promotions" / "report.json"
+EDGE_CANDIDATES = ROOT / "knowledge" / "edge_candidates.jsonl"   # Э4(ж): реестр кандидат-рёбер
 
 WEEK_DAYS = 7
 DROUGHT_ALERT_DAYS = 7          # засуха money-печати: первый алерт на 7-й день, далее раз в 7
@@ -160,8 +161,30 @@ def _promotions_status(promo_path=None):
             "рёбра": sorted((d.get("promotions") or {}).keys())}
 
 
+def _edge_candidates_week(candidates_path=None, days=WEEK_DAYS, now=None):
+    """Э4(ж), решение владельца 13.07 №7: добавленные за неделю кандидат-рёбра «перебора мира»
+    из knowledge/edge_candidates.jsonl (append-only) — для недельного отчёта §25."""
+    path = pathlib.Path(candidates_path) if candidates_path else EDGE_CANDIDATES
+    cutoff = ((now or _now()) - datetime.timedelta(days=days)).strftime("%Y-%m-%d")
+    total, week = 0, []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            total += 1
+            if str(r.get("ts") or "")[:10] >= cutoff:
+                week.append({"ребро": r.get("edge_key"), "событие": r.get("событие"),
+                             "сегмент": r.get("сегмент"), "дата": str(r.get("ts") or "")[:10]})
+    return {"всего_в_реестре": total, "за_7д": len(week), "рёбра_7д": week}
+
+
 def compute_review(predictions_path=None, outcomes_path=None, funnel_glob=None,
-                   promo_path=None, now=None):
+                   promo_path=None, now=None, candidates_path=None):
     """Все числа еженедельного разбора §25 — детерминированно, только чтение журналов."""
     now = now or _now()
     preds, outs = _load(predictions_path, outcomes_path)
@@ -201,6 +224,7 @@ def compute_review(predictions_path=None, outcomes_path=None, funnel_glob=None,
         "money_засуха_дней": _days_since_money_seal(preds, now),
         "внимание_покрытие_7д": _attention_week(funnel_glob, now=now),
         "промоушен": _promotions_status(promo_path),
+        "рёбра_кандидаты": _edge_candidates_week(candidates_path, now=now),
         "spec_ref": "§25 петля качества (автозапуск — решение владельца 09.07); §10 предложения",
     }
 
@@ -249,7 +273,15 @@ def render_md(r):
               (f"Рёбер с накопленной статистикой: {p.get('n_edges', 0)}; готовы к ярусу A: "
                f"{p.get('n_promote', 0)}." if p.get("есть_отчёт")
                else "Отчёта промоушена ещё нет (cron воскресенье 08:30)."),
-              "",
+              ""]
+    ec = r.get("рёбра_кандидаты") or {}
+    lines += ["## Добавленные рёбра за неделю (Э4(ж), «перебор мира»)",
+              (f"Реестр кандидатов: {ec.get('всего_в_реестре', 0)} всего; за 7 дней: +{ec.get('за_7д', 0)}."
+               if ec.get("всего_в_реестре") else
+               "Реестр кандидат-рёбер пуст (knowledge/edge_candidates.jsonl — заполняет Э4/Э5).")]
+    for e in (ec.get("рёбра_7д") or [])[:20]:
+        lines.append(f"- {e['дата']} {e['ребро']} — {e.get('событие')} / {e.get('сегмент')}")
+    lines += ["",
               f"## Покрытие датчика «внимание» §R5 (7д): {r['внимание_покрытие_7д']}",
               "",
               "_Автоотчёт детерминированного кода (§25). Глубокий разбор с объяснениями промахов:_",
@@ -276,8 +308,10 @@ def _summary_notice(r):
 
 
 def run_weekly(predictions_path=None, outcomes_path=None, funnel_glob=None,
-               promo_path=None, notices_path=None, reports_dir=None, now=None):
-    r = compute_review(predictions_path, outcomes_path, funnel_glob, promo_path, now)
+               promo_path=None, notices_path=None, reports_dir=None, now=None,
+               candidates_path=None):
+    r = compute_review(predictions_path, outcomes_path, funnel_glob, promo_path, now,
+                       candidates_path=candidates_path)
     out_dir = pathlib.Path(reports_dir) if reports_dir else REPORTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     md_path = out_dir / f"review_{r['ts'][:10]}.md"

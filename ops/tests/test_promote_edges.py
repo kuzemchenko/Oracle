@@ -84,3 +84,67 @@ def test_money_kind_predictions_ignored(tmp_path):
     pp, op = _make_journals(tmp_path, n_hits=30, n_total=30, kind="cascade_money")
     rows, _ = PE.collect_rows(pp, op)
     assert rows == []                              # промоушен питается ТОЛЬКО провизорным треком
+
+
+# ── Э4(ж) / долг B4(а): дедуп ЭПИЗОДА шока в корме промоушена ──────────────────────
+def _episode_journals(tmp_path, episodes, *, edge=("A.US", "B.US", 0), field="episode"):
+    """По одной печати на дату эпизода (одно ребро). field: episode | sealed_at (легаси-прокси)."""
+    cascade_path = [{"from": edge[0], "to": edge[1], "lag": edge[2]}]
+    preds, outs = [], []
+    for i, ep in enumerate(episodes):
+        h = f"h{i}"
+        rec = {"hash": h, "kind": "edge_forward", "asset": edge[1], "probability": 0.8,
+               "cascade_path": cascade_path,
+               # разные ставки (порог/срок) — cross-track дедуп их НЕ склеит, работает именно эпизод
+               "direction": "above", "threshold": 50.0 + i, "resolve_by": f"2026-08-{i+1:02d}"}
+        rec[field] = ep if field == "episode" else f"{ep}T07:30:00+00:00"
+        preds.append(rec)
+        outs.append({"hash": h, "outcome": 1})
+    pp, op = tmp_path / "p.jsonl", tmp_path / "o.jsonl"
+    _write(pp, preds)
+    _write(op, outs)
+    return str(pp), str(op)
+
+
+def test_episode_dedup_same_episode_counted_once(tmp_path):
+    """Печати одного ребра с эпизодами ближе EPISODE_GAP_DAYS — ОДНО свидетельство (keep-first)."""
+    pp, op = _episode_journals(tmp_path, ["2026-07-01", "2026-07-03", "2026-07-06"])
+    rows, stats = PE.collect_rows(pp, op)
+    assert len(rows) == 1
+    assert stats["дубль_эпизода_шока"] == 2
+
+
+def test_episode_dedup_distinct_episodes_kept(tmp_path):
+    pp, op = _episode_journals(tmp_path, ["2026-07-01", "2026-07-10", "2026-07-20"])
+    rows, stats = PE.collect_rows(pp, op)
+    assert len(rows) == 3 and stats["дубль_эпизода_шока"] == 0
+
+
+def test_episode_dedup_legacy_sealed_at_proxy(tmp_path):
+    """Легаси-записи без episode: честный прокси — дата печати sealed_at."""
+    pp, op = _episode_journals(tmp_path, ["2026-07-01", "2026-07-02"], field="sealed_at")
+    rows, stats = PE.collect_rows(pp, op)
+    assert len(rows) == 1 and stats["дубль_эпизода_шока"] == 1
+
+
+def test_episode_dedup_no_date_passes_through_p8(tmp_path):
+    """Ни episode, ни sealed_at → дату не выдумываем (П8), строки проходят как есть."""
+    pp, op = _make_journals(tmp_path, n_hits=24, n_total=30)   # фикстуры без дат
+    rows, stats = PE.collect_rows(pp, op)
+    assert len(rows) == 30 and stats["дубль_эпизода_шока"] == 0
+
+
+def test_episode_dedup_per_edge_isolated(tmp_path):
+    """Эпизоды дедупятся ВНУТРИ ребра: одинаковые даты у РАЗНЫХ рёбер не склеиваются."""
+    pp1, op1 = _episode_journals(tmp_path, ["2026-07-01"])
+    preds = [json.loads(l) for l in open(pp1, encoding="utf-8")]
+    outs = [json.loads(l) for l in open(op1, encoding="utf-8")]
+    preds.append({"hash": "hx", "kind": "edge_forward", "asset": "C.US", "probability": 0.8,
+                  "cascade_path": [{"from": "X.US", "to": "C.US", "lag": 0}],
+                  "direction": "above", "threshold": 10.0, "resolve_by": "2026-08-09",
+                  "episode": "2026-07-01"})
+    outs.append({"hash": "hx", "outcome": 1})
+    pp = tmp_path / "p2.jsonl"; op = tmp_path / "o2.jsonl"
+    _write(pp, preds); _write(op, outs)
+    rows, stats = PE.collect_rows(str(pp), str(op))
+    assert len(rows) == 2 and stats["дубль_эпизода_шока"] == 0
