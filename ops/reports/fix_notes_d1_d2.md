@@ -97,3 +97,22 @@ final-D-1, is_partial). Regression: `test_trends_asof_excludes_future_fetch`.
 thresholds.yaml (полная история = look-ahead). fail-closed при отсутствии/пустой секции.
 Replay также передаёт `asof_date=day` в scan_events (зеркалит боевой гейт давности бара
 #8). Regression: `test_load_prewindow_tail_df`.
+
+### 10 [medium] calibrate_week4 стёр бы fdr.tail_df/фон-235 — ПОДТВЕРЖДЕНО, исправлено
+`ops/calibrate_week4.py:preserve_d1_or_refuse` + `write_thresholds(preserve_tail_df=…)`.
+Драйвер полностью перезаписывал thresholds.yaml → терял Д1-артефакты. Гард: если в файле
+есть fdr.tail_df и НЕ задан `--force` — отказ (SystemExit) с указанием на Д1-драйвер; при
+`--force` секция tail_df СОХРАНЯЕТСЯ (фон вернётся к ядру-8, о чём предупреждает). Regression:
+`ops/tests/test_calibrate_week4_guard.py` (4 теста).
+
+### 11 [medium] auto_review сторож «в thresholds.yaml есть fdr.tail_df» — ЛОЖНАЯ (сторожа нет)
+Опровергнуто исполнением: во всём репозитории НЕТ сторожа/алерта, завязанного на присутствие
+fdr.tail_df. `ops/auto_review.py:run_watch` имеет ровно три сигнала (засуха денежной печати,
+100% kill-rate суда, доступность промоушена) — ни один не проверяет thresholds.yaml/tail_df.
+Проверки:
+  `grep -rn "tail_df" --include=*.py ops/ orchestrator/ dashboard/ mathlib/` вне Д1-модулей — пусто;
+  `grep -rn "tail_df\|Д1 актив\|se-d1" --include=*.py --include=*.txt --include=*.sh .` — только
+  Д1-модули и их тесты, ни бот/крон/auto_review.
+Легитимная деактивация Д1 (thresholds.yaml без tail_df) НИЧЕГО не алертит — параметризовать/
+выключать нечего. Кода не менял (не плодить спекулятивный сторож; задача — закрывать находки,
+а не добавлять несуществующую фичу). Кросс-ревью Д1 (gpt-5.5) этого пункта тоже не содержит.
