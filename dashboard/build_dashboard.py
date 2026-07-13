@@ -37,6 +37,10 @@ from ops import budget as BUD           # noqa: E402
 FUNNEL_LOGS = ROOT / "journal" / "funnel_logs"
 OUT_HTML = ROOT / "dashboard" / "index.html"
 OUT_JSON = ROOT / "dashboard" / "metrics.json"
+# Д2 (ROADMAP_2026-07, решение владельца 13.07 Вопрос 2): табло §15 показывает ДВА ряда —
+# официальный (из outcomes.jsonl, ПЕРВИЧНЫЙ) + диагностический из отчёта Д2 (только чтение).
+# Файла нет → поведение табло прежнее байт-в-байт (ряд просто не показывается).
+D2_DIAGNOSIS_JSON = ROOT / "ops" / "reports" / "d2_diagnosis" / "report.json"
 
 
 def _load_yaml(path):
@@ -60,6 +64,33 @@ def _load_funnel_runs():
     return runs
 
 
+def _d2_diagnostic_row(path=None):
+    """Диагностический ряд Д2 для табло §15 (решение владельца 13.07, Вопрос 2).
+    Читается из ops/reports/d2_diagnosis/report.json (генерирует ops/diagnose_calibration.py);
+    файла нет / битый / нет блока dashboard_row → None (официальный ряд остаётся единственным,
+    поведение прежнее). Журналы этим НЕ трогаются — ряд только читает отчёт."""
+    p = pathlib.Path(path) if path else D2_DIAGNOSIS_JSON
+    if not p.exists():
+        return None
+    try:
+        rep = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    row = rep.get("dashboard_row")
+    if not isinstance(row, dict) or row.get("n") is None:
+        return None
+    verdict = rep.get("вердикт") or {}
+    return {
+        "источник": str(p),
+        "n": row.get("n"),
+        "hit_rate": row.get("hit_rate"),
+        "brier": row.get("brier"),
+        "пометка": row.get("пометка") or "диагностический ряд после разбора Д2",
+        "баг_сверки_подтверждён": verdict.get("баг_сверки_подтверждён"),
+        "статус": "диагностический (после разбора Д2); официальный ряд из outcomes.jsonl первичен",
+    }
+
+
 # ── (1) Калибровочная кривая по корзинам ─────────────────────────────────────────
 def metric_calibration():
     recs = [r for r in sealing.read_predictions() if r.get("tag") != "test"]
@@ -73,17 +104,23 @@ def metric_calibration():
         resolved.append(res)
     probs, outs = OUT.to_brier_inputs(resolved)
     if not probs:
-        return {"статус": "накапливается", "n_разрешённых": 0,
-                "пояснение": "этап Бумаги §11 не начат — разрешённых форвард-исходов нет (П8); "
-                             "каркас корзин ниже наполнится по мере сверки исходов",
-                "корзины": [{"lo": i / 10, "hi": (i + 1) / 10, "n": 0,
-                             "mean_pred": None, "obs_freq": None, "gap": None} for i in range(10)],
-                "brier": None, "band_pp": None}
-    band = B.calibration_band_pp(probs, outs)   # None, пока ни одна корзина не набрала MIN_BIN_N (H2)
-    return {"статус": "есть данные", "n_разрешённых": len(probs),
-            "корзины": B.calibration_table(probs, outs),
-            "brier": round(B.brier_score(probs, outs), 4),
-            "band_pp": (None if band is None else round(band, 2))}
+        out = {"статус": "накапливается", "n_разрешённых": 0,
+               "пояснение": "этап Бумаги §11 не начат — разрешённых форвард-исходов нет (П8); "
+                            "каркас корзин ниже наполнится по мере сверки исходов",
+               "корзины": [{"lo": i / 10, "hi": (i + 1) / 10, "n": 0,
+                            "mean_pred": None, "obs_freq": None, "gap": None} for i in range(10)],
+               "brier": None, "band_pp": None}
+    else:
+        band = B.calibration_band_pp(probs, outs)   # None, пока ни одна корзина не набрала MIN_BIN_N (H2)
+        out = {"статус": "есть данные", "n_разрешённых": len(probs),
+               "корзины": B.calibration_table(probs, outs),
+               "brier": round(B.brier_score(probs, outs), 4),
+               "band_pp": (None if band is None else round(band, 2))}
+    # Д2: второй, диагностический ряд — ТОЛЬКО если отчёт Д2 существует (иначе прежнее поведение)
+    d2 = _d2_diagnostic_row()
+    if d2 is not None:
+        out["диагностический_ряд_д2"] = d2
+    return out
 
 
 # ── (2) Hit rate и P&L по школам/источникам/типам ────────────────────────────────
@@ -286,12 +323,24 @@ def _calibration_card(m):
             f"Brier: {m.get('brier') if m.get('brier') is not None else '—'} · "
             f"полоса калибровки: {m.get('band_pp') if m.get('band_pp') is not None else '—'} п.п.")
     note = f"<p style='color:#666;font-size:13px'>{_h(m.get('пояснение',''))}</p>" if m.get("пояснение") else ""
+    d2 = m.get("диагностический_ряд_д2")
+    d2_html = ""
+    if d2:
+        d2_html = (
+            "<div style='margin-top:10px;padding:8px 10px;background:#eef4fb;"
+            "border:1px dashed #7aa7d9;border-radius:8px;font-size:13px'>"
+            "<b>Диагностический ряд (после найденной ошибки Д2)</b> — официальный ряд выше "
+            "первичен; этот пересчитан из сырых котировок отчётом Д2.<br>"
+            f"n: <b>{_h(d2.get('n'))}</b> · hit rate: <b>{_h(d2.get('hit_rate'))}</b> · "
+            f"Brier: <b>{_h(d2.get('brier'))}</b> · баг сверки подтверждён: "
+            f"<b>{'ДА' if d2.get('баг_сверки_подтверждён') else 'НЕТ'}</b>"
+            f"<p style='color:#666;margin:4px 0 0'>{_h(d2.get('пометка'))}</p></div>")
     return _card("1 · Калибровочная кривая по корзинам",
                  head + note +
                  "<table style='width:100%;border-collapse:collapse;font-size:13px' "
                  "border='1' cellpadding='4'>"
                  "<tr style='background:#f5f5f5'><th>корзина</th><th>n</th><th>pred</th>"
-                 "<th>факт</th><th>разрыв</th></tr>" + rows + "</table>")
+                 "<th>факт</th><th>разрыв</th></tr>" + rows + "</table>" + d2_html)
 
 
 def _hitrate_card(m):
