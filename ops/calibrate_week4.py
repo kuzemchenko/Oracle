@@ -244,7 +244,37 @@ def run_precursors(series_map, flagged):
 
 # ===================== СБОРКА КОНФИГОВ =====================
 
-def write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_def, train_window):
+def preserve_d1_or_refuse(config_path, force):
+    """Д1 #10: calibrate_week4 полностью перезаписывает thresholds.yaml → стёр бы fdr.tail_df и
+    фон под 235 символов (артефакты этапа Д1). Гард: если в текущем файле есть fdr.tail_df и НЕ
+    задан --force — отказ (SystemExit) с указанием использовать Д1-драйвер; при --force секция
+    tail_df ВОЗВРАЩАЕТСЯ для сохранения (background_metrics всё равно пересчитается на ядре-8 —
+    полную регенерацию под открытую вселенную делает ops/calibrate_fdr_background.py).
+    Возвращает tail_df для сохранения (dict) либо None."""
+    path = pathlib.Path(config_path)
+    if not path.exists():
+        return None
+    try:
+        cur = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None
+    tail_df = ((cur.get("fdr") or {}).get("tail_df"))
+    if not tail_df:
+        return None
+    if not force:
+        raise SystemExit(
+            "ОТКАЗ (Д1 #10): config/thresholds.yaml содержит fdr.tail_df (артефакт этапа Д1). "
+            "calibrate_week4 перезаписал бы его и фон под открытую вселенную. Полную регенерацию "
+            "Д1-секций делает ops/calibrate_fdr_background.py. Если действительно нужно "
+            "перегенерировать week4-секции — запусти с --force (tail_df будет СОХРАНЁН, "
+            "background_metrics вернётся к ядру-8 — потом прогони Д1-драйвер).")
+    print("⚠ --force: fdr.tail_df сохраняю; background_metrics пересчитан на ядре-8 "
+          "(для открытой вселенной прогони ops/calibrate_fdr_background.py).")
+    return tail_df
+
+
+def write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_def, train_window,
+                     preserve_tail_df=None):
     # фоновые дисперсии метрик скана (§6, §23.1 п.6)
     bg_out = {}
     for sym, mets in bg_grid.items():
@@ -359,6 +389,8 @@ def write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_
             "provenance": "пер-идейная оценка отыгранности В ЦЕНЕ (§7/П5); публичность темы — НЕ основание для ШТРАФА",
         },
     }
+    if preserve_tail_df is not None:                 # Д1 #10: не терять артефакт Д1
+        obj["fdr"]["tail_df"] = preserve_tail_df
     dump_yaml(CONFIG / "thresholds.yaml", GEN_HEADER, obj)
     return obj
 
@@ -582,6 +614,14 @@ def write_markdown(train_window, bg_grid, cost_rows, timing_pi, sig_def, vol_def
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description="§23.1 калибровка (Неделя 4)")
+    ap.add_argument("--force", action="store_true",
+                    help="перезаписать thresholds.yaml даже при наличии Д1-секции fdr.tail_df "
+                         "(tail_df будет сохранён; фон вернётся к ядру-8)")
+    args = ap.parse_args()
+    # Д1 #10: не стереть молча артефакт Д1 (fdr.tail_df / фон под открытую вселенную)
+    preserve_tail_df = preserve_d1_or_refuse(CONFIG / "thresholds.yaml", args.force)
     print("§23.1 калибровка: загрузка котировок…")
     all_syms = CORE_TRADEABLE + REFERENCE
     series_map = {s: loader.load_series(s) for s in all_syms}                 # RAW (для costs)
@@ -606,7 +646,8 @@ def main():
     prec = run_precursors(adj_map, flagged)
 
     print("Запись конфигов и отчётов…")
-    write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_def, train_window)
+    write_thresholds(bg_grid, timing_pi, sig_def, vol_def, manip_pi, fb_def, sh_def, train_window,
+                     preserve_tail_df=preserve_tail_df)
     write_costs(cost_rows, order_usd)
     causal_obj = write_causal(measured)
     write_precursors(prec, bad_ticks)

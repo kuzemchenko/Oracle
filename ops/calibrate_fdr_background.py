@@ -41,7 +41,9 @@ from mathlib.calibration import tail_df as TD              # noqa: E402
 from orchestrator import universe_resolver as U            # noqa: E402
 
 REPORTS = ROOT / "ops" / "reports" / "fdr_background"
+REPLAY_REPORTS = ROOT / "ops" / "reports" / "fdr_replay"
 THRESHOLDS = ROOT / "config" / "thresholds.yaml"
+PREWINDOW_ARTIFACT = REPLAY_REPORTS / "tail_df_prewindow.json"   # Д1 #1: df ≤ cutoff для replay
 
 # ── Пороги драйвера: зафиксированы 2026-07-13 ДО прогона replay-сравнения (рамка 3) ──
 MIN_BG_BARS = 260          # ≥ ~1 торговый год истории для фона; короче — «нет фона» (П8)
@@ -101,8 +103,9 @@ def calibrate_universe(con, symbols, cutoff=None):
     return backgrounds, tail, z_pool
 
 
-def build_tail_section(tail, z_pool, tail_stab, window, n_universe):
-    """Секция fdr.tail_df для thresholds.yaml + фолбэк из пула (детерминированный порядок)."""
+def build_tail_section(tail, z_pool, window, n_universe, data_window_label=None):
+    """Секция fdr.tail_df для thresholds.yaml + фолбэк из пула (детерминированный порядок).
+    data_window_label — пометка окна (напр. «≤ cutoff») для pre-window-артефакта."""
     fallback = {}
     fallback_detail = {}
     for metric in ("ret_z_20", "vol_z_log_20"):
@@ -124,19 +127,12 @@ def build_tail_section(tail, z_pool, tail_stab, window, n_universe):
             unpinned[sym] = why
     n_pinned = {m: sum(1 for s in per_instrument.values() if m in s)
                 for m in ("ret_z_20", "vol_z_log_20")}
-    stability = {}
-    for sym in sorted(tail):
-        for metric in ("ret_z_20", "vol_z_log_20"):
-            full = tail[sym][metric]
-            stab = (tail_stab.get(sym) or {}).get(metric, {})
-            if full.get("pinned") and stab.get("pinned") and full["df"] != stab["df"]:
-                stability.setdefault(sym, {})[metric] = {
-                    "df_полная_история": full["df"], f"df_до_{STABILITY_CUTOFF}": stab["df"]}
     section = {
         "provenance": {
             "script": "ops/calibrate_fdr_background.py",
             "generated_at": NOW,
             "data_window": window,
+            "data_window_label": data_window_label or "полная история БД",
             "n_symbols_universe": n_universe,
             "n_pinned": n_pinned,
             "method": ("walk-forward подбор df t-нуля по историческим сканным z "
@@ -146,8 +142,6 @@ def build_tail_section(tail, z_pool, tail_stab, window, n_universe):
                        "ДО replay-сравнения (рамка 3 программы)"),
             "fallback_source": ("пул сканных z всех инструментов с достаточной историей "
                                 "(детерминированный порядок по символу); НЕ из головы (П8)"),
-            "stability_cutoff": STABILITY_CUTOFF,
-            "stability_divergence_n": len(stability),
             "report": "ops/reports/fdr_background/",
         },
         "fallback": {**{k: float(v) for k, v in fallback.items()},
@@ -158,32 +152,81 @@ def build_tail_section(tail, z_pool, tail_stab, window, n_universe):
         "per_instrument": per_instrument,
         "unpinned": unpinned or None,
     }
-    return section, fallback_detail, stability
+    return section, fallback_detail
+
+
+def compute_stability(full_section, pre_section):
+    """Гард look-ahead (кросс-ревью Д1 BLOCKER): фиксирует ЛЮБОЕ расхождение per-instrument df
+    между полной историей и данными ≤ STABILITY_CUTOFF — появление пина, пропажу пина, смену df
+    ИЛИ смену фолбэка. Прежний гард ловил только смену df у ОБОИХ-пиннутых, молча пропуская
+    случай «инструмент стал pinned благодаря будущим данным»."""
+    full_pi, pre_pi = full_section["per_instrument"], pre_section["per_instrument"]
+    stability = {}
+    for sym in sorted(set(full_pi) | set(pre_pi)):
+        for metric in ("ret_z_20", "vol_z_log_20"):
+            fd = full_pi.get(sym, {}).get(metric)     # df при пине, иначе None (нет пина)
+            pd = pre_pi.get(sym, {}).get(metric)
+            if fd == pd:
+                continue
+            kind = ("пин_появился_на_будущих_данных" if fd is not None and pd is None else
+                    "пин_пропал_без_будущих_данных" if pd is not None and fd is None else
+                    "df_сменился")
+            stability.setdefault(sym, {})[metric] = {
+                "тип": kind, "df_полная_история": fd, f"df_до_{STABILITY_CUTOFF}": pd}
+    fallback_div = {}
+    for metric in ("ret_z_20", "vol_z_log_20", "vol_z_20"):
+        ff, pf = full_section["fallback"].get(metric), pre_section["fallback"].get(metric)
+        if ff != pf:
+            fallback_div[metric] = {"df_полная_история": ff, f"df_до_{STABILITY_CUTOFF}": pf}
+    return {"per_instrument": stability, "fallback": fallback_div,
+            "n": len(stability) + len(fallback_div)}
 
 
 # ── Сплайс thresholds.yaml: прочие секции байт-в-байт ────────────────────────────────
 
+def _fdr_key_block(body, keyline):
+    """Границы [start, end) YAML-блока ключа под fdr (отступ 2) в списке строк body:
+    от строки keyline до следующего непустого «брата» (отступ ≤ 2) или конца. Хвостовые
+    пустые строки в блок НЕ включаются (остаются на месте). keyline обязан существовать."""
+    start = body.index(keyline)
+    end = start + 1
+    while end < len(body):
+        ln = body[end]
+        if ln.strip() == "":
+            end += 1
+            continue
+        indent = len(ln) - len(ln.lstrip(" "))
+        if indent <= 2:                       # брат под fdr (2 пробела) или секция верхнего уровня
+            break
+        end += 1
+    while end - 1 > start and body[end - 1].strip() == "":   # не съедать пустые строки-разделители
+        end -= 1
+    return start, end
+
+
 def splice_thresholds(old_text, bg_out, tail_section, window, n_universe, n_no_bg):
-    """Заменяет заголовок-провенанс и блок fdr.background_metrics (+добавляет fdr.tail_df).
-    ВСЁ остальное — байт-в-байт из старого файла. Возвращает новый текст."""
+    """ТОЧЕЧНЫЙ сплайс (кросс-ревью Д1 HIGH): заменяет ТОЛЬКО блок fdr.background_metrics и
+    блок fdr.tail_df (добавляет, если его нет), обновляет заголовок-провенанс. ВСЕ прочие
+    ключи (в т.ч. fdr.q_value_max/min_sources, идущие ПОСЛЕ background_metrics, и весь timing/
+    manipulation) сохраняются БАЙТ-В-БАЙТ. Прежняя версия вырезала весь диапазон
+    background_metrics→timing и теряла промежуточные ключи fdr — контрпример из ревью."""
     lines = old_text.split("\n")
     i = 0
     while i < len(lines) and lines[i].startswith("#"):
         i += 1
     body = lines[i:]
-    try:
-        bm = body.index("  background_metrics:")
-    except ValueError:
+    if "  background_metrics:" not in body:
         raise SystemExit("сплайс: не найден блок '  background_metrics:' в thresholds.yaml")
-    try:
-        tm = body.index("timing:")
-    except ValueError:
-        raise SystemExit("сплайс: не найдена секция 'timing:' в thresholds.yaml")
-    if tm < bm:
-        raise SystemExit("сплайс: неожиданный порядок секций thresholds.yaml")
+    # 1) убрать существующий tail_df-блок (идемпотентность повторного прогона), не трогая прочее
+    if "  tail_df:" in body:
+        ts, te = _fdr_key_block(body, "  tail_df:")
+        body = body[:ts] + body[te:]
+    # 2) заменить ТОЛЬКО блок background_metrics на новый bg + tail_df (adjacent)
+    bs, be = _fdr_key_block(body, "  background_metrics:")
     block = yaml.safe_dump({"background_metrics": bg_out, "tail_df": tail_section},
                            allow_unicode=True, sort_keys=False, default_flow_style=False)
     block_lines = ["  " + ln if ln.strip() else ln for ln in block.rstrip("\n").split("\n")]
+    body = body[:bs] + block_lines + body[be:]
     header = [
         "# СЕКЦИИ fdr.background_metrics + fdr.tail_df СГЕНЕРИРОВАНЫ ops/calibrate_fdr_background.py",
         "# (этап Д1 «Поисковый движок», walk-forward §23.1; боевая БД читалась read-only).",
@@ -194,7 +237,7 @@ def splice_thresholds(old_text, bg_out, tail_section, window, n_universe, n_no_b
         "# ops/calibrate_week4.py 2026-06-11 (train_window/calibrated_at ниже описывают ИХ).",
         "# Правки руками будут перезаписаны при следующем прогоне калибровки.",
     ]
-    return "\n".join(header + body[:bm] + block_lines + body[tm:])
+    return "\n".join(header + body)
 
 
 # ── Отчёты ────────────────────────────────────────────────────────────────────────
@@ -221,9 +264,10 @@ def write_reports(backgrounds, tail, tail_section, fallback_detail, stability,
                 "oos_thresholds": list(TD.OOS_THRESHOLDS), "train": TD.TRAIN_SIZE,
                 "test": TD.TEST_SIZE, "min_folds": TD.MIN_FOLDS,
                 "min_oos_ok_fraction": TD.MIN_OOS_OK_FRACTION, "oos_alpha": TD.OOS_ALPHA,
-                "stability_criterion": ("v2 (пересмотр 13.07 ДО replay-сравнения): OOS-валидация "
-                                        "МЕДИАННОГО df; v1 df-ratio отклонял шум плоской области "
-                                        "потерь — обоснование в шапке mathlib/calibration/tail_df.py")},
+                "stability_criterion": ("OOS-валидация df walk-forward-ЧИСТАЯ: фолд i проверяется "
+                                        "против РАСШИРЯЮЩЕЙСЯ медианы df[:i+1] (без будущих фолдов; "
+                                        "кросс-ревью Д1 HIGH — см. mathlib/calibration/tail_df.py)")},
+            "prewindow_artifact": str(PREWINDOW_ARTIFACT.relative_to(ROOT)),
             "legacy_df_constants": LEGACY_DF,
             "fallback": tail_section["fallback"],
             "fallback_detail": {m: {k: v for k, v in d.items()}
@@ -254,8 +298,10 @@ def write_reports(backgrounds, tail, tail_section, fallback_detail, stability,
          f"mathlib/calibration/tail_df.py): МЕДИАННЫЙ фолдовый df проходит OOS-проверку "
          f"хвостовых частот в ≥ {TD.MIN_OOS_OK_FRACTION:.0%} фолдов",
          f"- порог истории фона: ≥ {MIN_BG_BARS} баров (~1 торговый год); короче — «нет фона» (П8)",
-         f"- гард look-ahead: df дополнительно пересчитан на данных ≤ {STABILITY_CUTOFF} "
-         "(до replay-окна 21.06–12.07); расхождения — в таблице ниже\n",
+         f"- гард look-ahead (BLOCKER-фикс): df отдельно калибруется на данных ≤ {STABILITY_CUTOFF} "
+         f"(до replay-окна 21.06–12.07) → артефакт `{PREWINDOW_ARTIFACT.relative_to(ROOT)}`, replay "
+         "использует ЕГО; гард ловит ЛЮБОЕ расхождение full-vs-pre-window (пин появился/пропал, "
+         "смена df, смена фолбэка) — таблицы ниже\n",
          "## Итоги\n",
          f"- вселенная (sealable, откр.): **{len(symbols)}** символов; фон посчитан по "
          f"**{len(backgrounds) - len(no_bg)}**, «нет фона» — **{len(no_bg)}**",
@@ -268,15 +314,22 @@ def write_reports(backgrounds, tail, tail_section, fallback_detail, stability,
          f"**{tail_section['fallback']['vol_z_log_20']}** (n={fallback_detail['vol_z_log_20']['n']}); "
          f"vol_z_20 (сырой, редкая ветка) — константа F2#19 = {LEGACY_DF['vol_z_20']}",
          f"- было (константы F2#19): ret 5 / лог-объём 6 / сырой объём 3",
-         f"- расхождений пина при отсечке ≤ {STABILITY_CUTOFF}: **{len(stability)}** "
-         + ("(см. таблицу)" if stability else "(look-ahead-эффекта replay-окна на df нет)") + "\n"]
-    if stability:
-        L.append("## Расхождения df: полная история vs ≤ " + STABILITY_CUTOFF + "\n")
-        L.append("| Символ | метрика | df (полная) | df (≤ отсечки) |\n|---|---|---|---|")
-        for sym, mm in sorted(stability.items()):
+         f"- расхождений пина/фолбэка при отсечке ≤ {STABILITY_CUTOFF}: **{stability['n']}** "
+         + ("(см. таблицу; гард ловит появление/пропажу пина, смену df и смену фолбэка)"
+            if stability["n"] else "(look-ahead-эффекта replay-окна на df нет)") + "\n"]
+    if stability["per_instrument"]:
+        L.append("## Расхождения df per-instrument: полная история vs ≤ " + STABILITY_CUTOFF + "\n")
+        L.append("| Символ | метрика | тип | df (полная) | df (≤ отсечки) |\n|---|---|---|---|---|")
+        for sym, mm in sorted(stability["per_instrument"].items()):
             for metric, d in mm.items():
-                L.append(f"| {sym} | {metric} | {d['df_полная_история']} | "
+                L.append(f"| {sym} | {metric} | {d['тип']} | {d['df_полная_история']} | "
                          f"{d[f'df_до_{STABILITY_CUTOFF}']} |")
+        L.append("")
+    if stability["fallback"]:
+        L.append("## Расхождения ФОЛБЭКА: полная история vs ≤ " + STABILITY_CUTOFF + "\n")
+        L.append("| метрика | df (полная) | df (≤ отсечки) |\n|---|---|---|")
+        for metric, d in sorted(stability["fallback"].items()):
+            L.append(f"| {metric} | {d['df_полная_история']} | {d[f'df_до_{STABILITY_CUTOFF}']} |")
         L.append("")
     if no_bg:
         L.append("## Символы без фона (П8, не молчаливый пропуск)\n")
@@ -318,22 +371,47 @@ def main():
         print(f"Вселенная: {len(symbols)} символов; окно {window['from']}…{window['to']}")
         print("Проход 1/2: полная история (фон + df)…")
         backgrounds, tail, z_pool = calibrate_universe(con, symbols)
-        print(f"Проход 2/2: гард устойчивости ≤ {STABILITY_CUTOFF} (только df)…")
-        _, tail_stab, _ = calibrate_universe(con, symbols, cutoff=STABILITY_CUTOFF)
+        print(f"Проход 2/2: pre-window df ≤ {STABILITY_CUTOFF} (гард look-ahead + артефакт replay)…")
+        _, tail_pre, z_pool_pre = calibrate_universe(con, symbols, cutoff=STABILITY_CUTOFF)
+        pre_window = {"from": window["from"], "to": STABILITY_CUTOFF}
     finally:
         con.close()
 
-    tail_section, fallback_detail, stability = build_tail_section(
-        tail, z_pool, tail_stab, window, len(symbols))
+    tail_section, fallback_detail = build_tail_section(tail, z_pool, window, len(symbols))
+    # Д1 #1 (BLOCKER): отдельная калибровка df на данных ≤ cutoff — replay 21.06–12.07 использует
+    # ЕЁ, а НЕ df, посчитанные на полной истории (которая включает replay-окно = look-ahead).
+    pre_section, pre_fallback_detail = build_tail_section(
+        tail_pre, z_pool_pre, pre_window, len(symbols),
+        data_window_label=f"≤ {STABILITY_CUTOFF} (pre-window, для replay без look-ahead)")
+    # Д1 #2 (BLOCKER): гард ловит ЛЮБОЕ расхождение full vs pre-window (пин появился/пропал, df, фолбэк)
+    stability = compute_stability(tail_section, pre_section)
+    tail_section["provenance"]["stability_cutoff"] = STABILITY_CUTOFF
+    tail_section["provenance"]["stability_divergence_n"] = stability["n"]
+
+    REPLAY_REPORTS.mkdir(parents=True, exist_ok=True)
+    PREWINDOW_ARTIFACT.write_text(json.dumps({
+        "script": "ops/calibrate_fdr_background.py",
+        "generated_at": NOW,
+        "purpose": ("Д1 #1: df t-нуля per-instrument, откалиброванные ТОЛЬКО на данных ≤ "
+                    f"{STABILITY_CUTOFF} (до replay-окна 21.06–12.07). ops/replay_scan.py обязан "
+                    "использовать ИМЕННО этот артефакт, а не боевой thresholds.yaml (полная история "
+                    "= look-ahead в replay). q=0.1 не тронут."),
+        "stability_cutoff": STABILITY_CUTOFF,
+        "data_window": pre_section["provenance"]["data_window"],
+        "tail_df": pre_section,
+    }, ensure_ascii=False, indent=1, default=float), encoding="utf-8")
+
     write_reports(backgrounds, tail, tail_section, fallback_detail, stability,
                   window, symbols, db_path)
     no_bg = sum(1 for b in backgrounds.values() if b.get("insufficient_history"))
     print(f"Фон: {len(backgrounds) - no_bg} символов; нет фона: {no_bg}")
-    print(f"Пины df: ret {tail_section['provenance']['n_pinned']['ret_z_20']}, "
+    print(f"Пины df (полная): ret {tail_section['provenance']['n_pinned']['ret_z_20']}, "
           f"vol {tail_section['provenance']['n_pinned']['vol_z_log_20']}; "
-          f"фолбэк ret={tail_section['fallback']['ret_z_20']}, "
-          f"vol={tail_section['fallback']['vol_z_log_20']}")
-    print(f"Расхождений df при отсечке ≤ {STABILITY_CUTOFF}: {len(stability)}")
+          f"pre-window: ret {pre_section['provenance']['n_pinned']['ret_z_20']}, "
+          f"vol {pre_section['provenance']['n_pinned']['vol_z_log_20']}")
+    print(f"Расхождений full-vs-pre-window: {stability['n']} "
+          f"(per-instrument {len(stability['per_instrument'])}, фолбэк {len(stability['fallback'])})")
+    print(f"Pre-window артефакт для replay: {PREWINDOW_ARTIFACT}")
     if args.write:
         old = THRESHOLDS.read_text(encoding="utf-8")
         new = splice_thresholds(old, backgrounds, tail_section, window, len(symbols), no_bg)

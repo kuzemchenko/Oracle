@@ -181,6 +181,56 @@ def test_cluster_null_wider_than_iid_binomial(tmp_path):
     assert null["p_кластерный"] >= null["p_наивный_биномиальный"]
 
 
+def test_journal_integrity_flags_unmatched_outcome(tmp_path):
+    """Д2 #14: разрешённый калибровочный исход без prediction по hash — ДЕФЕКТ целостности,
+    а не молчаливое уменьшение знаменателя."""
+    ppath, opath, db = _make_env(tmp_path)
+    # дописываем «сиротский» исход: resolved calibration, hash которого нет в predictions
+    with open(opath, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"hash": "orphan999", "asset": "A0.US", "kind": "calibration",
+                            "outcome": 0, "observed_value": 1.0,
+                            "observed_at": "2026-06-30T20:00:00+00:00"}, ensure_ascii=False) + "\n")
+    integ = DIAG.journal_integrity(ppath, opath)
+    assert integ["целостность_ок"] is False
+    assert integ["n_unmatched_outcomes"] == 1
+    assert integ["unmatched_outcome_hashes"] == ["orphan999"[:12]]
+    # он же попадает в отчёт (не молча)
+    rep = DIAG.build_report(ppath, opath, db, with_null=False)
+    assert rep["целостность_журнала"]["n_unmatched_outcomes"] == 1
+    assert rep["целостность_журнала"]["n_resolved_calibration_outcomes"] == 10   # 9 сматчено + 1 сирота
+    assert rep["целостность_журнала"]["n_matched"] == 9
+
+
+def test_cluster_null_structure_from_journal(tmp_path):
+    """Д2 #15: структура null восстановлена ИЗ ЖУРНАЛА (эффективный N = len(joined)),
+    а не из хардкода batch_offsets/полного набора assets×3×7."""
+    ppath, opath, db = _make_env(tmp_path, n_assets=3)
+    joined = DIAG.load_joined(ppath, opath)
+    q = DIAG.Quotes(db)
+    try:
+        null = DIAG.cluster_null(q, joined, n_sims=200, seed=1, cutoff="2026-04-01")  # без batch_offsets
+    finally:
+        q.close()
+    assert null["применимо"] is True
+    s = null["структура_из_журнала"]
+    assert s["эффективный_N"] == len(joined) == 9      # 3 актива × 3 порога, один батч
+    assert s["n_батчей"] == 1 and s["сдвиги_батчей"] == [0]
+
+
+def test_infer_batch_structure_two_batches():
+    """Д2 #15: два батча (разные run_id, разные якоря) выделяются и упорядочены по якорю;
+    вложенные пороги ячеек сохранены (не полный набор из головы)."""
+    def rec(run, asset, k, anchor):
+        return ({"run_id": run, "asset": asset, "k_sigma": k,
+                 "threshold_asof_close_date": anchor}, {"outcome": 1})
+    joined = [rec("b2", "A0.US", 0.0, "2026-06-25"), rec("b2", "A0.US", 0.5, "2026-06-25"),
+              rec("b1", "A0.US", 0.0, "2026-06-20"), rec("b1", "A1.US", -0.5, "2026-06-20")]
+    batches = DIAG._infer_batch_structure(joined)
+    assert [b["anchor"] for b in batches] == ["2026-06-20", "2026-06-25"]   # по якорю
+    assert batches[0]["cells"] == {"A0.US": [0.0], "A1.US": [-0.5]}         # ровно напечатанные k
+    assert batches[1]["cells"] == {"A0.US": [0.0, 0.5]}
+
+
 def test_report_files_written(tmp_path):
     ppath, opath, db = _make_env(tmp_path)
     out_dir = tmp_path / "rep"

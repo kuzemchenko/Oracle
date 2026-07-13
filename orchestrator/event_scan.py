@@ -22,6 +22,7 @@ FDR-контроль q<0.1 (Бенджамини–Хохберг). §17.2: со
 import math
 import sqlite3
 import pathlib
+import datetime
 
 from orchestrator import context as C
 from orchestrator import universe_resolver as U
@@ -32,6 +33,7 @@ from mathlib.calibration import backgrounds as BG
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 MIN_TREND_HISTORY = 8   # меньше — фон тренда не оценить честно (П8)
+MAX_BAR_AGE_DAYS = 7    # Д1 #8: последний бар инструмента старше — котировки протухли, сигнал не строим
 
 # F2#19 (§2.4): нормальный erfc(|z|/√2) занижал p на тяжелохвостых рядах → почти всё проходило FDR.
 # Моделируем нуль Стьюдентом-t с тяжёлыми хвостами (mathlib/tailprob); объём предпочитаем на ЛОГ-шкале
@@ -65,10 +67,11 @@ def _resolve_df(tail_df, symbol, metric, const_df):
     Возвращает (df, источник) — источник уходит в протокол скана (П8: видно, чем посчитан p)."""
     per = ((tail_df or {}).get("per_instrument") or {}).get(symbol) or {}
     v = per.get(metric)
-    if isinstance(v, (int, float)) and v > 0:
+    # bool — подкласс int (True==1): df=1.0 из ошибочного True в конфиге отравил бы t-хвост.
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
         return float(v), "per_instrument"
     fb = ((tail_df or {}).get("fallback") or {}).get(metric)
-    if isinstance(fb, (int, float)) and fb > 0:
+    if isinstance(fb, (int, float)) and not isinstance(fb, bool) and fb > 0:
         return float(fb), "фолбэк_калибровки"
     return const_df, "константа_F2#19"
 
@@ -94,8 +97,11 @@ def trend_signals(trends_rows):
         except ValueError:
             continue
         med = sorted(background)[len(background) // 2]
+        # _p_raw — ПОЛНАЯ точность для FDR; p_value (округлённый) только для протокола (Д1 #5:
+        # BH обязан работать на неокруглённых p, иначе округление до 4 знаков меняет открытия).
         sigs.append({"вид": "trend", "ключ": kw, "interest": round(latest, 1),
-                     "медиана_фона": round(med, 1), "p_value": round(p, 4)})
+                     "медиана_фона": round(med, 1), "p_value": round(p, 4),
+                     "_p_raw": float(min(max(p, 0.0), 1.0))})
     return sigs
 
 
@@ -117,9 +123,11 @@ def price_vol_signals(indicators, tail_df=None):
                 if tail_df is not None:
                     df, src = _resolve_df(tail_df, sym, metric, df)
                 p = TP.student_t_two_sided_p(z, df)
+                p_clamped = max(min(p, 1.0), 0.0)
                 sig = {"вид": "price", "символ": sym, "метрика": metric,
                        "z": round(z, 3), "df_нуля": df,
-                       "p_value": round(max(min(p, 1.0), 0.0), 4)}
+                       "p_value": round(p_clamped, 4),
+                       "_p_raw": float(p_clamped)}   # Д1 #5: полная точность для BH (см. scan_events)
                 if src is not None:
                     sig["df_источник"] = src
                 sigs.append(sig)
@@ -137,20 +145,50 @@ def news_event_signals(news):
 
 
 # ── Сборка открытого скана + FDR ────────────────────────────────────────────────────
-def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1, tail_df=None):
+def _bar_age_days(asof_str, ref_date):
+    """Возраст последнего бара в календарных днях (ref_date − дата бара). None при неразборе."""
+    try:
+        return (ref_date - datetime.date.fromisoformat(str(asof_str)[:10])).days
+    except (ValueError, TypeError):
+        return None
+
+
+def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1, tail_df=None,
+                asof_date=None, max_bar_age_days=MAX_BAR_AGE_DAYS):
     """Открытый event-first скан §6 Эт.1. Возвращает пул сырых сигналов, FDR по статистическим,
     ранжированные кандидат-события и честный реестр ограничений (П8).
 
     tail_df (Д1) — df t-нуля per-instrument (fdr.tail_df из thresholds.yaml);
-    None → прежние df-константы, протокол байт-в-байт прежний."""
+    None → прежние df-константы, протокол байт-в-байт прежний.
+
+    asof_date (Д1 #8) — дата прогона (date|ISO). Если задана, инструменты с ПРОТУХШИМ последним
+    баром (возраст > max_bar_age_days) исключаются из ценового скана — сигнал не строится на
+    несвежих котировках (delisted/пропал фид). None → прежнее поведение (гейт давности выключен)."""
+    # Д1 #8: гейт давности бара (боевой). Отфильтрованные инструменты — в честный реестр (П8).
+    stale = []
+    if asof_date is not None and indicators:
+        ref = asof_date if isinstance(asof_date, datetime.date) else \
+            datetime.date.fromisoformat(str(asof_date)[:10])
+        kept = {}
+        for sym, ind in indicators.items():
+            age = _bar_age_days((ind or {}).get("asof"), ref) if isinstance(ind, dict) else None
+            if age is not None and age > max_bar_age_days:
+                stale.append({"символ": sym, "последний_бар": ind.get("asof"), "давность_дней": age})
+            else:
+                kept[sym] = ind
+        indicators = kept
     price = price_vol_signals(indicators or {}, tail_df=tail_df)
     trends = trend_signals(trends_rows or [])
     statistical = price + trends                          # есть p → единый FDR
-    pvals = [s["p_value"] for s in statistical]
+    # Д1 #5 (кросс-ревью): BH считается по ПОЛНОЙ точности p (_p_raw), НЕ по округлённому до 4
+    # знаков p_value — иначе на больших m истинный p=0.000049 → 0.0000 гарантированно проходит,
+    # 0.05004 → 0.05 ложно проходит, меняя набор открытий. Округление — только протокол/показ.
+    pvals = [s["_p_raw"] for s in statistical]
     bh = fdr.benjamini_hochberg(pvals, q=q_max) if pvals else {"rejected": [], "qvalues": [], "n_signif": 0}
     for i, s in enumerate(statistical):
         s["q_value"] = round(bh["qvalues"][i], 4) if bh.get("qvalues") else None
         s["сигнал_после_FDR"] = bool(bh["rejected"][i]) if bh.get("rejected") else False
+        s.pop("_p_raw", None)                             # внутреннее поле не выходит наружу
     news_events = news_event_signals(news)
 
     # Кандидат-события §6 Эт.1: значимые статистические + новостные кластеры (открыто, без тикер-якоря).
@@ -181,6 +219,7 @@ def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1, tail_df
         "сырых_сигналов": len(statistical) + len(news_events),
         "q_value_max": q_max, "процедура": "benjamini_hochberg (единый по цене+трендам)",
         **({"tail_df_протокол": out_tail} if out_tail is not None else {}),
+        **({"протухшие_бары": stale} if stale else {}),
         "статистических_после_FDR": int(bh.get("n_signif", 0)),
         "сигналы": statistical,
         "новостные_события": news_events,
@@ -221,7 +260,8 @@ def scan_events_live(q_max=0.1, news_limit=300, con=None):
             if len(q) >= 30:
                 indicators[sym] = C._indicators(q)
         return scan_events(news=news, trends_rows=trends_rows, indicators=indicators, q_max=q_max,
-                           tail_df=tail_df_from_thresholds())   # Д1: df per-instrument (fail-safe)
+                           tail_df=tail_df_from_thresholds(),    # Д1: df per-instrument (fail-safe)
+                           asof_date=datetime.date.today())      # Д1 #8: гейт давности бара
     finally:
         if own:
             con.close()

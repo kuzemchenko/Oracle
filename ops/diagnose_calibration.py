@@ -80,6 +80,30 @@ def load_joined(pred_path, outc_path):
     return joined
 
 
+def journal_integrity(pred_path, outc_path):
+    """Д2 #14 (кросс-ревью): целостность знаменателя. load_joined МОЛЧА выбрасывал разрешённый
+    калибровочный исход, если для его hash нет prediction — отчёт «251 пересчитано, 0
+    расхождений» вместо явного дефекта. Здесь считаем обе стороны и перечисляем unmatched;
+    для П8 знаменатель обязан быть честным (unmatched=0 или список)."""
+    preds = {r["hash"]: r for r in read_jsonl(pred_path)
+             if r.get("kind") == "calibration" and r.get("hash")}
+    resolved = [o for o in read_jsonl(outc_path)
+                if o.get("kind") == "calibration" and o.get("outcome") in (0, 1)]
+    unmatched = sorted({o.get("hash") for o in resolved if o.get("hash") not in preds})
+    n_matched = sum(1 for o in resolved if o.get("hash") in preds)
+    return {
+        "n_calibration_predictions": len(preds),
+        "n_resolved_calibration_outcomes": len(resolved),
+        "n_matched": n_matched,
+        "n_unmatched_outcomes": len(unmatched),
+        "unmatched_outcome_hashes": [(h or "")[:12] for h in unmatched],
+        "целостность_ок": len(unmatched) == 0,
+        "пояснение": ("каждый разрешённый калибровочный исход обязан иметь prediction по hash; "
+                      "unmatched>0 = дефект целостности журнала (исход есть, печати нет), "
+                      "а НЕ повод молча уменьшить знаменатель"),
+    }
+
+
 class Quotes:
     """Ряды close/adjusted_close из БД (read-only URI) с кэшем."""
 
@@ -180,22 +204,67 @@ def _hits_nested(cl, i0, h=H_NOMINAL):
     return [1 if obs > round(px * math.exp(k * sh), 4) else 0 for k in K_OFFSETS]
 
 
-def cluster_null(q, joined, n_sims=MC_N, seed=MC_SEED, cutoff=PRE_WINDOW_CUT,
-                 batch_offsets=(0, 3, 5, 7, 9, 12, 14)):
-    """Честный null: hit-rate «корзина CORE × 3 вложенных порога × 7 последовательных батчей»
-    на случайных исторических окнах ДО cutoff. Сохраняет вложенность порогов, кросс-корреляцию
-    активов и серийное перекрытие батчей — всё то, что наивный биномиальный тест игнорировал."""
+def _infer_batch_structure(joined):
+    """Д2 #15 (кросс-ревью): восстановить ФАКТИЧЕСКУЮ структуру печатей из журнала, а не
+    подставлять хардкод. Возвращает (batches, K по всем ячейкам) где batches — список
+    {anchor, cells:{asset:[k,...]}} по РЕАЛЬНЫМ батчам (run_id), с anchor = мин. дата якоря."""
+    batches = {}
+    for p, _ in joined:
+        b = p.get("run_id") or str(p.get("sealed_at", ""))[:10]
+        a = p["asset"]
+        k = p.get("k_sigma")
+        anchor = p.get("threshold_asof_close_date")
+        bt = batches.setdefault(b, {"anchor": anchor, "cells": {}})
+        if anchor and (bt["anchor"] is None or anchor < bt["anchor"]):
+            bt["anchor"] = anchor
+        bt["cells"].setdefault(a, []).append(k)
+    ordered = sorted(batches.values(), key=lambda x: (x["anchor"] or ""))
+    return ordered
+
+
+def cluster_null(q, joined, n_sims=MC_N, seed=MC_SEED, cutoff=PRE_WINDOW_CUT, batch_offsets=None):
+    """Честный null для наблюдённого hit-rate: сохраняет вложенность порогов одной asset-недели,
+    кросс-корреляцию корзины и серийное перекрытие батчей — то, что наивный биномиальный тест
+    игнорировал.
+
+    Д2 #15: структура (батчи, активы каждого батча, вложенные пороги каждой ячейки, временные
+    сдвиги батчей) восстанавливается ИЗ ЖУРНАЛА (_infer_batch_structure), а не из хардкода
+    batch_offsets/полного набора assets×3×7. Эффективный N null = ровно len(joined). Параметр
+    batch_offsets — необязательное ПЕРЕОПРЕДЕЛЕНИЕ временных сдвигов (для тестов); None → сдвиги
+    выводятся из дат якорей батчей."""
     assets = sorted({p["asset"] for p, _ in joined})
     if not assets:
         return {"применимо": False, "причина": "нет разрешённых калибровочных исходов"}
+    batches = _infer_batch_structure(joined)
     date_sets = [set(d for d, _, _ in q.series(a)) for a in assets]
-    common = sorted(set.intersection(*date_sets))
-    common = [d for d in common if d < cutoff]
+    common_full = sorted(set.intersection(*date_sets))
     idx = {a: {d: i for i, (d, _, _) in enumerate(q.series(a))} for a in assets}
-    span = max(batch_offsets)
-    starts = [i for i in range(len(common) - span)
-              if all(all(_hits_nested(q.series(a), idx[a][common[i + off]]) is not None
-                         for a in assets) for off in batch_offsets)]
+    # временные сдвиги батчей: из дат якорей (позиция в общем торговом календаре), нормированы к 0
+    import bisect
+    if batch_offsets is not None:
+        offsets = list(batch_offsets)
+        if len(offsets) != len(batches):                 # переопределение согласовано с числом батчей
+            offsets = offsets[:len(batches)] + [offsets[-1]] * (len(batches) - len(offsets))
+    else:
+        anchor_pos = [max(0, bisect.bisect_right(common_full, b["anchor"]) - 1) for b in batches]
+        base = anchor_pos[0] if anchor_pos else 0
+        offsets = [p - base for p in anchor_pos]
+    span = max(offsets) if offsets else 0
+    hist = [d for d in common_full if d < cutoff]         # окно сэмплирования — только до cutoff
+    n_hist = len(hist)
+
+    def _cells_ok(start):
+        for off, batch in zip(offsets, batches):
+            j = start + off
+            if j >= n_hist:
+                return False
+            d = hist[j]
+            for a in batch["cells"]:
+                if _hits_nested(q.series(a), idx[a][d]) is None:
+                    return False
+        return True
+
+    starts = [s for s in range(n_hist - span) if _cells_ok(s)]
     if not starts:
         return {"применимо": False, "причина": "недостаточно выровненной истории до cutoff"}
     rng = random.Random(seed)
@@ -203,12 +272,13 @@ def cluster_null(q, joined, n_sims=MC_N, seed=MC_SEED, cutoff=PRE_WINDOW_CUT,
     for _ in range(n_sims):
         s = rng.choice(starts)
         tot = cnt = 0
-        for off in batch_offsets:
-            d = common[s + off]
-            for a in assets:
+        for off, batch in zip(offsets, batches):
+            d = hist[s + off]
+            for a, ks in batch["cells"].items():
                 h = _hits_nested(q.series(a), idx[a][d])
-                tot += sum(h)
-                cnt += 3
+                for k in ks:                              # только реально напечатанные пороги ячейки
+                    tot += h[K_OFFSETS.index(k)]
+                    cnt += 1
         sims.append(tot / cnt)
     obs_rate = sum(o["outcome"] for _, o in joined) / len(joined)
     p_cluster = sum(1 for x in sims if x <= obs_rate) / len(sims)
@@ -216,16 +286,20 @@ def cluster_null(q, joined, n_sims=MC_N, seed=MC_SEED, cutoff=PRE_WINDOW_CUT,
     n, hits = len(joined), sum(o["outcome"] for _, o in joined)
     p_naive = sum(math.comb(n, i) for i in range(hits + 1)) * (0.5 ** n)
     return {"применимо": True, "n_симуляций": len(sims), "seed": seed,
-            "окно_истории": [common[0], common[-1]],
+            "структура_из_журнала": {"n_батчей": len(batches), "сдвиги_батчей": offsets,
+                                     "эффективный_N": sum(len(ks) for b in batches
+                                                          for ks in b["cells"].values())},
+            "окно_истории": [hist[0], hist[-1]],
             "null_среднее": round(statistics.mean(sims), 4),
             "null_sd": round(statistics.pstdev(sims), 4),
             "null_p5": round(sorted(sims)[int(0.05 * len(sims))], 4),
             "наблюдённый_hit": round(obs_rate, 4),
             "p_кластерный": round(p_cluster, 4),
             "p_наивный_биномиальный": float(f"{p_naive:.3e}"),
-            "пояснение": ("кластерный null сохраняет вложенность 3 порогов одной asset-недели, "
-                          "кросс-корреляцию корзины и серийное перекрытие батчей; наивный "
-                          "биномиальный тест считал 252 исхода независимыми")}
+            "пояснение": ("кластерный null восстанавливает структуру печатей ИЗ ЖУРНАЛА "
+                          "(батчи/активы/вложенные пороги/сдвиги), сохраняет вложенность порогов "
+                          "одной asset-недели, кросс-корреляцию корзины и серийное перекрытие "
+                          "батчей; наивный биномиальный тест считал исходы независимыми")}
 
 
 def history_base_check(q, joined, cutoff=PRE_WINDOW_CUT):
@@ -325,6 +399,7 @@ def build_report(pred_path=PROD_PREDICTIONS, outc_path=PROD_OUTCOMES, db_path=PR
                  n_sims=MC_N, with_null=True):
     """Полный диагностический прогон. Возвращает dict отчёта (report.json)."""
     joined = load_joined(pred_path, outc_path)
+    integ = journal_integrity(pred_path, outc_path)   # Д2 #14: честный знаменатель
     q = Quotes(db_path)
     try:
         rows = [recompute_record(q, p, o) for p, o in joined]
@@ -342,6 +417,7 @@ def build_report(pred_path=PROD_PREDICTIONS, outc_path=PROD_OUTCOMES, db_path=PR
         "источники": {"predictions": str(pred_path), "outcomes": str(outc_path),
                       "db": str(db_path), "режим": "только чтение (П16)"},
         "сводка": agg,
+        "целостность_журнала": integ,
         "кластерный_null": null,
         "адекватность_базы_на_истории": base,
         "вердикт": {
@@ -397,6 +473,12 @@ def render_md(rep):
         "## Пересчёт всех исходов",
         "",
         f"- разрешённых исходов: **{a['n_разрешённых']}**, пересчитано: {a['пересчитано']}",
+        (f"- целостность журнала: разрешённых калибровочных исходов "
+         f"{rep['целостность_журнала']['n_resolved_calibration_outcomes']}, сматчено с печатями "
+         f"{rep['целостность_журнала']['n_matched']}, БЕЗ печати "
+         f"**{rep['целостность_журнала']['n_unmatched_outcomes']}** "
+         + ("(целостность ОК)" if rep['целостность_журнала']['целостность_ок']
+            else f"⚠ ДЕФЕКТ: {rep['целостность_журнала']['unmatched_outcome_hashes']}")),
         f"- расхождения: σ_H={a['расхождения_по_причинам']['σ_H']}, "
         f"порог={a['расхождения_по_причинам']['порог']}, "
         f"бар исхода={a['расхождения_по_причинам']['бар_исхода']}, "

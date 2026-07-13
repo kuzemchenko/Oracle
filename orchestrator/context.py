@@ -106,6 +106,12 @@ def _indicators(q):
     boll = ind.bollinger(px, 20, 2.0)
     macd = ind.macd(px)
     up_last, low_last = lastval(boll["upper"]), lastval(boll["lower"])
+    # Д1 #8 (боевой гард артефактов фида): последний бар с volume==0 (битая/пустая строка фида)
+    # даёт log(max(0,1))=0 → огромный отрицательный z на фоне нормального объёма = ложный
+    # объёмный сигнал. Такой бар — НЕ рыночное наблюдение: объёмные z → «нет данных» (П8),
+    # event_scan их пропустит (isinstance-гейт), сигнал не строится. Гард переносит логику из
+    # диагностики replay (_annotate) в САМ боевой скан — иначе живой скан пропустил бы артефакт.
+    vol_bar_broken = (q[-1]["volume"] is None) or (float(q[-1]["volume"] or 0) <= 0)
     out = {
         "asof": q[-1]["date"],
         "last_close": round(px[-1], 4),
@@ -115,16 +121,20 @@ def _indicators(q):
         "realized_vol_annualized": scalar(ind.realized_vol(px[-21:]) * (252 ** 0.5)) if len(px) >= 22 else None,
         "atr14": lastval(ind.atr(hi, lo, cl, 14)),
         "ret_z_20": scalar(ind.zscore(ind.returns(px), 20)),
-        "vol_z_20": scalar(ind.zscore(vol, 20)),
         # F2#19: z объёма на ЛОГ-шкале — сырой объём кратно скошен, нормальный z/​p его искажает.
         # event_scan предпочитает эту метрику и считает p тяжелохвостым t-нулём (mathlib/tailprob).
-        "vol_z_log_20": scalar(ind.zscore([math.log(max(v, 1.0)) for v in vol], 20)),
+        # Д1 #8: при битом последнем баре объёма обе объёмные метрики = None + причина (П8).
+        "vol_z_20": None if vol_bar_broken else scalar(ind.zscore(vol, 20)),
+        "vol_z_log_20": None if vol_bar_broken else scalar(
+            ind.zscore([math.log(max(v, 1.0)) for v in vol], 20)),
         "macd_hist": lastval(macd["hist"]),
         "bollinger_pos": (None if up_last is None else
                           "выше верхней" if px[-1] > up_last else
                           "ниже нижней" if px[-1] < low_last else "в полосе"),
         "max_drawdown_1y": scalar(ind.max_drawdown(px)),
     }
+    if vol_bar_broken:
+        out["vol_data_note"] = "нет данных (П8): нулевой/битый объём последнего бара — объёмные z не строятся"
     return out
 
 

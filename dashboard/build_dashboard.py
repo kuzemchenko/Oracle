@@ -95,14 +95,21 @@ def _d2_diagnostic_row(path=None):
 def metric_calibration():
     recs = [r for r in sealing.read_predictions() if r.get("tag") != "test"]
     # ревью 04.07 H1: исходы живут в outcomes.jsonl (predictions append-only и исходов не содержит) —
-    # без join по hash калибровка вечно «накапливается» при реально идущей сверке
+    # без join по hash калибровка вечно «накапливается» при реально идущей сверке.
+    # Д2 #13 (кросс-ревью): ОФИЦИАЛЬНЫЙ ряд берёт outcome СТРОГО как записано в outcomes.jsonl,
+    # а НЕ пересчитывает через resolve_prediction (иначе ручная/историческая права наблюдения
+    # разошлась бы с журналом, а «официальный первичен» — требование владельца, реш. 13.07 В2).
     outs_map = RES.outcomes_by_hash()
-    resolved = []
+    probs, outs = [], []
     for pred in recs:
-        o = outs_map.get(pred.get("hash")) or {}
-        res = OUT.resolve_prediction(pred, o.get("observed_value"), o.get("observed_at"))
-        resolved.append(res)
-    probs, outs = OUT.to_brier_inputs(resolved)
+        o = outs_map.get(pred.get("hash"))
+        if not o:
+            continue
+        oc = o.get("outcome")
+        p = pred.get("probability")
+        if oc in (0, 1) and p is not None:          # только сверенные исходы с вероятностью
+            probs.append(float(p))
+            outs.append(int(oc))
     if not probs:
         out = {"статус": "накапливается", "n_разрешённых": 0,
                "пояснение": "этап Бумаги §11 не начат — разрешённых форвард-исходов нет (П8); "
@@ -326,14 +333,19 @@ def _calibration_card(m):
     d2 = m.get("диагностический_ряд_д2")
     d2_html = ""
     if d2:
+        # Д2 #17 (кросс-ревью): заголовок честен относительно вердикта — «после найденной ошибки»
+        # только если баг сверки ПОДТВЕРЖДЁН; иначе это независимый пересчёт-сверка (баг не найден).
+        bug = d2.get("баг_сверки_подтверждён")
+        title = ("Диагностический ряд (после найденной ошибки Д2)" if bug else
+                 "Диагностический ряд Д2 (независимый пересчёт; баг сверки НЕ подтверждён)")
         d2_html = (
             "<div style='margin-top:10px;padding:8px 10px;background:#eef4fb;"
             "border:1px dashed #7aa7d9;border-radius:8px;font-size:13px'>"
-            "<b>Диагностический ряд (после найденной ошибки Д2)</b> — официальный ряд выше "
-            "первичен; этот пересчитан из сырых котировок отчётом Д2.<br>"
+            f"<b>{title}</b> — официальный ряд выше первичен; этот пересчитан из сырых "
+            "котировок отчётом Д2.<br>"
             f"n: <b>{_h(d2.get('n'))}</b> · hit rate: <b>{_h(d2.get('hit_rate'))}</b> · "
             f"Brier: <b>{_h(d2.get('brier'))}</b> · баг сверки подтверждён: "
-            f"<b>{'ДА' if d2.get('баг_сверки_подтверждён') else 'НЕТ'}</b>"
+            f"<b>{'ДА' if bug else 'НЕТ'}</b>"
             f"<p style='color:#666;margin:4px 0 0'>{_h(d2.get('пометка'))}</p></div>")
     return _card("1 · Калибровочная кривая по корзинам",
                  head + note +

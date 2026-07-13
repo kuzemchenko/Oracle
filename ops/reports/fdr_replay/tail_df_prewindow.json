@@ -1,0 +1,979 @@
+{
+ "script": "ops/calibrate_fdr_background.py",
+ "generated_at": "2026-07-13T15:54:35Z",
+ "purpose": "Д1 #1: df t-нуля per-instrument, откалиброванные ТОЛЬКО на данных ≤ 2026-06-20 (до replay-окна 21.06–12.07). ops/replay_scan.py обязан использовать ИМЕННО этот артефакт, а не боевой thresholds.yaml (полная история = look-ahead в replay). q=0.1 не тронут.",
+ "stability_cutoff": "2026-06-20",
+ "data_window": {
+  "from": "2015-01-02",
+  "to": "2026-06-20"
+ },
+ "tail_df": {
+  "provenance": {
+   "script": "ops/calibrate_fdr_background.py",
+   "generated_at": "2026-07-13T15:54:35Z",
+   "data_window": {
+    "from": "2015-01-02",
+    "to": "2026-06-20"
+   },
+   "data_window_label": "≤ 2026-06-20 (pre-window, для replay без look-ahead)",
+   "n_symbols_universe": 235,
+   "n_pinned": {
+    "ret_z_20": 234,
+    "vol_z_log_20": 234
+   },
+   "method": "walk-forward подбор df t-нуля по историческим сканным z (mathlib/calibration/tail_df.py): train→fit по хвостовым частотам [1.5, 2.0, 2.5, 3.0]→OOS-проверка |z|>2,|z|>3; train=250, test=125; пороги зафиксированы ДО replay-сравнения (рамка 3 программы)",
+   "fallback_source": "пул сканных z всех инструментов с достаточной историей (детерминированный порядок по символу); НЕ из головы (П8)",
+   "report": "ops/reports/fdr_background/"
+  },
+  "fallback": {
+   "ret_z_20": 30.0,
+   "vol_z_log_20": 20.0,
+   "vol_z_20": 3,
+   "note": "ret_z_20/vol_z_log_20 — df пула (см. отчёт); vol_z_20 — редкая ветка сырого объёма (когда лог-метрики нет), оставлена константа F2#19: отдельно не калибровалась"
+  },
+  "per_instrument": {
+   "AAPL.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "ABNB.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 6.0
+   },
+   "ADM.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "AEM.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 50.0
+   },
+   "AIG.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "AJG.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "ALB.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "AMAT.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "AMD.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "AMKR.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 8.0
+   },
+   "AMZN.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 8.0
+   },
+   "ANET.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "ARKK.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "ARKX.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 30.0
+   },
+   "ASML.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "ASTS.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "AVGO.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "BA.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "BAH.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 20.0
+   },
+   "BBY.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 8.0
+   },
+   "BHP.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 30.0
+   },
+   "BITB.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 50.0
+   },
+   "BKNG.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "BKR.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 10.0
+   },
+   "BNO.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "BOIL.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 100.0
+   },
+   "BXP.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "CARR.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 15.0
+   },
+   "CAT.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "CB.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "CCJ.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "CCL.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "CE.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "CEG.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 15.0
+   },
+   "CF.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 15.0
+   },
+   "CHRD.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "CIEN.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 15.0
+   },
+   "CLF.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "CLSK.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "CNI.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "CNQ.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 20.0
+   },
+   "COIN.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "COLM.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 10.0
+   },
+   "COP.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 8.0
+   },
+   "COPX.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "CORN.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 30.0
+   },
+   "CP.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "CPER.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "CQP.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 15.0
+   },
+   "CRM.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 8.0
+   },
+   "CVE.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 50.0
+   },
+   "CVX.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "DAL.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "DB.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "DBC.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "DELL.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "DHT.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "DLR.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 10.0
+   },
+   "DOW.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "DXJ.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 100.0
+   },
+   "EEM.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "EMB.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "EMR.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "ENB.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "EOG.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "EPI.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "EPOL.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 30.0
+   },
+   "EQIX.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 10.0
+   },
+   "EQT.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 10.0
+   },
+   "ETN.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "EWA.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "EWG.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "EWJ.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 30.0
+   },
+   "EWW.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 30.0
+   },
+   "EWY.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "EWZ.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "EXR.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "EZU.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 30.0
+   },
+   "FANG.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "FCX.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "FDX.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 8.0
+   },
+   "FEZ.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 50.0
+   },
+   "FLNG.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "FLR.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "FORM.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "FRO.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "FTI.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "FXI.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "FXY.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "GDX.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "GDXJ.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "GE.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "GEV.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "GEVO.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "GLD.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 100.0
+   },
+   "GLNG.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "GOLD.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "GOOGL.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "GSAT.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "HAL.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "HDB.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "HEI.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 50.0
+   },
+   "HON.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "HPQ.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 8.0
+   },
+   "HYG.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 50.0
+   },
+   "IBIT.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 50.0
+   },
+   "IBN.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 100.0
+   },
+   "IEF.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "INDA.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "INDY.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "INFY.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "INSW.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 20.0
+   },
+   "IONQ.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "IPWR.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 50.0
+   },
+   "ITA.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "ITB.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "IWM.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 20.0
+   },
+   "IYT.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "J.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "JETS.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 20.0
+   },
+   "KLAC.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "KMI.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "KRE.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "KWEB.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 100.0
+   },
+   "LIT.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 100.0
+   },
+   "LMT.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "LNG.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 30.0
+   },
+   "LRCX": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 20.0
+   },
+   "LRCX.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 20.0
+   },
+   "LUNR.US": {
+    "ret_z_20": 8.0,
+    "vol_z_log_20": 20.0
+   },
+   "LUV.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "LYB.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 15.0
+   },
+   "MAN.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "MAR.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "MARA.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "MLM.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "MOS.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "MP.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 8.0
+   },
+   "MPC.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "MPWR.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "MSFT.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "MU.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "NBIS.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 15.0
+   },
+   "NEM.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "NFE.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "NOC.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "NOV.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "NOW.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "NRG.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "NTR.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "NUE.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "NVDA.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "OIH.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "OXY.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "PAAS.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 50.0
+   },
+   "PICK.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 20.0
+   },
+   "PLD.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "PPA.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 10.0
+   },
+   "PSX.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 15.0
+   },
+   "PYPL.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "QBTS.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "QCOM.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "QQQ.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 20.0
+   },
+   "QS.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "REMX.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "RGTI.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 15.0
+   },
+   "RHI.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "RIO.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 20.0
+   },
+   "RKLB.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 8.0
+   },
+   "RTX.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "SHEL.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "SHY.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "SIL.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "SILJ.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "SLB.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "SLV.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 50.0
+   },
+   "SMCI.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "SMH.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "SMIN.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 100.0
+   },
+   "SMR.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "SPY.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "SQM.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "STAG.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 10.0
+   },
+   "STNG.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "STX.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "SU.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "T.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 8.0
+   },
+   "TAN.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 30.0
+   },
+   "TBT.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 30.0
+   },
+   "TIP.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 20.0
+   },
+   "TLT.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "TNK.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "TRP.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "TSLA.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "TSM.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "TTE.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 50.0
+   },
+   "UAL.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 15.0
+   },
+   "UNG.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "UPS.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 8.0
+   },
+   "URA.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 30.0
+   },
+   "URI.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "USO.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "UUP.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 50.0
+   },
+   "UVXY.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "V.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "VFC.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 8.0
+   },
+   "VIXY.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "VLO.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 15.0
+   },
+   "VMC.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 20.0
+   },
+   "VNQ.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 100.0
+   },
+   "VRT.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "VST.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 15.0
+   },
+   "VWO.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 15.0
+   },
+   "VXX.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "WDAY.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 10.0
+   },
+   "WDC.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 10.0
+   },
+   "WEAT.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "WIT.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 100.0
+   },
+   "WMB.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 15.0
+   },
+   "WPM.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 20.0
+   },
+   "WULF.US": {
+    "ret_z_20": 10.0,
+    "vol_z_log_20": 10.0
+   },
+   "XHB.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "XLB.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 100.0
+   },
+   "XLE.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 30.0
+   },
+   "XLI.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "XLK.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "XLRE.US": {
+    "ret_z_20": 20.0,
+    "vol_z_log_20": 50.0
+   },
+   "XLU.US": {
+    "ret_z_20": 50.0,
+    "vol_z_log_20": 100.0
+   },
+   "XLY.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 30.0
+   },
+   "XME.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "XOM.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 15.0
+   },
+   "XOP.US": {
+    "ret_z_20": 100.0,
+    "vol_z_log_20": 50.0
+   },
+   "XRT.US": {
+    "ret_z_20": 30.0,
+    "vol_z_log_20": 20.0
+   },
+   "YETI.US": {
+    "ret_z_20": 15.0,
+    "vol_z_log_20": 8.0
+   }
+  },
+  "unpinned": {
+   "SPCX.US": {
+    "ret_z_20": "короткая история: 0 z-наблюдений < train+test=375",
+    "vol_z_log_20": "короткая история: 0 z-наблюдений < train+test=375"
+   }
+  }
+ }
+}

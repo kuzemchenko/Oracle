@@ -163,10 +163,14 @@ def calibrate_instrument(z, train_size=TRAIN_SIZE, test_size=TEST_SIZE, grid=DF_
                          fit_thresholds=FIT_THRESHOLDS, oos_thresholds=OOS_THRESHOLDS):
     """Walk-forward подбор df для одной серии сканных z.
 
-    Каждый фолд: fit_df на train (кандидаты) → кандидат-итог = МЕДИАННЫЙ фолдовый df
-    (прибит к сетке, ничья → меньший) → OOS-валидация ИМЕННО этого значения на test-окне
-    КАЖДОГО фолда (v2 — валидируем то, что уходит в конфиг, см. шапку модуля).
-    ПИН: фолдов ≥ MIN_FOLDS И медианный df OOS-ok в ≥ MIN_OOS_OK_FRACTION фолдов.
+    Каждый фолд: fit_df на train (кандидаты) → OOS-валидация на test-окне фолда против
+    РАСШИРЯЮЩЕЙСЯ медианы df ТОЛЬКО по прошлым+текущему train-фолдам (df_wf_expanding =
+    median(dfs[:i+1])) — фолд i НЕ видит df, подобранные на будущих фолдах (кросс-ревью Д1
+    HIGH: прежняя v2 валидировала ГЛОБАЛЬНУЮ медиану, куда затекала информация из будущих
+    фолдов → OOS-оценка не была walk-forward-чистой).
+    ПИН: фолдов ≥ MIN_FOLDS И расширяющийся df OOS-ok в ≥ MIN_OOS_OK_FRACTION фолдов.
+    Значение В КОНФИГ — полносэмпловая медиана df_med (легально для форварда: конфиг
+    применяется ПОСЛЕ всей истории); её честность подтверждает WF-чистая ok_fraction.
 
     Возвращает dict: {pinned, df, folds, reason?, n, ok_fraction, fold_df_ratio(информационно)}.
     Не пинится → pinned=False + причина (П8).
@@ -180,13 +184,14 @@ def calibrate_instrument(z, train_size=TRAIN_SIZE, test_size=TEST_SIZE, grid=DF_
         return out
     folds = wf.walk_forward(n, train_size, test_size)
     dfs = [fit_df(z[f.train], grid, fit_thresholds)[0] for f in folds]
-    df_med = _snap_to_grid(float(np.median(dfs)), grid)
+    df_med = _snap_to_grid(float(np.median(dfs)), grid)          # полный сэмпл — только в конфиг
     fold_rows, ok_count = [], 0
-    for f, df_f in zip(folds, dfs):
-        oos = oos_tail_check(z[f.test], df_med, oos_thresholds)   # v2: проверяем медианный df
+    for i, (f, df_f) in enumerate(zip(folds, dfs)):
+        df_wf = _snap_to_grid(float(np.median(dfs[:i + 1])), grid)   # без будущих фолдов (WF-чисто)
+        oos = oos_tail_check(z[f.test], df_wf, oos_thresholds)
         ok_count += int(oos["ok"])
-        fold_rows.append({"fold": f.fold, "df_train": df_f, "oos_ok_median_df": oos["ok"],
-                          "oos": oos["пороги"]})
+        fold_rows.append({"fold": f.fold, "df_train": df_f, "df_wf_expanding": df_wf,
+                          "oos_ok_expanding_df": oos["ok"], "oos": oos["пороги"]})
     out["folds"] = fold_rows
     if len(folds) < MIN_FOLDS:
         out.update(pinned=False, df=None,
@@ -208,16 +213,22 @@ def calibrate_instrument(z, train_size=TRAIN_SIZE, test_size=TEST_SIZE, grid=DF_
 def pooled_fallback_df(z_list, grid=DF_GRID, fit_thresholds=FIT_THRESHOLDS,
                        train_size=TRAIN_SIZE, test_size=TEST_SIZE):
     """Фолбэк для инструментов без устойчивого пина: df по ПУЛУ z всех инструментов
-    (конкатенация в детерминированном порядке вызывающего) + walk-forward-самопроверка пула.
+    (КОНКАТЕНАЦИЯ в детерминированном порядке вызывающего).
 
-    Значение фолбэка — из этого расчёта (отчёт), не из головы (П8)."""
+    ВАЖНО (кросс-ревью Д1 HIGH): пул — конкатенация РАЗНЫХ инструментов, а НЕ хронологический
+    ряд, поэтому фолды calibrate_instrument проходят по границам инструментов, а не по времени.
+    Это НЕ walk-forward во времени — поле честно названо `pool_self_consistency` (само-
+    согласованность подобранного df на самом пуле), а не `walkforward_check`. Значение фолбэка
+    берётся из fit_df по всему пулу; проверка лишь показывает, устойчив ли этот df на под-окнах
+    пула. Значение фолбэка — из расчёта (отчёт), не из головы (П8)."""
     z_all = np.concatenate([np.asarray(z, dtype=float) for z in z_list]) if z_list else np.array([])
     if z_all.size < train_size + test_size:
         return {"df": None, "n": int(z_all.size),
-                "reason": "пул слишком мал для walk-forward — фолбэк не установлен (П8)"}
+                "reason": "пул слишком мал для само-проверки — фолбэк не установлен (П8)"}
     df_full, _ = fit_df(z_all, grid, fit_thresholds)
     check = calibrate_instrument(z_all, train_size, test_size, grid, fit_thresholds)
     return {"df": df_full, "n": int(z_all.size),
-            "walkforward_check": {"pinned": check.get("pinned"), "df": check.get("df"),
-                                  "ok_fraction": check.get("ok_fraction"),
-                                  "reason": check.get("reason")}}
+            "pool_self_consistency": {"pinned": check.get("pinned"), "df": check.get("df"),
+                                      "ok_fraction": check.get("ok_fraction"),
+                                      "note": "под-окна КОНКАТЕНИРОВАННОГО пула, не время (не WF)",
+                                      "reason": check.get("reason")}}
