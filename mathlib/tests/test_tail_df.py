@@ -78,7 +78,32 @@ def test_pooled_fallback_reports_value_and_check():
     fb = TD.pooled_fallback_df(zs)
     assert fb["df"] is not None and 3.0 <= fb["df"] <= 10.0
     assert fb["n"] == 3000
-    assert "walkforward_check" in fb
+    # регрессия (кросс-ревью Д1 HIGH): поле НЕ должно называться walk-forward — пул конкатенирует
+    # разные инструменты, фолды идут по границам инструментов, а не по времени.
+    assert "walkforward_check" not in fb
+    assert "pool_self_consistency" in fb
+    assert "не WF" in fb["pool_self_consistency"]["note"]
+
+
+def test_calibrate_oos_validation_is_walk_forward_clean(monkeypatch):
+    """Регрессия (кросс-ревью Д1 HIGH): OOS-валидация фолда i использует РАСШИРЯЮЩУЮСЯ медиану
+    df только по прошлым+текущему train-фолдам — не глобальную, куда затекало бы будущее.
+
+    Конструкция: режим меняется во времени (лёгкие хвосты → тяжёлые). Глобальная медиана df
+    описывала бы поздний режим и «валидировалась» на ранних test как будто была известна тогда;
+    расширяющаяся медиана ранних фолдов от позднего режима не зависит."""
+    rng = np.random.default_rng(4242)
+    z = np.concatenate([rng.standard_t(40, size=1500), rng.standard_t(2, size=1500) * 2.0])
+    res = TD.calibrate_instrument(z)
+    # каждый фолд валидируется своим df_wf_expanding (median по dfs[:i+1]), НЕ общей медианой
+    dfs = [f["df_train"] for f in res["folds"]]
+    import numpy as _np
+    for i, f in enumerate(res["folds"]):
+        exp = TD._snap_to_grid(float(_np.median(dfs[:i + 1])))
+        assert f["df_wf_expanding"] == exp
+        assert "oos_ok_expanding_df" in f
+    # для первого фолда расширяющийся df = df его собственного train (будущее не подмешано)
+    assert res["folds"][0]["df_wf_expanding"] == TD._snap_to_grid(float(dfs[0]))
 
 
 def test_pooled_fallback_too_small_is_honest():
