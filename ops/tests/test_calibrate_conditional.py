@@ -61,7 +61,9 @@ def test_driver_writes_reference_yaml_and_report(tmp_path, monkeypatch):
     assert doc["n_pairs"] == res["n_pairs"]
     assert all("folds" not in r for r in doc["conditional_sensitivities"])  # детали — в report.json
     report = (tmp_path / "reports" / "REPORT.md").read_text(encoding="utf-8")
-    assert "Устойчивость выводов к порогу" in report
+    assert "Проверка устойчивости выводов к порогу" in report
+    # Д3-ревью (HIGH): секция честно маркирует неустойчивость как контрсвидетельство, не как норму
+    assert "КОНТРСВИДЕТЕЛЬСТВО" in report and "Неустойчивых пар" in report
     assert "Маппинг N_эпизодов → ярус" in report
     assert (tmp_path / "reports" / "report.json").exists()
 
