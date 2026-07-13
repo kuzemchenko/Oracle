@@ -87,15 +87,23 @@ def main(argv=None):
     ap.add_argument("--no-api", action="store_true",
                     help="не использовать EODHD screener даже при наличии ключа (фолбэк БД)")
     ap.add_argument("--append-candidates", action="store_true",
-                    help="(ж) записать пары в knowledge/edge_candidates.jsonl (по умолчанию НЕТ)")
+                    help="(ж) записать пары кандидат-рёбер (ТРЕБУЕТ явного --candidates-path — "
+                         "запись в боевой knowledge/edge_candidates.jsonl из mock-прогона запрещена)")
+    ap.add_argument("--candidates-path", default=None,
+                    help="файл реестра кандидат-рёбер для --append-candidates (обязателен вместе с ним)")
     ap.add_argument("--no-write", action="store_true", help="протокол на диск не писать")
     ap.add_argument("--db", default=None,
                     help="путь к боевой БД (read-only); по умолчанию storage/oracle.db от корня "
                          "репо — в dev-worktree, где storage/ нет, укажи /home/oracle/oracle/storage/oracle.db")
     args = ap.parse_args(argv)
+    # Э4-ревью (BLOCKER): mock/dryrun НЕ имеет права кормить боевой B4 — путь кандидатов обязателен
+    # явно; иначе --append-candidates писал бы в production edge_candidates.jsonl (дефолт None).
+    if args.append_candidates and not args.candidates_path:
+        ap.error("--append-candidates требует явного --candidates-path "
+                 "(запись mock-кандидатов в боевой реестр запрещена, Э4)")
     api_key = None if args.no_api else os.environ.get("EODHD_API_KEY")
     p = dry_run(db=args.db, api_key=api_key, write=not args.no_write,
-                append_candidates=args.append_candidates)
+                append_candidates=args.append_candidates, candidates_path=args.candidates_path)
     print(f"[{p['run_id']}] {p['режим']}")
     print(f"  событие: {p['событие']['событие'][:80]}")
     print(f"  источник шока: {p['событие']['источник_шока']} shock={p['событие']['shock']}")

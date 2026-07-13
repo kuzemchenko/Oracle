@@ -117,3 +117,52 @@ def test_budget_exceeded_not_swallowed():
 def test_ttl_from_limits_config():
     assert WM.map_ttl_days({"world_enum": {"map_ttl_days": 7}}) == 7
     assert WM.map_ttl_days({}) == 28                # фолбэк не fail-open (константа кода)
+
+
+def test_validation_rejects_hidden_tickers_and_numbers_top_level():
+    """Э4-ревью (BLOCKER): контрпример из отчёта — тикеры/числа в СТРОКАХ верхнего уровня
+    (событие/обоснование) раньше проходили. Теперь → отказ карты (рамка 2)."""
+    doc = {"событие": "AI power VRT.US +12%",
+           "сегменты": [{"сегмент": "электрооборудование", "порядок": 2, "направление": "рост",
+                         "канал": "capex", "механизм": "спрос на сети", "секторы": ["Industrials"],
+                         "индустрии": ["Electrical Equipment & Parts"]}],
+           "обоснование": "BNO.US +3%", "уверенность": "средняя"}
+    карта, problems = WM.validate_map(doc)
+    assert карта is None
+    txt = "; ".join(problems)
+    assert "событие" in txt and ("тикеро-подобный" in txt or "число" in txt)
+
+
+def test_validation_rejects_hidden_leaks_inside_segment_strings():
+    """Тикеро-подобные токены и числа В ГЛУБИНЕ сегмента (канал/механизм) — тоже отказ сегмента."""
+    doc = {"событие": "энергопереход", "обоснование": "рост спроса на сети",
+           "сегменты": [{"сегмент": "электрооборудование", "порядок": 2, "направление": "рост",
+                         "канал": "capex 2027",                       # число в канале
+                         "механизм": "спрос на NUE.US растёт",        # тикер в механизме
+                         "секторы": ["Industrials"], "индустрии": ["Electrical Equipment & Parts"]}],
+           "уверенность": "средняя"}
+    карта, problems = WM.validate_map(doc)
+    assert карта is None                            # единственный сегмент отброшен → карта None
+    txt = "; ".join(problems)
+    assert "число" in txt and "тикеро-подобный" in txt
+
+
+def test_clean_map_still_valid_after_recursive_scan():
+    """Регрессия: чистая карта (без тикеров/чисел) проходит рекурсивную проверку без ложных срабатываний."""
+    карта, problems = WM.validate_map(_valid_doc())
+    assert карта is not None and len(карта["сегменты"]) == 1
+    assert not [p for p in problems if "число" in p or "тикеро" in p]
+
+
+def test_world_map_precheck_refusal_propagates(monkeypatch):
+    """Э4-ревью (medium): пред-проверка суб-потолка world_map ВЫЗЫВАЕТСЯ до LLM; её отказ
+    (RunBudgetRefused) не глотается fail-soft'ом, а долетает (Инв#5/§24)."""
+    called = {}
+
+    def _refuse(mode, **k):
+        called["mode"] = mode
+        raise RB.RunBudgetRefused({"reason": "тест: суб-потолок world_map", "allowed": False})
+    monkeypatch.setattr(RB, "precheck_or_raise", _refuse)
+    with pytest.raises(RB.RunBudgetRefused):
+        WM.build_world_map(EVENT, MockClient(), run_id="t")
+    assert called["mode"] == "world_map"           # именно суб-потолок карты проверен

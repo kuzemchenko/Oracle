@@ -123,3 +123,53 @@ def test_t_quantile_bisection_sane():
     # df→∞ квантиль 97.5% → 1.96; малый df — тяжелее хвост (больше квантиль)
     assert abs(COND._t_ppf_975(10 ** 6) - 1.96) < 0.01
     assert COND._t_ppf_975(5) > 2.5
+
+
+# ── Д3-ревью: регрессии на закрытые находки ────────────────────────────────────────
+def test_walkforward_oos_purity_no_train_bleed(monkeypatch):
+    """HIGH-ревью: эпизод, чьё окно ШОКА частично в train, НЕ попадает в OOS данного фолда.
+    Ставим эпизод ровно на t=test_start: конец окна шока в test, но начало (t−W+1) — в train."""
+    from mathlib.calibration import walkforward as WF
+    W, L = COND.EVENT_WINDOW_DAYS, COND.MAX_LAG
+    train, test = 30, 30                                   # test-окно шире W+L, чтобы вместить эпизод
+    fold = WF.walk_forward(train + test, train, test, step=test)[0]
+    ts = fold.test_start
+    # эпизод у самой границы: окно шока [ts−W+1..ts] заезжает в train → в OOS быть НЕ должен
+    e_border = {"t": ts, "shock": 0.05, "sigma": 0.01, "threshold": 0.0}
+    # эпизод глубоко в test: всё окно шока и отклик (до L) внутри test
+    e_inside = {"t": ts + W + L, "shock": 0.05, "sigma": 0.01, "threshold": 0.0}
+    n = train + test
+    ep_te = [e for e in (e_border, e_inside)
+             if e["t"] - W + 1 >= fold.test_start and e["t"] + L < fold.test_end]
+    assert e_border not in ep_te and e_inside in ep_te
+
+
+def test_n_oos_counts_only_confirming_folds():
+    """LOW-ревью: n_episodes_oos = эпизоды ТОЛЬКО подтвердивших фолдов, не всех валидных.
+    На синтетике с переносом established-фолды дают N; их сумма ≤ сумме по всем валидным."""
+    src, tgt = _synthetic()
+    rec = COND.estimate_pair(src, tgt)
+    if rec["wf_established"]:
+        est_folds = [f for f in rec["folds"] if f.get("established")]
+        assert rec["n_episodes_oos"] == sum(f["n_ep_oos"] for f in est_folds)
+        assert rec["n_episodes_oos"] <= rec["n_episodes_oos_valid"]
+
+
+def test_effect_baseline_sign_aligned_no_drift_artifact():
+    """LOW-ревью: чистый дрейф цели + односторонние шоки (переноса нет) НЕ даёт ложный эффект,
+    потому что baseline теперь знак-выровнена (mean_baseline·s̄). glass_delta мал."""
+    rng = np.random.default_rng(23)
+    # источник: только отрицательные всплески (шоки одного знака)
+    src = rng.normal(0, 0.008, N)
+    burst = np.zeros(N)
+    for start in range(100, N - 20, 40):
+        burst[start:start + 5] = -0.05
+    src = src + burst
+    # цель: постоянный положительный дрейф, НИКАКОГО переноса от источника
+    tgt = rng.normal(0.0005, 0.004, N) + 0.001
+    eps = COND.shock_episodes(src)
+    eff = COND.effect_stats(eps, tgt, lag=0)
+    assert eff is not None and "glass_delta" in eff and "cohen_d" not in eff
+    assert eff["mean_shock_sign"] < 0                     # шоки односторонне-отрицательные
+    # знак-выровненная база убирает дрейф → эффект около нуля, не ложно-большой
+    assert abs(eff["glass_delta"]) < 1.0

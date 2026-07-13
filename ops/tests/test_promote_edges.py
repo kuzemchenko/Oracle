@@ -120,11 +120,13 @@ def test_episode_dedup_distinct_episodes_kept(tmp_path):
     assert len(rows) == 3 and stats["дубль_эпизода_шока"] == 0
 
 
-def test_episode_dedup_legacy_sealed_at_proxy(tmp_path):
-    """Легаси-записи без episode: честный прокси — дата печати sealed_at."""
+def test_episode_dedup_legacy_without_episode_not_merged(tmp_path):
+    """Э4-ревью (HIGH): легаси-записи БЕЗ поля episode (только sealed_at) НЕ склеиваются —
+    явной episode-идентичности в старых данных нет, sealed_at ≠ эпизод (две независимые печати
+    в одном календарном зазоре — не один эпизод). Обе проходят как самостоятельные свидетельства."""
     pp, op = _episode_journals(tmp_path, ["2026-07-01", "2026-07-02"], field="sealed_at")
     rows, stats = PE.collect_rows(pp, op)
-    assert len(rows) == 1 and stats["дубль_эпизода_шока"] == 1
+    assert len(rows) == 2 and stats["дубль_эпизода_шока"] == 0
 
 
 def test_episode_dedup_no_date_passes_through_p8(tmp_path):

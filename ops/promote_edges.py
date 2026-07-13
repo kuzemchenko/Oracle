@@ -82,9 +82,12 @@ def collect_rows(predictions_path=None, outcomes_path=None):
             "beta_fullsample": e.get("beta_fullsample"),
             # identity СОБЫТИЯ для меж-трекового дедупа корма (stage-review B4 high-а)
             "_bet": (p.get("asset"), p.get("direction"), p.get("threshold"), p.get("resolve_by")),
-            # identity ЭПИЗОДА шока (Э4(ж)/долг B4(а)): явное поле episode (пишет edge_forward
-            # с 13.07) либо дата печати как честный прокси для легаси-записей без поля
-            "_episode": str(p.get("episode") or p.get("sealed_at") or "")[:10],
+            # identity ЭПИЗОДА шока (Э4(ж)/долг B4(а)): ТОЛЬКО явное поле episode (пишет edge_forward
+            # с 13.07). Э4-ревью (HIGH): sealed_at как прокси НЕЛЬЗЯ — две НЕЗАВИСИМЫЕ легаси-печати
+            # одного ребра, случайно попавшие в один календарный зазор, склеивались бы в N=1 (дефляция
+            # N, ребро не проходило MIN_OUTCOMES). Явной episode-идентичности в старых данных нет →
+            # не выдумываем (П8): легаси без episode проходят как самостоятельные свидетельства.
+            "_episode": str(p.get("episode") or "")[:10],
         })
     # stage-review B4 (high-а): одна и та же ставка, запечатанная в ДВУХ треках (cascade_provisional
     # выдачи + edge_forward фарм-потока — дедуп треков сознательно внутри-трековый), — это ОДНО

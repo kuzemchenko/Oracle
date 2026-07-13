@@ -111,6 +111,43 @@ def test_event_budget_visible_and_capped(tmp_path):
     assert b["cap_usd"] == 3.0 and b["spent_usd"] == 0.0 and b["вызовов_llm"] == 0
 
 
+def test_dynamic_quota_and_second_pass_reaches_target_min(tmp_path):
+    """Э4-ревью (medium): 1 ШИРОКИЙ сегмент (первым) + 5 узких. Статичная квота ceil(max/n) срезала
+    бы широкий и итог < target_min. Динамическая квота + 2-й проход добирают ≥ target_min."""
+    LIM = {"world_enum": {"max_attempts_per_event": 1000, "target_instruments_min": 100,
+                          "target_instruments_max": 120, "map_ttl_days": 28},
+           "per_run_token_budget_usd": {"world_map": 3.0}}
+    карта = {"карта": {"событие": "e", "сегменты":
+             [{"сегмент": "широкий", "порядок": 1, "направление": "рост", "механизм": "m",
+               "секторы": ["Technology"], "индустрии": []}]
+             + [{"сегмент": f"узкий{k}", "порядок": 3, "направление": "рост", "механизм": "m",
+                 "секторы": [f"Narrow{k}"], "индустрии": []} for k in range(5)],
+             "обоснование": "ф", "уверенность": "средняя"},
+             "отказ": None, "провенанс": {"источник": "фикстура"}}
+
+    def fetch(url):
+        if "Technology" in url:                          # широкий сектор: 200 инструментов доступно
+            return {"data": [{"code": f"WIDE{i:03d}", "sector": "Technology", "industry": "X",
+                              "market_capitalization": 1e9 - i, "avgvol_200d": 500000}
+                             for i in range(200)]}
+        for k in range(5):
+            if f"Narrow{k}" in url:                       # узкие: по 2 инструмента
+                return {"data": [{"code": f"N{k}{j}", "sector": f"Narrow{k}", "industry": "X",
+                                  "market_capitalization": 1e6, "avgvol_200d": 500000} for j in range(2)]}
+        return {"data": []}
+    p = WE.enumerate_event(EVENT, map_doc=карта, con=_mem_db(with_hist=()), universe=UNI,
+                           limits=LIM, api_key="k", fetch=fetch, now_dt=NOW)
+    assert p["перечислено_инструментов"] >= 100, p["перечислено_инструментов"]
+    assert p["кэп_достигнут"] is False
+
+
+def test_candidate_registry_default_paths_are_repo_files():
+    """Э4-ревью (#17 герметичность): дефолт боевого реестра кандидат-рёбер сохранён и общий
+    у world_enum и edge_forward (тесты пишут в tmp — боевой edge_candidates.jsonl не трогается)."""
+    assert WE.CANDIDATES.name == "edge_candidates.jsonl" and WE.CANDIDATES.parent.name == "knowledge"
+    assert EFW.CANDIDATES == WE.CANDIDATES
+
+
 def test_stubs_wait_for_d3():
     with pytest.raises(NotImplementedError, match="Д3"):
         WE.score_pair_conditional({"источник": "A", "инструмент": "B"})

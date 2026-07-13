@@ -23,6 +23,9 @@ sys.path.insert(0, str(ROOT))
 
 from orchestrator import calibrate as CAL     # noqa: E402
 from mathlib import cascade as CAS            # noqa: E402
+from mathlib.calibration import conditional as _COND   # noqa: E402
+
+COND_TRAIN_TEST = _COND.TRAIN + _COND.TEST
 
 NOW = datetime.datetime(2026, 6, 12, 13, 0, 0, tzinfo=datetime.timezone.utc)
 DB = ROOT / "storage" / "oracle.db"
@@ -60,6 +63,24 @@ def test_calibrate_predictions_independent_of_conditional_module():
     finally:
         con.close()
     assert before == after       # байт-в-байт: calibrate не зависит от Д3
+
+
+def test_conditional_module_poisoning_does_not_affect_default_cascade(monkeypatch):
+    """Д3-ревью (LOW 6в) страж-тест: подменяем атрибут mathlib.calibration.conditional отравленным
+    модулем — node_cascade БЕЗ with_conditional обязан работать байт-в-байт (он его не трогает)."""
+    import mathlib.calibration as MC
+    src, node = _series()
+    before = json.dumps(CAS.node_cascade(src, node, shock=-0.05, horizon_days=5, lag=0),
+                        ensure_ascii=False, sort_keys=True)
+    poisoned = types.ModuleType("mathlib.calibration.conditional")
+
+    def _boom(*a, **k):  # noqa: ANN001
+        raise AssertionError("conditional не должен вызываться без with_conditional (Д3 аддитивен)")
+    poisoned.estimate_pair = _boom
+    monkeypatch.setattr(MC, "conditional", poisoned)
+    after = json.dumps(CAS.node_cascade(src, node, shock=-0.05, horizon_days=5, lag=0),
+                       ensure_ascii=False, sort_keys=True)
+    assert before == after
 
 
 def _series():
@@ -115,3 +136,50 @@ def test_cascade_from_quotes_signature_defaults_off():
     assert sig.parameters["with_conditional"].default is False
     sig2 = inspect.signature(CAS.node_cascade)
     assert sig2.parameters["with_conditional"].default is False
+
+
+def test_no_data_branch_carries_conditional_key_when_requested():
+    """Д3-ревью (LOW 6г): ключ sensitivity_conditional присутствует и на отказном пути
+    (нет синхронной истории) — когда его явно запросили. По умолчанию — по-прежнему отсутствует."""
+    short = [0.01] * 5
+    res = CAS.node_cascade(short, short, shock=0.01, horizon_days=5, with_conditional=True,
+                           conditional_kwargs={"train": 120, "test": 60, "step": 60})
+    assert res["sealable"] is False and res["sensitivity"] is None
+    assert "sensitivity_conditional" in res                 # ключ есть даже на «нет данных»
+    assert res["sensitivity_conditional"]["status"] == "не установлено"
+    res_off = CAS.node_cascade(short, short, shock=0.01, horizon_days=5)
+    assert "sensitivity_conditional" not in res_off         # без запроса — не появляется
+
+
+def test_cascade_from_quotes_conditional_measures_on_long_history(tmp_path):
+    """Д3-ревью (HIGH): интеграция раньше была мертва — lookback=400 < train+test=756, условный
+    всегда «нет данных». Теперь conditional-ветка берёт свой длинный срез: на 10 годах измерение
+    СОСТОИТСЯ (установлено ИЛИ честно не установлено — но НЕ «история N<train+test»)."""
+    import sqlite3
+    dbfile = tmp_path / "q.db"
+    con = sqlite3.connect(dbfile)
+    con.execute("CREATE TABLE quotes (symbol TEXT, date TEXT, open REAL, high REAL, low REAL,"
+                " close REAL, adjusted_close REAL, volume INTEGER)")
+    n = 2600                                                 # ~10 лет торговых дней
+    rng = np.random.default_rng(9)
+    src_px, node_px = [100.0], [50.0]
+    for i in range(1, n):
+        r = rng.normal(0, 0.01)
+        src_px.append(src_px[-1] * (1 + r))
+        node_px.append(node_px[-1] * (1 + 0.7 * r + rng.normal(0, 0.004)))  # синхронный перенос
+    base = datetime.date(2016, 1, 4)
+    for sym, px in (("USO.US", src_px), ("BNO.US", node_px)):
+        for i, p in enumerate(px):
+            d = (base + datetime.timedelta(days=i)).isoformat()
+            con.execute("INSERT INTO quotes (symbol, date, close, adjusted_close, volume)"
+                        " VALUES (?,?,?,?,1000000)", (sym, d, p, p))
+    con.commit(); con.close()
+    res = CAS.cascade_from_quotes("USO.US", -0.05, ["BNO.US"], horizon_days=5, db=dbfile,
+                                  with_conditional=True)
+    node = res["узлы"][0]
+    cond = node["sensitivity_conditional"]
+    assert cond is not None
+    # ключевое: измерение СОСТОЯЛОСЬ — НЕ отвергнуто по нехватке истории (это и был мёртвый путь)
+    assert "история" not in str(cond.get("провенанс", ""))
+    assert cond["n_obs"] >= COND_TRAIN_TEST
+    assert cond["status"] in ("установлено", "не установлено")

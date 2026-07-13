@@ -252,62 +252,88 @@ def enumerate_event(event, *, client=None, map_doc=None, api_key=None, con=None,
     попыток, кэп_достигнут = 0, False
     seen_syms, перечислено, пары = set(), [], []
     сегменты_протокол = []
-    # квота инструментов НА СЕГМЕНТ: ровное деление кэпа события — иначе сегмент 1-го порядка
-    # (широкий сектор, отыгран HFT) съедает весь кэп, а дальние чокпоинты 2–4 порядка (П5,
-    # смысл перебора) не скринятся вовсе. Недобор одного сегмента отдаётся следующим (остаток).
+    target_max = cfg["target_instruments_max"]
+    target_min = cfg["target_instruments_min"]
     n_seg = len(карта["сегменты"])
-    квота_сегмента = max(1, -(-cfg["target_instruments_max"] // n_seg))  # ceil
+    отсечённые_квотой = []           # сегменты, где квота срезала (было больше) — кандидаты 2-го прохода
+
+    def _process(seg, квота):
+        """Скрин одного сегмента с квотой + классифицированный отсев (д). Возвращает
+        (n_доступно, взято) — сколько скрин вернул и сколько НОВЫХ инструментов перечислено."""
+        nonlocal попыток, кэп_достигнут
+        остаток_л = target_max - len(перечислено)
+        scr = SS.screen_segment(seg, api_key=api_key, con=con, universe=universe,
+                                max_instruments=min(квота, остаток_л), fetch=fetch,
+                                notices_path=notices_path)
+        сегменты_протокол.append({"сегмент": seg["сегмент"], "порядок": seg["порядок"],
+                                  "источник_скрина": scr["источник"], "квота": квота,
+                                  "инструментов": len(scr["инструменты"])})
+        if not scr["инструменты"]:
+            _reject("инструмент", f"сегмент:{seg['сегмент']}",
+                    "нет данных скрина: " + str(scr.get("отказ") or "скрин вернул пусто"))
+            return 0, 0
+        rows = SS.annotate_sealable(scr["инструменты"], con=con)
+        if allow_history_fetch and api_key is not None:
+            missing = [r["symbol"] for r in rows if not r["sealable"]]
+            if missing:
+                SS.backfill_history(missing, api_key, con=con, notices_path=notices_path)
+                rows = SS.annotate_sealable(rows, con=con)
+        взято = 0
+        for r in rows:
+            sym = r["symbol"]
+            if sym in seen_syms:
+                continue              # дубль между сегментами/проходами — не попытка и не возврат
+            if попыток >= cfg["max_attempts_per_event"]:
+                кэп_достигнут = True
+                _reject("инструмент", sym,
+                        f"кэп попыток на событие: {cfg['max_attempts_per_event']} (config world_enum)")
+                break
+            попыток += 1
+            seen_syms.add(sym)
+            перечислено.append({**r, "сегмент": seg["сегмент"], "порядок": seg["порядок"]})
+            взято += 1
+            if sym == источник:
+                _reject("инструмент", sym, "совпадает с источником шока — самопетля")
+                continue
+            if not r["sealable"]:
+                _reject("инструмент", sym,
+                        "нет истории/не sealable: <" + str(U.MIN_SEALABLE_BARS) +
+                        " баров в quotes (§9/П16)" +
+                        ("" if allow_history_fetch else "; добор истории в каркасе отключён "
+                         "(боевая БД read-only до Э5; в бою — без потолка, решение №5)"))
+                continue
+            пары.append({"источник": источник, "инструмент": sym,
+                         "событие": event.get("событие"),
+                         "сегмент": seg["сегмент"], "порядок": seg["порядок"],
+                         "направление_сегмента": seg["направление"],
+                         "канал": seg.get("канал"), "механизм": seg["механизм"]})
+        return len(scr["инструменты"]), взято
+
     try:
-        for seg in карта["сегменты"]:
+        # ── 1-й проход: ДИНАМИЧЕСКАЯ квота — на сегменте i квота = ceil(остаток / оставшиеся сегменты).
+        # Так недобор широкого сегмента реально перетекает следующим (узкие сегменты 2–4 порядка
+        # получают больше), а не режется статичным ceil(max/n). Комментарий = код (Э4-ревью medium).
+        for i, seg in enumerate(карта["сегменты"]):
             if кэп_достигнут:
                 break
-            остаток = cfg["target_instruments_max"] - len(перечислено)
+            остаток = target_max - len(перечислено)
             if остаток <= 0:
                 break
-            scr = SS.screen_segment(seg, api_key=api_key, con=con, universe=universe,
-                                    max_instruments=min(квота_сегмента, остаток), fetch=fetch,
-                                    notices_path=notices_path)
-            сегменты_протокол.append({"сегмент": seg["сегмент"], "порядок": seg["порядок"],
-                                      "источник_скрина": scr["источник"],
-                                      "инструментов": len(scr["инструменты"])})
-            if not scr["инструменты"]:
-                # «нет данных скрина» — ИНСТРУМЕНТ-специфичный класс (список пуст → следующий сегмент)
-                _reject("инструмент", f"сегмент:{seg['сегмент']}",
-                        "нет данных скрина: " + str(scr.get("отказ") or "скрин вернул пусто"))
-                continue
-            rows = SS.annotate_sealable(scr["инструменты"], con=con)
-            if allow_history_fetch and api_key is not None:
-                missing = [r["symbol"] for r in rows if not r["sealable"]]
-                if missing:
-                    SS.backfill_history(missing, api_key, con=con, notices_path=notices_path)
-                    rows = SS.annotate_sealable(rows, con=con)
-            for r in rows:
-                sym = r["symbol"]
-                if sym in seen_syms:
-                    continue          # дубль между сегментами — не попытка и не возврат
-                if попыток >= cfg["max_attempts_per_event"]:
-                    кэп_достигнут = True
-                    _reject("инструмент", sym,
-                            f"кэп попыток на событие: {cfg['max_attempts_per_event']} (config world_enum)")
+            осталось_сегментов = n_seg - i
+            квота = max(1, -(-остаток // осталось_сегментов))          # ceil(остаток/осталось)
+            n_доступно, _ = _process(seg, квота)
+            if n_доступно >= квота and n_доступно >= 1:                 # квота срезала — есть ещё
+                отсечённые_квотой.append(seg)
+        # ── 2-й проход: если недобрали target_min и есть сегменты, срезанные квотой в 1-м проходе,
+        # добираем из них до target_max (порядок карты; дубли гасит seen_syms). Э4-ревью (medium).
+        if not кэп_достигнут and len(перечислено) < target_min and отсечённые_квотой:
+            for seg in отсечённые_квотой:
+                if кэп_достигнут:
                     break
-                попыток += 1
-                seen_syms.add(sym)
-                перечислено.append({**r, "сегмент": seg["сегмент"], "порядок": seg["порядок"]})
-                if sym == источник:
-                    _reject("инструмент", sym, "совпадает с источником шока — самопетля")
-                    continue
-                if not r["sealable"]:
-                    _reject("инструмент", sym,
-                            "нет истории/не sealable: <" + str(U.MIN_SEALABLE_BARS) +
-                            " баров в quotes (§9/П16)" +
-                            ("" if allow_history_fetch else "; добор истории в каркасе отключён "
-                             "(боевая БД read-only до Э5; в бою — без потолка, решение №5)"))
-                    continue
-                пары.append({"источник": источник, "инструмент": sym,
-                             "событие": event.get("событие"),
-                             "сегмент": seg["сегмент"], "порядок": seg["порядок"],
-                             "направление_сегмента": seg["направление"],
-                             "канал": seg.get("канал"), "механизм": seg["механизм"]})
+                остаток = target_max - len(перечислено)
+                if остаток <= 0:
+                    break
+                _process(seg, остаток)
     finally:
         if own:
             con.close()

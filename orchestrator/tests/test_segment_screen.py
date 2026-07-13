@@ -77,6 +77,47 @@ def test_quota_error_alerts_owner_and_falls_back_db(tmp_path):
     assert "квота EODHD" in rec["text"] and rec["ts"]
 
 
+def test_quota_error_in_http200_body_alerts_and_falls_back(tmp_path):
+    """Э4-ревью (HIGH): квотная ошибка в ТЕЛЕ HTTP-200 JSON ({"error":"quota exceeded"}) больше НЕ
+    маскируется под пустой скрин — детект тела → QuotaError → алерт владельцу + фолбэк БД."""
+    con = _mem_db()
+    notices = tmp_path / "notices.jsonl"
+    for body in ({"error": "quota exceeded"}, {"message": "payment required"}, {"error": "limit reached"}):
+        n0 = len(notices.read_text(encoding="utf-8").splitlines()) if notices.exists() else 0
+        r = SS.screen_segment(SEG, api_key="k", con=con, universe=UNI,
+                              fetch=lambda u, b=body: b, notices_path=notices)
+        assert "fundamentals_db" in r["источник"]        # честный откат на БД
+        lines = notices.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == n0 + 1                       # РОВНО один append на каждую квоту (курсор цел)
+        assert "квота EODHD" in json.loads(lines[-1])["text"]
+
+
+def test_industry_typo_degrades_to_sector_screener():
+    """Э4-ревью (medium): невалидная «индустрия» карты (пустой industry-скрин) деградирует на сектор."""
+    seg = {"сегмент": "x", "порядок": 2, "направление": "рост", "механизм": "m",
+           "секторы": ["Industrials"], "индустрии": ["Опечатка Industry"]}
+
+    def fetch(url):
+        return _page([]) if "industry" in url else _page([_row("AAA")])   # industry пуст → sector даёт
+    r = SS.screen_segment(seg, api_key="k", universe=UNI, fetch=fetch, max_instruments=10)
+    assert [i["symbol"] for i in r["инструменты"]] == ["AAA.US"]
+    assert "деградация" in r["источник"]                  # честная причина деградации
+
+
+def test_industry_typo_degrades_to_sector_db():
+    """Деградация industry→sector и в БД-фолбэке (нет api_key)."""
+    con = _mem_db()
+    con.execute("INSERT INTO fundamentals VALUES ('VRT.US','Vertiv','Industrials',"
+                "'Electrical Equipment & Parts', 5000)")
+    for i in range(40):
+        con.execute("INSERT INTO quotes VALUES ('VRT.US', ?, 100, 100, 2000000)", (f"2026-06-{i%28+1:02d}",))
+    seg = {"сегмент": "x", "порядок": 2, "направление": "рост", "механизм": "m",
+           "секторы": ["Industrials"], "индустрии": ["Несуществующая Industry"]}
+    r = SS.screen_segment(seg, api_key=None, con=con, universe=UNI)
+    assert [i["symbol"] for i in r["инструменты"]] == ["VRT.US"]   # industry пуст → сектор нашёл
+    assert "деградация" in r["источник"]
+
+
 def test_db_fallback_sector_industry_and_liquidity():
     con = _mem_db()
     con.execute("INSERT INTO fundamentals VALUES ('VRT.US','Vertiv','Industrials',"

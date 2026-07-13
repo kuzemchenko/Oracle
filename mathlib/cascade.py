@@ -161,7 +161,8 @@ def node_probability(amplitude, resid_std, horizon_days, threshold=0.0,
 
 
 def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
-                 lag=0, min_obs=MIN_OBS, with_conditional=False, conditional_kwargs=None):
+                 lag=0, min_obs=MIN_OBS, with_conditional=False, conditional_kwargs=None,
+                 cond_source_ret=None, cond_node_ret=None):
     """Полная оценка узла: чувствительность → амплитуда → вероятность, с честным §9/П16-гейтом.
 
     Возвращает dict с sealable (можно ли запечатывать форвард-прогноз на этот узел) и причиной.
@@ -171,11 +172,25 @@ def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
     при with_conditional=True, sensitivity_conditional (условный оцениватель эпизодов шока,
     mathlib.calibration.conditional). По умолчанию conditional НЕ считается (lazy) — печати
     event_first/replay/calibrate без явного включения не меняются; sealable/probability/amplitude
-    по-прежнему определяются ТОЛЬКО безусловным измерением (переключение — этап Э4(в,г))."""
+    по-прежнему определяются ТОЛЬКО безусловным измерением (переключение — этап Э4(в,г)).
+
+    cond_source_ret/cond_node_ret — ОТДЕЛЬНЫЕ (обычно более длинные) ряды для условного
+    оценивателя: ему нужен train+test (≥756 набл.), тогда как безусловной бете хватает lookback
+    (Д3-ревью HIGH: без этого cascade_from_quotes(lookback=400) всегда давал условному «нет данных»).
+    None → берутся source_ret/node_ret (обратная совместимость)."""
     sens = node_sensitivity(source_ret, node_ret, lag=lag, min_obs=min_obs)
     if sens is None:
-        return {"sealable": False, "причина": "нет данных: < минимума синхронной истории (П8)",
-                "sensitivity": None, "sensitivity_unconditional": None}
+        no_data = {"sealable": False, "причина": "нет данных: < минимума синхронной истории (П8)",
+                   "sensitivity": None, "sensitivity_unconditional": None}
+        # Д3-ревью (LOW 6г): ключ sensitivity_conditional присутствует и в ветке «нет данных»,
+        # когда его явно запросили — иначе аддитивный контракт «поле есть при with_conditional»
+        # нарушался как раз на отказном пути. Условный оцениватель сам вернёт честное «нет данных».
+        if with_conditional:
+            no_data["sensitivity_conditional"] = conditional_sensitivity(
+                cond_source_ret if cond_source_ret is not None else source_ret,
+                cond_node_ret if cond_node_ret is not None else node_ret,
+                **(conditional_kwargs or {}))
+        return no_data
     amp = node_amplitude(sens["beta"], shock)
     prob = node_probability(amp, sens["resid_std"], horizon_days, threshold)
     weak = sens["r2"] < WEAK_R2
@@ -187,8 +202,10 @@ def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
         sealable, причина = True, ("перенос установлен" + (" (слабый R²)" if weak else ""))
     conditional = None
     if with_conditional:
-        conditional = conditional_sensitivity(source_ret, node_ret,
-                                              **(conditional_kwargs or {}))
+        conditional = conditional_sensitivity(
+            cond_source_ret if cond_source_ret is not None else source_ret,
+            cond_node_ret if cond_node_ret is not None else node_ret,
+            **(conditional_kwargs or {}))
     return {
         "sealable": sealable, "причина": причина,
         "sensitivity": sens,
@@ -216,22 +233,30 @@ def cascade_from_quotes(shock_symbol, shock_move, node_symbols, *, horizon_days,
     выключено, боевой путь не меняется — переключение потребителей только в Э4).
     """
     from mathlib.calibration import loader as LD
+    from mathlib.calibration import conditional as COND
     syms = [shock_symbol] + list(node_symbols)
     _, series = LD.load_aligned(syms, db=db) if db else LD.load_aligned(syms)
     if shock_symbol not in series or series[shock_symbol].adj.size == 0:
         return {"error": f"нет источника {shock_symbol}", "узлы": []}
     src_ret = log_returns(series[shock_symbol].adj[-lookback:])
+    # Д3-ревью (HIGH): условному оценивателю нужен train+test (≥756 набл.), безусловной бете —
+    # lookback. Считаем ОТДЕЛЬНЫЙ более длинный срез ТОЛЬКО для conditional; безусловная ветка
+    # (src_ret/node_ret на lookback) не трогается — байт-в-байт совместимость.
+    cond_lookback = max(lookback, COND.TRAIN + COND.TEST + 1) if with_conditional else lookback
+    cond_src_ret = log_returns(series[shock_symbol].adj[-cond_lookback:]) if with_conditional else None
     out = []
     for nd in node_symbols:
         if nd not in series or series[nd].adj.size == 0:
             out.append({"узел": nd, "sealable": False, "причина": "нет источника цены (П8)"})
             continue
         node_ret = log_returns(series[nd].adj[-lookback:])
+        cond_node_ret = log_returns(series[nd].adj[-cond_lookback:]) if with_conditional else None
         lag = _lag_for_pair(shock_symbol, nd, links)
         res = node_cascade(src_ret, node_ret, shock_move, horizon_days=horizon_days,
                            threshold=threshold, lag=lag, min_obs=min_obs,
                            with_conditional=with_conditional,
-                           conditional_kwargs=conditional_kwargs)
+                           conditional_kwargs=conditional_kwargs,
+                           cond_source_ret=cond_src_ret, cond_node_ret=cond_node_ret)
         out.append({"узел": nd, **res})
     out.sort(key=lambda r: abs(r.get("amplitude") or 0) * (r.get("reliability_r2") or 0), reverse=True)
     return {"источник": shock_symbol, "shock": shock_move, "horizon_days": horizon_days, "узлы": out}

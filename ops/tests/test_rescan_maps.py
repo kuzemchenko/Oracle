@@ -54,6 +54,24 @@ def test_rescan_diff_added_and_dropped(tmp_path):
     assert d["было"] == 2 and d["стало"] == 2      # KEEP остался, NEW пришёл (sealable-гейт жив)
 
 
+def test_rescan_excludes_shock_source_and_applies_quota(tmp_path):
+    """Э4-ревью (medium): пере-скрин ВОСПРОИЗВОДИТ правила enumerate_event — источник шока
+    исключается из текущих, и на сегмент действует квота (а не кэп 300). Иначе дифф несравним."""
+    reg = tmp_path / "maps.jsonl"
+    event = {"событие": "e", "источник_шока": "SRC.US"}
+    WE.register_map(event, КАРТА, 28, ["KEEP.US"], run_id="we_t", path=reg,
+                    now_dt=NOW - datetime.timedelta(days=6))
+    con = _mem_db(["KEEP.US", "NEW.US", "SRC.US"])         # у источника тоже есть история
+    # скрин возвращает и источник, и новый инструмент — источник не должен попасть в «текущие»
+    p = RM.rescan(registry_path=reg, api_key="k", con=con, universe=UNI,
+                  fetch=_fetch_rows(["KEEP", "NEW", "SRC"]), write=False, now_dt=NOW)
+    d = p["карты"][0]["дифф"]
+    assert "SRC.US" not in d["добавились"] and "SRC.US" not in (set(["KEEP.US"]) | set(d["добавились"]))
+    assert d["добавились"] == ["NEW.US"]                    # источник исключён, новый добавлен
+    seg0 = p["карты"][0]["сегменты"][0]
+    assert "квота" in seg0                                  # квота присутствует (правила enumerate)
+
+
 def test_rescan_skips_expired_maps(tmp_path):
     reg = tmp_path / "maps.jsonl"
     WE.register_map({"событие": "старое"}, КАРТА, 7, ["X.US"], run_id="we_old", path=reg,
