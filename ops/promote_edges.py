@@ -15,6 +15,7 @@
 Только детерминированный код (инвариант #6). LLM здесь нет.
 """
 import argparse
+import datetime
 import json
 import pathlib
 import sys
@@ -30,6 +31,12 @@ from orchestrator import resolve as RES                   # noqa: E402
 
 OUT_YAML = ROOT / "knowledge" / "forward_promotions.yaml"
 REPORTS = ROOT / "ops" / "reports" / "promotions"
+
+# Э4(ж) / долг B4(а) «псевдорепликация корма»: печати одного ЭПИЗОДА шока (окно реакции
+# CAS.EVENT_WINDOW_DAYS = 5 торговых дней ≈ 7 календарных) — НЕ независимые свидетельства.
+# Две печати одного ребра с датами эпизодов ближе этого зазора делят бары окна шока →
+# в подсчёте N остаётся первая (keep-first, порядок журнала детерминирован).
+EPISODE_GAP_DAYS = 7
 
 HEADER = (
     "# СГЕНЕРИРОВАНО ops/promote_edges.py --apply (форвард-промоушен рёбер, решение 28.06.2026).\n"
@@ -75,6 +82,9 @@ def collect_rows(predictions_path=None, outcomes_path=None):
             "beta_fullsample": e.get("beta_fullsample"),
             # identity СОБЫТИЯ для меж-трекового дедупа корма (stage-review B4 high-а)
             "_bet": (p.get("asset"), p.get("direction"), p.get("threshold"), p.get("resolve_by")),
+            # identity ЭПИЗОДА шока (Э4(ж)/долг B4(а)): явное поле episode (пишет edge_forward
+            # с 13.07) либо дата печати как честный прокси для легаси-записей без поля
+            "_episode": str(p.get("episode") or p.get("sealed_at") or "")[:10],
         })
     # stage-review B4 (high-а): одна и та же ставка, запечатанная в ДВУХ треках (cascade_provisional
     # выдачи + edge_forward фарм-потока — дедуп треков сознательно внутри-трековый), — это ОДНО
@@ -95,9 +105,28 @@ def collect_rows(predictions_path=None, outcomes_path=None):
         seen.add(key)
         deduped.append(r)
     rows = deduped
+    # Э4(ж) / долг B4(а): ДЕДУП ЭПИЗОДА — несколько печатей одного эпизода шока (одно ребро,
+    # даты эпизодов ближе EPISODE_GAP_DAYS: окна шока делят бары) = ОДНО свидетельство в N.
+    # Keep-first по порядку журнала. Записи без даты эпизода не выдумываем (П8) — проходят как есть.
+    ep_last, ep_rows, episode_dupes = {}, [], 0
+    for r in rows:
+        ep = r.pop("_episode", "")
+        try:
+            d = datetime.date.fromisoformat(ep)
+        except ValueError:
+            ep_rows.append(r)
+            continue
+        last = ep_last.get(r["edge_key"])
+        if last is not None and abs((d - last).days) < EPISODE_GAP_DAYS:
+            episode_dupes += 1
+            continue
+        ep_last[r["edge_key"]] = d
+        ep_rows.append(r)
+    rows = ep_rows
     stats = {"провизорных_исходов_однозвенных": len(rows), "многозвенных_пропущено": multi,
              "без_cascade_path": no_path, "ещё_pending": pending,
-             "дубль_событий_между_треками": cross_dupes}
+             "дубль_событий_между_треками": cross_dupes,
+             "дубль_эпизода_шока": episode_dupes}
     return rows, stats
 
 

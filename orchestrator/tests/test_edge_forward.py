@@ -83,9 +83,10 @@ def test_edge_library_dedup_direction_selfloop(tmp_path):
         {"источник": None, "узел": "D.US", "lag": 0},        # битая запись
     ])
     lib = EFW.edge_library(p)
-    assert lib == [{"from": "A.US", "to": "B.US", "lag": 0},
-                   {"from": "A.US", "to": "B.US", "lag": 30},
-                   {"from": "B.US", "to": "A.US", "lag": 0}]
+    # Э4(ж): у рёбер появился провенанс origin (library | world_enum) — решение владельца 13.07 №7
+    assert lib == [{"from": "A.US", "to": "B.US", "lag": 0, "origin": "library"},
+                   {"from": "A.US", "to": "B.US", "lag": 30, "origin": "library"},
+                   {"from": "B.US", "to": "A.US", "lag": 0, "origin": "library"}]
 
 
 def test_activated_edge_seals_single_link(tmp_path, monkeypatch):
@@ -268,3 +269,27 @@ def test_seal_flag_off_never_touches_journal(tmp_path, monkeypatch):
     assert not called and not preds.exists()
     assert r["итоги"]["запечатано"] == 1                       # dry: посчитано «к печати», не в журнал
     assert r["рёбра"][-1]["статус"] == "к_печати (dry)"
+
+
+def test_candidate_edge_participates_and_seals_with_episode(tmp_path, monkeypatch):
+    """Э4(ж): кандидат-ребро из edge_candidates.jsonl участвует в форвард-тесте наравне с
+    библиотекой (origin=world_enum виден), печать несёт episode для дедупа корма промоушена."""
+    _fix_beta(monkeypatch)
+    con = _db({"AAA.US": _series_shocked(), "BBB.US": _series_quiet()})
+    sens = _sens_yaml(tmp_path, [])                              # библиотека ПУСТА
+    cand = tmp_path / "cand.jsonl"
+    cand.write_text(json.dumps({"from": "AAA.US", "to": "BBB.US", "lag": 0,
+                                "origin": "world_enum"}) + "\n", encoding="utf-8")
+    preds = tmp_path / "pred.jsonl"
+    r = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
+                             sens_path=sens, candidates_path=cand, predictions_path=preds)
+    assert r["итоги"]["рёбер_в_библиотеке"] == 1 and r["итоги"]["запечатано"] == 1
+    assert r["рёбра"][0]["origin"] == "world_enum"
+    rec = SEAL.read_predictions(preds)[0]
+    assert rec["edge_origin"] == "world_enum"
+    assert rec["episode"] == NOW.strftime("%Y-%m-%d")            # identity эпизода шока
+    # без файла кандидатов — библиотека пуста, ничего не печатается (кандидаты не выдумываются)
+    r2 = EFW.run_edge_forward(write=False, seal=False, con=con, now_dt=NOW,
+                              sens_path=sens, candidates_path=tmp_path / "нет.jsonl",
+                              predictions_path=tmp_path / "p2.jsonl")
+    assert r2["итоги"]["рёбер_в_библиотеке"] == 0
