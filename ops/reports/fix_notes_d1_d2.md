@@ -58,3 +58,26 @@ Regression: `test_calibrate_oos_validation_is_walk_forward_clean`.
 Regression: `test_indicators_zero_volume_last_bar_nulls_vol_metrics`,
 `test_scan_staleness_gate_drops_stale_bar`. КЛЮЧЕВОЙ фикс — позволяет основной сессии
 безопасно ре-активировать Д1.
+
+### 1 [BLOCKER] look-ahead: df для replay калиброван на полной истории — ПОДТВЕРЖДЕНО, исправлено
+`ops/calibrate_fdr_background.py`. Прежде replay читал df из боевого thresholds.yaml,
+посчитанные на ПОЛНОЙ истории БД (включая replay-окно 21.06–12.07) → df для 22.06 знал
+z-наблюдения после него. Фикс: драйвер отдельно калибрует df ТОЛЬКО на данных ≤
+STABILITY_CUTOFF=2026-06-20 и пишет артефакт `ops/reports/fdr_replay/tail_df_prewindow.json`;
+`replay_scan.py` использует ЕГО (см. пункт про replay ниже). Задокументировано в provenance
+секции и REPORT.md. Regression (replay-сторона): см. ниже.
+
+### 2 [BLOCKER] гард стабильности неполный — ПОДТВЕРЖДЕНО, исправлено
+`ops/calibrate_fdr_background.py:compute_stability`. Прежний гард фиксировал только смену df
+у ОБОИХ-пиннутых инструментов; молчал, если пин ПОЯВИЛСЯ благодаря будущим данным, ПРОПАЛ,
+или сменился фолбэк. Новый гард сравнивает full-секцию с pre-window-секцией и фиксирует ЛЮБОЕ
+расхождение per-instrument (пин_появился_на_будущих_данных / пин_пропал / df_сменился) плюс
+смену фолбэка. Regression: `test_stability_guard_catches_all_divergences`.
+
+### 6 [HIGH] splice_thresholds заменял диапазон background_metrics→timing — ПОДТВЕРЖДЕНО, исправлено
+`ops/calibrate_fdr_background.py:splice_thresholds` (+`_fdr_key_block`). Прежде вырезался весь
+диапазон от `background_metrics:` до `timing:`, теряя ключи fdr между ними (q_value_max,
+min_sources). Точечный сплайс: заменяется ТОЛЬКО блок background_metrics, tail_df добавляется/
+заменяется по ключу, прочие ключи fdr и все секции — байт-в-байт. Идемпотентен на повторе.
+Regression: `test_splice_preserves_fdr_keys_after_background_metrics`,
+`test_splice_idempotent_replaces_existing_tail_df`.
