@@ -61,14 +61,15 @@ def test_calibrate_short_series_not_pinned():
 
 
 def test_calibrate_unstable_not_pinned():
-    # первая половина — почти гаусс, вторая — очень тяжёлые хвосты: df по фолдам должен разъехаться
+    # первая половина — почти гаусс, вторая — экстремально тяжёлые хвосты с масштабом:
+    # медианный df не может описать ОБА режима → OOS-валидация роняет пин (v2)
     rng = np.random.default_rng(3)
-    z = np.concatenate([rng.standard_normal(800), rng.standard_t(2, size=800) * 3.0])
+    z = np.concatenate([rng.standard_normal(800) * 0.3, rng.standard_t(2, size=800) * 3.0])
     res = TD.calibrate_instrument(z)
-    if res["pinned"]:                          # допускаем пин только если фолды реально сошлись
-        assert res["fold_df_ratio"] <= TD.MAX_FOLD_DF_RATIO
+    if res["pinned"]:                          # пин допустим только если медианный df прошёл OOS
+        assert res["ok_fraction"] >= TD.MIN_OOS_OK_FRACTION
     else:
-        assert res["reason"]
+        assert "OOS" in res["reason"] or "фолдов" in res["reason"]
 
 
 def test_pooled_fallback_reports_value_and_check():

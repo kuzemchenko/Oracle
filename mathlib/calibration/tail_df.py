@@ -25,14 +25,20 @@ from mathlib import tailprob as TP
 from mathlib.calibration import walkforward as wf
 
 # ── Пороги процедуры: зафиксированы 2026-07-13 ДО прогона replay-сравнения (рамка 3) ──
+# ПЕРЕСМОТР v2 (13.07, ДО replay-сравнения, по walk-forward-отчёту): критерий устойчивости
+# «max/min df по фолдам ≤ 4» заменён OOS-валидацией МЕДИАННОГО df. Обоснование измерением
+# (ops/reports/fdr_background/): функция потерь по df плоская в верхней области сетки
+# (10↔100 почти неразличимы на train-хвостах), поэтому df-ratio отклонял ШУМ плоской области —
+# 208/235 инструментов «нестабильны», при том что их МЕДИАННЫЙ df проходил OOS-проверку хвостовых
+# частот в ≥75% фолдов у КАЖДОГО (среднее 97%). Валидируем то значение, которое реально уходит
+# в конфиг, — прежний df-ratio остаётся в выдаче информационно.
 DF_GRID = (2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0)
-FIT_THRESHOLDS = (1.5, 2.0, 2.5, 3.0)   # хвостовые пороги подбора (|z| ≤ ~4.25 — см. докстринг)
+FIT_THRESHOLDS = (1.5, 2.0, 2.5, 3.0)   # хвостовые пороги подбора (|z| ≤ ~4.36 — см. докстринг)
 OOS_THRESHOLDS = (2.0, 3.0)             # OOS-проверка частот |z|>2, |z|>3 (задание Д1)
 TRAIN_SIZE = 250                        # ~1 торговый год обучения
 TEST_SIZE = 125                         # ~полгода проверки, непересекающиеся окна
 MIN_FOLDS = 2                           # меньше 2 фолдов — устойчивость не проверить
-MIN_OOS_OK_FRACTION = 0.5               # пин требует OOS-ok в ≥ половине фолдов
-MAX_FOLD_DF_RATIO = 4.0                 # разброс df по фолдам: max/min ≤ 4
+MIN_OOS_OK_FRACTION = 0.5               # пин: МЕДИАННЫЙ df OOS-ok в ≥ половине фолдов (v2)
 OOS_ALPHA = 0.05                        # двусторонний точный биномиальный тест частоты хвоста
 SCAN_WINDOW = 20                        # окно сканного z (ret_z_20 / vol_z_log_20, context._indicators)
 
@@ -157,14 +163,13 @@ def calibrate_instrument(z, train_size=TRAIN_SIZE, test_size=TEST_SIZE, grid=DF_
                          fit_thresholds=FIT_THRESHOLDS, oos_thresholds=OOS_THRESHOLDS):
     """Walk-forward подбор df для одной серии сканных z.
 
-    Каждый фолд: fit_df на train → oos_tail_check на test.
-    ПИН (все критерии зафиксированы до прогона):
-      • фолдов ≥ MIN_FOLDS;
-      • доля OOS-ok фолдов ≥ MIN_OOS_OK_FRACTION;
-      • разброс df по фолдам: max/min ≤ MAX_FOLD_DF_RATIO.
-    df_pinned = медиана фолдовых df, прибитая к сетке (ничья → меньший df).
+    Каждый фолд: fit_df на train (кандидаты) → кандидат-итог = МЕДИАННЫЙ фолдовый df
+    (прибит к сетке, ничья → меньший) → OOS-валидация ИМЕННО этого значения на test-окне
+    КАЖДОГО фолда (v2 — валидируем то, что уходит в конфиг, см. шапку модуля).
+    ПИН: фолдов ≥ MIN_FOLDS И медианный df OOS-ok в ≥ MIN_OOS_OK_FRACTION фолдов.
 
-    Возвращает dict: {pinned, df, folds, reason?, n}. Не пинится → pinned=False + причина (П8).
+    Возвращает dict: {pinned, df, folds, reason?, n, ok_fraction, fold_df_ratio(информационно)}.
+    Не пинится → pinned=False + причина (П8).
     """
     z = np.asarray(z, dtype=float)
     n = int(z.size)
@@ -174,29 +179,27 @@ def calibrate_instrument(z, train_size=TRAIN_SIZE, test_size=TEST_SIZE, grid=DF_
                    reason=f"короткая история: {n} z-наблюдений < train+test={train_size + test_size}")
         return out
     folds = wf.walk_forward(n, train_size, test_size)
-    fold_rows, dfs, ok_count = [], [], 0
-    for f in folds:
-        df_f, _ = fit_df(z[f.train], grid, fit_thresholds)
-        oos = oos_tail_check(z[f.test], df_f, oos_thresholds)
-        dfs.append(df_f)
+    dfs = [fit_df(z[f.train], grid, fit_thresholds)[0] for f in folds]
+    df_med = _snap_to_grid(float(np.median(dfs)), grid)
+    fold_rows, ok_count = [], 0
+    for f, df_f in zip(folds, dfs):
+        oos = oos_tail_check(z[f.test], df_med, oos_thresholds)   # v2: проверяем медианный df
         ok_count += int(oos["ok"])
-        fold_rows.append({"fold": f.fold, "df": df_f, "oos_ok": oos["ok"], "oos": oos["пороги"]})
+        fold_rows.append({"fold": f.fold, "df_train": df_f, "oos_ok_median_df": oos["ok"],
+                          "oos": oos["пороги"]})
     out["folds"] = fold_rows
     if len(folds) < MIN_FOLDS:
         out.update(pinned=False, df=None,
                    reason=f"фолдов {len(folds)} < {MIN_FOLDS} — устойчивость не проверить")
         return out
     ok_frac = ok_count / len(folds)
-    ratio = max(dfs) / min(dfs)
-    df_med = _snap_to_grid(float(np.median(dfs)), grid)
-    out.update(ok_fraction=round(ok_frac, 3), fold_df_ratio=round(ratio, 2))
+    out.update(ok_fraction=round(ok_frac, 3),
+               fold_df_ratio=round(max(dfs) / min(dfs), 2),   # информационно (v1-критерий)
+               df_candidate=df_med)
     if ok_frac < MIN_OOS_OK_FRACTION:
         out.update(pinned=False, df=None,
-                   reason=f"OOS-ok лишь в {ok_count}/{len(folds)} фолдов (< {MIN_OOS_OK_FRACTION:.0%})")
-        return out
-    if ratio > MAX_FOLD_DF_RATIO:
-        out.update(pinned=False, df=None,
-                   reason=f"df нестабилен по фолдам: max/min={ratio:.1f} > {MAX_FOLD_DF_RATIO}")
+                   reason=(f"медианный df={df_med} не проходит OOS-проверку хвостовых частот: "
+                           f"ok в {ok_count}/{len(folds)} фолдов (< {MIN_OOS_OK_FRACTION:.0%})"))
         return out
     out.update(pinned=True, df=df_med)
     return out
