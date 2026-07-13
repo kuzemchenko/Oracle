@@ -35,6 +35,11 @@ DB = ROOT / "storage" / "oracle.db"
 CORE = C.CORE
 H_TRADING_DAYS = 5                            # недельный горизонт §17.3
 K_OFFSETS = (0.0, 0.5, -0.5)                  # пороги: текущий close и ±0.5σ_H
+# Д2 (ROADMAP_2026-07, 13.07): максимальная свежесть якорного close. Порог и горизонт
+# отсчитываются от ОДНОГО бара (см. build_calibration_predictions); если последний close в БД
+# старше этого числа дней, прогноз по активу НЕ печатается (П8/П16: якорь+7 дней должен быть
+# строго в будущем, иначе «прогноз» о частично известном прошлом).
+MAX_ANCHOR_STALENESS_DAYS = 4
 
 
 def _norm_cdf(x):
@@ -61,12 +66,19 @@ def _empirical_base_rate(closes, h, log_move):
 
 
 def build_calibration_predictions(con, run_id, now_dt=None):
-    """Список §9-разрешимых калибровочных прогнозов (ещё НЕ запечатаны)."""
+    """Список §9-разрешимых калибровочных прогнозов (ещё НЕ запечатаны).
+
+    Д2 (ROADMAP_2026-07, аудит 13.07) — ФИКС ВПЕРЁД конвенции горизонта: resolve_by раньше
+    отсчитывался от МОМЕНТА ПЕЧАТИ (now+7 дней), а порог — от ЯКОРНОГО close (последний бар БД,
+    обычно на 1–2 дня старше). Итог: фактический горизонт «якорный бар → бар исхода» был 5–7
+    торговых баров (диагноз Д2: 5×156, 6×78, 7×18 из 252), а вероятность заявлялась под σ·√5.
+    Теперь resolve_by = дата якорного close + 7 календарных дней → между якорем и датой сверки
+    ровно 5 будних дней, заявка Φ(−k) на σ√5 согласована с измеряемой величиной по построению
+    (остаточный ±1 бар — только биржевые праздники). Старые печати НЕ переписываются (П16).
+    Этот сдвиг — МИНОРНЫЙ (≈1–2 п.п. на ветках ±0.5σ) и НЕ первопричина hit 36.1% — см.
+    ops/reports/d2_diagnosis/REPORT.md."""
     now_dt = now_dt or datetime.datetime.now(datetime.timezone.utc)
     cal_days = max(1, math.ceil(H_TRADING_DAYS * 7.0 / 5.0))
-    resolve_by = (now_dt + datetime.timedelta(days=cal_days)).date()
-    resolve_iso = datetime.datetime(resolve_by.year, resolve_by.month, resolve_by.day,
-                                    20, 0, 0, tzinfo=datetime.timezone.utc).isoformat()
     preds = []
     for sym in CORE:
         closes = _closes(con, sym)
@@ -74,6 +86,13 @@ def build_calibration_predictions(con, run_id, now_dt=None):
             continue
         px = closes[-1][1]
         last_date = closes[-1][0]
+        anchor = datetime.date.fromisoformat(last_date)
+        # Д2: устаревший якорь → честный пропуск (иначе resolve_by уедет в прошлое/сегодня)
+        if (now_dt.date() - anchor).days > MAX_ANCHOR_STALENESS_DAYS:
+            continue
+        resolve_by = anchor + datetime.timedelta(days=cal_days)          # якорь + 7 дней
+        resolve_iso = datetime.datetime(resolve_by.year, resolve_by.month, resolve_by.day,
+                                        20, 0, 0, tzinfo=datetime.timezone.utc).isoformat()
         prices = [c for _, c in closes]
         sigma_d = float(IND.realized_vol(prices[-61:]))   # дневная realized vol (60 лог-ретёрнов)
         sigma_h = sigma_d * math.sqrt(H_TRADING_DAYS)
@@ -99,6 +118,7 @@ def build_calibration_predictions(con, run_id, now_dt=None):
                 "k_sigma": k,
                 "sigma_h": round(sigma_h, 6),
                 "horizon_trading_days": H_TRADING_DAYS,
+                "horizon_anchor": "threshold_asof_close (Д2 13.07: resolve_by = якорь + 7 дн)",
                 "threshold_asof_close_date": last_date,
                 "base_rate_n_windows": n_windows,
                 "spec_ref": "§17.3 калибровка; §23.2(в); §9 разрешимость; П16 форвард-онли",
