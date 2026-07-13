@@ -132,3 +132,18 @@ observed_value/observed_at и заново вызывал OUT.resolve_prediction
 при `баг_сверки_подтверждён=False`. Фикс: заголовок условен по вердикту — «после найденной
 ошибки Д2» только если баг ПОДТВЕРЖДЁН, иначе «независимый пересчёт; баг сверки НЕ
 подтверждён». Regression: `test_d2_card_heading_honest_by_verdict` + обновлён существующий тест.
+
+### 14 [HIGH] load_joined молча выбрасывал unmatched outcome — ПОДТВЕРЖДЕНО, исправлено
+`ops/diagnose_calibration.py:journal_integrity` (+ вшито в build_report/render_md). Разрешённый
+калибровочный исход без prediction по hash молча выпадал → «251 пересчитано, 0 расхождений»
+вместо дефекта. Добавлены счётчики обеих сторон (n_resolved / n_matched / n_unmatched) +
+перечисление unmatched-хэшей + флаг целостности; попадает в отчёт и REPORT.md явно (П8).
+Regression: `test_journal_integrity_flags_unmatched_outcome`.
+
+### 15 [HIGH] Монте-Карло null на хардкоде batch_offsets/полного набора — ПОДТВЕРЖДЕНО, исправлено
+`ops/diagnose_calibration.py:_infer_batch_structure` + `cluster_null`. Прежде null подставлял
+жёсткие `batch_offsets=(0,3,5,7,9,12,14)` и полный `assets×3×7`. Теперь структура (батчи по
+run_id, активы каждого батча, вложенные пороги каждой ячейки, временные сдвиги из дат якорей)
+восстанавливается ИЗ ЖУРНАЛА; эффективный N null = ровно len(joined). Параметр batch_offsets
+остался как необязательное переопределение сдвигов (тесты). Regression:
+`test_cluster_null_structure_from_journal`, `test_infer_batch_structure_two_batches`.
