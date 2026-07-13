@@ -87,6 +87,14 @@ def test_dryrun_no_journal_writes(tmp_path, monkeypatch):
     assert not cand.exists() and "кандидат_рёбра" not in p
 
 
+def test_main_append_candidates_requires_explicit_candidates_path():
+    """Э4-ревью (BLOCKER): CLI --append-candidates БЕЗ --candidates-path → ошибка (SystemExit),
+    иначе mock писал бы в боевой knowledge/edge_candidates.jsonl (дефолт None)."""
+    import pytest
+    with pytest.raises(SystemExit):
+        WD.main(["--append-candidates"])                # нет --candidates-path → argparse error
+
+
 def test_dryrun_append_candidates_opt_in(tmp_path):
     import yaml
     db = _file_db(tmp_path)
