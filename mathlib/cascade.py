@@ -122,6 +122,18 @@ def node_sensitivity(source_ret, node_ret, lag=0, min_obs=MIN_OBS):
             "перенос_установлен": established}
 
 
+def conditional_sensitivity(source_ret, node_ret, **kw):
+    """УСЛОВНАЯ чувствительность (этап Д3): перенос узла на ЭПИЗОДАХ шока источника, walk-forward.
+
+    Делегирует mathlib.calibration.conditional.estimate_pair (единый порог эпизода 0.5σ·√окна —
+    решение владельца 13.07, зеркало активации B4). Возвращает запись с n_episodes, CI, лагом-окном
+    и wf-меткой (wf_established) либо честное «не установлено» (П8). ОТДЕЛЬНЫЙ путь измерения:
+    расчёт node_sensitivity (безусловная бета) НЕ меняется; какое измерение кормит ворота/ранг —
+    решение этапа Э4(в,г), не Д3."""
+    from mathlib.calibration import conditional as COND
+    return COND.estimate_pair(source_ret, node_ret, **kw)
+
+
 def node_amplitude(beta, shock):
     """Ожидаемое движение узла при шоке источника: amplitude = beta × shock (в долях доходности)."""
     return float(beta) * float(shock)
@@ -149,15 +161,21 @@ def node_probability(amplitude, resid_std, horizon_days, threshold=0.0,
 
 
 def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
-                 lag=0, min_obs=MIN_OBS):
+                 lag=0, min_obs=MIN_OBS, with_conditional=False, conditional_kwargs=None):
     """Полная оценка узла: чувствительность → амплитуда → вероятность, с честным §9/П16-гейтом.
 
     Возвращает dict с sealable (можно ли запечатывать форвард-прогноз на этот узел) и причиной.
-    """
+
+    Д3 (аддитивно, боевой путь НЕ переключается): узел несёт ОБА измерения —
+    sensitivity_unconditional (та же безусловная бета, что sensitivity; алиас для явности) и,
+    при with_conditional=True, sensitivity_conditional (условный оцениватель эпизодов шока,
+    mathlib.calibration.conditional). По умолчанию conditional НЕ считается (lazy) — печати
+    event_first/replay/calibrate без явного включения не меняются; sealable/probability/amplitude
+    по-прежнему определяются ТОЛЬКО безусловным измерением (переключение — этап Э4(в,г))."""
     sens = node_sensitivity(source_ret, node_ret, lag=lag, min_obs=min_obs)
     if sens is None:
         return {"sealable": False, "причина": "нет данных: < минимума синхронной истории (П8)",
-                "sensitivity": None}
+                "sensitivity": None, "sensitivity_unconditional": None}
     amp = node_amplitude(sens["beta"], shock)
     prob = node_probability(amp, sens["resid_std"], horizon_days, threshold)
     weak = sens["r2"] < WEAK_R2
@@ -167,9 +185,15 @@ def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
         sealable, причина = False, "нулевая остаточная вола — вероятность не определена"
     else:
         sealable, причина = True, ("перенос установлен" + (" (слабый R²)" if weak else ""))
+    conditional = None
+    if with_conditional:
+        conditional = conditional_sensitivity(source_ret, node_ret,
+                                              **(conditional_kwargs or {}))
     return {
         "sealable": sealable, "причина": причина,
         "sensitivity": sens,
+        "sensitivity_unconditional": sens,     # Д3: явный алиас безусловного измерения (тот же объект)
+        **({"sensitivity_conditional": conditional} if with_conditional else {}),
         "shock": round(float(shock), 6),
         "amplitude": round(amp, 6),            # ожидаемое движение узла (доли)
         "reliability_r2": sens["r2"],          # доля дисперсии узла от источника
@@ -182,11 +206,14 @@ def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
 
 # ── живой загрузчик: шок источника → узлы по синхронным рядам из quotes ──────────────
 def cascade_from_quotes(shock_symbol, shock_move, node_symbols, *, horizon_days,
-                        db=None, links=None, threshold=0.0, lookback=400, min_obs=MIN_OBS):
+                        db=None, links=None, threshold=0.0, lookback=400, min_obs=MIN_OBS,
+                        with_conditional=False, conditional_kwargs=None):
     """Боевой расчёт: загрузить синхронные ряды, посчитать узлы каскада при шоке источника.
 
     links — опц. список связей (knowledge/causal_links.yaml) для выбора лага переноса узла;
     эмпирически лаги = 0 (дневные ETF синхронны), поэтому по умолчанию lag=0 (честно).
+    with_conditional (Д3) — добавить узлам sensitivity_conditional (аддитивно; по умолчанию
+    выключено, боевой путь не меняется — переключение потребителей только в Э4).
     """
     from mathlib.calibration import loader as LD
     syms = [shock_symbol] + list(node_symbols)
@@ -202,7 +229,9 @@ def cascade_from_quotes(shock_symbol, shock_move, node_symbols, *, horizon_days,
         node_ret = log_returns(series[nd].adj[-lookback:])
         lag = _lag_for_pair(shock_symbol, nd, links)
         res = node_cascade(src_ret, node_ret, shock_move, horizon_days=horizon_days,
-                           threshold=threshold, lag=lag, min_obs=min_obs)
+                           threshold=threshold, lag=lag, min_obs=min_obs,
+                           with_conditional=with_conditional,
+                           conditional_kwargs=conditional_kwargs)
         out.append({"узел": nd, **res})
     out.sort(key=lambda r: abs(r.get("amplitude") or 0) * (r.get("reliability_r2") or 0), reverse=True)
     return {"источник": shock_symbol, "shock": shock_move, "horizon_days": horizon_days, "узлы": out}
