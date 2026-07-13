@@ -48,6 +48,24 @@ from orchestrator import event_scan as ES      # noqa: E402
 from orchestrator import universe_resolver as U  # noqa: E402
 
 REPORTS = ROOT / "ops" / "reports" / "fdr_replay"
+PREWINDOW_ARTIFACT = REPORTS / "tail_df_prewindow.json"   # Д1 #1: df ≤ cutoff (ops/calibrate_fdr_background.py)
+
+
+def load_prewindow_tail_df(path=None):
+    """Секция fdr.tail_df, откалиброванная ТОЛЬКО на данных ≤ STABILITY_CUTOFF (артефакт Д1 #1).
+
+    Кросс-ревью Д1 BLOCKER: replay ОБЯЗАН брать df отсюда, а НЕ из боевого thresholds.yaml
+    (там df посчитаны на полной истории, включая replay-окно = look-ahead). Артефакт готовит
+    ops/calibrate_fdr_background.py."""
+    p = pathlib.Path(path) if path else PREWINDOW_ARTIFACT
+    if not p.exists():
+        raise SystemExit(f"нет pre-window артефакта {p} — сначала прогони "
+                         f"ops/calibrate_fdr_background.py (он пишет tail_df_prewindow.json)")
+    obj = json.loads(p.read_text(encoding="utf-8"))
+    td = obj.get("tail_df")
+    if not td or not (td.get("per_instrument") or td.get("fallback")):
+        raise SystemExit(f"pre-window артефакт {p} без секции tail_df.per_instrument/fallback")
+    return td
 
 # ── СПИСКИ ДНЕЙ: ЗАФИКСИРОВАНЫ ДО ПРОГОНА СРАВНЕНИЯ (гейт Д1 / рамка 3) ────────────────
 # Событийные дни окна — из ROADMAP (§Д1): удары по Ирану 21–22.06, эскалация Ормуза 11–12.07.
@@ -102,6 +120,31 @@ def universe_asof(con, cutoff_ts, min_bars=U.MIN_SEALABLE_BARS):
     return sorted(s for s, n in rows if n >= min_bars and not s.upper().endswith(".INDX"))
 
 
+def _has_column(con, table, col):
+    return any(r[1] == col for r in con.execute(f"PRAGMA table_info({table})").fetchall())
+
+
+def trends_asof(con, prev_day, cutoff_ts, scan_kws):
+    """Тренды «как были бы» на срезе (Д1 #4): date<=D-1 И fetched_at<=cutoff.
+
+    ВАЖНО про восстановимость (П8): таблица trends пишется INSERT OR REPLACE, поэтому
+    fetched_at строки — время ПОСЛЕДНЕГО фетча (в боевой БД у большинства строк это самый
+    свежий фетч). Фильтр fetched_at<=cutoff УБИРАЕТ look-ahead (значение, зафетченное после
+    среза, replay больше не видит), но честная цена этого — трендовый канал replay для
+    исторических дней близок к пустому: провенанс «что лежало на дату» перезаписан. Это
+    корректный П8-исход (лучше пусто, чем подсмотренное будущее). Живой скан дня D видит
+    partial-строку за D (is_partial=1); replay при date<=D-1 берёт только финальные строки
+    прошлых дней, чей последний фетч был ≤ cutoff (см. LIMITATIONS)."""
+    if _has_column(con, "trends", "fetched_at"):
+        rows = con.execute(
+            "SELECT keyword, date, interest FROM trends WHERE date<=? AND fetched_at<=?",
+            (prev_day, cutoff_ts)).fetchall()
+    else:                                        # легаси-БД/фикстура без колонки — только по дате
+        rows = con.execute(
+            "SELECT keyword, date, interest FROM trends WHERE date<=?", (prev_day,)).fetchall()
+    return [r for r in rows if r[0] in scan_kws]
+
+
 def quotes_asof(con, symbol, cutoff_ts, limit=260):
     rows = con.execute(
         "SELECT date, open, high, low, close, adjusted_close, volume FROM quotes "
@@ -127,9 +170,7 @@ def replay_day(con, day, scan_kws, tail_df_new, news_limit=300, extra_configs=()
         if len(q) >= 30:
             indicators[sym] = C._indicators(q)
             last_bar[sym] = (q[-1]["date"], q[-1]["volume"])
-    trends_rows = [r for r in con.execute(
-        "SELECT keyword, date, interest FROM trends WHERE date<=?", (_prev_day(day),)).fetchall()
-        if r[0] in scan_kws]
+    trends_rows = trends_asof(con, _prev_day(day), cutoff, scan_kws)
     news = C._news(con, limit=news_limit, asof=cutoff)
 
     def _annotate(s):
@@ -151,8 +192,9 @@ def replay_day(con, day, scan_kws, tail_df_new, news_limit=300, extra_configs=()
 
     both = {}
     for label, tail in (("старая", None), ("новая", tail_df_new)) + tuple(extra_configs):
+        # asof_date=day (Д1 #8): гейт давности бара как в БОЕВОМ скане — replay зеркалит продакшн
         out = ES.scan_events(news=news, trends_rows=trends_rows, indicators=indicators,
-                             q_max=0.1, tail_df=tail)
+                             q_max=0.1, tail_df=tail, asof_date=day)
         passed = [_annotate(s) for s in out["сигналы"] if s["сигнал_после_FDR"]]
         both[label] = {
             "сырых_статистических": len(out["сигналы"]),
@@ -185,6 +227,12 @@ def replay_day(con, day, scan_kws, tail_df_new, news_limit=300, extra_configs=()
 # ── Отчёты ────────────────────────────────────────────────────────────────────────
 
 LIMITATIONS = [
+    "trends asof (Д1 #4): выборка ограничена fetched_at<=cutoff (look-ahead убран). НО таблица "
+    "trends пишется INSERT OR REPLACE → fetched_at = время ПОСЛЕДНЕГО фетча, поэтому для "
+    "исторических дней трендовый канал replay близок к пустому (провенанс «что лежало на дату» "
+    "перезаписан). Это честный П8-исход: лучше пусто, чем подсмотренное будущее. Живой скан дня "
+    "D видит partial-строку за D (is_partial=1); replay при date<=D-1 берёт лишь финальные строки "
+    "прошлых дней с последним фетчем ≤ cutoff",
     "trends.interest — значения последнего фетча (INSERT OR REPLACE, нормировка Google внутри "
     "окна фетча), не байты живого скана; форма всплесков сохраняется (П8)",
     "news.dup_of — текущее состояние дедупа, не на дату среза (пометки не версионируются)",
@@ -213,7 +261,9 @@ def write_reports(days_out, meta):
          f"БД `{meta['db']}` — только чтение).",
          f"Срез каждого дня: {CUTOFF_TIME[1:]} (живой крон 09:00 UTC). "
          f"Старая конфигурация: df-константы F2#19 (5/6/3), thresholds git `{meta['old_ref']}`. "
-         "Новая: fdr.tail_df per-instrument (Д1, `ops/calibrate_fdr_background.py`). q=0.1 в обеих.\n",
+         "Новая: fdr.tail_df per-instrument из PRE-WINDOW артефакта (df откалиброван ТОЛЬКО на "
+         "данных ≤ 2026-06-20, без look-ahead на replay-окно — Д1 #1; "
+         "`ops/reports/fdr_replay/tail_df_prewindow.json`). q=0.1 в обеих.\n",
          "## Списки дней — зафиксированы ДО прогона сравнения (рамка 3 / гейт Д1)\n",
          f"- **Событийные дни:** {', '.join(EVENT_DAYS)} (удары по Ирану 21–22.06; Ормуз 11–12.07).",
          f"- **Событийные утра ценового слоя:** {', '.join(EVENT_PRICE_MORNINGS)} — скан 09:00 видит "
@@ -305,16 +355,16 @@ def main():
     ap.add_argument("--date-to", default="2026-07-12")
     ap.add_argument("--old-ref", default="se-d1-base",
                     help="git-ref старой конфигурации thresholds.yaml")
+    ap.add_argument("--tail-df", default=None,
+                    help="pre-window артефакт df (по умолчанию ops/reports/fdr_replay/tail_df_prewindow.json)")
     args = ap.parse_args()
     db_path = pathlib.Path(args.db)
     if not db_path.exists():
         raise SystemExit(f"нет БД: {db_path}")
 
     _ = _old_tail_df(args.old_ref)                 # проверка: у старой версии нет tail_df
-    tail_new = ES.tail_df_from_thresholds()        # новая секция из текущего config/thresholds.yaml
-    if not tail_new:
-        raise SystemExit("в config/thresholds.yaml нет fdr.tail_df — сначала прогони "
-                         "ops/calibrate_fdr_background.py --write")
+    # Д1 #1: НОВАЯ конфигурация df — из pre-window артефакта (≤ cutoff), НЕ из боевого thresholds.yaml
+    tail_new = load_prewindow_tail_df(args.tail_df)
     from data import trends as TR
     scan_kws = set(TR.scan_keywords())
 
@@ -359,7 +409,8 @@ def main():
             "old_ref": args.old_ref,
             "конфигурации": {
                 "старая": "df-константы F2#19: ret 5 / лог-объём 6 / сырой объём 3 (tail_df нет)",
-                "новая": "fdr.tail_df per-instrument + фолбэк пула (ops/calibrate_fdr_background.py)"},
+                "новая": "fdr.tail_df per-instrument PRE-WINDOW (df ≤ 2026-06-20, без look-ahead; "
+                         "ops/reports/fdr_replay/tail_df_prewindow.json)"},
             "q_value_max": 0.1}
     if fidelity_txt:
         meta["проверка_верности_replay"] = fidelity_txt

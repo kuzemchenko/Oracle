@@ -25,7 +25,7 @@ def db(tmp_path):
     con.execute("CREATE TABLE quotes (symbol TEXT, date TEXT, open REAL, high REAL, low REAL, "
                 "close REAL, adjusted_close REAL, volume INTEGER, source TEXT, fetched_at TEXT, "
                 "PRIMARY KEY(symbol,date))")
-    con.execute("CREATE TABLE trends (keyword TEXT, date TEXT, interest INTEGER)")
+    con.execute("CREATE TABLE trends (keyword TEXT, date TEXT, interest INTEGER, fetched_at TEXT)")
     con.execute("CREATE TABLE news (id TEXT PRIMARY KEY, source TEXT, title TEXT, lang TEXT, "
                 "published_at TEXT, fetched_at TEXT, dup_of TEXT)")
     # AAA: 40 баров, зафетчены рано; BBB: зафетчен ПОЗЖЕ окна; IDX: индекс — исключается
@@ -37,8 +37,9 @@ def db(tmp_path):
                     ("BBB.US", d, 10, 11, 9, 10, 10, 500, "t", T_LATE))
         con.execute("INSERT INTO quotes VALUES (?,?,?,?,?,?,?,?,?,?)",
                     ("XXX.INDX", d, 10, 11, 9, 10, 10, 0, "t", T_EARLY))
+    # тренды зафетчены рано (T_EARLY) — видны на срезах окна; одна строка зафетчена ПОЗЖЕ среза
     for i in range(12):
-        con.execute("INSERT INTO trends VALUES (?,?,?)", ("kw", f"2026-06-{i + 5:02d}", 10 + i))
+        con.execute("INSERT INTO trends VALUES (?,?,?,?)", ("kw", f"2026-06-{i + 5:02d}", 10 + i, T_EARLY))
     con.execute("INSERT INTO news VALUES ('1','s','заголовок один','en',"
                 "'2026-06-14T08:00:00+00:00','2026-06-14T08:30:00+00:00',NULL)")
     con.commit()
@@ -102,6 +103,41 @@ def test_replay_day_trend_slice_by_date(db):
         assert d["старая"]["trend_сигналов"] == 0
     finally:
         con.close()
+
+
+def test_trends_asof_excludes_future_fetch(db):
+    """Д1 #4: строка тренда, зафетченная ПОСЛЕ среза, в replay не видна (убран look-ahead)."""
+    con = sqlite3.connect(db)
+    # значение за 2026-06-04 записано ПОЗЖЕ (T_LATE) — на срезе 2026-06-15 09:00 его быть не должно
+    con.execute("INSERT INTO trends VALUES (?,?,?,?)", ("kw", "2026-06-04", 999, T_LATE))
+    con.commit(); con.close()
+    con = RS._connect_ro(db)
+    try:
+        cutoff = "2026-06-15T09:00:00+00:00"
+        rows = RS.trends_asof(con, "2026-06-14", cutoff, {"kw"})
+        dates = {r[1] for r in rows}
+        assert "2026-06-04" not in dates                  # поздний фетч исключён
+        assert "2026-06-05" in dates                       # ранний фетч (T_EARLY) виден
+        # без fetched_at-фильтра (легаси-ветка) поздняя строка попала бы — проверяем факт фильтра
+        assert all(r[0] == "kw" for r in rows)
+    finally:
+        con.close()
+
+
+def test_load_prewindow_tail_df(tmp_path):
+    """Д1 #1: replay берёт df из pre-window артефакта, а не из боевого thresholds.yaml."""
+    import json
+    art = tmp_path / "tail_df_prewindow.json"
+    art.write_text(json.dumps({"tail_df": {"per_instrument": {"AAA.US": {"ret_z_20": 7.0}},
+                                            "fallback": {"ret_z_20": 30.0}}}), encoding="utf-8")
+    td = RS.load_prewindow_tail_df(art)
+    assert td["per_instrument"]["AAA.US"]["ret_z_20"] == 7.0
+    with pytest.raises(SystemExit):
+        RS.load_prewindow_tail_df(tmp_path / "нет.json")      # отсутствует → fail-closed
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"tail_df": {}}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        RS.load_prewindow_tail_df(bad)                        # пустая секция → fail-closed
 
 
 def test_old_ref_with_tail_df_rejected(tmp_path, monkeypatch):
