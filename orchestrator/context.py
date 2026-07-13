@@ -137,12 +137,24 @@ def _waves(q):
     return wv.wave_markup(px, threshold_pct=WAVE_THRESHOLD_PCT, recent_pivots=10)
 
 
-def _news(con, limit=12, keywords=None):
+def _news(con, limit=12, keywords=None, asof=None):
     """Свежие новости. Если keywords заданы — СНАЧАЛА совпавшие по заголовку (тема-якорь §17.2),
-    затем добор свежими до limit. Так тематический прогон видит новости ПО ТЕМЕ, а не топ-дня."""
-    rows = con.execute(
-        "SELECT published_at, source, title, lang FROM news "
-        "WHERE dup_of IS NULL ORDER BY published_at DESC LIMIT 400").fetchall()
+    затем добор свежими до limit. Так тематический прогон видит новости ПО ТЕМЕ, а не топ-дня.
+
+    asof (Д1, replay): ISO-таймстамп среза «как было бы» — берутся только строки, которые
+    УЖЕ ЛЕЖАЛИ в БД к этому моменту (fetched_at<=asof; published_at<=asof — ремень к подтяжкам,
+    в данных published_at ≤ fetched_at всегда), в ТОМ ЖЕ окне 400, что живой скан. None (дефолт) —
+    живое поведение, запрос байт-в-байт прежний. Честное ограничение (П8): dup_of — ТЕКУЩЕЕ
+    состояние дедупа, а не на дату среза; исторические пометки дублей не версионируются."""
+    if asof is None:
+        rows = con.execute(
+            "SELECT published_at, source, title, lang FROM news "
+            "WHERE dup_of IS NULL ORDER BY published_at DESC LIMIT 400").fetchall()
+    else:
+        rows = con.execute(
+            "SELECT published_at, source, title, lang FROM news "
+            "WHERE dup_of IS NULL AND fetched_at<=? AND published_at<=? "
+            "ORDER BY published_at DESC LIMIT 400", (asof, asof)).fetchall()
     items = [{"published_at": r[0], "source": r[1], "title": r[2], "lang": r[3]} for r in rows]
     if keywords:
         from orchestrator import event_mapping as EM

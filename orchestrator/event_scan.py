@@ -35,12 +35,42 @@ MIN_TREND_HISTORY = 8   # меньше — фон тренда не оценит
 
 # F2#19 (§2.4): нормальный erfc(|z|/√2) занижал p на тяжелохвостых рядах → почти всё проходило FDR.
 # Моделируем нуль Стьюдентом-t с тяжёлыми хвостами (mathlib/tailprob); объём предпочитаем на ЛОГ-шкале
-# (сырой объём кратно скошен). df подобраны консервативно (тяжелее нормали). FDR q НЕ трогаем (B5).
+# (сырой объём кратно скошен). FDR q НЕ трогаем (B5).
+# Д1 (ROADMAP 2026-07): df-константы ниже были назначены «консервативно», эмпирически не подбирались
+# и передушили скан (0 после FDR 12 дней подряд). Теперь df читается per-instrument из
+# config/thresholds.yaml (fdr.tail_df — walk-forward, ops/calibrate_fdr_background.py);
+# константы остаются ЧЕСТНЫМ фолбэком при отсутствии секции/ключа (fail-safe, поведение
+# без секции — байт-в-байт прежнее, тест test_event_scan_tail_df).
 _PRICE_METRICS = (
-    ("ret_z_20", 5),        # доходности ~ t(5)
+    ("ret_z_20", 5),        # доходности ~ t(5) — фолбэк-константа F2#19
     ("vol_z_log_20", 6),    # лог-объём ~ t(6); фолбэк на сырой vol_z_20 → ещё тяжелее (t(3))
 )
 _VOL_RAW_FALLBACK_DF = 3
+
+
+def tail_df_from_thresholds(thresholds=None):
+    """Секция fdr.tail_df из config/thresholds.yaml (dict | None = прежнее поведение констант).
+    thresholds не передан → файл читается здесь; любой сбой чтения → None (fail-safe)."""
+    try:
+        if thresholds is None:
+            thresholds = C._load_yaml("config/thresholds.yaml")
+        td = ((thresholds or {}).get("fdr") or {}).get("tail_df")
+        return td if isinstance(td, dict) else None
+    except Exception:  # noqa: BLE001 — битый конфиг не валит скан, скан честно падает на константы
+        return None
+
+
+def _resolve_df(tail_df, symbol, metric, const_df):
+    """df для пары (инструмент, метрика): per-instrument → фолбэк калибровки → константа F2#19.
+    Возвращает (df, источник) — источник уходит в протокол скана (П8: видно, чем посчитан p)."""
+    per = ((tail_df or {}).get("per_instrument") or {}).get(symbol) or {}
+    v = per.get(metric)
+    if isinstance(v, (int, float)) and v > 0:
+        return float(v), "per_instrument"
+    fb = ((tail_df or {}).get("fallback") or {}).get(metric)
+    if isinstance(fb, (int, float)) and fb > 0:
+        return float(fb), "фолбэк_калибровки"
+    return const_df, "константа_F2#19"
 
 
 # ── Источник 2: тренды (всплеск интереса vs собственная история ключа) ──────────────
@@ -70,9 +100,12 @@ def trend_signals(trends_rows):
 
 
 # ── Источник 3: цена/объём по §9-универсуму ─────────────────────────────────────────
-def price_vol_signals(indicators):
+def price_vol_signals(indicators, tail_df=None):
     """indicators: {symbol: {ret_z_20, vol_z_log_20|vol_z_20, ...}}. z → двусторонний p под ТЯЖЕЛО-
-    ХВОСТЫМ нулём Стьюдента-t (F2#19), а не нормалью. Объём — лог-шкала, фолбэк на сырой с меньшим df."""
+    ХВОСТЫМ нулём Стьюдента-t (F2#19), а не нормалью. Объём — лог-шкала, фолбэк на сырой с меньшим df.
+
+    tail_df (Д1): секция fdr.tail_df из thresholds.yaml — df per-instrument с провенансом;
+    None → прежние константы и БАЙТ-В-БАЙТ прежний состав полей сигнала (без df_источник)."""
     sigs = []
     for sym, ind in (indicators or {}).items():
         for metric, df in _PRICE_METRICS:
@@ -80,10 +113,16 @@ def price_vol_signals(indicators):
             if metric == "vol_z_log_20" and not isinstance(z, (int, float)):
                 metric, df, z = "vol_z_20", _VOL_RAW_FALLBACK_DF, ind.get("vol_z_20")
             if isinstance(z, (int, float)):
+                src = None
+                if tail_df is not None:
+                    df, src = _resolve_df(tail_df, sym, metric, df)
                 p = TP.student_t_two_sided_p(z, df)
-                sigs.append({"вид": "price", "символ": sym, "метрика": metric,
-                             "z": round(z, 3), "df_нуля": df,
-                             "p_value": round(max(min(p, 1.0), 0.0), 4)})
+                sig = {"вид": "price", "символ": sym, "метрика": metric,
+                       "z": round(z, 3), "df_нуля": df,
+                       "p_value": round(max(min(p, 1.0), 0.0), 4)}
+                if src is not None:
+                    sig["df_источник"] = src
+                sigs.append(sig)
     return sigs
 
 
@@ -98,10 +137,13 @@ def news_event_signals(news):
 
 
 # ── Сборка открытого скана + FDR ────────────────────────────────────────────────────
-def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1):
+def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1, tail_df=None):
     """Открытый event-first скан §6 Эт.1. Возвращает пул сырых сигналов, FDR по статистическим,
-    ранжированные кандидат-события и честный реестр ограничений (П8)."""
-    price = price_vol_signals(indicators or {})
+    ранжированные кандидат-события и честный реестр ограничений (П8).
+
+    tail_df (Д1) — df t-нуля per-instrument (fdr.tail_df из thresholds.yaml);
+    None → прежние df-константы, протокол байт-в-байт прежний."""
+    price = price_vol_signals(indicators or {}, tail_df=tail_df)
     trends = trend_signals(trends_rows or [])
     statistical = price + trends                          # есть p → единый FDR
     pvals = [s["p_value"] for s in statistical]
@@ -123,11 +165,22 @@ def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1):
     # порядок: новостная салиентность и статзначимость вперёд (грубый общий ранг)
     events.sort(key=lambda e: (e.get("салиентность") or 0, -(e.get("q_value") or 1.0)), reverse=True)
 
+    out_tail = None
+    if tail_df is not None:
+        by_src = {}
+        for s in price:
+            by_src[s.get("df_источник")] = by_src.get(s.get("df_источник"), 0) + 1
+        out_tail = {"источник": "config/thresholds.yaml: fdr.tail_df (Д1, walk-forward "
+                                "ops/calibrate_fdr_background.py)",
+                    "df_по_источникам": by_src,
+                    "фолбэк": {k: v for k, v in ((tail_df.get("fallback") or {}).items())
+                               if k != "note"}}
     return {
         "discovery_open": U.discovery_is_open(),
         "источники": {"price": len(price), "trends": len(trends), "news_clusters": len(news_events)},
         "сырых_сигналов": len(statistical) + len(news_events),
         "q_value_max": q_max, "процедура": "benjamini_hochberg (единый по цене+трендам)",
+        **({"tail_df_протокол": out_tail} if out_tail is not None else {}),
         "статистических_после_FDR": int(bh.get("n_signif", 0)),
         "сигналы": statistical,
         "новостные_события": news_events,
@@ -167,7 +220,8 @@ def scan_events_live(q_max=0.1, news_limit=300, con=None):
             q = C._quotes(con, sym)
             if len(q) >= 30:
                 indicators[sym] = C._indicators(q)
-        return scan_events(news=news, trends_rows=trends_rows, indicators=indicators, q_max=q_max)
+        return scan_events(news=news, trends_rows=trends_rows, indicators=indicators, q_max=q_max,
+                           tail_df=tail_df_from_thresholds())   # Д1: df per-instrument (fail-safe)
     finally:
         if own:
             con.close()
