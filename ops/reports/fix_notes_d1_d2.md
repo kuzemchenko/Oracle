@@ -43,3 +43,18 @@ Regression: `test_calibrate_oos_validation_is_walk_forward_clean`.
 `orchestrator/event_scan.py:_resolve_df`. `isinstance(v,(int,float)) and v>0` пропускал
 `True` (bool ⊂ int) → df=1.0. Добавлено `and not isinstance(v, bool)` на per_instrument и
 фолбэк. Regression: `test_resolve_df_ignores_bool`.
+
+### 8 [HIGH, боевая] volume=0 артефакты + гейт давности бара — ПОДТВЕРЖДЕНО, исправлено
+Логика жила только в диагностике replay (`_annotate`), а САМ боевой скан пропустил бы
+артефакт. Перенесено в боевой путь:
+- `orchestrator/context.py:_indicators` — последний бар с `volume<=0`/None (битая строка
+  фида) даёт log(max(0,1))=0 → ложный объёмный z; теперь `vol_z_20`/`vol_z_log_20`=None +
+  `vol_data_note` (П8). event_scan такой инструмент по объёму пропустит (isinstance-гейт),
+  ценовая метрика не тронута.
+- `orchestrator/event_scan.py:scan_events` — новый `asof_date` (по умолчанию None = прежнее
+  поведение, байт-в-байт): при задании инструменты с последним баром старше
+  `MAX_BAR_AGE_DAYS=7` исключаются из ценового скана (delisted/пропал фид), перечислены в
+  `протухшие_бары` (П8). `scan_events_live` передаёт `datetime.date.today()`.
+Regression: `test_indicators_zero_volume_last_bar_nulls_vol_metrics`,
+`test_scan_staleness_gate_drops_stale_bar`. КЛЮЧЕВОЙ фикс — позволяет основной сессии
+безопасно ре-активировать Д1.

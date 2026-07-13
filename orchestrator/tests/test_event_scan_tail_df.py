@@ -130,6 +130,52 @@ def test_live_config_has_tail_df_section():
     assert td and td.get("per_instrument"), "fdr.tail_df не читается из config/thresholds.yaml"
 
 
+# ── Д1 #8: боевой гард артефактов фида (volume=0) и гейт давности бара ───────────────
+
+def _bars(n, last_vol=1000):
+    """n синтетических баров с лёгкой динамикой; объём последнего бара = last_vol."""
+    out = []
+    for i in range(n):
+        px = 100.0 + (i % 5) * 0.5
+        out.append({"date": f"2026-06-{i % 28 + 1:02d}", "open": px, "high": px + 1,
+                    "low": px - 1, "close": px, "adjusted_close": px,
+                    "volume": (last_vol if i == n - 1 else 1000 + i)})
+    return out
+
+
+def test_indicators_zero_volume_last_bar_nulls_vol_metrics():
+    """Битый бар фида (volume=0 последнего бара) → объёмные z = None + причина (П8);
+    event_scan такой инструмент по объёму пропустит (сигнал не строится)."""
+    good = C._indicators(_bars(40, last_vol=1500))
+    assert good["vol_z_20"] is not None and good["vol_z_log_20"] is not None
+    assert "vol_data_note" not in good
+    broken = C._indicators(_bars(40, last_vol=0))
+    assert broken["vol_z_20"] is None and broken["vol_z_log_20"] is None
+    assert "нет данных" in broken["vol_data_note"]
+    assert broken["ret_z_20"] is not None            # ценовая метрика не тронута
+    # скан на битом объёме не строит объёмный сигнал, но строит ценовой
+    out = ES.scan_events(indicators={"Z.US": broken})
+    metrics = {s["метрика"] for s in out["сигналы"] if s["вид"] == "price"}
+    assert metrics == {"ret_z_20"}                    # ни vol_z_log_20, ни vol_z_20
+
+
+def test_scan_staleness_gate_drops_stale_bar():
+    """Гейт давности бара: инструмент с протухшим последним баром выпадает из ценового скана
+    при заданном asof_date; без asof_date (None) поведение прежнее (гейт выключен)."""
+    fresh = {"asof": "2026-07-10", "ret_z_20": 3.0, "vol_z_log_20": 2.0}
+    stale = {"asof": "2026-06-01", "ret_z_20": 3.0, "vol_z_log_20": 2.0}
+    ind = {"F.US": fresh, "S.US": stale}
+    # гейт выключен → оба инструмента в скане
+    off = ES.scan_events(indicators=ind)
+    assert {s["символ"] for s in off["сигналы"] if s["вид"] == "price"} == {"F.US", "S.US"}
+    assert "протухшие_бары" not in off
+    # гейт включён (asof 2026-07-13, порог 7 дней) → S.US протух, исключён + в реестре П8
+    on = ES.scan_events(indicators=ind, asof_date="2026-07-13")
+    assert {s["символ"] for s in on["сигналы"] if s["вид"] == "price"} == {"F.US"}
+    assert [x["символ"] for x in on["протухшие_бары"]] == ["S.US"]
+    assert on["протухшие_бары"][0]["давность_дней"] == 42
+
+
 # ── context._news(asof): срез «как было бы» ─────────────────────────────────────────
 
 def _news_db():
