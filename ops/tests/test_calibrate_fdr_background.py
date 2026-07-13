@@ -77,6 +77,9 @@ def test_splice_missing_markers_fails_closed():
 def test_live_thresholds_yaml_consistent_with_base():
     """Регрессия на РЕАЛЬНЫЙ перегенерированный config/thresholds.yaml: прочие секции
     объектно совпадают с git-версией se-d1-base, fdr.tail_df добавлена."""
+    pytest.skip("Д1 деактивирован в боевом config/thresholds.yaml до прохождения гейта se-d1 "
+                "(откат 13.07: unreviewed-калибровка не работает в бою). Снять skip после гейта "
+                "Д1 + перегенерации драйвером ops/calibrate_fdr_background.py.")
     import subprocess
     new = yaml.safe_load((ROOT / "config" / "thresholds.yaml").read_text(encoding="utf-8"))
     got = subprocess.run(["git", "show", "se-d1-base:config/thresholds.yaml"],

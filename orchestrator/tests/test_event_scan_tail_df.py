@@ -7,6 +7,7 @@ import json
 import sqlite3
 import pathlib
 import sys
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -83,6 +84,8 @@ def test_tail_df_from_thresholds_parsing():
 
 def test_live_config_has_tail_df_section():
     """Регрессия: боевой config/thresholds.yaml после Д1 реально даёт секцию скану."""
+    pytest.skip("Д1 деактивирован в боевом config/thresholds.yaml до прохождения гейта se-d1 "
+                "(откат 13.07). Снять skip после гейта Д1 + перегенерации конфига драйвером.")
     td = ES.tail_df_from_thresholds()
     assert td and td.get("per_instrument"), "fdr.tail_df не читается из config/thresholds.yaml"
 
