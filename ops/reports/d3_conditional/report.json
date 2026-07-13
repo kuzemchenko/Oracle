@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-13T11:49:26+00:00",
+  "generated_at": "2026-07-13T15:18:29+00:00",
   "db": "/tmp/claude-0/-home-oracle-oracle/23f77705-fc43-4ab5-8b8a-f23e76741560/scratchpad/quotes_snapshot.db",
   "db_note": "байт-копия таблицы quotes боевой storage/oracle.db (read-only снапшот 2026-07-13, 445593 строк, max date 2026-07-13; снапшот — чтобы не открывать боевую WAL-БД на запись из сессии)",
   "метод": "условный event-study: эпизоды |shock| ≥ 0.5·σ_ист·√W (W=5; единый порог — решение владельца 13.07 В4, зеркало активации B4), непересекающиеся; отклик цели по лагам 0..10; walk-forward train=504/test=252/step=252; установление: train p<0.05 → OOS тот же знак и p<0.05 в ≥60% валидных фолдов",
@@ -27,7 +27,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 468,
-      "n_episodes_oos": 351,
+      "n_episodes_oos": 344,
+      "n_episodes_oos_valid": 344,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -35,45 +36,45 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.935154,
-          "gain_oos": 0.948923,
+          "gain_oos": 0.947905,
           "p_oos": 0.0
         },
         {
           "fold": 1,
           "n_ep_train": 80,
-          "n_ep_oos": 43,
+          "n_ep_oos": 42,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.985889,
-          "gain_oos": 0.816307,
+          "gain_oos": 0.816612,
           "p_oos": 0.0
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.88074,
+          "gain_train": 0.879753,
           "gain_oos": 0.870796,
           "p_oos": 0.0
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 36,
+          "n_ep_train": 82,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.854869,
-          "gain_oos": 0.804568,
+          "gain_train": 0.855137,
+          "gain_oos": 0.804511,
           "p_oos": 0.0
         },
         {
@@ -89,46 +90,46 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 77,
-          "n_ep_oos": 40,
+          "n_ep_train": 76,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.814001,
-          "gain_oos": 1.026218,
+          "gain_train": 0.813832,
+          "gain_oos": 1.02607,
           "p_oos": 0.0
         },
         {
           "fold": 6,
           "n_ep_train": 80,
-          "n_ep_oos": 41,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 1.012882,
-          "gain_oos": 0.971108,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 7,
-          "n_ep_train": 83,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.00144,
-          "gain_oos": 0.916351,
+          "gain_train": 1.012882,
+          "gain_oos": 0.969665,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.001187,
+          "gain_oos": 0.916721,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_train": 81,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.949896,
-          "gain_oos": 0.943901,
+          "gain_train": 0.949004,
+          "gain_oos": 0.947144,
           "p_oos": 0.0
         }
       ],
@@ -138,19 +139,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.943901,
+      "gain_conditional": 0.947144,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.804568,
-        0.816307,
+        0.804511,
+        0.816612,
         0.870796,
-        0.916351,
-        0.943901,
-        0.948923,
-        0.971108,
+        0.916721,
+        0.947144,
+        0.947905,
+        0.969665,
         0.994281,
-        1.026218
+        1.02607
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.861171,
         0.908628
       ],
@@ -160,11 +162,13 @@
         "n_episodes": 468,
         "n_baseline": 8,
         "mean_episode_signed": 0.049719,
-        "mean_baseline": 0.003457,
-        "welch_z": 1.825,
-        "cohen_d": 0.6468
+        "mean_baseline_raw": 0.003457,
+        "mean_baseline_signaligned": 0.000192,
+        "mean_shock_sign": 0.0556,
+        "welch_z": 1.9538,
+        "glass_delta": 0.6925
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.9439; эпизодов 468 (OOS 351) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.9471 (condition-on-success, смещена оптимистично); эпизодов 468 (OOS подтвердивших 344) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -180,7 +184,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 468,
-      "n_episodes_oos": 348,
+      "n_episodes_oos": 342,
+      "n_episodes_oos_valid": 342,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -188,45 +193,45 @@
         {
           "fold": 0,
           "n_ep_train": 80,
-          "n_ep_oos": 41,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.959768,
-          "gain_oos": 1.005399,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 1,
-          "n_ep_train": 84,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.961985,
+          "gain_train": 0.959768,
+          "gain_oos": 1.005578,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.956177,
           "gain_oos": 1.045798,
           "p_oos": 0.0
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.025827,
+          "gain_train": 1.026123,
           "gain_oos": 1.040215,
           "p_oos": 0.0
         },
         {
           "fold": 3,
           "n_ep_train": 80,
-          "n_ep_oos": 36,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 1.034184,
-          "gain_oos": 1.217656,
+          "gain_oos": 1.219309,
           "p_oos": 0.0
         },
         {
@@ -242,46 +247,46 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.199086,
-          "gain_oos": 0.859542,
+          "gain_train": 1.20026,
+          "gain_oos": 0.859275,
           "p_oos": 0.0
         },
         {
           "fold": 6,
           "n_ep_train": 79,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.90193,
-          "gain_oos": 1.02307,
+          "gain_oos": 1.025086,
           "p_oos": 0.0
         },
         {
           "fold": 7,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.917307,
-          "gain_oos": 1.098558,
+          "gain_train": 0.917312,
+          "gain_oos": 1.098686,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 83,
-          "n_ep_oos": 34,
+          "n_ep_train": 82,
+          "n_ep_oos": 33,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.051465,
-          "gain_oos": 1.054394,
+          "gain_train": 1.052847,
+          "gain_oos": 1.050785,
           "p_oos": 0.0
         }
       ],
@@ -292,18 +297,19 @@
       "tier": "A",
       "lag_selected": 0,
       "gain_conditional": 1.040215,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.859542,
+        0.859275,
         0.997976,
-        1.005399,
-        1.02307,
+        1.005578,
+        1.025086,
         1.040215,
         1.045798,
-        1.054394,
-        1.098558,
-        1.217656
+        1.050785,
+        1.098686,
+        1.219309
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         1.017676,
         1.079956
       ],
@@ -313,11 +319,13 @@
         "n_episodes": 468,
         "n_baseline": 5,
         "mean_episode_signed": 0.050271,
-        "mean_baseline": -0.00121,
-        "welch_z": 1.3902,
-        "cohen_d": 0.6226
+        "mean_baseline_raw": -0.00121,
+        "mean_baseline_signaligned": -6.2e-05,
+        "mean_shock_sign": 0.0513,
+        "welch_z": 1.3592,
+        "glass_delta": 0.6087
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.0402; эпизодов 468 (OOS 348) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 1.0402 (condition-on-success, смещена оптимистично); эпизодов 468 (OOS подтвердивших 342) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -333,7 +341,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 468,
-      "n_episodes_oos": 351,
+      "n_episodes_oos": 344,
+      "n_episodes_oos_valid": 344,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -341,45 +350,45 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.389616,
-          "gain_oos": 0.471659,
+          "gain_oos": 0.471994,
           "p_oos": 0.0
         },
         {
           "fold": 1,
           "n_ep_train": 80,
-          "n_ep_oos": 43,
+          "n_ep_oos": 42,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.431817,
-          "gain_oos": 0.397713,
+          "gain_oos": 0.3988,
           "p_oos": 0.0
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.436187,
+          "gain_train": 0.435943,
           "gain_oos": 0.392617,
           "p_oos": 0.0
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 36,
+          "n_ep_train": 82,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.393966,
-          "gain_oos": 0.202787,
+          "gain_train": 0.39432,
+          "gain_oos": 0.202689,
           "p_oos": 0.0
         },
         {
@@ -395,46 +404,46 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 77,
-          "n_ep_oos": 40,
+          "n_ep_train": 76,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.237017,
-          "gain_oos": 0.624938,
+          "gain_train": 0.237024,
+          "gain_oos": 0.625965,
           "p_oos": 0.0
         },
         {
           "fold": 6,
           "n_ep_train": 80,
-          "n_ep_oos": 41,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.601768,
-          "gain_oos": 0.466116,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 7,
-          "n_ep_train": 83,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.553237,
-          "gain_oos": 0.464495,
+          "gain_train": 0.601768,
+          "gain_oos": 0.468058,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.553406,
+          "gain_oos": 0.466115,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_train": 81,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.464082,
-          "gain_oos": 0.483116,
+          "gain_train": 0.465157,
+          "gain_oos": 0.476815,
           "p_oos": 0.0
         }
       ],
@@ -444,19 +453,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.466116,
+      "gain_conditional": 0.468058,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.202787,
+        0.202689,
         0.392617,
-        0.397713,
-        0.464495,
-        0.466116,
-        0.471659,
-        0.483116,
+        0.3988,
+        0.466115,
+        0.468058,
+        0.471994,
+        0.476815,
         0.563579,
-        0.624938
+        0.625965
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.334969,
         0.374854
       ],
@@ -466,11 +476,13 @@
         "n_episodes": 468,
         "n_baseline": 8,
         "mean_episode_signed": 0.023346,
-        "mean_baseline": 0.004291,
-        "welch_z": 2.3907,
-        "cohen_d": 0.8489
+        "mean_baseline_raw": 0.004291,
+        "mean_baseline_signaligned": 0.000238,
+        "mean_shock_sign": 0.0556,
+        "welch_z": 2.8992,
+        "glass_delta": 1.0295
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4661; эпизодов 468 (OOS 351) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.4681 (condition-on-success, смещена оптимистично); эпизодов 468 (OOS подтвердивших 344) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -486,7 +498,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 486,
-      "n_episodes_oos": 367,
+      "n_episodes_oos": 360,
+      "n_episodes_oos_valid": 360,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -494,45 +507,45 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 2.194803,
-          "gain_oos": 1.74034,
+          "gain_oos": 1.731839,
           "p_oos": 0.0
         },
         {
           "fold": 1,
-          "n_ep_train": 81,
-          "n_ep_oos": 43,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 2.012368,
-          "gain_oos": 1.910084,
+          "gain_train": 1.99108,
+          "gain_oos": 1.906988,
           "p_oos": 0.0
         },
         {
           "fold": 2,
-          "n_ep_train": 84,
+          "n_ep_train": 83,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.821051,
+          "gain_train": 1.818458,
           "gain_oos": 2.183085,
           "p_oos": 0.0
         },
         {
           "fold": 3,
-          "n_ep_train": 85,
-          "n_ep_oos": 39,
+          "n_ep_train": 84,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 2.068986,
-          "gain_oos": 2.825194,
+          "gain_train": 2.068983,
+          "gain_oos": 2.823257,
           "p_oos": 0.0
         },
         {
@@ -548,46 +561,46 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 83,
-          "n_ep_oos": 41,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 2.377864,
-          "gain_oos": 1.413541,
+          "gain_train": 2.377314,
+          "gain_oos": 1.411884,
           "p_oos": 0.0
         },
         {
           "fold": 6,
           "n_ep_train": 84,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 1.453248,
-          "gain_oos": 1.864292,
+          "gain_oos": 1.866633,
           "p_oos": 0.0
         },
         {
           "fold": 7,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.548892,
-          "gain_oos": 1.772359,
+          "gain_train": 1.547884,
+          "gain_oos": 1.772895,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 85,
-          "n_ep_oos": 39,
+          "n_ep_train": 84,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.829179,
-          "gain_oos": 1.821196,
+          "gain_train": 1.829021,
+          "gain_oos": 1.829955,
           "p_oos": 0.0
         }
       ],
@@ -597,19 +610,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 1.821196,
+      "gain_conditional": 1.829955,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        1.413541,
+        1.411884,
         1.517745,
-        1.74034,
-        1.772359,
-        1.821196,
-        1.864292,
-        1.910084,
+        1.731839,
+        1.772895,
+        1.829955,
+        1.866633,
+        1.906988,
         2.183085,
-        2.825194
+        2.823257
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         1.903469,
         2.092606
       ],
@@ -619,11 +633,13 @@
         "n_episodes": 486,
         "n_baseline": 5,
         "mean_episode_signed": 0.047638,
-        "mean_baseline": -0.00121,
-        "welch_z": 1.3191,
-        "cohen_d": 0.5908
+        "mean_baseline_raw": -0.00121,
+        "mean_baseline_signaligned": -0.0001,
+        "mean_shock_sign": 0.0823,
+        "welch_z": 1.2892,
+        "glass_delta": 0.5773
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.8212; эпизодов 486 (OOS 367) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 1.83 (condition-on-success, смещена оптимистично); эпизодов 486 (OOS подтвердивших 360) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -639,7 +655,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 456,
-      "n_episodes_oos": 352,
+      "n_episodes_oos": 306,
+      "n_episodes_oos_valid": 347,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 8,
@@ -647,56 +664,56 @@
         {
           "fold": 0,
           "n_ep_train": 69,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.200968,
-          "gain_oos": 0.177343,
-          "p_oos": 0.060333,
+          "gain_oos": 0.178998,
+          "p_oos": 0.061673,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.146139,
-          "gain_oos": 0.281087,
-          "p_oos": 0.011495
+          "gain_train": 0.130674,
+          "gain_oos": 0.288511,
+          "p_oos": 0.01028
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
-          "n_ep_oos": 39,
+          "n_ep_train": 82,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 3,
-          "gain_train": 0.305831,
-          "gain_oos": 0.229801,
-          "p_oos": 0.036482
+          "gain_train": 0.310597,
+          "gain_oos": 0.222296,
+          "p_oos": 0.047428
         },
         {
           "fold": 3,
-          "n_ep_train": 80,
+          "n_ep_train": 79,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 1,
-          "gain_train": 0.338118,
+          "gain_train": 0.342744,
           "gain_oos": 0.421605,
           "p_oos": 0.001929
         },
         {
           "fold": 4,
-          "n_ep_train": 82,
+          "n_ep_train": 81,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.555764,
+          "gain_train": 0.546603,
           "gain_oos": 0.538724,
           "p_oos": 0.0
         },
@@ -714,33 +731,33 @@
         {
           "fold": 6,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.494501,
-          "gain_oos": 0.364523,
-          "p_oos": 0.00612
+          "gain_oos": 0.399952,
+          "p_oos": 0.002311
         },
         {
           "fold": 7,
           "n_ep_train": 76,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.411781,
-          "gain_oos": 0.373267,
+          "gain_oos": 0.374699,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 32,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.371375,
+          "gain_train": 0.38342,
           "gain_oos": 0.198141,
           "p_oos": 0.001891
         }
@@ -751,16 +768,17 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.368895,
+      "gain_conditional": 0.387325,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
         0.198141,
-        0.281087,
-        0.364523,
-        0.373267,
+        0.288511,
+        0.374699,
+        0.399952,
         0.445908,
         0.538724
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.256959,
         0.361168
       ],
@@ -770,11 +788,13 @@
         "n_episodes": 456,
         "n_baseline": 13,
         "mean_episode_signed": 0.01107,
-        "mean_baseline": -0.004981,
-        "welch_z": 2.5855,
-        "cohen_d": 0.7285
+        "mean_baseline_raw": -0.004981,
+        "mean_baseline_signaligned": -0.000218,
+        "mean_shock_sign": 0.0439,
+        "welch_z": 1.8183,
+        "glass_delta": 0.5123
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.3689; эпизодов 456 (OOS 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.3873 (condition-on-success, смещена оптимистично); эпизодов 456 (OOS подтвердивших 306) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -790,7 +810,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 486,
-      "n_episodes_oos": 367,
+      "n_episodes_oos": 280,
+      "n_episodes_oos_valid": 360,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 7,
@@ -798,47 +819,47 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.558365,
-          "gain_oos": 0.30338,
-          "p_oos": 0.085284,
+          "gain_oos": 0.320487,
+          "p_oos": 0.073439,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 81,
-          "n_ep_oos": 43,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.302132,
-          "gain_oos": 0.327994,
-          "p_oos": 0.082287,
+          "gain_train": 0.290983,
+          "gain_oos": 0.338892,
+          "p_oos": 0.078447,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 2,
-          "n_ep_train": 84,
+          "n_ep_train": 83,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.353997,
+          "gain_train": 0.361406,
           "gain_oos": 0.578006,
           "p_oos": 3e-06
         },
         {
           "fold": 3,
-          "n_ep_train": 85,
-          "n_ep_oos": 39,
+          "n_ep_train": 84,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.44591,
-          "gain_oos": 0.51306,
+          "gain_train": 0.452554,
+          "gain_oos": 0.51642,
           "p_oos": 2e-06
         },
         {
@@ -854,47 +875,47 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 83,
-          "n_ep_oos": 41,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 1,
-          "gain_train": 0.700434,
-          "gain_oos": 0.699294,
-          "p_oos": 2e-05
+          "gain_train": 0.700733,
+          "gain_oos": 0.701522,
+          "p_oos": 2.3e-05
         },
         {
           "fold": 6,
           "n_ep_train": 84,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.745175,
-          "gain_oos": 0.709533,
-          "p_oos": 4.6e-05
+          "gain_oos": 0.595316,
+          "p_oos": 4.1e-05
         },
         {
           "fold": 7,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.667991,
-          "gain_oos": 1.005787,
-          "p_oos": 2e-06
+          "gain_train": 0.670024,
+          "gain_oos": 1.001429,
+          "p_oos": 3e-06
         },
         {
           "fold": 8,
-          "n_ep_train": 85,
-          "n_ep_oos": 39,
+          "n_ep_train": 84,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.838506,
-          "gain_oos": 0.977058,
-          "p_oos": 0.003758
+          "gain_train": 0.779646,
+          "gain_oos": 0.963779,
+          "p_oos": 0.005696
         }
       ],
       "established_frac": 0.778,
@@ -903,16 +924,17 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.793913,
+      "gain_conditional": 0.736805,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.51306,
+        0.51642,
         0.578006,
-        0.709533,
+        0.595316,
         0.878294,
-        0.977058,
-        1.005787
+        0.963779,
+        1.001429
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.502523,
         0.695365
       ],
@@ -922,11 +944,13 @@
         "n_episodes": 486,
         "n_baseline": 5,
         "mean_episode_signed": 0.015179,
-        "mean_baseline": -0.01643,
-        "welch_z": 0.266,
-        "cohen_d": 0.119
+        "mean_baseline_raw": -0.01643,
+        "mean_baseline_signaligned": -0.001352,
+        "mean_shock_sign": 0.0823,
+        "welch_z": 0.1391,
+        "glass_delta": 0.0622
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.7939; эпизодов 486 (OOS 367) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.7368 (condition-on-success, смещена оптимистично); эпизодов 486 (OOS подтвердивших 280) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -942,7 +966,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 466,
-      "n_episodes_oos": 361,
+      "n_episodes_oos": 197,
+      "n_episodes_oos_valid": 352,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 5,
@@ -950,105 +975,105 @@
         {
           "fold": 0,
           "n_ep_train": 70,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.483743,
-          "gain_oos": 0.071344,
-          "p_oos": 0.807532,
+          "gain_oos": 0.066707,
+          "p_oos": 0.82241,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 75,
-          "n_ep_oos": 44,
+          "n_ep_train": 74,
+          "n_ep_oos": 43,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.487145,
-          "gain_oos": 0.356839,
-          "p_oos": 0.004353
+          "gain_train": 0.492515,
+          "gain_oos": 0.355935,
+          "p_oos": 0.005317
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.317634,
+          "gain_oos": 0.45132,
+          "p_oos": 0.00073
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 86,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.42346,
+          "gain_oos": 0.426254,
+          "p_oos": 4e-06
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 78,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.318249,
-          "gain_oos": 0.492187,
-          "p_oos": 0.000342
-        },
-        {
-          "fold": 3,
-          "n_ep_train": 87,
-          "n_ep_oos": 37,
-          "valid": true,
-          "established": true,
-          "lag": 1,
-          "gain_train": 0.422469,
-          "gain_oos": 0.426239,
-          "p_oos": 3e-06
-        },
-        {
-          "fold": 4,
-          "n_ep_train": 79,
-          "n_ep_oos": 42,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.54457,
-          "gain_oos": 0.763642,
-          "p_oos": 4.4e-05
+          "gain_train": 0.539607,
+          "gain_oos": 0.750263,
+          "p_oos": 6.9e-05
         },
         {
           "fold": 5,
-          "n_ep_train": 80,
-          "n_ep_oos": 42,
+          "n_ep_train": 79,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.579075,
-          "gain_oos": 0.206821,
-          "p_oos": 0.227555,
+          "gain_train": 0.579101,
+          "gain_oos": 0.2067,
+          "p_oos": 0.234658,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 6,
-          "n_ep_train": 85,
-          "n_ep_oos": 40,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.341625,
-          "gain_oos": 0.284944,
-          "p_oos": 0.063604,
+          "gain_train": 0.336676,
+          "gain_oos": 0.296137,
+          "p_oos": 0.059028,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 7,
-          "n_ep_train": 82,
-          "n_ep_oos": 39,
+          "n_ep_train": 81,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 3,
-          "gain_train": 0.300263,
-          "gain_oos": -0.080071,
-          "p_oos": 0.597542,
+          "gain_train": 0.304848,
+          "gain_oos": -0.085306,
+          "p_oos": 0.579815,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 8,
-          "n_ep_train": 81,
-          "n_ep_oos": 38,
+          "n_ep_train": 80,
+          "n_ep_oos": 37,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.317077,
-          "gain_oos": 0.254317,
-          "p_oos": 0.034416
+          "gain_train": 0.322315,
+          "gain_oos": 0.283591,
+          "p_oos": 0.014458
         }
       ],
       "established_frac": 0.556,
@@ -1074,54 +1099,55 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 486,
-      "n_episodes_oos": 367,
+      "n_episodes_oos": 200,
+      "n_episodes_oos_valid": 360,
       "n_folds": 9,
       "n_folds_valid": 9,
-      "n_folds_established": 4,
+      "n_folds_established": 5,
       "folds": [
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.374943,
-          "gain_oos": -0.074468,
-          "p_oos": 0.213777,
+          "gain_oos": -0.067034,
+          "p_oos": 0.265912,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 81,
-          "n_ep_oos": 43,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.180548,
-          "gain_oos": 0.441853,
-          "p_oos": 0.004135
+          "gain_train": 0.151599,
+          "gain_oos": 0.43443,
+          "p_oos": 0.005591
         },
         {
           "fold": 2,
-          "n_ep_train": 84,
+          "n_ep_train": 83,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.215427,
+          "gain_train": 0.221089,
           "gain_oos": 0.371855,
           "p_oos": 0.000239
         },
         {
           "fold": 3,
-          "n_ep_train": 85,
-          "n_ep_oos": 39,
+          "n_ep_train": 84,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.484883,
-          "gain_oos": 0.682223,
+          "gain_train": 0.482382,
+          "gain_oos": 0.683188,
           "p_oos": 1e-06
         },
         {
@@ -1137,61 +1163,60 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 83,
-          "n_ep_oos": 41,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
           "valid": true,
           "established": false,
           "lag": 1,
-          "gain_train": 0.644651,
-          "gain_oos": 0.165086,
-          "p_oos": 0.240279,
+          "gain_train": 0.644607,
+          "gain_oos": 0.168404,
+          "p_oos": 0.235475,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 6,
           "n_ep_train": 84,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 7,
           "gain_train": -0.240262,
-          "gain_oos": -0.22246,
-          "p_oos": 0.06286,
+          "gain_oos": -0.233554,
+          "p_oos": 0.058073,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 7,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 7,
-          "gain_train": -0.308026,
-          "gain_oos": -0.100901,
-          "p_oos": 0.349318,
+          "gain_train": -0.305881,
+          "gain_oos": -0.096385,
+          "p_oos": 0.377976,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 8,
-          "n_ep_train": 85,
-          "n_ep_oos": 39,
+          "n_ep_train": 84,
+          "n_ep_oos": 38,
           "valid": true,
-          "established": false,
+          "established": true,
           "lag": 0,
-          "gain_train": 0.226037,
-          "gain_oos": 0.339883,
-          "p_oos": 0.050309,
-          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+          "gain_train": 0.213225,
+          "gain_oos": 0.393573,
+          "p_oos": 0.025895
         }
       ],
-      "established_frac": 0.444,
+      "established_frac": 0.556,
       "oos_sign_consistent": true,
       "status": "не установлено",
       "wf_established": false,
       "tier": "C",
       "lag_selected": null,
       "gain_conditional": null,
-      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 44% валидных фолдов (< 60%)"
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 56% валидных фолдов (< 60%)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -1207,7 +1232,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 456,
-      "n_episodes_oos": 352,
+      "n_episodes_oos": 347,
+      "n_episodes_oos_valid": 347,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -1215,55 +1241,55 @@
         {
           "fold": 0,
           "n_ep_train": 69,
-          "n_ep_oos": 42,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.976646,
-          "gain_oos": 1.28991,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 1,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 1.306576,
-          "gain_oos": 1.149664,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 2,
-          "n_ep_train": 83,
-          "n_ep_oos": 39,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 1.231286,
-          "gain_oos": 1.334123,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 3,
-          "n_ep_train": 80,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.196909,
+          "gain_train": 0.976646,
+          "gain_oos": 1.279315,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.257346,
+          "gain_oos": 1.180292,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 82,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.224428,
+          "gain_oos": 1.284996,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 79,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.216479,
           "gain_oos": 1.376772,
           "p_oos": 0.0
         },
         {
           "fold": 4,
-          "n_ep_train": 82,
+          "n_ep_train": 81,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.348454,
+          "gain_train": 1.33604,
           "gain_oos": 1.258749,
           "p_oos": 0.0
         },
@@ -1281,33 +1307,33 @@
         {
           "fold": 6,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 1.31023,
-          "gain_oos": 1.182423,
+          "gain_oos": 1.156181,
           "p_oos": 0.0
         },
         {
           "fold": 7,
           "n_ep_train": 76,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 1.314233,
-          "gain_oos": 1.316363,
+          "gain_oos": 1.32006,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 32,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.277321,
+          "gain_train": 1.269001,
           "gain_oos": 0.77488,
           "p_oos": 0.0
         }
@@ -1318,19 +1344,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 1.28991,
+      "gain_conditional": 1.279315,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
         0.77488,
-        1.149664,
-        1.182423,
+        1.156181,
+        1.180292,
         1.258749,
-        1.28991,
-        1.316363,
-        1.334123,
+        1.279315,
+        1.284996,
+        1.32006,
         1.376772,
         1.381232
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         1.059378,
         1.236337
       ],
@@ -1340,11 +1367,13 @@
         "n_episodes": 456,
         "n_baseline": 13,
         "mean_episode_signed": 0.041769,
-        "mean_baseline": -0.000502,
-        "welch_z": 2.4048,
-        "cohen_d": 0.6714
+        "mean_baseline_raw": -0.000502,
+        "mean_baseline_signaligned": -2.2e-05,
+        "mean_shock_sign": 0.0439,
+        "welch_z": 2.3775,
+        "glass_delta": 0.6638
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.2899; эпизодов 456 (OOS 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 1.2793 (condition-on-success, смещена оптимистично); эпизодов 456 (OOS подтвердивших 347) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -1360,7 +1389,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 488,
-      "n_episodes_oos": 375,
+      "n_episodes_oos": 371,
+      "n_episodes_oos_valid": 371,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -1378,67 +1408,67 @@
         },
         {
           "fold": 1,
-          "n_ep_train": 82,
-          "n_ep_oos": 45,
+          "n_ep_train": 81,
+          "n_ep_oos": 44,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.361776,
-          "gain_oos": 0.517836,
+          "gain_train": 0.361491,
+          "gain_oos": 0.535815,
           "p_oos": 0.0
         },
         {
           "fold": 2,
           "n_ep_train": 88,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.530119,
-          "gain_oos": 0.378761,
+          "gain_oos": 0.380346,
           "p_oos": 0.0
         },
         {
           "fold": 3,
-          "n_ep_train": 88,
-          "n_ep_oos": 42,
+          "n_ep_train": 87,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.450793,
-          "gain_oos": 0.412305,
+          "gain_train": 0.459075,
+          "gain_oos": 0.413033,
           "p_oos": 0.0
         },
         {
           "fold": 4,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.404096,
-          "gain_oos": 0.555543,
+          "gain_train": 0.404571,
+          "gain_oos": 0.574307,
           "p_oos": 0.0
         },
         {
           "fold": 5,
-          "n_ep_train": 85,
+          "n_ep_train": 84,
           "n_ep_oos": 43,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.473202,
+          "gain_train": 0.473665,
           "gain_oos": 0.534244,
           "p_oos": 0.0
         },
         {
           "fold": 6,
-          "n_ep_train": 87,
+          "n_ep_train": 86,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.546948,
+          "gain_train": 0.553679,
           "gain_oos": 0.475829,
           "p_oos": 0.0
         },
@@ -1471,19 +1501,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.525299,
+      "gain_conditional": 0.534244,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.378761,
-        0.412305,
+        0.380346,
+        0.413033,
         0.475829,
-        0.517836,
         0.525299,
         0.534244,
-        0.555543,
+        0.535815,
+        0.574307,
         0.577281,
         0.713793
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.432891,
         0.502977
       ],
@@ -1493,11 +1524,13 @@
         "n_episodes": 488,
         "n_baseline": 5,
         "mean_episode_signed": 0.024432,
-        "mean_baseline": -0.01643,
-        "welch_z": 0.3439,
-        "cohen_d": 0.1538
+        "mean_baseline_raw": -0.01643,
+        "mean_baseline_signaligned": -0.00101,
+        "mean_shock_sign": 0.0615,
+        "welch_z": 0.2141,
+        "glass_delta": 0.0958
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.5253; эпизодов 488 (OOS 375) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.5342 (condition-on-success, смещена оптимистично); эпизодов 488 (OOS подтвердивших 371) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -1513,7 +1546,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 468,
-      "n_episodes_oos": 351,
+      "n_episodes_oos": 309,
+      "n_episodes_oos_valid": 344,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 8,
@@ -1521,46 +1555,46 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.548333,
-          "gain_oos": 0.43725,
-          "p_oos": 0.009202
+          "gain_oos": 0.47984,
+          "p_oos": 0.003593
         },
         {
           "fold": 1,
           "n_ep_train": 80,
-          "n_ep_oos": 43,
+          "n_ep_oos": 42,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.447313,
-          "gain_oos": 0.311924,
-          "p_oos": 0.0303
+          "gain_oos": 0.300079,
+          "p_oos": 0.039325
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.394126,
+          "gain_train": 0.412179,
           "gain_oos": 0.45329,
           "p_oos": 0.000751
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 36,
+          "n_ep_train": 82,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.390062,
-          "gain_oos": 0.212085,
-          "p_oos": 0.022202
+          "gain_train": 0.386524,
+          "gain_oos": 0.213891,
+          "p_oos": 0.023216
         },
         {
           "fold": 4,
@@ -1575,47 +1609,47 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 77,
-          "n_ep_oos": 40,
+          "n_ep_train": 76,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.251733,
-          "gain_oos": 0.681036,
-          "p_oos": 4e-06
+          "gain_train": 0.2525,
+          "gain_oos": 0.684102,
+          "p_oos": 5e-06
         },
         {
           "fold": 6,
           "n_ep_train": 80,
-          "n_ep_oos": 41,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.693016,
-          "gain_oos": 0.312972,
-          "p_oos": 0.012322
-        },
-        {
-          "fold": 7,
-          "n_ep_train": 83,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.515979,
-          "gain_oos": 0.33381,
-          "p_oos": 0.04962
+          "gain_train": 0.693016,
+          "gain_oos": 0.343085,
+          "p_oos": 0.002774
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.517247,
+          "gain_oos": 0.341491,
+          "p_oos": 0.047545
         },
         {
           "fold": 8,
-          "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_train": 81,
+          "n_ep_oos": 35,
           "valid": true,
           "established": false,
           "lag": 1,
-          "gain_train": 0.359889,
-          "gain_oos": 0.15044,
-          "p_oos": 0.432557,
+          "gain_train": 0.376746,
+          "gain_oos": 0.164055,
+          "p_oos": 0.41357,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         }
       ],
@@ -1625,17 +1659,18 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.33381,
+      "gain_conditional": 0.343085,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.212085,
-        0.311924,
-        0.312972,
-        0.33381,
-        0.43725,
+        0.213891,
+        0.300079,
+        0.341491,
+        0.343085,
         0.45329,
-        0.681036
+        0.47984,
+        0.684102
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.246905,
         0.385703
       ],
@@ -1645,11 +1680,13 @@
         "n_episodes": 468,
         "n_baseline": 8,
         "mean_episode_signed": 0.022482,
-        "mean_baseline": 0.000656,
-        "welch_z": 0.9181,
-        "cohen_d": 0.3262
+        "mean_baseline_raw": 0.000656,
+        "mean_baseline_signaligned": 3.6e-05,
+        "mean_shock_sign": 0.0556,
+        "welch_z": 0.9442,
+        "glass_delta": 0.3355
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.3338; эпизодов 468 (OOS 351) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.3431 (condition-on-success, смещена оптимистично); эпизодов 468 (OOS подтвердивших 309) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -1665,7 +1702,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 488,
-      "n_episodes_oos": 375,
+      "n_episodes_oos": 290,
+      "n_episodes_oos_valid": 371,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 7,
@@ -1684,67 +1722,67 @@
         },
         {
           "fold": 1,
-          "n_ep_train": 82,
-          "n_ep_oos": 45,
+          "n_ep_train": 81,
+          "n_ep_oos": 44,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.38438,
-          "gain_oos": 0.310164,
-          "p_oos": 0.027155
+          "gain_train": 0.36093,
+          "gain_oos": 0.301584,
+          "p_oos": 0.034467
         },
         {
           "fold": 2,
           "n_ep_train": 88,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 2,
           "gain_train": 0.31887,
-          "gain_oos": 0.37198,
-          "p_oos": 0.01713
+          "gain_oos": 0.336868,
+          "p_oos": 0.022841
         },
         {
           "fold": 3,
-          "n_ep_train": 88,
-          "n_ep_oos": 42,
+          "n_ep_train": 87,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.385319,
-          "gain_oos": 1.032477,
-          "p_oos": 5.6e-05
+          "gain_train": 0.382543,
+          "gain_oos": 1.035817,
+          "p_oos": 6.6e-05
         },
         {
           "fold": 4,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.863765,
-          "gain_oos": 0.499186,
-          "p_oos": 1e-05
+          "gain_train": 0.858125,
+          "gain_oos": 0.515716,
+          "p_oos": 1.5e-05
         },
         {
           "fold": 5,
-          "n_ep_train": 85,
+          "n_ep_train": 84,
           "n_ep_oos": 43,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.781907,
+          "gain_train": 0.782344,
           "gain_oos": 0.4,
           "p_oos": 7.8e-05
         },
         {
           "fold": 6,
-          "n_ep_train": 87,
+          "n_ep_train": 86,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.450039,
+          "gain_train": 0.454374,
           "gain_oos": 0.447359,
           "p_oos": 0.000628
         },
@@ -1779,15 +1817,16 @@
       "tier": "A",
       "lag_selected": 0,
       "gain_conditional": 0.423679,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.310164,
+        0.301584,
         0.315093,
         0.4,
         0.447359,
-        0.499186,
-        1.032477
+        0.515716,
+        1.035817
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.340297,
         0.503661
       ],
@@ -1797,11 +1836,13 @@
         "n_episodes": 488,
         "n_baseline": 5,
         "mean_episode_signed": 0.019521,
-        "mean_baseline": -0.00121,
-        "welch_z": 0.5593,
-        "cohen_d": 0.2507
+        "mean_baseline_raw": -0.00121,
+        "mean_baseline_signaligned": -7.4e-05,
+        "mean_shock_sign": 0.0615,
+        "welch_z": 0.5287,
+        "glass_delta": 0.237
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4237; эпизодов 488 (OOS 375) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.4237 (condition-on-success, смещена оптимистично); эпизодов 488 (OOS подтвердивших 290) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -1817,7 +1858,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 468,
-      "n_episodes_oos": 351,
+      "n_episodes_oos": 188,
+      "n_episodes_oos_valid": 344,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 5,
@@ -1825,49 +1867,49 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": false,
           "lag": 1,
           "gain_train": 0.164959,
-          "gain_oos": 0.141939,
-          "p_oos": 0.132723,
+          "gain_oos": 0.167834,
+          "p_oos": 0.066981,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
           "n_ep_train": 80,
-          "n_ep_oos": 43,
+          "n_ep_oos": 42,
           "valid": true,
           "established": false,
           "lag": 8,
           "gain_train": -0.146606,
-          "gain_oos": -0.117081,
-          "p_oos": 0.163104,
+          "gain_oos": -0.116578,
+          "p_oos": 0.173123,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 5,
-          "gain_train": -0.229654,
+          "gain_train": -0.224087,
           "gain_oos": -9.9e-05,
           "p_oos": 0.998725,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 36,
+          "n_ep_train": 82,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.139887,
-          "gain_oos": 0.103122,
-          "p_oos": 0.025234
+          "gain_train": 0.144165,
+          "gain_oos": 0.104363,
+          "p_oos": 0.025648
         },
         {
           "fold": 4,
@@ -1882,48 +1924,48 @@
         },
         {
           "fold": 5,
-          "n_ep_train": 77,
-          "n_ep_oos": 40,
+          "n_ep_train": 76,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.126522,
-          "gain_oos": 0.400839,
-          "p_oos": 4.6e-05
+          "gain_train": 0.127036,
+          "gain_oos": 0.403189,
+          "p_oos": 5.4e-05
         },
         {
           "fold": 6,
           "n_ep_train": 80,
-          "n_ep_oos": 41,
+          "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.40663,
-          "gain_oos": 0.161428,
-          "p_oos": 0.025588
+          "gain_oos": 0.182282,
+          "p_oos": 0.003657
         },
         {
           "fold": 7,
-          "n_ep_train": 83,
-          "n_ep_oos": 40,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.297689,
-          "gain_oos": 0.203566,
-          "p_oos": 0.09202,
+          "gain_train": 0.29891,
+          "gain_oos": 0.212573,
+          "p_oos": 0.080545,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 8,
-          "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_train": 81,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.177168,
-          "gain_oos": 0.500809,
-          "p_oos": 0.007379
+          "gain_train": 0.189556,
+          "gain_oos": 0.492689,
+          "p_oos": 0.011437
         }
       ],
       "established_frac": 0.556,
@@ -1949,7 +1991,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 456,
-      "n_episodes_oos": 352,
+      "n_episodes_oos": 160,
+      "n_episodes_oos_valid": 347,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 4,
@@ -1957,54 +2000,54 @@
         {
           "fold": 0,
           "n_ep_train": 69,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.433802,
-          "gain_oos": 0.109639,
-          "p_oos": 0.541961,
+          "gain_oos": 0.115529,
+          "p_oos": 0.52556,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "причина": "train: значимый условный перенос не найден"
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
-          "n_ep_oos": 39,
+          "n_ep_train": 82,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 3,
-          "gain_train": 0.406278,
-          "gain_oos": 0.485464,
-          "p_oos": 0.072816,
+          "gain_train": 0.416181,
+          "gain_oos": 0.452702,
+          "p_oos": 0.09891,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 3,
-          "n_ep_train": 80,
+          "n_ep_train": 79,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 1,
-          "gain_train": 0.501659,
+          "gain_train": 0.517033,
           "gain_oos": 1.387612,
           "p_oos": 0.002689
         },
         {
           "fold": 4,
-          "n_ep_train": 82,
+          "n_ep_train": 81,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.357625,
+          "gain_train": 1.334594,
           "gain_oos": 0.682841,
           "p_oos": 0.000184
         },
@@ -2022,34 +2065,34 @@
         {
           "fold": 6,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.646274,
-          "gain_oos": 0.461815,
-          "p_oos": 0.096405,
+          "gain_oos": 0.518731,
+          "p_oos": 0.062393,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 7,
           "n_ep_train": 76,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 1,
           "gain_train": 0.562987,
-          "gain_oos": 0.320555,
-          "p_oos": 0.034186
+          "gain_oos": 0.318256,
+          "p_oos": 0.038116
         },
         {
           "fold": 8,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 32,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.446394,
+          "gain_train": 0.4657,
           "gain_oos": 0.241141,
           "p_oos": 0.064111,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
@@ -2078,7 +2121,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 466,
-      "n_episodes_oos": 361,
+      "n_episodes_oos": 352,
+      "n_episodes_oos_valid": 352,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -2086,100 +2130,100 @@
         {
           "fold": 0,
           "n_ep_train": 70,
-          "n_ep_oos": 38,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 2.174434,
-          "gain_oos": 1.639022,
-          "p_oos": 0.026102
-        },
-        {
-          "fold": 1,
-          "n_ep_train": 75,
-          "n_ep_oos": 44,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 2.13938,
-          "gain_oos": 1.368007,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 2,
-          "n_ep_train": 83,
-          "n_ep_oos": 41,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 1.426432,
-          "gain_oos": 1.660612,
-          "p_oos": 0.0
-        },
-        {
-          "fold": 3,
-          "n_ep_train": 87,
           "n_ep_oos": 37,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.388396,
-          "gain_oos": 1.329903,
+          "gain_train": 2.174434,
+          "gain_oos": 1.579725,
+          "p_oos": 0.029343
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 74,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.134132,
+          "gain_oos": 1.379024,
           "p_oos": 0.0
         },
         {
-          "fold": 4,
-          "n_ep_train": 79,
-          "n_ep_oos": 42,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 1.369729,
-          "gain_oos": 1.796017,
-          "p_oos": 0.000174
-        },
-        {
-          "fold": 5,
-          "n_ep_train": 80,
-          "n_ep_oos": 42,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 1.393299,
-          "gain_oos": 0.858839,
-          "p_oos": 0.000371
-        },
-        {
-          "fold": 6,
-          "n_ep_train": 85,
+          "fold": 2,
+          "n_ep_train": 82,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.059969,
-          "gain_oos": 1.513501,
-          "p_oos": 2e-06
+          "gain_train": 1.412302,
+          "gain_oos": 1.674319,
+          "p_oos": 0.0
         },
         {
-          "fold": 7,
-          "n_ep_train": 82,
+          "fold": 3,
+          "n_ep_train": 86,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.394111,
+          "gain_oos": 1.329815,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 78,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.370712,
+          "gain_oos": 1.721697,
+          "p_oos": 0.000246
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 79,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.393223,
+          "gain_oos": 0.863509,
+          "p_oos": 0.000416
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 84,
           "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.029179,
-          "gain_oos": 1.593971,
-          "p_oos": 1e-05
+          "gain_train": 1.035777,
+          "gain_oos": 1.439159,
+          "p_oos": 3e-06
         },
         {
-          "fold": 8,
+          "fold": 7,
           "n_ep_train": 81,
           "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 1.539171,
-          "gain_oos": 1.393027,
+          "gain_train": 1.034683,
+          "gain_oos": 1.60571,
+          "p_oos": 1.2e-05
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 80,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.500291,
+          "gain_oos": 1.403127,
           "p_oos": 1e-06
         }
       ],
@@ -2189,19 +2233,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 1.513501,
+      "gain_conditional": 1.439159,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.858839,
-        1.329903,
-        1.368007,
-        1.393027,
-        1.513501,
-        1.593971,
-        1.639022,
-        1.660612,
-        1.796017
+        0.863509,
+        1.329815,
+        1.379024,
+        1.403127,
+        1.439159,
+        1.579725,
+        1.60571,
+        1.674319,
+        1.721697
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         1.272464,
         1.568562
       ],
@@ -2211,11 +2256,13 @@
         "n_episodes": 466,
         "n_baseline": 5,
         "mean_episode_signed": 0.033661,
-        "mean_baseline": -0.01777,
-        "welch_z": 1.4148,
-        "cohen_d": 0.634
+        "mean_baseline_raw": -0.01777,
+        "mean_baseline_signaligned": -0.004118,
+        "mean_shock_sign": 0.2318,
+        "welch_z": 1.0393,
+        "glass_delta": 0.4657
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.5135; эпизодов 466 (OOS 361) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 1.4392 (condition-on-success, смещена оптимистично); эпизодов 466 (OOS подтвердивших 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -2231,7 +2278,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 488,
-      "n_episodes_oos": 375,
+      "n_episodes_oos": 330,
+      "n_episodes_oos_valid": 371,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 8,
@@ -2250,67 +2298,67 @@
         },
         {
           "fold": 1,
-          "n_ep_train": 82,
-          "n_ep_oos": 45,
+          "n_ep_train": 81,
+          "n_ep_oos": 44,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.160906,
-          "gain_oos": 0.294455,
-          "p_oos": 1e-06
+          "gain_train": 0.137211,
+          "gain_oos": 0.290623,
+          "p_oos": 3e-06
         },
         {
           "fold": 2,
           "n_ep_train": 88,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.1756,
-          "gain_oos": 0.254573,
-          "p_oos": 6e-06
+          "gain_oos": 0.249128,
+          "p_oos": 1e-05
         },
         {
           "fold": 3,
-          "n_ep_train": 88,
-          "n_ep_oos": 42,
+          "n_ep_train": 87,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.284197,
-          "gain_oos": 0.471114,
+          "gain_train": 0.282677,
+          "gain_oos": 0.472972,
           "p_oos": 0.0
         },
         {
           "fold": 4,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.410083,
-          "gain_oos": 0.139596,
-          "p_oos": 0.000146
+          "gain_train": 0.409019,
+          "gain_oos": 0.142449,
+          "p_oos": 0.000234
         },
         {
           "fold": 5,
-          "n_ep_train": 85,
+          "n_ep_train": 84,
           "n_ep_oos": 43,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.319725,
+          "gain_train": 0.320309,
           "gain_oos": 0.296316,
           "p_oos": 2.7e-05
         },
         {
           "fold": 6,
-          "n_ep_train": 87,
+          "n_ep_train": 86,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.231826,
+          "gain_train": 0.23452,
           "gain_oos": 0.289305,
           "p_oos": 5e-06
         },
@@ -2343,18 +2391,19 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.271939,
+      "gain_conditional": 0.269216,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.139596,
+        0.142449,
         0.201838,
         0.223845,
-        0.254573,
+        0.249128,
         0.289305,
-        0.294455,
+        0.290623,
         0.296316,
-        0.471114
+        0.472972
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.221677,
         0.275659
       ],
@@ -2364,11 +2413,13 @@
         "n_episodes": 488,
         "n_baseline": 5,
         "mean_episode_signed": 0.011922,
-        "mean_baseline": -0.00078,
-        "welch_z": 1.7584,
-        "cohen_d": 0.7927
+        "mean_baseline_raw": -0.00078,
+        "mean_baseline_signaligned": -4.8e-05,
+        "mean_shock_sign": 0.0615,
+        "welch_z": 1.657,
+        "glass_delta": 0.747
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.2719; эпизодов 488 (OOS 375) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.2692 (condition-on-success, смещена оптимистично); эпизодов 488 (OOS подтвердивших 330) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -2384,7 +2435,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 466,
-      "n_episodes_oos": 361,
+      "n_episodes_oos": 238,
+      "n_episodes_oos_valid": 352,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 6,
@@ -2392,104 +2444,104 @@
         {
           "fold": 0,
           "n_ep_train": 70,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.433379,
-          "gain_oos": 0.501483,
-          "p_oos": 0.22025,
+          "gain_oos": 0.496506,
+          "p_oos": 0.231841,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 75,
-          "n_ep_oos": 44,
+          "n_ep_train": 74,
+          "n_ep_oos": 43,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.658884,
-          "gain_oos": 0.479595,
-          "p_oos": 0.002936
+          "gain_train": 0.664402,
+          "gain_oos": 0.5013,
+          "p_oos": 0.002148
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.500656,
+          "gain_oos": 0.774732,
+          "p_oos": 4e-06
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 86,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.550928,
+          "gain_oos": 0.411457,
+          "p_oos": 5.9e-05
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 78,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.502313,
-          "gain_oos": 0.761758,
-          "p_oos": 3e-06
-        },
-        {
-          "fold": 3,
-          "n_ep_train": 87,
-          "n_ep_oos": 37,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.540359,
-          "gain_oos": 0.41151,
-          "p_oos": 4.7e-05
-        },
-        {
-          "fold": 4,
-          "n_ep_train": 79,
-          "n_ep_oos": 42,
-          "valid": true,
-          "established": true,
-          "lag": 0,
-          "gain_train": 0.454881,
-          "gain_oos": 0.921297,
-          "p_oos": 0.001636
+          "gain_train": 0.455469,
+          "gain_oos": 0.898879,
+          "p_oos": 0.0023
         },
         {
           "fold": 5,
-          "n_ep_train": 80,
-          "n_ep_oos": 42,
+          "n_ep_train": 79,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.478105,
-          "gain_oos": 0.311166,
-          "p_oos": 0.042243
+          "gain_train": 0.478052,
+          "gain_oos": 0.310481,
+          "p_oos": 0.045755
         },
         {
           "fold": 6,
-          "n_ep_train": 85,
-          "n_ep_oos": 40,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 1,
-          "gain_train": 0.520706,
-          "gain_oos": 0.371071,
-          "p_oos": 0.073517,
+          "gain_train": 0.51073,
+          "gain_oos": 0.272647,
+          "p_oos": 0.11732,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 7,
-          "n_ep_train": 82,
-          "n_ep_oos": 39,
+          "n_ep_train": 81,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 3,
-          "gain_train": 0.408468,
-          "gain_oos": -0.088896,
-          "p_oos": 0.706859,
+          "gain_train": 0.407802,
+          "gain_oos": -0.083757,
+          "p_oos": 0.727491,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 8,
-          "n_ep_train": 81,
-          "n_ep_oos": 38,
+          "n_ep_train": 80,
+          "n_ep_oos": 37,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.564808,
-          "gain_oos": 0.689685,
-          "p_oos": 0.029974
+          "gain_train": 0.532304,
+          "gain_oos": 0.735064,
+          "p_oos": 0.021175
         }
       ],
       "established_frac": 0.667,
@@ -2498,16 +2550,17 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.58464,
+      "gain_conditional": 0.618182,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.311166,
-        0.41151,
-        0.479595,
-        0.689685,
-        0.761758,
-        0.921297
+        0.310481,
+        0.411457,
+        0.5013,
+        0.735064,
+        0.774732,
+        0.898879
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.414646,
         0.623512
       ],
@@ -2517,11 +2570,13 @@
         "n_episodes": 466,
         "n_baseline": 5,
         "mean_episode_signed": 0.013396,
-        "mean_baseline": -0.01643,
-        "welch_z": 0.251,
-        "cohen_d": 0.1123
+        "mean_baseline_raw": -0.01643,
+        "mean_baseline_signaligned": -0.003808,
+        "mean_shock_sign": 0.2318,
+        "welch_z": 0.1448,
+        "glass_delta": 0.0648
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.5846; эпизодов 466 (OOS 361) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.6182 (condition-on-success, смещена оптимистично); эпизодов 466 (OOS подтвердивших 238) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "эмпирический реестр (causal_links)",
@@ -2537,65 +2592,65 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 456,
-      "n_episodes_oos": 352,
+      "n_episodes_oos": 265,
+      "n_episodes_oos_valid": 347,
       "n_folds": 9,
       "n_folds_valid": 9,
-      "n_folds_established": 6,
+      "n_folds_established": 7,
       "folds": [
         {
           "fold": 0,
           "n_ep_train": 69,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.129591,
-          "gain_oos": 0.041555,
-          "p_oos": 0.309792,
+          "gain_oos": 0.042455,
+          "p_oos": 0.30616,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
-          "established": false,
+          "established": true,
           "lag": 0,
-          "gain_train": 0.16564,
-          "gain_oos": 0.263166,
-          "p_oos": 0.050959,
-          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+          "gain_train": 0.133753,
+          "gain_oos": 0.278488,
+          "p_oos": 0.037919
         },
         {
           "fold": 2,
-          "n_ep_train": 83,
-          "n_ep_oos": 39,
+          "n_ep_train": 82,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 1,
-          "gain_train": 0.216199,
-          "gain_oos": 0.294782,
-          "p_oos": 0.01239
+          "gain_train": 0.215033,
+          "gain_oos": 0.28164,
+          "p_oos": 0.018444
         },
         {
           "fold": 3,
-          "n_ep_train": 80,
+          "n_ep_train": 79,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.290739,
+          "gain_train": 0.299925,
           "gain_oos": 0.747645,
           "p_oos": 5.5e-05
         },
         {
           "fold": 4,
-          "n_ep_train": 82,
+          "n_ep_train": 81,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.625555,
+          "gain_train": 0.615688,
           "gain_oos": 0.199295,
           "p_oos": 0.007543
         },
@@ -2613,53 +2668,55 @@
         {
           "fold": 6,
           "n_ep_train": 79,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.311618,
-          "gain_oos": 0.223557,
-          "p_oos": 0.03109
+          "gain_oos": 0.223279,
+          "p_oos": 0.035529
         },
         {
           "fold": 7,
           "n_ep_train": 76,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
           "gain_train": 0.369,
-          "gain_oos": 0.124686,
-          "p_oos": 0.088338,
+          "gain_oos": 0.128872,
+          "p_oos": 0.080266,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 8,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 32,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.163865,
+          "gain_train": 0.163319,
           "gain_oos": 0.229534,
           "p_oos": 0.002938
         }
       ],
-      "established_frac": 0.667,
+      "established_frac": 0.778,
       "oos_sign_consistent": true,
       "status": "установлено",
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.229534,
+      "gain_conditional": 0.254011,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
         0.199295,
-        0.223557,
+        0.223279,
         0.229534,
+        0.278488,
         0.419179,
         0.747645
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.207982,
         0.315098
       ],
@@ -2669,11 +2726,13 @@
         "n_episodes": 456,
         "n_baseline": 13,
         "mean_episode_signed": 0.00928,
-        "mean_baseline": 0.003259,
-        "welch_z": 1.3085,
-        "cohen_d": 0.3742
+        "mean_baseline_raw": 0.003259,
+        "mean_baseline_signaligned": 0.000143,
+        "mean_shock_sign": 0.0439,
+        "welch_z": 1.9859,
+        "glass_delta": 0.5679
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.2295; эпизодов 456 (OOS 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.254 (condition-on-success, смещена оптимистично); эпизодов 456 (OOS подтвердивших 265) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "звено цепочки ai_power_transformers_metal",
@@ -2735,7 +2794,8 @@
       "n_obs": 2895,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 479,
-      "n_episodes_oos": 361,
+      "n_episodes_oos": 357,
+      "n_episodes_oos_valid": 357,
       "n_folds": 9,
       "n_folds_valid": 9,
       "n_folds_established": 9,
@@ -2753,24 +2813,24 @@
         },
         {
           "fold": 1,
-          "n_ep_train": 85,
+          "n_ep_train": 84,
           "n_ep_oos": 40,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.221452,
+          "gain_train": 0.222667,
           "gain_oos": 0.314704,
           "p_oos": 1e-06
         },
         {
           "fold": 2,
           "n_ep_train": 84,
-          "n_ep_oos": 40,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.311287,
-          "gain_oos": 0.337318,
+          "gain_oos": 0.308498,
           "p_oos": 0.0
         },
         {
@@ -2786,14 +2846,14 @@
         },
         {
           "fold": 4,
-          "n_ep_train": 79,
-          "n_ep_oos": 40,
+          "n_ep_train": 78,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.423933,
-          "gain_oos": 0.415634,
-          "p_oos": 6e-06
+          "gain_train": 0.418174,
+          "gain_oos": 0.438244,
+          "p_oos": 7e-06
         },
         {
           "fold": 5,
@@ -2808,34 +2868,34 @@
         },
         {
           "fold": 6,
-          "n_ep_train": 83,
-          "n_ep_oos": 39,
+          "n_ep_train": 82,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.560504,
-          "gain_oos": 0.585149,
+          "gain_train": 0.573856,
+          "gain_oos": 0.589581,
           "p_oos": 0.0
         },
         {
           "fold": 7,
           "n_ep_train": 82,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.628159,
-          "gain_oos": 0.564073,
+          "gain_oos": 0.560469,
           "p_oos": 0.0
         },
         {
           "fold": 8,
-          "n_ep_train": 83,
+          "n_ep_train": 82,
           "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.567685,
+          "gain_train": 0.569028,
           "gain_oos": 0.29571,
           "p_oos": 6e-06
         }
@@ -2846,19 +2906,20 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.415634,
+      "gain_conditional": 0.438244,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
         0.292839,
         0.29571,
+        0.308498,
         0.314704,
-        0.337318,
-        0.415634,
+        0.438244,
         0.464232,
-        0.564073,
-        0.585149,
+        0.560469,
+        0.589581,
         0.659802
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.293939,
         0.356509
       ],
@@ -2868,11 +2929,13 @@
         "n_episodes": 479,
         "n_baseline": 5,
         "mean_episode_signed": 0.034837,
-        "mean_baseline": -0.003956,
-        "welch_z": 1.5271,
-        "cohen_d": 0.6849
+        "mean_baseline_raw": -0.003956,
+        "mean_baseline_signaligned": -4.1e-05,
+        "mean_shock_sign": 0.0104,
+        "welch_z": 1.373,
+        "glass_delta": 0.6158
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4156; эпизодов 479 (OOS 361) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.4382 (condition-on-success, смещена оптимистично); эпизодов 479 (OOS подтвердивших 357) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
@@ -2888,7 +2951,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 320,
-      "n_episodes_oos": 210,
+      "n_episodes_oos": 82,
+      "n_episodes_oos_valid": 206,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 2,
@@ -2896,59 +2960,59 @@
         {
           "fold": 0,
           "n_ep_train": 79,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.393246,
-          "gain_oos": 0.22401,
-          "p_oos": 0.010567
+          "gain_oos": 0.203831,
+          "p_oos": 0.014533
         },
         {
           "fold": 1,
-          "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_train": 84,
+          "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.334283,
-          "gain_oos": 0.23371,
-          "p_oos": 0.005995
+          "gain_train": 0.3346,
+          "gain_oos": 0.233045,
+          "p_oos": 0.006784
         },
         {
           "fold": 2,
-          "n_ep_train": 85,
+          "n_ep_train": 84,
           "n_ep_oos": 42,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.229499,
+          "gain_train": 0.222746,
           "gain_oos": 0.153007,
           "p_oos": 0.117235,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 3,
-          "n_ep_train": 86,
-          "n_ep_oos": 42,
+          "n_ep_train": 85,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.191963,
-          "gain_oos": 0.150292,
-          "p_oos": 0.177346,
+          "gain_train": 0.191609,
+          "gain_oos": 0.138003,
+          "p_oos": 0.221367,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 4,
           "n_ep_train": 85,
-          "n_ep_oos": 42,
+          "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 1,
           "gain_train": 0.149668,
-          "gain_oos": 0.221272,
-          "p_oos": 0.055096,
+          "gain_oos": 0.225305,
+          "p_oos": 0.050589,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         }
       ],
@@ -2975,7 +3039,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 298,
-      "n_episodes_oos": 193,
+      "n_episodes_oos": 0,
+      "n_episodes_oos_valid": 189,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 0,
@@ -2983,35 +3048,35 @@
         {
           "fold": 0,
           "n_ep_train": 72,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": false,
           "причина": "train: значимый условный перенос не найден"
         },
         {
           "fold": 1,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "причина": "train: значимый условный перенос не найден"
         },
         {
           "fold": 2,
-          "n_ep_train": 80,
+          "n_ep_train": 79,
           "n_ep_oos": 42,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.343008,
+          "gain_train": 0.340864,
           "gain_oos": 0.225175,
           "p_oos": 0.365986,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 3,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "причина": "train: значимый условный перенос не найден"
@@ -3019,7 +3084,7 @@
         {
           "fold": 4,
           "n_ep_train": 83,
-          "n_ep_oos": 34,
+          "n_ep_oos": 33,
           "valid": true,
           "established": false,
           "причина": "train: значимый условный перенос не найден"
@@ -3048,7 +3113,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 298,
-      "n_episodes_oos": 193,
+      "n_episodes_oos": 113,
+      "n_episodes_oos_valid": 189,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 3,
@@ -3056,55 +3122,55 @@
         {
           "fold": 0,
           "n_ep_train": 72,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": false,
           "lag": 1,
           "gain_train": -0.36075,
-          "gain_oos": 0.813437,
-          "p_oos": 0.010252,
+          "gain_oos": 0.836439,
+          "p_oos": 0.009936,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "причина": "train: значимый условный перенос не найден"
         },
         {
           "fold": 2,
-          "n_ep_train": 80,
+          "n_ep_train": 79,
           "n_ep_oos": 42,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.627934,
+          "gain_train": 0.635766,
           "gain_oos": 0.576724,
           "p_oos": 0.003981
         },
         {
           "fold": 3,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.583527,
-          "gain_oos": 0.396585,
-          "p_oos": 0.009045
+          "gain_train": 0.58593,
+          "gain_oos": 0.389262,
+          "p_oos": 0.011464
         },
         {
           "fold": 4,
           "n_ep_train": 83,
-          "n_ep_oos": 34,
+          "n_ep_oos": 33,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.505368,
-          "gain_oos": 0.465035,
-          "p_oos": 0.026549
+          "gain_oos": 0.43759,
+          "p_oos": 0.037827
         }
       ],
       "established_frac": 0.6,
@@ -3113,13 +3179,14 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.465035,
+      "gain_conditional": 0.43759,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.396585,
-        0.465035,
+        0.389262,
+        0.43759,
         0.576724
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         0.0125,
         0.310882
       ],
@@ -3129,11 +3196,13 @@
         "n_episodes": 298,
         "n_baseline": 5,
         "mean_episode_signed": 0.019603,
-        "mean_baseline": -0.030813,
-        "welch_z": 1.1765,
-        "cohen_d": 0.5292
+        "mean_baseline_raw": -0.030813,
+        "mean_baseline_signaligned": -0.003309,
+        "mean_shock_sign": 0.1074,
+        "welch_z": 0.5347,
+        "glass_delta": 0.2405
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.465; эпизодов 298 (OOS 193) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.4376 (condition-on-success, смещена оптимистично); эпизодов 298 (OOS подтвердивших 113) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
@@ -3149,7 +3218,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 298,
-      "n_episodes_oos": 193,
+      "n_episodes_oos": 33,
+      "n_episodes_oos_valid": 189,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 1,
@@ -3157,61 +3227,61 @@
         {
           "fold": 0,
           "n_ep_train": 72,
-          "n_ep_oos": 38,
+          "n_ep_oos": 37,
           "valid": true,
           "established": false,
           "lag": 1,
           "gain_train": -0.331098,
-          "gain_oos": 0.331574,
-          "p_oos": 0.06619,
+          "gain_oos": 0.33135,
+          "p_oos": 0.073347,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 1,
-          "gain_train": -0.295203,
-          "gain_oos": 0.025523,
-          "p_oos": 0.865871,
+          "gain_train": -0.299287,
+          "gain_oos": 0.024193,
+          "p_oos": 0.874671,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 2,
-          "n_ep_train": 80,
+          "n_ep_train": 79,
           "n_ep_oos": 42,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.224786,
+          "gain_train": 0.225606,
           "gain_oos": 0.340548,
           "p_oos": 0.13045,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 3,
-          "n_ep_train": 84,
-          "n_ep_oos": 39,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.253813,
-          "gain_oos": 0.192087,
-          "p_oos": 0.251075,
+          "gain_train": 0.254607,
+          "gain_oos": 0.208968,
+          "p_oos": 0.214363,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 4,
           "n_ep_train": 83,
-          "n_ep_oos": 34,
+          "n_ep_oos": 33,
           "valid": true,
           "established": true,
           "lag": 1,
           "gain_train": 0.328337,
-          "gain_oos": 0.344037,
-          "p_oos": 0.007198
+          "gain_oos": 0.319214,
+          "p_oos": 0.01115
         }
       ],
       "established_frac": 0.2,
@@ -3237,7 +3307,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 301,
-      "n_episodes_oos": 196,
+      "n_episodes_oos": 35,
+      "n_episodes_oos_valid": 192,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 1,
@@ -3245,61 +3316,61 @@
         {
           "fold": 0,
           "n_ep_train": 71,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 10,
           "gain_train": 0.384297,
-          "gain_oos": -0.059677,
-          "p_oos": 0.781704,
+          "gain_oos": -0.037317,
+          "p_oos": 0.86308,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 10,
-          "gain_train": 0.357306,
-          "gain_oos": 0.178023,
-          "p_oos": 0.341924,
+          "gain_train": 0.358468,
+          "gain_oos": 0.210852,
+          "p_oos": 0.233011,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 2,
-          "n_ep_train": 81,
+          "n_ep_train": 80,
           "n_ep_oos": 41,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.421792,
+          "gain_train": 0.41949,
           "gain_oos": 0.315479,
           "p_oos": 0.131052,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 40,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.380959,
-          "gain_oos": 0.346628,
-          "p_oos": 0.121264,
+          "gain_train": 0.379444,
+          "gain_oos": 0.321197,
+          "p_oos": 0.14579,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 4,
           "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 1,
           "gain_train": 0.316914,
-          "gain_oos": 0.509587,
-          "p_oos": 0.0045
+          "gain_oos": 0.474129,
+          "p_oos": 0.007395
         }
       ],
       "established_frac": 0.2,
@@ -3325,7 +3396,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 301,
-      "n_episodes_oos": 196,
+      "n_episodes_oos": 115,
+      "n_episodes_oos_valid": 192,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 3,
@@ -3333,59 +3405,59 @@
         {
           "fold": 0,
           "n_ep_train": 71,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 9,
           "gain_train": 0.424069,
-          "gain_oos": -0.352241,
-          "p_oos": 0.200827,
+          "gain_oos": -0.3603,
+          "p_oos": 0.198952,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 9,
-          "gain_train": 0.380759,
-          "gain_oos": 0.188178,
-          "p_oos": 0.224916,
+          "gain_train": 0.383392,
+          "gain_oos": 0.204791,
+          "p_oos": 0.182562,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 2,
-          "n_ep_train": 81,
+          "n_ep_train": 80,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.630299,
+          "gain_train": 0.635454,
           "gain_oos": 0.563533,
           "p_oos": 0.000925
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 40,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.601164,
-          "gain_oos": 0.362585,
-          "p_oos": 0.005446
+          "gain_train": 0.603157,
+          "gain_oos": 0.361149,
+          "p_oos": 0.006431
         },
         {
           "fold": 4,
           "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 0,
           "gain_train": 0.495917,
-          "gain_oos": 0.466945,
-          "p_oos": 0.020437
+          "gain_oos": 0.439774,
+          "p_oos": 0.03009
         }
       ],
       "established_frac": 0.6,
@@ -3394,13 +3466,14 @@
       "wf_established": true,
       "tier": "A",
       "lag_selected": 0,
-      "gain_conditional": 0.466945,
+      "gain_conditional": 0.439774,
+      "gain_bias_note": "gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success): оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам ℓ*",
       "gain_oos_folds": [
-        0.362585,
-        0.466945,
+        0.361149,
+        0.439774,
         0.563533
       ],
-      "gain_ci95": [
+      "gain_ci95_fullsample": [
         -0.045315,
         0.197071
       ],
@@ -3410,11 +3483,13 @@
         "n_episodes": 301,
         "n_baseline": 8,
         "mean_episode_signed": 0.01861,
-        "mean_baseline": -0.024615,
-        "welch_z": 1.5763,
-        "cohen_d": 0.5648
+        "mean_baseline_raw": -0.024615,
+        "mean_baseline_signaligned": -0.002699,
+        "mean_shock_sign": 0.1096,
+        "welch_z": 0.7771,
+        "glass_delta": 0.2784
       },
-      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4669; эпизодов 301 (OOS 196) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак согласован; lag*=0, gain=медиана OOS подтвердивших 0.4398 (condition-on-success, смещена оптимистично); эпизодов 301 (OOS подтвердивших 115) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
     },
     {
       "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
@@ -3430,7 +3505,8 @@
       "n_obs": 1889,
       "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
       "n_episodes": 301,
-      "n_episodes_oos": 196,
+      "n_episodes_oos": 76,
+      "n_episodes_oos_valid": 192,
       "n_folds": 5,
       "n_folds_valid": 5,
       "n_folds_established": 2,
@@ -3438,60 +3514,60 @@
         {
           "fold": 0,
           "n_ep_train": 71,
-          "n_ep_oos": 39,
+          "n_ep_oos": 38,
           "valid": true,
           "established": false,
           "lag": 1,
           "gain_train": -0.267406,
-          "gain_oos": 0.452818,
-          "p_oos": 0.006861,
+          "gain_oos": 0.455657,
+          "p_oos": 0.007595,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 1,
-          "n_ep_train": 76,
-          "n_ep_oos": 40,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 1,
-          "gain_train": -0.227129,
-          "gain_oos": 0.128035,
-          "p_oos": 0.451004,
+          "gain_train": -0.226385,
+          "gain_oos": 0.125894,
+          "p_oos": 0.465709,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 2,
-          "n_ep_train": 81,
+          "n_ep_train": 80,
           "n_ep_oos": 41,
           "valid": true,
           "established": true,
           "lag": 0,
-          "gain_train": 0.303081,
+          "gain_train": 0.303097,
           "gain_oos": 0.37527,
           "p_oos": 0.046842
         },
         {
           "fold": 3,
-          "n_ep_train": 83,
-          "n_ep_oos": 40,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
           "valid": true,
           "established": false,
           "lag": 0,
-          "gain_train": 0.327417,
-          "gain_oos": 0.253179,
-          "p_oos": 0.082255,
+          "gain_train": 0.327696,
+          "gain_oos": 0.23425,
+          "p_oos": 0.100136,
           "причина": "OOS не подтвердил (знак/CI95 с нулём)"
         },
         {
           "fold": 4,
           "n_ep_train": 82,
-          "n_ep_oos": 36,
+          "n_ep_oos": 35,
           "valid": true,
           "established": true,
           "lag": 1,
           "gain_train": 0.349222,
-          "gain_oos": 0.337011,
-          "p_oos": 0.006781
+          "gain_oos": 0.312351,
+          "p_oos": 0.011018
         }
       ],
       "established_frac": 0.4,
@@ -3512,21 +3588,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.933735,
+        "gain": 0.936613,
         "n_episodes": 493
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.943901,
+        "gain": 0.947144,
         "n_episodes": 468
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.939487,
+        "gain": 0.938183,
         "n_episodes": 435
       }
     },
@@ -3537,7 +3613,7 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.054405,
+        "gain": 1.05053,
         "n_episodes": 495
       },
       "0.5σ": {
@@ -3551,7 +3627,7 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.045925,
+        "gain": 1.044247,
         "n_episodes": 431
       }
     },
@@ -3562,21 +3638,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.466397,
+        "gain": 0.465078,
         "n_episodes": 493
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.466116,
+        "gain": 0.468058,
         "n_episodes": 468
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.465323,
+        "gain": 0.464853,
         "n_episodes": 435
       }
     },
@@ -3587,21 +3663,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.796904,
+        "gain": 1.782237,
         "n_episodes": 513
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.821196,
+        "gain": 1.829955,
         "n_episodes": 486
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.792408,
+        "gain": 1.786034,
         "n_episodes": 463
       }
     },
@@ -3612,21 +3688,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.396984,
+        "gain": 0.412013,
         "n_episodes": 490
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.368895,
+        "gain": 0.387325,
         "n_episodes": 456
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.369535,
+        "gain": 0.399443,
         "n_episodes": 412
       }
     },
@@ -3644,14 +3720,14 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.793913,
+        "gain": 0.736805,
         "n_episodes": 486
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.704252,
+        "gain": 0.564364,
         "n_episodes": 463
       }
     },
@@ -3676,7 +3752,7 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.485379,
+        "gain": 0.485395,
         "n_episodes": 443
       }
     },
@@ -3712,21 +3788,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.24054,
+        "gain": 1.236475,
         "n_episodes": 490
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.28991,
+        "gain": 1.279315,
         "n_episodes": 456
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.244351,
+        "gain": 1.247992,
         "n_episodes": 412
       }
     },
@@ -3737,14 +3813,14 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.493746,
+        "gain": 0.50521,
         "n_episodes": 510
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.525299,
+        "gain": 0.534244,
         "n_episodes": 488
       },
       "0.6σ": {
@@ -3762,21 +3838,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.423172,
+        "gain": 0.441282,
         "n_episodes": 493
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.33381,
+        "gain": 0.343085,
         "n_episodes": 468
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.44707,
+        "gain": 0.441765,
         "n_episodes": 435
       }
     },
@@ -3798,10 +3874,10 @@
         "n_episodes": 488
       },
       "0.6σ": {
-        "status": "не установлено",
-        "tier": "C",
-        "lag": null,
-        "gain": null,
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.440387,
         "n_episodes": 463
       }
     },
@@ -3809,10 +3885,10 @@
       "источник": "USO.US",
       "узел": "CPER.US",
       "0.4σ": {
-        "status": "не установлено",
-        "tier": "C",
-        "lag": null,
-        "gain": null,
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.248828,
         "n_episodes": 493
       },
       "0.5σ": {
@@ -3862,21 +3938,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.348614,
+        "gain": 1.345385,
         "n_episodes": 497
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.513501,
+        "gain": 1.439159,
         "n_episodes": 466
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 1.426659,
+        "gain": 1.437944,
         "n_episodes": 443
       }
     },
@@ -3887,21 +3963,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.293693,
+        "gain": 0.291071,
         "n_episodes": 510
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.271939,
+        "gain": 0.269216,
         "n_episodes": 488
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.253148,
+        "gain": 0.252701,
         "n_episodes": 463
       }
     },
@@ -3919,14 +3995,14 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.58464,
+        "gain": 0.618182,
         "n_episodes": 466
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.553365,
+        "gain": 0.570473,
         "n_episodes": 443
       }
     },
@@ -3937,21 +4013,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.257693,
+        "gain": 0.257217,
         "n_episodes": 490
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.229534,
+        "gain": 0.254011,
         "n_episodes": 456
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.228003,
+        "gain": 0.227463,
         "n_episodes": 412
       }
     },
@@ -4012,14 +4088,14 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.412615,
+        "gain": 0.435783,
         "n_episodes": 503
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.415634,
+        "gain": 0.438244,
         "n_episodes": 479
       },
       "0.6σ": {
@@ -4051,7 +4127,7 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.22403,
+        "gain": 0.227508,
         "n_episodes": 297
       }
     },
@@ -4087,21 +4163,21 @@
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.52229,
+        "gain": 0.494528,
         "n_episodes": 319
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.465035,
+        "gain": 0.43759,
         "n_episodes": 298
       },
       "0.6σ": {
-        "status": "установлено",
-        "tier": "A",
-        "lag": 0,
-        "gain": 0.445653,
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
         "n_episodes": 275
       }
     },
@@ -4159,24 +4235,24 @@
       "источник": "USO.US",
       "узел": "STNG.US",
       "0.4σ": {
-        "status": "установлено",
-        "tier": "A",
-        "lag": 0,
-        "gain": 0.440371,
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
         "n_episodes": 318
       },
       "0.5σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.466945,
+        "gain": 0.439774,
         "n_episodes": 301
       },
       "0.6σ": {
         "status": "установлено",
         "tier": "A",
         "lag": 0,
-        "gain": 0.391535,
+        "gain": 0.381819,
         "n_episodes": 279
       }
     },

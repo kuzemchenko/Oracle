@@ -6,7 +6,7 @@
 # аудита/сверки калибровки, не как источник истины движка. Боевые ворота/ранг/seal
 # условное измерение НЕ читают до этапа Э4(в,г) (ROADMAP_2026-07_search_engine.md).
 
-generated_at: '2026-07-13T11:49:26+00:00'
+generated_at: '2026-07-13T15:18:29+00:00'
 db: /tmp/claude-0/-home-oracle-oracle/23f77705-fc43-4ab5-8b8a-f23e76741560/scratchpad/quotes_snapshot.db
 db_note: байт-копия таблицы quotes боевой storage/oracle.db (read-only снапшот 2026-07-13,
   445593 строк, max date 2026-07-13; снапшот — чтобы не открывать боевую WAL-БД на
@@ -39,7 +39,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 468
-  n_episodes_oos: 351
+  n_episodes_oos: 344
+  n_episodes_oos_valid: 344
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -49,18 +50,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.943901
+  gain_conditional: 0.947144
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.804568
-  - 0.816307
+  - 0.804511
+  - 0.816612
   - 0.870796
-  - 0.916351
-  - 0.943901
-  - 0.948923
-  - 0.971108
+  - 0.916721
+  - 0.947144
+  - 0.947905
+  - 0.969665
   - 0.994281
-  - 1.026218
-  gain_ci95:
+  - 1.02607
+  gain_ci95_fullsample:
   - 0.861171
   - 0.908628
   gain_fullsample: 0.8849
@@ -69,11 +73,14 @@ conditional_sensitivities:
     n_episodes: 468
     n_baseline: 8
     mean_episode_signed: 0.049719
-    mean_baseline: 0.003457
-    welch_z: 1.825
-    cohen_d: 0.6468
+    mean_baseline_raw: 0.003457
+    mean_baseline_signaligned: 0.000192
+    mean_shock_sign: 0.0556
+    welch_z: 1.9538
+    glass_delta: 0.6925
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.9439; эпизодов 468 (OOS 351) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.9471 (condition-on-success,
+    смещена оптимистично); эпизодов 468 (OOS подтвердивших 344) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: WTI↔Brent — один нефтяной комплекс (двунаправленно)
@@ -87,7 +94,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 468
-  n_episodes_oos: 348
+  n_episodes_oos: 342
+  n_episodes_oos_valid: 342
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -98,17 +106,20 @@ conditional_sensitivities:
   tier: A
   lag_selected: 0
   gain_conditional: 1.040215
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.859542
+  - 0.859275
   - 0.997976
-  - 1.005399
-  - 1.02307
+  - 1.005578
+  - 1.025086
   - 1.040215
   - 1.045798
-  - 1.054394
-  - 1.098558
-  - 1.217656
-  gain_ci95:
+  - 1.050785
+  - 1.098686
+  - 1.219309
+  gain_ci95_fullsample:
   - 1.017676
   - 1.079956
   gain_fullsample: 1.048816
@@ -117,11 +128,14 @@ conditional_sensitivities:
     n_episodes: 468
     n_baseline: 5
     mean_episode_signed: 0.050271
-    mean_baseline: -0.00121
-    welch_z: 1.3902
-    cohen_d: 0.6226
+    mean_baseline_raw: -0.00121
+    mean_baseline_signaligned: -6.2e-05
+    mean_shock_sign: 0.0513
+    welch_z: 1.3592
+    glass_delta: 0.6087
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 1.0402; эпизодов 468 (OOS 348) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 1.0402 (condition-on-success,
+    смещена оптимистично); эпизодов 468 (OOS подтвердивших 342) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: нефть — крупнейший вес товарного индекса; перенос в индекс
@@ -135,7 +149,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 468
-  n_episodes_oos: 351
+  n_episodes_oos: 344
+  n_episodes_oos_valid: 344
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -145,18 +160,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.466116
+  gain_conditional: 0.468058
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.202787
+  - 0.202689
   - 0.392617
-  - 0.397713
-  - 0.464495
-  - 0.466116
-  - 0.471659
-  - 0.483116
+  - 0.3988
+  - 0.466115
+  - 0.468058
+  - 0.471994
+  - 0.476815
   - 0.563579
-  - 0.624938
-  gain_ci95:
+  - 0.625965
+  gain_ci95_fullsample:
   - 0.334969
   - 0.374854
   gain_fullsample: 0.354912
@@ -165,11 +183,14 @@ conditional_sensitivities:
     n_episodes: 468
     n_baseline: 8
     mean_episode_signed: 0.023346
-    mean_baseline: 0.004291
-    welch_z: 2.3907
-    cohen_d: 0.8489
+    mean_baseline_raw: 0.004291
+    mean_baseline_signaligned: 0.000238
+    mean_shock_sign: 0.0556
+    welch_z: 2.8992
+    glass_delta: 1.0295
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.4661; эпизодов 468 (OOS 351) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.4681 (condition-on-success,
+    смещена оптимистично); эпизодов 468 (OOS подтвердивших 344) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: нефть — крупнейший вес товарного индекса; перенос в индекс
@@ -183,7 +204,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 486
-  n_episodes_oos: 367
+  n_episodes_oos: 360
+  n_episodes_oos_valid: 360
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -193,18 +215,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 1.821196
+  gain_conditional: 1.829955
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 1.413541
+  - 1.411884
   - 1.517745
-  - 1.74034
-  - 1.772359
-  - 1.821196
-  - 1.864292
-  - 1.910084
+  - 1.731839
+  - 1.772895
+  - 1.829955
+  - 1.866633
+  - 1.906988
   - 2.183085
-  - 2.825194
-  gain_ci95:
+  - 2.823257
+  gain_ci95_fullsample:
   - 1.903469
   - 2.092606
   gain_fullsample: 1.998037
@@ -213,11 +238,14 @@ conditional_sensitivities:
     n_episodes: 486
     n_baseline: 5
     mean_episode_signed: 0.047638
-    mean_baseline: -0.00121
-    welch_z: 1.3191
-    cohen_d: 0.5908
+    mean_baseline_raw: -0.00121
+    mean_baseline_signaligned: -0.0001
+    mean_shock_sign: 0.0823
+    welch_z: 1.2892
+    glass_delta: 0.5773
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 1.8212; эпизодов 486 (OOS 367) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 1.83 (condition-on-success,
+    смещена оптимистично); эпизодов 486 (OOS подтвердивших 360) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: медь в составе индустриальных металлов товарного индекса
@@ -231,7 +259,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 456
-  n_episodes_oos: 352
+  n_episodes_oos: 306
+  n_episodes_oos_valid: 347
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 8
@@ -241,15 +270,18 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.368895
+  gain_conditional: 0.387325
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
   - 0.198141
-  - 0.281087
-  - 0.364523
-  - 0.373267
+  - 0.288511
+  - 0.374699
+  - 0.399952
   - 0.445908
   - 0.538724
-  gain_ci95:
+  gain_ci95_fullsample:
   - 0.256959
   - 0.361168
   gain_fullsample: 0.309063
@@ -258,11 +290,14 @@ conditional_sensitivities:
     n_episodes: 456
     n_baseline: 13
     mean_episode_signed: 0.01107
-    mean_baseline: -0.004981
-    welch_z: 2.5855
-    cohen_d: 0.7285
+    mean_baseline_raw: -0.004981
+    mean_baseline_signaligned: -0.000218
+    mean_shock_sign: 0.0439
+    welch_z: 1.8183
+    glass_delta: 0.5123
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.3689; эпизодов 456 (OOS 352) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.3873 (condition-on-success,
+    смещена оптимистично); эпизодов 456 (OOS подтвердивших 306) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: медь в составе индустриальных металлов товарного индекса
@@ -276,7 +311,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 486
-  n_episodes_oos: 367
+  n_episodes_oos: 280
+  n_episodes_oos_valid: 360
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 7
@@ -286,15 +322,18 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.793913
+  gain_conditional: 0.736805
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.51306
+  - 0.51642
   - 0.578006
-  - 0.709533
+  - 0.595316
   - 0.878294
-  - 0.977058
-  - 1.005787
-  gain_ci95:
+  - 0.963779
+  - 1.001429
+  gain_ci95_fullsample:
   - 0.502523
   - 0.695365
   gain_fullsample: 0.598944
@@ -303,11 +342,14 @@ conditional_sensitivities:
     n_episodes: 486
     n_baseline: 5
     mean_episode_signed: 0.015179
-    mean_baseline: -0.01643
-    welch_z: 0.266
-    cohen_d: 0.119
+    mean_baseline_raw: -0.01643
+    mean_baseline_signaligned: -0.001352
+    mean_shock_sign: 0.0823
+    welch_z: 0.1391
+    glass_delta: 0.0622
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.7939; эпизодов 486 (OOS 367) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.7368 (condition-on-success,
+    смещена оптимистично); эпизодов 486 (OOS подтвердивших 280) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: риск-аппетит акций ↔ спрос на сырьё (двунаправленно)
@@ -321,7 +363,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 466
-  n_episodes_oos: 361
+  n_episodes_oos: 197
+  n_episodes_oos_valid: 352
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 5
@@ -345,18 +388,19 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 486
-  n_episodes_oos: 367
+  n_episodes_oos: 200
+  n_episodes_oos_valid: 360
   n_folds: 9
   n_folds_valid: 9
-  n_folds_established: 4
-  established_frac: 0.444
+  n_folds_established: 5
+  established_frac: 0.556
   oos_sign_consistent: true
   status: не установлено
   wf_established: false
   tier: C
   lag_selected: null
   gain_conditional: null
-  провенанс: 'НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 44% валидных фолдов (< 60%)'
+  провенанс: 'НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 56% валидных фолдов (< 60%)'
 - категория: эмпирический реестр (causal_links)
   mechanism: цена меди ↔ выручка/маржа медников (двунаправленно)
   источник: CPER.US
@@ -369,7 +413,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 456
-  n_episodes_oos: 352
+  n_episodes_oos: 347
+  n_episodes_oos_valid: 347
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -379,18 +424,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 1.28991
+  gain_conditional: 1.279315
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
   - 0.77488
-  - 1.149664
-  - 1.182423
+  - 1.156181
+  - 1.180292
   - 1.258749
-  - 1.28991
-  - 1.316363
-  - 1.334123
+  - 1.279315
+  - 1.284996
+  - 1.32006
   - 1.376772
   - 1.381232
-  gain_ci95:
+  gain_ci95_fullsample:
   - 1.059378
   - 1.236337
   gain_fullsample: 1.147857
@@ -399,11 +447,14 @@ conditional_sensitivities:
     n_episodes: 456
     n_baseline: 13
     mean_episode_signed: 0.041769
-    mean_baseline: -0.000502
-    welch_z: 2.4048
-    cohen_d: 0.6714
+    mean_baseline_raw: -0.000502
+    mean_baseline_signaligned: -2.2e-05
+    mean_shock_sign: 0.0439
+    welch_z: 2.3775
+    glass_delta: 0.6638
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 1.2899; эпизодов 456 (OOS 352) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 1.2793 (condition-on-success,
+    смещена оптимистично); эпизодов 456 (OOS подтвердивших 347) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: цена меди ↔ выручка/маржа медников (двунаправленно)
@@ -417,7 +468,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 488
-  n_episodes_oos: 375
+  n_episodes_oos: 371
+  n_episodes_oos_valid: 371
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -427,18 +479,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.525299
+  gain_conditional: 0.534244
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.378761
-  - 0.412305
+  - 0.380346
+  - 0.413033
   - 0.475829
-  - 0.517836
   - 0.525299
   - 0.534244
-  - 0.555543
+  - 0.535815
+  - 0.574307
   - 0.577281
   - 0.713793
-  gain_ci95:
+  gain_ci95_fullsample:
   - 0.432891
   - 0.502977
   gain_fullsample: 0.467934
@@ -447,11 +502,14 @@ conditional_sensitivities:
     n_episodes: 488
     n_baseline: 5
     mean_episode_signed: 0.024432
-    mean_baseline: -0.01643
-    welch_z: 0.3439
-    cohen_d: 0.1538
+    mean_baseline_raw: -0.01643
+    mean_baseline_signaligned: -0.00101
+    mean_shock_sign: 0.0615
+    welch_z: 0.2141
+    glass_delta: 0.0958
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.5253; эпизодов 488 (OOS 375) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.5342 (condition-on-success,
+    смещена оптимистично); эпизодов 488 (OOS подтвердивших 371) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: энергозатраты добычи и общий сырьевой цикл → медники
@@ -465,7 +523,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 468
-  n_episodes_oos: 351
+  n_episodes_oos: 309
+  n_episodes_oos_valid: 344
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 8
@@ -475,16 +534,19 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.33381
+  gain_conditional: 0.343085
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.212085
-  - 0.311924
-  - 0.312972
-  - 0.33381
-  - 0.43725
+  - 0.213891
+  - 0.300079
+  - 0.341491
+  - 0.343085
   - 0.45329
-  - 0.681036
-  gain_ci95:
+  - 0.47984
+  - 0.684102
+  gain_ci95_fullsample:
   - 0.246905
   - 0.385703
   gain_fullsample: 0.316304
@@ -493,11 +555,14 @@ conditional_sensitivities:
     n_episodes: 468
     n_baseline: 8
     mean_episode_signed: 0.022482
-    mean_baseline: 0.000656
-    welch_z: 0.9181
-    cohen_d: 0.3262
+    mean_baseline_raw: 0.000656
+    mean_baseline_signaligned: 3.6e-05
+    mean_shock_sign: 0.0556
+    welch_z: 0.9442
+    glass_delta: 0.3355
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.3338; эпизодов 468 (OOS 351) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.3431 (condition-on-success,
+    смещена оптимистично); эпизодов 468 (OOS подтвердивших 309) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: энергозатраты добычи и общий сырьевой цикл → медники
@@ -511,7 +576,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 488
-  n_episodes_oos: 375
+  n_episodes_oos: 290
+  n_episodes_oos_valid: 371
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 7
@@ -522,14 +588,17 @@ conditional_sensitivities:
   tier: A
   lag_selected: 0
   gain_conditional: 0.423679
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.310164
+  - 0.301584
   - 0.315093
   - 0.4
   - 0.447359
-  - 0.499186
-  - 1.032477
-  gain_ci95:
+  - 0.515716
+  - 1.035817
+  gain_ci95_fullsample:
   - 0.340297
   - 0.503661
   gain_fullsample: 0.421979
@@ -538,11 +607,14 @@ conditional_sensitivities:
     n_episodes: 488
     n_baseline: 5
     mean_episode_signed: 0.019521
-    mean_baseline: -0.00121
-    welch_z: 0.5593
-    cohen_d: 0.2507
+    mean_baseline_raw: -0.00121
+    mean_baseline_signaligned: -7.4e-05
+    mean_shock_sign: 0.0615
+    welch_z: 0.5287
+    glass_delta: 0.237
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.4237; эпизодов 488 (OOS 375) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.4237 (condition-on-success,
+    смещена оптимистично); эпизодов 488 (OOS подтвердивших 290) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: нефть как прокси глобального спроса → медь
@@ -556,7 +628,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 468
-  n_episodes_oos: 351
+  n_episodes_oos: 188
+  n_episodes_oos_valid: 344
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 5
@@ -580,7 +653,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 456
-  n_episodes_oos: 352
+  n_episodes_oos: 160
+  n_episodes_oos_valid: 347
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 4
@@ -604,7 +678,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 466
-  n_episodes_oos: 361
+  n_episodes_oos: 352
+  n_episodes_oos_valid: 352
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -614,18 +689,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 1.513501
+  gain_conditional: 1.439159
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.858839
-  - 1.329903
-  - 1.368007
-  - 1.393027
-  - 1.513501
-  - 1.593971
-  - 1.639022
-  - 1.660612
-  - 1.796017
-  gain_ci95:
+  - 0.863509
+  - 1.329815
+  - 1.379024
+  - 1.403127
+  - 1.439159
+  - 1.579725
+  - 1.60571
+  - 1.674319
+  - 1.721697
+  gain_ci95_fullsample:
   - 1.272464
   - 1.568562
   gain_fullsample: 1.420513
@@ -634,11 +712,14 @@ conditional_sensitivities:
     n_episodes: 466
     n_baseline: 5
     mean_episode_signed: 0.033661
-    mean_baseline: -0.01777
-    welch_z: 1.4148
-    cohen_d: 0.634
+    mean_baseline_raw: -0.01777
+    mean_baseline_signaligned: -0.004118
+    mean_shock_sign: 0.2318
+    welch_z: 1.0393
+    glass_delta: 0.4657
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 1.5135; эпизодов 466 (OOS 361) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 1.4392 (condition-on-success,
+    смещена оптимистично); эпизодов 466 (OOS подтвердивших 352) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: бета медников к широкому рынку
@@ -652,7 +733,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 488
-  n_episodes_oos: 375
+  n_episodes_oos: 330
+  n_episodes_oos_valid: 371
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 8
@@ -662,17 +744,20 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.271939
+  gain_conditional: 0.269216
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.139596
+  - 0.142449
   - 0.201838
   - 0.223845
-  - 0.254573
+  - 0.249128
   - 0.289305
-  - 0.294455
+  - 0.290623
   - 0.296316
-  - 0.471114
-  gain_ci95:
+  - 0.472972
+  gain_ci95_fullsample:
   - 0.221677
   - 0.275659
   gain_fullsample: 0.248668
@@ -681,11 +766,14 @@ conditional_sensitivities:
     n_episodes: 488
     n_baseline: 5
     mean_episode_signed: 0.011922
-    mean_baseline: -0.00078
-    welch_z: 1.7584
-    cohen_d: 0.7927
+    mean_baseline_raw: -0.00078
+    mean_baseline_signaligned: -4.8e-05
+    mean_shock_sign: 0.0615
+    welch_z: 1.657
+    glass_delta: 0.747
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.2719; эпизодов 488 (OOS 375) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.2692 (condition-on-success,
+    смещена оптимистично); эпизодов 488 (OOS подтвердивших 330) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: цикл рынка акций → промышленный спрос на медь
@@ -699,7 +787,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 466
-  n_episodes_oos: 361
+  n_episodes_oos: 238
+  n_episodes_oos_valid: 352
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 6
@@ -709,15 +798,18 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.58464
+  gain_conditional: 0.618182
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.311166
-  - 0.41151
-  - 0.479595
-  - 0.689685
-  - 0.761758
-  - 0.921297
-  gain_ci95:
+  - 0.310481
+  - 0.411457
+  - 0.5013
+  - 0.735064
+  - 0.774732
+  - 0.898879
+  gain_ci95_fullsample:
   - 0.414646
   - 0.623512
   gain_fullsample: 0.519079
@@ -726,11 +818,14 @@ conditional_sensitivities:
     n_episodes: 466
     n_baseline: 5
     mean_episode_signed: 0.013396
-    mean_baseline: -0.01643
-    welch_z: 0.251
-    cohen_d: 0.1123
+    mean_baseline_raw: -0.01643
+    mean_baseline_signaligned: -0.003808
+    mean_shock_sign: 0.2318
+    welch_z: 0.1448
+    glass_delta: 0.0648
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.5846; эпизодов 466 (OOS 361) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.6182 (condition-on-success,
+    смещена оптимистично); эпизодов 466 (OOS подтвердивших 238) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: эмпирический реестр (causal_links)
   mechanism: цикл рынка акций → промышленный спрос на медь
@@ -744,24 +839,29 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 456
-  n_episodes_oos: 352
+  n_episodes_oos: 265
+  n_episodes_oos_valid: 347
   n_folds: 9
   n_folds_valid: 9
-  n_folds_established: 6
-  established_frac: 0.667
+  n_folds_established: 7
+  established_frac: 0.778
   oos_sign_consistent: true
   status: установлено
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.229534
+  gain_conditional: 0.254011
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
   - 0.199295
-  - 0.223557
+  - 0.223279
   - 0.229534
+  - 0.278488
   - 0.419179
   - 0.747645
-  gain_ci95:
+  gain_ci95_fullsample:
   - 0.207982
   - 0.315098
   gain_fullsample: 0.26154
@@ -770,11 +870,14 @@ conditional_sensitivities:
     n_episodes: 456
     n_baseline: 13
     mean_episode_signed: 0.00928
-    mean_baseline: 0.003259
-    welch_z: 1.3085
-    cohen_d: 0.3742
-  провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.2295; эпизодов 456 (OOS 352) → ярус A (маппинг:
+    mean_baseline_raw: 0.003259
+    mean_baseline_signaligned: 0.000143
+    mean_shock_sign: 0.0439
+    welch_z: 1.9859
+    glass_delta: 0.5679
+  провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.254 (condition-on-success,
+    смещена оптимистично); эпизодов 456 (OOS подтвердивших 265) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: звено цепочки ai_power_transformers_metal
   mechanism: ord1→ord2
@@ -828,7 +931,8 @@ conditional_sensitivities:
   n_obs: 2895
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 479
-  n_episodes_oos: 361
+  n_episodes_oos: 357
+  n_episodes_oos_valid: 357
   n_folds: 9
   n_folds_valid: 9
   n_folds_established: 9
@@ -838,18 +942,21 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.415634
+  gain_conditional: 0.438244
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
   - 0.292839
   - 0.29571
+  - 0.308498
   - 0.314704
-  - 0.337318
-  - 0.415634
+  - 0.438244
   - 0.464232
-  - 0.564073
-  - 0.585149
+  - 0.560469
+  - 0.589581
   - 0.659802
-  gain_ci95:
+  gain_ci95_fullsample:
   - 0.293939
   - 0.356509
   gain_fullsample: 0.325224
@@ -858,11 +965,14 @@ conditional_sensitivities:
     n_episodes: 479
     n_baseline: 5
     mean_episode_signed: 0.034837
-    mean_baseline: -0.003956
-    welch_z: 1.5271
-    cohen_d: 0.6849
+    mean_baseline_raw: -0.003956
+    mean_baseline_signaligned: -4.1e-05
+    mean_shock_sign: 0.0104
+    welch_z: 1.373
+    glass_delta: 0.6158
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.4156; эпизодов 479 (OOS 361) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.4382 (condition-on-success,
+    смещена оптимистично); эпизодов 479 (OOS подтвердивших 357) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: событийный контроль (вердикты суда / новостные кейсы 07.2026)
   mechanism: null
@@ -876,7 +986,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 320
-  n_episodes_oos: 210
+  n_episodes_oos: 82
+  n_episodes_oos_valid: 206
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 2
@@ -900,7 +1011,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 298
-  n_episodes_oos: 193
+  n_episodes_oos: 0
+  n_episodes_oos_valid: 189
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 0
@@ -925,7 +1037,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 298
-  n_episodes_oos: 193
+  n_episodes_oos: 113
+  n_episodes_oos_valid: 189
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 3
@@ -935,12 +1048,15 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.465035
+  gain_conditional: 0.43759
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.396585
-  - 0.465035
+  - 0.389262
+  - 0.43759
   - 0.576724
-  gain_ci95:
+  gain_ci95_fullsample:
   - 0.0125
   - 0.310882
   gain_fullsample: 0.161691
@@ -949,11 +1065,14 @@ conditional_sensitivities:
     n_episodes: 298
     n_baseline: 5
     mean_episode_signed: 0.019603
-    mean_baseline: -0.030813
-    welch_z: 1.1765
-    cohen_d: 0.5292
+    mean_baseline_raw: -0.030813
+    mean_baseline_signaligned: -0.003309
+    mean_shock_sign: 0.1074
+    welch_z: 0.5347
+    glass_delta: 0.2405
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.465; эпизодов 298 (OOS 193) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.4376 (condition-on-success,
+    смещена оптимистично); эпизодов 298 (OOS подтвердивших 113) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: событийный контроль (вердикты суда / новостные кейсы 07.2026)
   mechanism: null
@@ -967,7 +1086,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 298
-  n_episodes_oos: 193
+  n_episodes_oos: 33
+  n_episodes_oos_valid: 189
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 1
@@ -991,7 +1111,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 301
-  n_episodes_oos: 196
+  n_episodes_oos: 35
+  n_episodes_oos_valid: 192
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 1
@@ -1015,7 +1136,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 301
-  n_episodes_oos: 196
+  n_episodes_oos: 115
+  n_episodes_oos_valid: 192
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 3
@@ -1025,12 +1147,15 @@ conditional_sensitivities:
   wf_established: true
   tier: A
   lag_selected: 0
-  gain_conditional: 0.466945
+  gain_conditional: 0.439774
+  gain_bias_note: 'gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов (condition-on-success):
+    оптимистично смещена; несмещённый ориентир — gain_ci95_fullsample по всем эпизодам
+    ℓ*'
   gain_oos_folds:
-  - 0.362585
-  - 0.466945
+  - 0.361149
+  - 0.439774
   - 0.563533
-  gain_ci95:
+  gain_ci95_fullsample:
   - -0.045315
   - 0.197071
   gain_fullsample: 0.075878
@@ -1039,11 +1164,14 @@ conditional_sensitivities:
     n_episodes: 301
     n_baseline: 8
     mean_episode_signed: 0.01861
-    mean_baseline: -0.024615
-    welch_z: 1.5763
-    cohen_d: 0.5648
+    mean_baseline_raw: -0.024615
+    mean_baseline_signaligned: -0.002699
+    mean_shock_sign: 0.1096
+    welch_z: 0.7771
+    glass_delta: 0.2784
   провенанс: 'УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак
-    согласован; lag*=0, gain=медиана OOS 0.4669; эпизодов 301 (OOS 196) → ярус A (маппинг:
+    согласован; lag*=0, gain=медиана OOS подтвердивших 0.4398 (condition-on-success,
+    смещена оптимистично); эпизодов 301 (OOS подтвердивших 115) → ярус A (маппинг:
     A≥30, B≥10 OOS-эпизодов)'
 - категория: событийный контроль (вердикты суда / новостные кейсы 07.2026)
   mechanism: null
@@ -1057,7 +1185,8 @@ conditional_sensitivities:
   n_obs: 1889
   wf: train=504,test=252,step=252 (как sensitivity.py, §23.1)
   n_episodes: 301
-  n_episodes_oos: 196
+  n_episodes_oos: 76
+  n_episodes_oos_valid: 192
   n_folds: 5
   n_folds_valid: 5
   n_folds_established: 2

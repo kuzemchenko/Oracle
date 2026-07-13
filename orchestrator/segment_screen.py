@@ -103,6 +103,13 @@ def fetch_screener_page(api_key, filters, *, offset=0, limit=PAGE_LIMIT,
         "api_token": api_key, "filters": json.dumps(filters),
         "sort": sort, "limit": int(limit), "offset": int(offset)})
     data = (fetch or _http_fetch)(f"{SCREENER_URL}?{q}")
+    # Э4-ревью (HIGH): EODHD может вернуть квотную/платёжную ошибку в ТЕЛЕ HTTP-200 JSON
+    # ({"error":"quota exceeded"} / {"message":"payment required"} / "limit"), а не HTTP-кодом.
+    # Без детекта тела это маскировалось под пустой скрин, и алерт владельцу (решение №5) не шёл.
+    if isinstance(data, dict):
+        msg = str(data.get("error") or data.get("message") or "").lower()
+        if msg and any(m in msg for m in ("quota", "payment", "limit", "too many", "402", "429")):
+            raise QuotaError(f"квота/оплата в теле ответа screener EODHD: {msg[:80]}")
     return (data or {}).get("data") or []
 
 
@@ -118,24 +125,25 @@ def screener_available(api_key, fetch=None):
         return False, f"{type(e).__name__}: {e}"
 
 
-def _seg_filters(segment, min_vol):
-    """Наборы фильтров screener для сегмента: по каждому сектору И (если заданы) по каждой
-    индустрии — union результатов. Ликвидность зашита в сам запрос (avgvol_200d)."""
+def _seg_filter_levels(segment, min_vol):
+    """Уровни фильтров screener для сегмента В ПОРЯДКЕ ПРИОРИТЕТА (Э4-ревью medium):
+    сначала по индустриям (уже), при пустом результате — деградация на секторы (шире).
+    Возвращает [(уровень, [наборы_фильтров])]. Ликвидность зашита в запрос (avgvol_200d)."""
     base = [["exchange", "=", "us"], ["avgvol_200d", ">=", int(min_vol)]]
-    out = []
-    for ind in segment.get("индустрии") or []:
-        out.append([["industry", "=", ind]] + base)
-    if not out:  # индустрий нет → весь сектор (шире, но честно по карте)
-        for sec in segment.get("секторы") or []:
-            out.append([["sector", "=", sec]] + base)
-    return out
+    levels = []
+    ind = [[["industry", "=", i]] + base for i in (segment.get("индустрии") or [])]
+    if ind:
+        levels.append(("industry", ind))
+    sec = [[["sector", "=", s]] + base for s in (segment.get("секторы") or [])]
+    if sec:
+        levels.append(("sector", sec))
+    return levels
 
 
-def screen_segment_api(segment, api_key, *, min_vol, max_instruments, fetch=None):
-    """Скрин сегмента через EODHD screener: пагинация до max_instruments, дедуп по символу,
-    сорт по капитализации (детерминирован). Символы нормализуются к формату SYMBOL.US."""
+def _screen_api_level(api_key, filter_sets, *, min_vol, max_instruments, fetch=None):
+    """Один уровень скрина (набор фильтров) → строки инструментов."""
     seen, rows = set(), []
-    for filters in _seg_filters(segment, min_vol):
+    for filters in filter_sets:
         for page in range(MAX_PAGES_PER_FILTER):
             if len(rows) >= max_instruments:
                 break
@@ -163,6 +171,20 @@ def screen_segment_api(segment, api_key, *, min_vol, max_instruments, fetch=None
     return rows
 
 
+def screen_segment_api(segment, api_key, *, min_vol, max_instruments, fetch=None):
+    """Скрин сегмента через EODHD screener с ДЕГРАДАЦИЕЙ уровня: индустрии → (если пусто) секторы.
+    Э4-ревью (medium): невалидная/опечатанная «индустрия» карты давала пустой скрин и не откатывалась
+    на сектор. Символы нормализуются к SYMBOL.US, сорт по капитализации (детерминирован)."""
+    for уровень, filter_sets in _seg_filter_levels(segment, min_vol):
+        rows = _screen_api_level(api_key, filter_sets, min_vol=min_vol,
+                                 max_instruments=max_instruments, fetch=fetch)
+        if rows:
+            for r in rows:
+                r["уровень_скрина"] = уровень
+            return rows
+    return []
+
+
 def screen_segment_db(segment, con, *, min_vol, max_instruments):
     """Фолбэк Tier0: fundamentals (сектор/индустрия) из storage/oracle.db + средний объём из quotes.
     Покрытие честно ограничено уже профетченными символами (П8: это НЕ полный рынок — помечаем)."""
@@ -170,19 +192,23 @@ def screen_segment_db(segment, con, *, min_vol, max_instruments):
     inds = segment.get("индустрии") or []
     if not secs and not inds:
         return []
-    conds, params = [], []
+    # Э4-ревью (medium): деградация уровня и в БД-фолбэке — индустрии, при пустом результате секторы.
+    levels = []
     if inds:
-        conds.append("industry IN (%s)" % ",".join("?" * len(inds)))
-        params += inds
-    else:
-        conds.append("sector IN (%s)" % ",".join("?" * len(secs)))
-        params += secs
-    try:
-        frows = con.execute(
-            f"SELECT symbol, sector, industry, market_cap_mln FROM fundamentals WHERE {' OR '.join(conds)}",
-            params).fetchall()
-    except sqlite3.OperationalError:
-        return []
+        levels.append(("industry", "industry IN (%s)" % ",".join("?" * len(inds)), list(inds)))
+    if secs:
+        levels.append(("sector", "sector IN (%s)" % ",".join("?" * len(secs)), list(secs)))
+    frows, уровень = [], None
+    for lvl, cond, params in levels:
+        try:
+            frows = con.execute(
+                f"SELECT symbol, sector, industry, market_cap_mln FROM fundamentals WHERE {cond}",
+                params).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        if frows:
+            уровень = lvl
+            break
     out = []
     for sym, sector, industry, mcap in frows:
         # средний объём последних 40 баров (устойчивее полного среднего за годы)
@@ -194,7 +220,8 @@ def screen_segment_db(segment, con, *, min_vol, max_instruments):
             continue
         out.append({"symbol": sym, "sector": sector, "industry": industry,
                     "market_cap": (mcap * 1e6) if mcap else None,
-                    "avg_volume": avgvol, "источник_скрина": "fundamentals_db (фолбэк, покрытие частичное)"})
+                    "avg_volume": avgvol, "уровень_скрина": уровень,
+                    "источник_скрина": "fundamentals_db (фолбэк, покрытие частичное)"})
     out.sort(key=lambda r: (-(r["market_cap"] or 0), r["symbol"]))
     return out[:max_instruments]
 
@@ -207,11 +234,17 @@ def screen_segment(segment, *, api_key=None, con=None, db=None, universe=None,
     Квотная ошибка EODHD → алерт владельцу (notices, решение №5) + честный переход на фолбэк БД."""
     min_vol = min_avg_daily_volume(universe)
     отказ = None
+    def _src(base, rows):
+        """Честная пометка деградации уровня (индустрии → секторы), если она случилась (medium)."""
+        used = rows[0].get("уровень_скрина") if rows else None
+        if used == "sector" and (segment.get("индустрии")):
+            return base + " (деградация: индустрии карты пусты → скрин по сектору)"
+        return base
     if api_key:
         try:
             rows = screen_segment_api(segment, api_key, min_vol=min_vol,
                                       max_instruments=max_instruments, fetch=fetch)
-            return {"инструменты": rows, "источник": "eodhd_screener", "отказ": None}
+            return {"инструменты": rows, "источник": _src("eodhd_screener", rows), "отказ": None}
         except QuotaError as e:
             notify_owner(
                 f"⚠ Э4-скрин: квота EODHD исчерпана на screener ({e}) — сегмент "
@@ -229,7 +262,7 @@ def screen_segment(segment, *, api_key=None, con=None, db=None, universe=None,
         if own:
             con.close()
     return {"инструменты": rows,
-            "источник": "fundamentals_db" + (f" (после: {отказ})" if отказ else ""),
+            "источник": _src("fundamentals_db", rows) + (f" (после: {отказ})" if отказ else ""),
             "отказ": None if rows else (отказ or "нет данных скрина: ни screener, ни фундаментал БД")}
 
 

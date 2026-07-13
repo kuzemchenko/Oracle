@@ -180,26 +180,39 @@ def baseline_windows(target_ret, episodes, *, window=EVENT_WINDOW_DAYS, max_lag=
 
 def effect_stats(episodes, target_ret, lag, *, window=EVENT_WINDOW_DAYS, max_lag=MAX_LAG):
     """Эффект-статистика эпизодов против базы: знак-выровненный отклик в эпизодах
-    (resp·sign(shock)) vs распределение W-окон цели вне эпизодов. Welch-z + Cohen d."""
-    ep = []
+    (resp·sign(shock)) vs распределение W-окон цели вне эпизодов. Welch-z + Glass Δ.
+
+    Д3-ревью (LOW): эпизодный отклик знак-выровнен (·sign(shock)), а сырая baseline — нет.
+    При дрейфе цели и односторонних шоках это давало ложный «эффект» (сравнение знак-обработанного
+    с необработанным). Фикс: baseline тоже проецируется на ОЖИДАЕМЫЙ знак шоков — mean(base)·s̄,
+    где s̄ = средний знак шоков эпизодов. Так дрейф цели вычитается симметрично, а остаётся именно
+    условный перенос. Δ — Glass (знаменатель = σ baseline, не пул) → имя glass_delta (не cohen_d).
+    """
+    ep, signs = [], []
     for e in episodes:
         resp = lag_response(target_ret, e["t"], lag, window=window)
         if resp is not None:
-            ep.append(resp * (1.0 if e["shock"] >= 0 else -1.0))
+            s = 1.0 if e["shock"] >= 0 else -1.0
+            ep.append(resp * s)
+            signs.append(s)
     base = baseline_windows(target_ret, episodes, window=window, max_lag=max_lag)
     if len(ep) < 3 or len(base) < 3:
         return None
     ep_a, base_a = np.asarray(ep), np.asarray(base)
-    m_e, m_b = float(ep_a.mean()), float(base_a.mean())
+    s_bar = float(np.mean(signs)) if signs else 0.0            # ожидаемый знак шоков (для проекции базы)
+    m_e = float(ep_a.mean())
+    m_b_raw = float(base_a.mean())
+    m_b = m_b_raw * s_bar                                      # знак-выровненная база: дрейф цели снят
     v_e = float(ep_a.var(ddof=1)) if ep_a.size > 1 else 0.0
     v_b = float(base_a.var(ddof=1)) if base_a.size > 1 else 0.0
     denom = math.sqrt(v_e / ep_a.size + v_b / base_a.size)
     z = (m_e - m_b) / denom if denom > 0 else None
     d = (m_e - m_b) / math.sqrt(v_b) if v_b > 0 else None
     return {"n_episodes": int(ep_a.size), "n_baseline": int(base_a.size),
-            "mean_episode_signed": round(m_e, 6), "mean_baseline": round(m_b, 6),
+            "mean_episode_signed": round(m_e, 6), "mean_baseline_raw": round(m_b_raw, 6),
+            "mean_baseline_signaligned": round(m_b, 6), "mean_shock_sign": round(s_bar, 4),
             "welch_z": (None if z is None else round(z, 4)),
-            "cohen_d": (None if d is None else round(d, 4))}
+            "glass_delta": (None if d is None else round(d, 4))}
 
 
 def _tier(wf_established, n_oos):
@@ -218,7 +231,7 @@ def estimate_pair(source_ret, target_ret, *, window=EVENT_WINDOW_DAYS,
     """Полная условная оценка пары источник→цель: эпизоды → walk-forward → вердикт.
 
     Возвращает запись (все числа детерминированы, П8: неустойчиво/мало данных → «не установлено»):
-      status/wf_established/tier — вердикт; lag_selected, gain_conditional, gain_ci95 —
+      status/wf_established/tier — вердикт; lag_selected, gain_conditional, gain_ci95_fullsample —
       величины (только при установлении); n_episodes*, folds — провенанс.
     """
     s = np.asarray(source_ret, dtype=float)
@@ -238,10 +251,14 @@ def estimate_pair(source_ret, target_ret, *, window=EVENT_WINDOW_DAYS,
     folds_out = []
     folds = WF.walk_forward(n, train, test, step=step)
     for fd in folds:
+        # walk-forward-ЧИСТОТА (Д3-ревью HIGH): эпизод принадлежит срезу, только если ВСЁ окно
+        # шока [t−W+1 .. t] И ВСЁ окно отклика (до max_lag: конец t+max_lag) лежат внутри среза.
+        # Раньше проверялся лишь конец окна шока (t) — эпизод у test_start тянул shock/отклик из
+        # train (in-sample доходности в OOS-подтверждении). Теперь оба конца в срезе (для train и OOS).
         ep_tr = [e for e in episodes
-                 if fd.train_start <= e["t"] and e["t"] + max_lag < fd.train_end]
+                 if e["t"] - window + 1 >= fd.train_start and e["t"] + max_lag < fd.train_end]
         ep_te = [e for e in episodes
-                 if fd.test_start <= e["t"] and e["t"] + max_lag < fd.test_end]
+                 if e["t"] - window + 1 >= fd.test_start and e["t"] + max_lag < fd.test_end]
         rec = {"fold": fd.fold, "n_ep_train": len(ep_tr), "n_ep_oos": len(ep_te)}
         if len(ep_tr) < min_episodes or len(ep_te) < min_episodes:
             rec.update({"valid": False, "established": False,
@@ -278,8 +295,13 @@ def estimate_pair(source_ret, target_ret, *, window=EVENT_WINDOW_DAYS,
 
     valid = [f for f in folds_out if f.get("valid")]
     estab = [f for f in folds_out if f.get("established")]
-    n_oos_total = sum(f["n_ep_oos"] for f in valid)
-    out = {**base, "n_episodes": len(episodes), "n_episodes_oos": int(n_oos_total),
+    # Д3-ревью (LOW): ярус честности опирается на N ПОДТВЕРЖДАЮЩИХ OOS-эпизодов, НЕ на все валидные
+    # фолды. Раньше провалившиеся фолды (OOS не подтвердил) раздували N и повышали ярус — это искажало
+    # смысл «N эпизодов = опора установленного переноса». Теперь маппинг ярусов считает n_oos_estab.
+    n_oos_estab = sum(f["n_ep_oos"] for f in estab)
+    n_oos_valid = sum(f["n_ep_oos"] for f in valid)          # диагностика (все валидные фолды)
+    out = {**base, "n_episodes": len(episodes), "n_episodes_oos": int(n_oos_estab),
+           "n_episodes_oos_valid": int(n_oos_valid),
            "n_folds": len(folds_out), "n_folds_valid": len(valid),
            "n_folds_established": len(estab), "folds": folds_out}
     if len(valid) < min_folds:
@@ -288,6 +310,7 @@ def estimate_pair(source_ret, target_ret, *, window=EVENT_WINDOW_DAYS,
                     "провенанс": f"нет данных (П8): валидных фолдов {len(valid)} < {min_folds} "
                                  f"(эпизодов всего {len(episodes)})"})
         return out
+    n_oos_total = n_oos_estab                                # ярус — по подтверждающим фолдам (LOW-фикс)
     estab_frac = len(estab) / len(valid)
     signs = {1 if f["gain_oos"] > 0 else -1 for f in estab}
     sign_consistent = len(signs) == 1
@@ -318,16 +341,23 @@ def estimate_pair(source_ret, target_ret, *, window=EVENT_WINDOW_DAYS,
     out.update({
         "status": "установлено", "wf_established": True, "tier": tier,
         "lag_selected": int(lag_selected),
+        # gain_conditional = медиана OOS-gain ТОЛЬКО подтвердивших фолдов → УСЛОВЛЕНА успехом
+        # (condition-on-success): систематически оптимистичнее безусловной оценки, это диагностика
+        # переноса, НЕ несмещённая величина edge (Д3-ревью LOW: декларируем смещение явно).
         "gain_conditional": round(gain_med, 6),
+        "gain_bias_note": ("gain_conditional — медиана OOS-gain ПОДТВЕРДИВШИХ фолдов "
+                           "(condition-on-success): оптимистично смещена; несмещённый ориентир — "
+                           "gain_ci95_fullsample по всем эпизодам ℓ*"),
         "gain_oos_folds": [round(g, 6) for g in gains],
-        "gain_ci95": (full or {}).get("gain_ci95"),      # описательный CI полного сэмпла на ℓ*
+        "gain_ci95_fullsample": (full or {}).get("gain_ci95"),   # описательный CI полного сэмпла на ℓ*
         "gain_fullsample": (full or {}).get("gain"),
         "p_value_fullsample": (full or {}).get("p_value"),
         "effect": eff,
         "провенанс": (f"УСТАНОВЛЕНО walk-forward: OOS-подтверждение в {estab_frac:.0%} из "
                       f"{len(valid)} фолдов, знак согласован; lag*={lag_selected}, "
-                      f"gain=медиана OOS {round(gain_med, 4)}; эпизодов {len(episodes)} "
-                      f"(OOS {n_oos_total}) → ярус {tier} "
+                      f"gain=медиана OOS подтвердивших {round(gain_med, 4)} (condition-on-success, "
+                      f"смещена оптимистично); эпизодов {len(episodes)} "
+                      f"(OOS подтвердивших {n_oos_total}) → ярус {tier} "
                       f"(маппинг: A≥{TIER_A_MIN_OOS_EPISODES}, B≥{TIER_B_MIN_OOS_EPISODES} OOS-эпизодов)"),
     })
     return out

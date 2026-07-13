@@ -66,6 +66,10 @@ NOISE_FLOOR_SIGMA_FRAC = 0.5     # подпись 05.07: |edge| ≥ 0.5·σ_h т
 SHOCK_SIGMA_FRAC = 0.5           # гейт B4: |shock источника| ≥ 0.5·σ_ист·√окна, иначе шока НЕТ
 SIGMA_BARS = 61                  # окно дневной σ — как vol_fn боевого строителя (соосность)
 MAX_SEALS_PER_RUN = 40           # кэп-гигиена: библиотека сейчас ~24 ребра; рост — сигнал разобраться
+# Э4-ревью (BLOCKER): суб-кэп на кандидат-рёбра (origin=world_enum) — не более ПОЛОВИНЫ суточного
+# кэпа печатей, чтобы поток «перебора мира» не вытеснял библиотечные рёбра из форвард-теста.
+# Общий кэп MAX_SEALS_PER_RUN НЕ поднимается (рамка 3).
+CAND_SEALS_FRAC = 0.5
 # Дедуп ставки: identity трека (FC.DEDUP_FIELDS: track+ставка, stage-review B4) + edge_key: два
 # РАЗНЫХ ребра к одному терминалу (напр. USO→BNO и DBC→BNO при равных порогах) дают РАЗНЫЕ
 # прогнозы — у каждого своя атрибуция промоушена, дедупить их между собой нельзя.
@@ -126,7 +130,10 @@ def edge_library(path=SENS, candidates_path=CANDIDATES):
                 continue
             seen.add(key)
             edges.append(c)
-    edges.sort(key=lambda x: (x["from"], x["to"], x["lag"]))
+    # Э4-ревью (BLOCKER): БИБЛИОТЕЧНЫЕ рёбра идут ПЕРВЫМИ, кандидаты (origin=world_enum) — в остаток.
+    # Иначе при кэпе MAX_SEALS_PER_RUN алфавитная сортировка давала кандидатам «A…» вытеснять
+    # библиотеку из суточных печатей по мере роста реестра кандидатов (цель программы ≥100 рёбер).
+    edges.sort(key=lambda x: (x.get("origin", "library") != "library", x["from"], x["to"], x["lag"]))
     return edges
 
 
@@ -189,11 +196,13 @@ def run_edge_forward(*, write=True, seal=True, con=None, now_dt=None,
     own = con is None
     if con is None:
         con = sqlite3.connect(str(db or DB), timeout=30)
-    итоги = {"рёбер_в_библиотеке": len(edges), "запечатано": 0, "кулдаун_pending": 0,
+    cand_cap = int(max_seals * CAND_SEALS_FRAC)      # суб-кэп кандидат-рёбер (≤ половины кэпа печатей)
+    итоги = {"рёбер_в_библиотеке": len(edges), "запечатано": 0, "кандидат_запечатано": 0,
+             "кулдаун_pending": 0,
              "шок_под_порогом": 0, "реверс_или_шум_P1#5": 0, "спит_под_порогом": 0,
              "нет_шока_источника": 0, "σ_не_измерима": 0, "нет_edge_на_узле": 0,
              "узел_не_построен": 0, "не_запечатываемо_§9": 0, "дубль_пропущен": 0,
-             "кэп_отброшено": 0}
+             "кэп_отброшено": 0, "суб_кэп_кандидатов_отброшено": 0}
     детали = []
     now_iso = now_dt.isoformat(timespec="seconds")
     кулдаун = _edges_on_cooldown(predictions_path, now_iso)   # и в dry: зеркалит боевое поведение
@@ -288,6 +297,13 @@ def run_edge_forward(*, write=True, seal=True, con=None, now_dt=None,
                 детали.append({**rec, "статус": "пропуск",
                                "причина": f"кэп {max_seals} прогнозов/прогон (гигиена) — НЕ запечатано"})
                 continue
+            is_candidate = edge.get("origin", "library") != "library"
+            if is_candidate and итоги["кандидат_запечатано"] >= cand_cap:
+                итоги["суб_кэп_кандидатов_отброшено"] += 1
+                детали.append({**rec, "статус": "пропуск",
+                               "причина": f"суб-кэп кандидат-рёбер {cand_cap} (≤{CAND_SEALS_FRAC:.0%} "
+                                          f"кэпа {max_seals}) — библиотека печатается первой (Э4)"})
+                continue
             if seal:
                 sealed = SEAL.seal(spec, path=predictions_path, dedup_fields=DEDUP_FIELDS,
                                    dedup_normalize=FC.dedup_normalize)
@@ -296,6 +312,8 @@ def run_edge_forward(*, write=True, seal=True, con=None, now_dt=None,
                     детали.append({**rec, "статус": "дубль", "причина": "та же ставка уже в журнале"})
                     continue
             итоги["запечатано"] += 1
+            if is_candidate:
+                итоги["кандидат_запечатано"] += 1
             детали.append({**rec, "статус": ("запечатано" if seal else "к_печати (dry)"),
                            "актив": spec["asset"], "направление": spec["direction"],
                            "порог": spec["threshold"], "resolve_by": spec["resolve_by"],

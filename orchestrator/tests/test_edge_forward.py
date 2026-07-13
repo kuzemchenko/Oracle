@@ -271,6 +271,59 @@ def test_seal_flag_off_never_touches_journal(tmp_path, monkeypatch):
     assert r["рёбра"][-1]["статус"] == "к_печати (dry)"
 
 
+def test_library_edges_printed_first_under_cap(tmp_path, monkeypatch):
+    """Э4-ревью (BLOCKER): при кэпе печатей библиотечные рёбра идут ПЕРВЫМИ, кандидат-рёбра
+    (origin=world_enum) не вытесняют их. 30 библ + 30 канд, кэп 40 → ВСЕ 30 библ запечатаны."""
+    _fix_beta(monkeypatch)
+    term = "TTT.US"
+    series = {term: _series_quiet()}
+    lib_edges, cand_lines = [], []
+    for i in range(30):
+        s = f"L{i:02d}.US"
+        series[s] = _series_shocked()
+        lib_edges.append({"источник": s, "узел": term, "lag": 0})
+    for i in range(30):
+        s = f"W{i:02d}.US"
+        series[s] = _series_shocked()
+        cand_lines.append(json.dumps({"from": s, "to": term, "lag": 0, "origin": "world_enum"}))
+    con = _db(series)
+    sens = _sens_yaml(tmp_path, lib_edges)
+    cand = tmp_path / "cand.jsonl"
+    cand.write_text("\n".join(cand_lines) + "\n", encoding="utf-8")
+    preds = tmp_path / "pred.jsonl"
+    r = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
+                             sens_path=sens, candidates_path=cand, predictions_path=preds)
+    assert r["итоги"]["рёбер_в_библиотеке"] == 60
+    assert r["итоги"]["запечатано"] == EFW.MAX_SEALS_PER_RUN == 40
+    # каждое библиотечное ребро дошло до печати (не вытеснено кандидатами)
+    sealed_lib = {d["ребро"] for d in r["рёбра"]
+                  if d.get("origin") == "library" and d["статус"] == "запечатано"}
+    assert len(sealed_lib) == 30, sealed_lib
+    # кандидаты добрали остаток кэпа, но не больше суб-кэпа
+    cand_sealed = r["итоги"]["кандидат_запечатано"]
+    assert cand_sealed == 10 and cand_sealed <= int(40 * EFW.CAND_SEALS_FRAC)
+
+
+def test_candidate_subcap_limits_candidate_seals(tmp_path, monkeypatch):
+    """Суб-кэп кандидатов ≤ половины кэпа печатей: 0 библ + 30 канд, кэп 40 → кандидатов ≤ 20."""
+    _fix_beta(monkeypatch)
+    term = "TTT.US"
+    series = {term: _series_quiet()}
+    cand_lines = []
+    for i in range(30):
+        s = f"W{i:02d}.US"
+        series[s] = _series_shocked()
+        cand_lines.append(json.dumps({"from": s, "to": term, "lag": 0, "origin": "world_enum"}))
+    con = _db(series)
+    sens = _sens_yaml(tmp_path, [])
+    cand = tmp_path / "cand.jsonl"
+    cand.write_text("\n".join(cand_lines) + "\n", encoding="utf-8")
+    r = EFW.run_edge_forward(write=False, seal=True, con=con, now_dt=NOW,
+                             sens_path=sens, candidates_path=cand, predictions_path=tmp_path / "p.jsonl")
+    assert r["итоги"]["кандидат_запечатано"] == int(40 * EFW.CAND_SEALS_FRAC) == 20
+    assert r["итоги"]["суб_кэп_кандидатов_отброшено"] == 10
+
+
 def test_candidate_edge_participates_and_seals_with_episode(tmp_path, monkeypatch):
     """Э4(ж): кандидат-ребро из edge_candidates.jsonl участвует в форвард-тесте наравне с
     библиотекой (origin=world_enum виден), печать несёт episode для дедупа корма промоушена."""

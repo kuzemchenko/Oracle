@@ -40,20 +40,38 @@ def rescan(*, registry_path=None, api_key=None, con=None, db=None, universe=None
     own = con is None
     if con is None:
         con = sqlite3.connect(str(db or DB), timeout=30)
+    target_max = cfg["target_instruments_max"]
     карты = []
     try:
         for m in maps:
             прежние = set(m.get("инструменты") or [])
-            текущие, сегменты = set(), []
-            for seg in (m.get("карта") or {}).get("сегменты") or []:
+            источник = m.get("источник_шока")             # исключаем источник — как enumerate_event (д)
+            segs = (m.get("карта") or {}).get("сегменты") or []
+            n_seg = len(segs)
+            текущие, seen, сегменты = set(), set(), []
+            # ВОСПРОИЗВОДИМ правила enumerate_event (Э4-ревью medium): та же ДИНАМИЧЕСКАЯ квота на
+            # сегмент (ceil(остаток/оставшиеся)) и исключение источника шока — иначе дифф несравним
+            # (раньше был кэп 300/сегмент без квоты и источник попадал в текущие).
+            for i, seg in enumerate(segs):
+                остаток = target_max - len(seen)
+                if остаток <= 0:
+                    break
+                квота = max(1, -(-остаток // (n_seg - i)))          # ceil(остаток/оставшиеся)
                 scr = SS.screen_segment(seg, api_key=api_key, con=con, universe=universe,
-                                        max_instruments=cfg["target_instruments_max"],
+                                        max_instruments=min(квота, остаток),
                                         fetch=fetch, notices_path=notices_path)
                 rows = SS.annotate_sealable(scr["инструменты"], con=con)
-                ok = {r["symbol"] for r in rows if r.get("sealable")}
+                ok = set()
+                for r in rows:
+                    sym = r["symbol"]
+                    if sym in seen or sym == источник:           # дедуп + исключение источника
+                        continue
+                    seen.add(sym)
+                    if r.get("sealable"):
+                        ok.add(sym)
                 текущие |= ok
                 сегменты.append({"сегмент": seg.get("сегмент"),
-                                 "источник_скрина": scr["источник"],
+                                 "источник_скрина": scr["источник"], "квота": квота,
                                  "инструментов": len(rows), "sealable": len(ok)})
             карты.append({
                 "событие": m.get("событие"), "ts_карты": m.get("ts"),
