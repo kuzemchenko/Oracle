@@ -73,6 +73,13 @@ MAILTO=""
 # 1-е число, 07:45 (после budget 07:00, до edge_forward не влияет — тот вне applies_to).
 45 7 1 * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh refit_prob_shrink /home/oracle/oracle/.venv/bin/python ops/refit_prob_shrink.py --apply >> journal/cron.log 2>&1
 
+# Э4(е) «перебор мира»: еженедельный пере-скрин активных карт мира (journal/world_maps.jsonl) —
+# новые инструменты/изменившаяся ликвидность, дифф в протокол journal/world_enum_logs/. Расписание —
+# ВОСКРЕСЕНЬЕ 09:00 (решение владельца 13.07, Вопрос 6; после воскресного блока 08:00/08:30), без
+# сообщений владельцу. LLM нет, детерминированный код. УСТАНОВКА crontab — действие основной сессии
+# при мерже Э4 (crontab -u oracle ops/crontab.txt); до мержа строка живёт только в файле.
+0 9 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh rescan_maps /home/oracle/oracle/.venv/bin/python ops/rescan_maps.py >> journal/cron.log 2>&1
+
 # АВТОПЕТЛЯ §25 (решение владельца 09.07): система сама запускает разборы и инсайты.
 # Еженедельный авторазбор (детерминированный, LLM нет): пятница 18:00 → отчёт в
 # reports/auto_review/ + сводка владельцу в бота (journal/notices.jsonl; notices НЕ ротировать —
