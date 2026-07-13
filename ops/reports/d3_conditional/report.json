@@ -1,0 +1,4209 @@
+{
+  "generated_at": "2026-07-13T11:49:26+00:00",
+  "db": "/tmp/claude-0/-home-oracle-oracle/23f77705-fc43-4ab5-8b8a-f23e76741560/scratchpad/quotes_snapshot.db",
+  "db_note": "байт-копия таблицы quotes боевой storage/oracle.db (read-only снапшот 2026-07-13, 445593 строк, max date 2026-07-13; снапшот — чтобы не открывать боевую WAL-БД на запись из сессии)",
+  "метод": "условный event-study: эпизоды |shock| ≥ 0.5·σ_ист·√W (W=5; единый порог — решение владельца 13.07 В4, зеркало активации B4), непересекающиеся; отклик цели по лагам 0..10; walk-forward train=504/test=252/step=252; установление: train p<0.05 → OOS тот же знак и p<0.05 в ≥60% валидных фолдов",
+  "маппинг_ярусов": {
+    "A": "wf_established и ≥30 OOS-эпизодов (кандидат в ярус A по условному переносу; прецедент N≥30 §10)",
+    "B": "wf_established и 10..29 OOS-эпизодов (перенос виден, выборка мала)",
+    "C": "не установлено / мало эпизодов (механизм, не подтверждён — П8)"
+  },
+  "n_pairs": 28,
+  "n_established": 17,
+  "n_not_established": 11,
+  "honesty_note": "«не установлено» — легитимный и поощряемый исход (П8/рамка 3): гейт Д3 требует, чтобы измерение СОСТОЯЛОСЬ walk-forward-чисто, а не чтобы перенос «нашёлся». Порог эпизода зафиксирован ДО прогона.",
+  "conditional_sensitivities": [
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "WTI↔Brent — один нефтяной комплекс (двунаправленно)",
+      "источник": "USO.US",
+      "узел": "BNO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 468,
+      "n_episodes_oos": 351,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.935154,
+          "gain_oos": 0.948923,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 80,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.985889,
+          "gain_oos": 0.816307,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.88074,
+          "gain_oos": 0.870796,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.854869,
+          "gain_oos": 0.804568,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.803463,
+          "gain_oos": 0.994281,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 77,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.814001,
+          "gain_oos": 1.026218,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.012882,
+          "gain_oos": 0.971108,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.00144,
+          "gain_oos": 0.916351,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.949896,
+          "gain_oos": 0.943901,
+          "p_oos": 0.0
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.943901,
+      "gain_oos_folds": [
+        0.804568,
+        0.816307,
+        0.870796,
+        0.916351,
+        0.943901,
+        0.948923,
+        0.971108,
+        0.994281,
+        1.026218
+      ],
+      "gain_ci95": [
+        0.861171,
+        0.908628
+      ],
+      "gain_fullsample": 0.8849,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 468,
+        "n_baseline": 8,
+        "mean_episode_signed": 0.049719,
+        "mean_baseline": 0.003457,
+        "welch_z": 1.825,
+        "cohen_d": 0.6468
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.9439; эпизодов 468 (OOS 351) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "WTI↔Brent — один нефтяной комплекс (двунаправленно)",
+      "источник": "BNO.US",
+      "узел": "USO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 468,
+      "n_episodes_oos": 348,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.959768,
+          "gain_oos": 1.005399,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.961985,
+          "gain_oos": 1.045798,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.025827,
+          "gain_oos": 1.040215,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 80,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.034184,
+          "gain_oos": 1.217656,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 76,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.206264,
+          "gain_oos": 0.997976,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.199086,
+          "gain_oos": 0.859542,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 79,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.90193,
+          "gain_oos": 1.02307,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.917307,
+          "gain_oos": 1.098558,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 83,
+          "n_ep_oos": 34,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.051465,
+          "gain_oos": 1.054394,
+          "p_oos": 0.0
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 1.040215,
+      "gain_oos_folds": [
+        0.859542,
+        0.997976,
+        1.005399,
+        1.02307,
+        1.040215,
+        1.045798,
+        1.054394,
+        1.098558,
+        1.217656
+      ],
+      "gain_ci95": [
+        1.017676,
+        1.079956
+      ],
+      "gain_fullsample": 1.048816,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 468,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.050271,
+        "mean_baseline": -0.00121,
+        "welch_z": 1.3902,
+        "cohen_d": 0.6226
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.0402; эпизодов 468 (OOS 348) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "нефть — крупнейший вес товарного индекса; перенос в индекс",
+      "источник": "USO.US",
+      "узел": "DBC.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 468,
+      "n_episodes_oos": 351,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.389616,
+          "gain_oos": 0.471659,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 80,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.431817,
+          "gain_oos": 0.397713,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.436187,
+          "gain_oos": 0.392617,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.393966,
+          "gain_oos": 0.202787,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.222238,
+          "gain_oos": 0.563579,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 77,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.237017,
+          "gain_oos": 0.624938,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.601768,
+          "gain_oos": 0.466116,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.553237,
+          "gain_oos": 0.464495,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.464082,
+          "gain_oos": 0.483116,
+          "p_oos": 0.0
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.466116,
+      "gain_oos_folds": [
+        0.202787,
+        0.392617,
+        0.397713,
+        0.464495,
+        0.466116,
+        0.471659,
+        0.483116,
+        0.563579,
+        0.624938
+      ],
+      "gain_ci95": [
+        0.334969,
+        0.374854
+      ],
+      "gain_fullsample": 0.354912,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 468,
+        "n_baseline": 8,
+        "mean_episode_signed": 0.023346,
+        "mean_baseline": 0.004291,
+        "welch_z": 2.3907,
+        "cohen_d": 0.8489
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4661; эпизодов 468 (OOS 351) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "нефть — крупнейший вес товарного индекса; перенос в индекс",
+      "источник": "DBC.US",
+      "узел": "USO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 486,
+      "n_episodes_oos": 367,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.194803,
+          "gain_oos": 1.74034,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 81,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.012368,
+          "gain_oos": 1.910084,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.821051,
+          "gain_oos": 2.183085,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 85,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.068986,
+          "gain_oos": 2.825194,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 81,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.692983,
+          "gain_oos": 1.517745,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.377864,
+          "gain_oos": 1.413541,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 84,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.453248,
+          "gain_oos": 1.864292,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.548892,
+          "gain_oos": 1.772359,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 85,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.829179,
+          "gain_oos": 1.821196,
+          "p_oos": 0.0
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 1.821196,
+      "gain_oos_folds": [
+        1.413541,
+        1.517745,
+        1.74034,
+        1.772359,
+        1.821196,
+        1.864292,
+        1.910084,
+        2.183085,
+        2.825194
+      ],
+      "gain_ci95": [
+        1.903469,
+        2.092606
+      ],
+      "gain_fullsample": 1.998037,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 486,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.047638,
+        "mean_baseline": -0.00121,
+        "welch_z": 1.3191,
+        "cohen_d": 0.5908
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.8212; эпизодов 486 (OOS 367) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "медь в составе индустриальных металлов товарного индекса",
+      "источник": "CPER.US",
+      "узел": "DBC.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 456,
+      "n_episodes_oos": 352,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 8,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 69,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.200968,
+          "gain_oos": 0.177343,
+          "p_oos": 0.060333,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.146139,
+          "gain_oos": 0.281087,
+          "p_oos": 0.011495
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 3,
+          "gain_train": 0.305831,
+          "gain_oos": 0.229801,
+          "p_oos": 0.036482
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.338118,
+          "gain_oos": 0.421605,
+          "p_oos": 0.001929
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.555764,
+          "gain_oos": 0.538724,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.575152,
+          "gain_oos": 0.445908,
+          "p_oos": 2.9e-05
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.494501,
+          "gain_oos": 0.364523,
+          "p_oos": 0.00612
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 76,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.411781,
+          "gain_oos": 0.373267,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 83,
+          "n_ep_oos": 32,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.371375,
+          "gain_oos": 0.198141,
+          "p_oos": 0.001891
+        }
+      ],
+      "established_frac": 0.889,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.368895,
+      "gain_oos_folds": [
+        0.198141,
+        0.281087,
+        0.364523,
+        0.373267,
+        0.445908,
+        0.538724
+      ],
+      "gain_ci95": [
+        0.256959,
+        0.361168
+      ],
+      "gain_fullsample": 0.309063,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 456,
+        "n_baseline": 13,
+        "mean_episode_signed": 0.01107,
+        "mean_baseline": -0.004981,
+        "welch_z": 2.5855,
+        "cohen_d": 0.7285
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.3689; эпизодов 456 (OOS 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "медь в составе индустриальных металлов товарного индекса",
+      "источник": "DBC.US",
+      "узел": "CPER.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 486,
+      "n_episodes_oos": 367,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 7,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.558365,
+          "gain_oos": 0.30338,
+          "p_oos": 0.085284,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 81,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.302132,
+          "gain_oos": 0.327994,
+          "p_oos": 0.082287,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.353997,
+          "gain_oos": 0.578006,
+          "p_oos": 3e-06
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 85,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.44591,
+          "gain_oos": 0.51306,
+          "p_oos": 2e-06
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 81,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.520596,
+          "gain_oos": 0.878294,
+          "p_oos": 1.1e-05
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.700434,
+          "gain_oos": 0.699294,
+          "p_oos": 2e-05
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 84,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.745175,
+          "gain_oos": 0.709533,
+          "p_oos": 4.6e-05
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.667991,
+          "gain_oos": 1.005787,
+          "p_oos": 2e-06
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 85,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.838506,
+          "gain_oos": 0.977058,
+          "p_oos": 0.003758
+        }
+      ],
+      "established_frac": 0.778,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.793913,
+      "gain_oos_folds": [
+        0.51306,
+        0.578006,
+        0.709533,
+        0.878294,
+        0.977058,
+        1.005787
+      ],
+      "gain_ci95": [
+        0.502523,
+        0.695365
+      ],
+      "gain_fullsample": 0.598944,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 486,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.015179,
+        "mean_baseline": -0.01643,
+        "welch_z": 0.266,
+        "cohen_d": 0.119
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.7939; эпизодов 486 (OOS 367) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "риск-аппетит акций ↔ спрос на сырьё (двунаправленно)",
+      "источник": "SPY.US",
+      "узел": "DBC.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 466,
+      "n_episodes_oos": 361,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 5,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 70,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.483743,
+          "gain_oos": 0.071344,
+          "p_oos": 0.807532,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 75,
+          "n_ep_oos": 44,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.487145,
+          "gain_oos": 0.356839,
+          "p_oos": 0.004353
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.318249,
+          "gain_oos": 0.492187,
+          "p_oos": 0.000342
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 87,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.422469,
+          "gain_oos": 0.426239,
+          "p_oos": 3e-06
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 79,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.54457,
+          "gain_oos": 0.763642,
+          "p_oos": 4.4e-05
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.579075,
+          "gain_oos": 0.206821,
+          "p_oos": 0.227555,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 85,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.341625,
+          "gain_oos": 0.284944,
+          "p_oos": 0.063604,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 3,
+          "gain_train": 0.300263,
+          "gain_oos": -0.080071,
+          "p_oos": 0.597542,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 81,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.317077,
+          "gain_oos": 0.254317,
+          "p_oos": 0.034416
+        }
+      ],
+      "established_frac": 0.556,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 56% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "риск-аппетит акций ↔ спрос на сырьё (двунаправленно)",
+      "источник": "DBC.US",
+      "узел": "SPY.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 486,
+      "n_episodes_oos": 367,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 4,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.374943,
+          "gain_oos": -0.074468,
+          "p_oos": 0.213777,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 81,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.180548,
+          "gain_oos": 0.441853,
+          "p_oos": 0.004135
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.215427,
+          "gain_oos": 0.371855,
+          "p_oos": 0.000239
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 85,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.484883,
+          "gain_oos": 0.682223,
+          "p_oos": 1e-06
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 81,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.762569,
+          "gain_oos": 0.246024,
+          "p_oos": 0.005446
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": 0.644651,
+          "gain_oos": 0.165086,
+          "p_oos": 0.240279,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 84,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 7,
+          "gain_train": -0.240262,
+          "gain_oos": -0.22246,
+          "p_oos": 0.06286,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 7,
+          "gain_train": -0.308026,
+          "gain_oos": -0.100901,
+          "p_oos": 0.349318,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 85,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.226037,
+          "gain_oos": 0.339883,
+          "p_oos": 0.050309,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        }
+      ],
+      "established_frac": 0.444,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 44% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "цена меди ↔ выручка/маржа медников (двунаправленно)",
+      "источник": "CPER.US",
+      "узел": "COPX.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 456,
+      "n_episodes_oos": 352,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 69,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.976646,
+          "gain_oos": 1.28991,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.306576,
+          "gain_oos": 1.149664,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.231286,
+          "gain_oos": 1.334123,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.196909,
+          "gain_oos": 1.376772,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.348454,
+          "gain_oos": 1.258749,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.321415,
+          "gain_oos": 1.381232,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.31023,
+          "gain_oos": 1.182423,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 76,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.314233,
+          "gain_oos": 1.316363,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 83,
+          "n_ep_oos": 32,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.277321,
+          "gain_oos": 0.77488,
+          "p_oos": 0.0
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 1.28991,
+      "gain_oos_folds": [
+        0.77488,
+        1.149664,
+        1.182423,
+        1.258749,
+        1.28991,
+        1.316363,
+        1.334123,
+        1.376772,
+        1.381232
+      ],
+      "gain_ci95": [
+        1.059378,
+        1.236337
+      ],
+      "gain_fullsample": 1.147857,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 456,
+        "n_baseline": 13,
+        "mean_episode_signed": 0.041769,
+        "mean_baseline": -0.000502,
+        "welch_z": 2.4048,
+        "cohen_d": 0.6714
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.2899; эпизодов 456 (OOS 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "цена меди ↔ выручка/маржа медников (двунаправленно)",
+      "источник": "COPX.US",
+      "узел": "CPER.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 488,
+      "n_episodes_oos": 375,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 75,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.313377,
+          "gain_oos": 0.525299,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 82,
+          "n_ep_oos": 45,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.361776,
+          "gain_oos": 0.517836,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 88,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.530119,
+          "gain_oos": 0.378761,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 88,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.450793,
+          "gain_oos": 0.412305,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.404096,
+          "gain_oos": 0.555543,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 85,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.473202,
+          "gain_oos": 0.534244,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 87,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.546948,
+          "gain_oos": 0.475829,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.516188,
+          "gain_oos": 0.577281,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.5376,
+          "gain_oos": 0.713793,
+          "p_oos": 1.5e-05
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.525299,
+      "gain_oos_folds": [
+        0.378761,
+        0.412305,
+        0.475829,
+        0.517836,
+        0.525299,
+        0.534244,
+        0.555543,
+        0.577281,
+        0.713793
+      ],
+      "gain_ci95": [
+        0.432891,
+        0.502977
+      ],
+      "gain_fullsample": 0.467934,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 488,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.024432,
+        "mean_baseline": -0.01643,
+        "welch_z": 0.3439,
+        "cohen_d": 0.1538
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.5253; эпизодов 488 (OOS 375) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "энергозатраты добычи и общий сырьевой цикл → медники",
+      "источник": "USO.US",
+      "узел": "COPX.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 468,
+      "n_episodes_oos": 351,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 8,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.548333,
+          "gain_oos": 0.43725,
+          "p_oos": 0.009202
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 80,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.447313,
+          "gain_oos": 0.311924,
+          "p_oos": 0.0303
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.394126,
+          "gain_oos": 0.45329,
+          "p_oos": 0.000751
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.390062,
+          "gain_oos": 0.212085,
+          "p_oos": 0.022202
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 3,
+          "gain_train": 0.220217,
+          "gain_oos": 0.521985,
+          "p_oos": 0.012745
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 77,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.251733,
+          "gain_oos": 0.681036,
+          "p_oos": 4e-06
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.693016,
+          "gain_oos": 0.312972,
+          "p_oos": 0.012322
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.515979,
+          "gain_oos": 0.33381,
+          "p_oos": 0.04962
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": 0.359889,
+          "gain_oos": 0.15044,
+          "p_oos": 0.432557,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        }
+      ],
+      "established_frac": 0.889,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.33381,
+      "gain_oos_folds": [
+        0.212085,
+        0.311924,
+        0.312972,
+        0.33381,
+        0.43725,
+        0.45329,
+        0.681036
+      ],
+      "gain_ci95": [
+        0.246905,
+        0.385703
+      ],
+      "gain_fullsample": 0.316304,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 468,
+        "n_baseline": 8,
+        "mean_episode_signed": 0.022482,
+        "mean_baseline": 0.000656,
+        "welch_z": 0.9181,
+        "cohen_d": 0.3262
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.3338; эпизодов 468 (OOS 351) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "энергозатраты добычи и общий сырьевой цикл → медники",
+      "источник": "COPX.US",
+      "узел": "USO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 488,
+      "n_episodes_oos": 375,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 7,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 75,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": 0.514776,
+          "gain_oos": 0.219671,
+          "p_oos": 0.093618,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 82,
+          "n_ep_oos": 45,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.38438,
+          "gain_oos": 0.310164,
+          "p_oos": 0.027155
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 88,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 2,
+          "gain_train": 0.31887,
+          "gain_oos": 0.37198,
+          "p_oos": 0.01713
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 88,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.385319,
+          "gain_oos": 1.032477,
+          "p_oos": 5.6e-05
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.863765,
+          "gain_oos": 0.499186,
+          "p_oos": 1e-05
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 85,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.781907,
+          "gain_oos": 0.4,
+          "p_oos": 7.8e-05
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 87,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.450039,
+          "gain_oos": 0.447359,
+          "p_oos": 0.000628
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.406113,
+          "gain_oos": 0.315093,
+          "p_oos": 0.003314
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.361077,
+          "gain_oos": 0.011724,
+          "p_oos": 0.936851,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        }
+      ],
+      "established_frac": 0.778,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.423679,
+      "gain_oos_folds": [
+        0.310164,
+        0.315093,
+        0.4,
+        0.447359,
+        0.499186,
+        1.032477
+      ],
+      "gain_ci95": [
+        0.340297,
+        0.503661
+      ],
+      "gain_fullsample": 0.421979,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 488,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.019521,
+        "mean_baseline": -0.00121,
+        "welch_z": 0.5593,
+        "cohen_d": 0.2507
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 78% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4237; эпизодов 488 (OOS 375) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "нефть как прокси глобального спроса → медь",
+      "источник": "USO.US",
+      "узел": "CPER.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 468,
+      "n_episodes_oos": 351,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 5,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": 0.164959,
+          "gain_oos": 0.141939,
+          "p_oos": 0.132723,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 80,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": false,
+          "lag": 8,
+          "gain_train": -0.146606,
+          "gain_oos": -0.117081,
+          "p_oos": 0.163104,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "lag": 5,
+          "gain_train": -0.229654,
+          "gain_oos": -9.9e-05,
+          "p_oos": 0.998725,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.139887,
+          "gain_oos": 0.103122,
+          "p_oos": 0.025234
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 75,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.110788,
+          "gain_oos": 0.412802,
+          "p_oos": 0.002421
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 77,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.126522,
+          "gain_oos": 0.400839,
+          "p_oos": 4.6e-05
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.40663,
+          "gain_oos": 0.161428,
+          "p_oos": 0.025588
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.297689,
+          "gain_oos": 0.203566,
+          "p_oos": 0.09202,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.177168,
+          "gain_oos": 0.500809,
+          "p_oos": 0.007379
+        }
+      ],
+      "established_frac": 0.556,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 56% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "нефть как прокси глобального спроса → медь",
+      "источник": "CPER.US",
+      "узел": "USO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 456,
+      "n_episodes_oos": 352,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 4,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 69,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.433802,
+          "gain_oos": 0.109639,
+          "p_oos": 0.541961,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "причина": "train: значимый условный перенос не найден"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 3,
+          "gain_train": 0.406278,
+          "gain_oos": 0.485464,
+          "p_oos": 0.072816,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.501659,
+          "gain_oos": 1.387612,
+          "p_oos": 0.002689
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.357625,
+          "gain_oos": 0.682841,
+          "p_oos": 0.000184
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.140555,
+          "gain_oos": 0.607933,
+          "p_oos": 0.000627
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.646274,
+          "gain_oos": 0.461815,
+          "p_oos": 0.096405,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 76,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.562987,
+          "gain_oos": 0.320555,
+          "p_oos": 0.034186
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 83,
+          "n_ep_oos": 32,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.446394,
+          "gain_oos": 0.241141,
+          "p_oos": 0.064111,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        }
+      ],
+      "established_frac": 0.444,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 44% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "бета медников к широкому рынку",
+      "источник": "SPY.US",
+      "узел": "COPX.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 466,
+      "n_episodes_oos": 361,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 70,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.174434,
+          "gain_oos": 1.639022,
+          "p_oos": 0.026102
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 75,
+          "n_ep_oos": 44,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 2.13938,
+          "gain_oos": 1.368007,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.426432,
+          "gain_oos": 1.660612,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 87,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.388396,
+          "gain_oos": 1.329903,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 79,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.369729,
+          "gain_oos": 1.796017,
+          "p_oos": 0.000174
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.393299,
+          "gain_oos": 0.858839,
+          "p_oos": 0.000371
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 85,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.059969,
+          "gain_oos": 1.513501,
+          "p_oos": 2e-06
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.029179,
+          "gain_oos": 1.593971,
+          "p_oos": 1e-05
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 81,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 1.539171,
+          "gain_oos": 1.393027,
+          "p_oos": 1e-06
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 1.513501,
+      "gain_oos_folds": [
+        0.858839,
+        1.329903,
+        1.368007,
+        1.393027,
+        1.513501,
+        1.593971,
+        1.639022,
+        1.660612,
+        1.796017
+      ],
+      "gain_ci95": [
+        1.272464,
+        1.568562
+      ],
+      "gain_fullsample": 1.420513,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 466,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.033661,
+        "mean_baseline": -0.01777,
+        "welch_z": 1.4148,
+        "cohen_d": 0.634
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 1.5135; эпизодов 466 (OOS 361) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "бета медников к широкому рынку",
+      "источник": "COPX.US",
+      "узел": "SPY.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 488,
+      "n_episodes_oos": 375,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 8,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 75,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.228264,
+          "gain_oos": 0.028513,
+          "p_oos": 0.25577,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 82,
+          "n_ep_oos": 45,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.160906,
+          "gain_oos": 0.294455,
+          "p_oos": 1e-06
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 88,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.1756,
+          "gain_oos": 0.254573,
+          "p_oos": 6e-06
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 88,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.284197,
+          "gain_oos": 0.471114,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.410083,
+          "gain_oos": 0.139596,
+          "p_oos": 0.000146
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 85,
+          "n_ep_oos": 43,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.319725,
+          "gain_oos": 0.296316,
+          "p_oos": 2.7e-05
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 87,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.231826,
+          "gain_oos": 0.289305,
+          "p_oos": 5e-06
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.295039,
+          "gain_oos": 0.223845,
+          "p_oos": 1.1e-05
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 82,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.253202,
+          "gain_oos": 0.201838,
+          "p_oos": 0.000229
+        }
+      ],
+      "established_frac": 0.889,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.271939,
+      "gain_oos_folds": [
+        0.139596,
+        0.201838,
+        0.223845,
+        0.254573,
+        0.289305,
+        0.294455,
+        0.296316,
+        0.471114
+      ],
+      "gain_ci95": [
+        0.221677,
+        0.275659
+      ],
+      "gain_fullsample": 0.248668,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 488,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.011922,
+        "mean_baseline": -0.00078,
+        "welch_z": 1.7584,
+        "cohen_d": 0.7927
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 89% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.2719; эпизодов 488 (OOS 375) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "цикл рынка акций → промышленный спрос на медь",
+      "источник": "SPY.US",
+      "узел": "CPER.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 466,
+      "n_episodes_oos": 361,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 6,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 70,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.433379,
+          "gain_oos": 0.501483,
+          "p_oos": 0.22025,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 75,
+          "n_ep_oos": 44,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.658884,
+          "gain_oos": 0.479595,
+          "p_oos": 0.002936
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.502313,
+          "gain_oos": 0.761758,
+          "p_oos": 3e-06
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 87,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.540359,
+          "gain_oos": 0.41151,
+          "p_oos": 4.7e-05
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 79,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.454881,
+          "gain_oos": 0.921297,
+          "p_oos": 0.001636
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.478105,
+          "gain_oos": 0.311166,
+          "p_oos": 0.042243
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 85,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": 0.520706,
+          "gain_oos": 0.371071,
+          "p_oos": 0.073517,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 3,
+          "gain_train": 0.408468,
+          "gain_oos": -0.088896,
+          "p_oos": 0.706859,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 81,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.564808,
+          "gain_oos": 0.689685,
+          "p_oos": 0.029974
+        }
+      ],
+      "established_frac": 0.667,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.58464,
+      "gain_oos_folds": [
+        0.311166,
+        0.41151,
+        0.479595,
+        0.689685,
+        0.761758,
+        0.921297
+      ],
+      "gain_ci95": [
+        0.414646,
+        0.623512
+      ],
+      "gain_fullsample": 0.519079,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 466,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.013396,
+        "mean_baseline": -0.01643,
+        "welch_z": 0.251,
+        "cohen_d": 0.1123
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.5846; эпизодов 466 (OOS 361) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "эмпирический реестр (causal_links)",
+      "mechanism": "цикл рынка акций → промышленный спрос на медь",
+      "источник": "CPER.US",
+      "узел": "SPY.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 456,
+      "n_episodes_oos": 352,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 6,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 69,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.129591,
+          "gain_oos": 0.041555,
+          "p_oos": 0.309792,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.16564,
+          "gain_oos": 0.263166,
+          "p_oos": 0.050959,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 83,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.216199,
+          "gain_oos": 0.294782,
+          "p_oos": 0.01239
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.290739,
+          "gain_oos": 0.747645,
+          "p_oos": 5.5e-05
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.625555,
+          "gain_oos": 0.199295,
+          "p_oos": 0.007543
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 83,
+          "n_ep_oos": 37,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.463601,
+          "gain_oos": 0.419179,
+          "p_oos": 0.001965
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 79,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.311618,
+          "gain_oos": 0.223557,
+          "p_oos": 0.03109
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 76,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.369,
+          "gain_oos": 0.124686,
+          "p_oos": 0.088338,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 83,
+          "n_ep_oos": 32,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.163865,
+          "gain_oos": 0.229534,
+          "p_oos": 0.002938
+        }
+      ],
+      "established_frac": 0.667,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.229534,
+      "gain_oos_folds": [
+        0.199295,
+        0.223557,
+        0.229534,
+        0.419179,
+        0.747645
+      ],
+      "gain_ci95": [
+        0.207982,
+        0.315098
+      ],
+      "gain_fullsample": 0.26154,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 456,
+        "n_baseline": 13,
+        "mean_episode_signed": 0.00928,
+        "mean_baseline": 0.003259,
+        "welch_z": 1.3085,
+        "cohen_d": 0.3742
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 67% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.2295; эпизодов 456 (OOS 352) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "звено цепочки ai_power_transformers_metal",
+      "mechanism": "ord1→ord2",
+      "источник": "VRT.US",
+      "узел": "GEV.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 572,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "n_episodes": 0,
+      "n_episodes_oos": 0,
+      "n_folds_valid": 0,
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "нет данных (П8): история 572 < train+test (504+252)"
+    },
+    {
+      "категория": "звено цепочки ai_power_transformers_metal",
+      "mechanism": "ord2→ord3",
+      "источник": "GEV.US",
+      "узел": "CLF.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 572,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "n_episodes": 0,
+      "n_episodes_oos": 0,
+      "n_folds_valid": 0,
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "нет данных (П8): история 572 < train+test (504+252)"
+    },
+    {
+      "категория": "звено цепочки ai_power_transformers_metal",
+      "mechanism": "ord3→ord4",
+      "источник": "CLF.US",
+      "узел": "NUE.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 2895,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 479,
+      "n_episodes_oos": 361,
+      "n_folds": 9,
+      "n_folds_valid": 9,
+      "n_folds_established": 9,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.157334,
+          "gain_oos": 0.292839,
+          "p_oos": 2e-06
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 85,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.221452,
+          "gain_oos": 0.314704,
+          "p_oos": 1e-06
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 84,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.311287,
+          "gain_oos": 0.337318,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 82,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.327365,
+          "gain_oos": 0.464232,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 79,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.423933,
+          "gain_oos": 0.415634,
+          "p_oos": 6e-06
+        },
+        {
+          "fold": 5,
+          "n_ep_train": 80,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.436888,
+          "gain_oos": 0.659802,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 6,
+          "n_ep_train": 83,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.560504,
+          "gain_oos": 0.585149,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 7,
+          "n_ep_train": 82,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.628159,
+          "gain_oos": 0.564073,
+          "p_oos": 0.0
+        },
+        {
+          "fold": 8,
+          "n_ep_train": 83,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.567685,
+          "gain_oos": 0.29571,
+          "p_oos": 6e-06
+        }
+      ],
+      "established_frac": 1.0,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.415634,
+      "gain_oos_folds": [
+        0.292839,
+        0.29571,
+        0.314704,
+        0.337318,
+        0.415634,
+        0.464232,
+        0.564073,
+        0.585149,
+        0.659802
+      ],
+      "gain_ci95": [
+        0.293939,
+        0.356509
+      ],
+      "gain_fullsample": 0.325224,
+      "p_value_fullsample": 0.0,
+      "effect": {
+        "n_episodes": 479,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.034837,
+        "mean_baseline": -0.003956,
+        "welch_z": 1.5271,
+        "cohen_d": 0.6849
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 100% из 9 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4156; эпизодов 479 (OOS 361) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "XOM.US",
+      "узел": "EEM.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 320,
+      "n_episodes_oos": 210,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 2,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 79,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.393246,
+          "gain_oos": 0.22401,
+          "p_oos": 0.010567
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.334283,
+          "gain_oos": 0.23371,
+          "p_oos": 0.005995
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.229499,
+          "gain_oos": 0.153007,
+          "p_oos": 0.117235,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 86,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.191963,
+          "gain_oos": 0.150292,
+          "p_oos": 0.177346,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 85,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": 0.149668,
+          "gain_oos": 0.221272,
+          "p_oos": 0.055096,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        }
+      ],
+      "established_frac": 0.4,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 40% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "BNO.US",
+      "узел": "FRO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 298,
+      "n_episodes_oos": 193,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 0,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 72,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "причина": "train: значимый условный перенос не найден"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "причина": "train: значимый условный перенос не найден"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.343008,
+          "gain_oos": 0.225175,
+          "p_oos": 0.365986,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "причина": "train: значимый условный перенос не найден"
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 83,
+          "n_ep_oos": 34,
+          "valid": true,
+          "established": false,
+          "причина": "train: значимый условный перенос не найден"
+        }
+      ],
+      "established_frac": 0.0,
+      "oos_sign_consistent": false,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 0% валидных фолдов (< 60%); знак OOS-gain непостоянен"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "BNO.US",
+      "узел": "STNG.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 298,
+      "n_episodes_oos": 193,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 3,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 72,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": -0.36075,
+          "gain_oos": 0.813437,
+          "p_oos": 0.010252,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "причина": "train: значимый условный перенос не найден"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.627934,
+          "gain_oos": 0.576724,
+          "p_oos": 0.003981
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.583527,
+          "gain_oos": 0.396585,
+          "p_oos": 0.009045
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 83,
+          "n_ep_oos": 34,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.505368,
+          "gain_oos": 0.465035,
+          "p_oos": 0.026549
+        }
+      ],
+      "established_frac": 0.6,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.465035,
+      "gain_oos_folds": [
+        0.396585,
+        0.465035,
+        0.576724
+      ],
+      "gain_ci95": [
+        0.0125,
+        0.310882
+      ],
+      "gain_fullsample": 0.161691,
+      "p_value_fullsample": 0.033755,
+      "effect": {
+        "n_episodes": 298,
+        "n_baseline": 5,
+        "mean_episode_signed": 0.019603,
+        "mean_baseline": -0.030813,
+        "welch_z": 1.1765,
+        "cohen_d": 0.5292
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.465; эпизодов 298 (OOS 193) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "BNO.US",
+      "узел": "DHT.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 298,
+      "n_episodes_oos": 193,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 1,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 72,
+          "n_ep_oos": 38,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": -0.331098,
+          "gain_oos": 0.331574,
+          "p_oos": 0.06619,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": -0.295203,
+          "gain_oos": 0.025523,
+          "p_oos": 0.865871,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 80,
+          "n_ep_oos": 42,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.224786,
+          "gain_oos": 0.340548,
+          "p_oos": 0.13045,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 84,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.253813,
+          "gain_oos": 0.192087,
+          "p_oos": 0.251075,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 83,
+          "n_ep_oos": 34,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.328337,
+          "gain_oos": 0.344037,
+          "p_oos": 0.007198
+        }
+      ],
+      "established_frac": 0.2,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 20% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "USO.US",
+      "узел": "FRO.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 301,
+      "n_episodes_oos": 196,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 1,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 71,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 10,
+          "gain_train": 0.384297,
+          "gain_oos": -0.059677,
+          "p_oos": 0.781704,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 10,
+          "gain_train": 0.357306,
+          "gain_oos": 0.178023,
+          "p_oos": 0.341924,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 81,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.421792,
+          "gain_oos": 0.315479,
+          "p_oos": 0.131052,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.380959,
+          "gain_oos": 0.346628,
+          "p_oos": 0.121264,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.316914,
+          "gain_oos": 0.509587,
+          "p_oos": 0.0045
+        }
+      ],
+      "established_frac": 0.2,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 20% валидных фолдов (< 60%)"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "USO.US",
+      "узел": "STNG.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 301,
+      "n_episodes_oos": 196,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 3,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 71,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 9,
+          "gain_train": 0.424069,
+          "gain_oos": -0.352241,
+          "p_oos": 0.200827,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 9,
+          "gain_train": 0.380759,
+          "gain_oos": 0.188178,
+          "p_oos": 0.224916,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 81,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.630299,
+          "gain_oos": 0.563533,
+          "p_oos": 0.000925
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.601164,
+          "gain_oos": 0.362585,
+          "p_oos": 0.005446
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.495917,
+          "gain_oos": 0.466945,
+          "p_oos": 0.020437
+        }
+      ],
+      "established_frac": 0.6,
+      "oos_sign_consistent": true,
+      "status": "установлено",
+      "wf_established": true,
+      "tier": "A",
+      "lag_selected": 0,
+      "gain_conditional": 0.466945,
+      "gain_oos_folds": [
+        0.362585,
+        0.466945,
+        0.563533
+      ],
+      "gain_ci95": [
+        -0.045315,
+        0.197071
+      ],
+      "gain_fullsample": 0.075878,
+      "p_value_fullsample": 0.21888,
+      "effect": {
+        "n_episodes": 301,
+        "n_baseline": 8,
+        "mean_episode_signed": 0.01861,
+        "mean_baseline": -0.024615,
+        "welch_z": 1.5763,
+        "cohen_d": 0.5648
+      },
+      "провенанс": "УСТАНОВЛЕНО walk-forward: OOS-подтверждение в 60% из 5 фолдов, знак согласован; lag*=0, gain=медиана OOS 0.4669; эпизодов 301 (OOS 196) → ярус A (маппинг: A≥30, B≥10 OOS-эпизодов)"
+    },
+    {
+      "категория": "событийный контроль (вердикты суда / новостные кейсы 07.2026)",
+      "mechanism": null,
+      "источник": "USO.US",
+      "узел": "DHT.US",
+      "window": 5,
+      "sigma_frac": 0.5,
+      "lag_window": [
+        0,
+        10
+      ],
+      "n_obs": 1889,
+      "wf": "train=504,test=252,step=252 (как sensitivity.py, §23.1)",
+      "n_episodes": 301,
+      "n_episodes_oos": 196,
+      "n_folds": 5,
+      "n_folds_valid": 5,
+      "n_folds_established": 2,
+      "folds": [
+        {
+          "fold": 0,
+          "n_ep_train": 71,
+          "n_ep_oos": 39,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": -0.267406,
+          "gain_oos": 0.452818,
+          "p_oos": 0.006861,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 1,
+          "n_ep_train": 76,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 1,
+          "gain_train": -0.227129,
+          "gain_oos": 0.128035,
+          "p_oos": 0.451004,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 2,
+          "n_ep_train": 81,
+          "n_ep_oos": 41,
+          "valid": true,
+          "established": true,
+          "lag": 0,
+          "gain_train": 0.303081,
+          "gain_oos": 0.37527,
+          "p_oos": 0.046842
+        },
+        {
+          "fold": 3,
+          "n_ep_train": 83,
+          "n_ep_oos": 40,
+          "valid": true,
+          "established": false,
+          "lag": 0,
+          "gain_train": 0.327417,
+          "gain_oos": 0.253179,
+          "p_oos": 0.082255,
+          "причина": "OOS не подтвердил (знак/CI95 с нулём)"
+        },
+        {
+          "fold": 4,
+          "n_ep_train": 82,
+          "n_ep_oos": 36,
+          "valid": true,
+          "established": true,
+          "lag": 1,
+          "gain_train": 0.349222,
+          "gain_oos": 0.337011,
+          "p_oos": 0.006781
+        }
+      ],
+      "established_frac": 0.4,
+      "oos_sign_consistent": true,
+      "status": "не установлено",
+      "wf_established": false,
+      "tier": "C",
+      "lag_selected": null,
+      "gain_conditional": null,
+      "провенанс": "НЕ УСТАНОВЛЕНО (П8): OOS-подтверждение в 40% валидных фолдов (< 60%)"
+    }
+  ],
+  "robustness": [
+    {
+      "источник": "USO.US",
+      "узел": "BNO.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.933735,
+        "n_episodes": 493
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.943901,
+        "n_episodes": 468
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.939487,
+        "n_episodes": 435
+      }
+    },
+    {
+      "источник": "BNO.US",
+      "узел": "USO.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.054405,
+        "n_episodes": 495
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.040215,
+        "n_episodes": 468
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.045925,
+        "n_episodes": 431
+      }
+    },
+    {
+      "источник": "USO.US",
+      "узел": "DBC.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.466397,
+        "n_episodes": 493
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.466116,
+        "n_episodes": 468
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.465323,
+        "n_episodes": 435
+      }
+    },
+    {
+      "источник": "DBC.US",
+      "узел": "USO.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.796904,
+        "n_episodes": 513
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.821196,
+        "n_episodes": 486
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.792408,
+        "n_episodes": 463
+      }
+    },
+    {
+      "источник": "CPER.US",
+      "узел": "DBC.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.396984,
+        "n_episodes": 490
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.368895,
+        "n_episodes": 456
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.369535,
+        "n_episodes": 412
+      }
+    },
+    {
+      "источник": "DBC.US",
+      "узел": "CPER.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.630461,
+        "n_episodes": 513
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.793913,
+        "n_episodes": 486
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.704252,
+        "n_episodes": 463
+      }
+    },
+    {
+      "источник": "SPY.US",
+      "узел": "DBC.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 497
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 466
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.485379,
+        "n_episodes": 443
+      }
+    },
+    {
+      "источник": "DBC.US",
+      "узел": "SPY.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 513
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 486
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 463
+      }
+    },
+    {
+      "источник": "CPER.US",
+      "узел": "COPX.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.24054,
+        "n_episodes": 490
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.28991,
+        "n_episodes": 456
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.244351,
+        "n_episodes": 412
+      }
+    },
+    {
+      "источник": "COPX.US",
+      "узел": "CPER.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.493746,
+        "n_episodes": 510
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.525299,
+        "n_episodes": 488
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.53682,
+        "n_episodes": 463
+      }
+    },
+    {
+      "источник": "USO.US",
+      "узел": "COPX.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.423172,
+        "n_episodes": 493
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.33381,
+        "n_episodes": 468
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.44707,
+        "n_episodes": 435
+      }
+    },
+    {
+      "источник": "COPX.US",
+      "узел": "USO.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.401474,
+        "n_episodes": 510
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.423679,
+        "n_episodes": 488
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 463
+      }
+    },
+    {
+      "источник": "USO.US",
+      "узел": "CPER.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 493
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 468
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 435
+      }
+    },
+    {
+      "источник": "CPER.US",
+      "узел": "USO.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 490
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 456
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 412
+      }
+    },
+    {
+      "источник": "SPY.US",
+      "узел": "COPX.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.348614,
+        "n_episodes": 497
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.513501,
+        "n_episodes": 466
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 1.426659,
+        "n_episodes": 443
+      }
+    },
+    {
+      "источник": "COPX.US",
+      "узел": "SPY.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.293693,
+        "n_episodes": 510
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.271939,
+        "n_episodes": 488
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.253148,
+        "n_episodes": 463
+      }
+    },
+    {
+      "источник": "SPY.US",
+      "узел": "CPER.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 497
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.58464,
+        "n_episodes": 466
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.553365,
+        "n_episodes": 443
+      }
+    },
+    {
+      "источник": "CPER.US",
+      "узел": "SPY.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.257693,
+        "n_episodes": 490
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.229534,
+        "n_episodes": 456
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.228003,
+        "n_episodes": 412
+      }
+    },
+    {
+      "источник": "VRT.US",
+      "узел": "GEV.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 0
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 0
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 0
+      }
+    },
+    {
+      "источник": "GEV.US",
+      "узел": "CLF.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 0
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 0
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 0
+      }
+    },
+    {
+      "источник": "CLF.US",
+      "узел": "NUE.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.412615,
+        "n_episodes": 503
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.415634,
+        "n_episodes": 479
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.458289,
+        "n_episodes": 435
+      }
+    },
+    {
+      "источник": "XOM.US",
+      "узел": "EEM.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 334
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 320
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.22403,
+        "n_episodes": 297
+      }
+    },
+    {
+      "источник": "BNO.US",
+      "узел": "FRO.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 319
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 298
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 275
+      }
+    },
+    {
+      "источник": "BNO.US",
+      "узел": "STNG.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.52229,
+        "n_episodes": 319
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.465035,
+        "n_episodes": 298
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.445653,
+        "n_episodes": 275
+      }
+    },
+    {
+      "источник": "BNO.US",
+      "узел": "DHT.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 319
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 298
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 275
+      }
+    },
+    {
+      "источник": "USO.US",
+      "узел": "FRO.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 318
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 301
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 279
+      }
+    },
+    {
+      "источник": "USO.US",
+      "узел": "STNG.US",
+      "0.4σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.440371,
+        "n_episodes": 318
+      },
+      "0.5σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.466945,
+        "n_episodes": 301
+      },
+      "0.6σ": {
+        "status": "установлено",
+        "tier": "A",
+        "lag": 0,
+        "gain": 0.391535,
+        "n_episodes": 279
+      }
+    },
+    {
+      "источник": "USO.US",
+      "узел": "DHT.US",
+      "0.4σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 318
+      },
+      "0.5σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 301
+      },
+      "0.6σ": {
+        "status": "не установлено",
+        "tier": "C",
+        "lag": null,
+        "gain": null,
+        "n_episodes": 279
+      }
+    }
+  ]
+}
