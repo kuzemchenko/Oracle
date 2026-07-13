@@ -28,3 +28,18 @@ Regression: `test_calibrate_oos_validation_is_walk_forward_clean`.
 это не walk-forward. Честно переименовано в `pool_self_consistency` (+пометка «не WF»).
 Значение фолбэка (fit_df по пулу) не меняется. Regression:
 `test_pooled_fallback_reports_value_and_check` (обновлён).
+
+### 5 [HIGH] округление p до BH — ПОДТВЕРЖДЕНО, исправлено (боевой event_scan)
+`orchestrator/event_scan.py`. `price_vol_signals`/`trend_signals` писали `round(p,4)` и
+`scan_events` кормил BH этими округлёнными значениями — на больших m это меняет набор
+открытий (0.000049→0.0000 ложно проходит; 0.05004→0.05 ложно проходит). Фикс: каждый
+статистический сигнал несёт `_p_raw` (полная точность) — BH считается по нему, `p_value`
+(округлён) остаётся только для протокола; `_p_raw` вычищается перед выдачей (протокол
+байт-в-байт прежний). Regression: `test_bh_runs_on_unrounded_pvalues`,
+`test_bh_rounding_would_flip_decision` (прямой контрпример: raw 0.05004 не проходит,
+округлённый 0.05 прошёл бы). NB: фикс улучшает ТЕКУЩИЙ живой скан.
+
+### 9 [LOW] _resolve_df пропускает bool — ПОДТВЕРЖДЕНО, исправлено
+`orchestrator/event_scan.py:_resolve_df`. `isinstance(v,(int,float)) and v>0` пропускал
+`True` (bool ⊂ int) → df=1.0. Добавлено `and not isinstance(v, bool)` на per_instrument и
+фолбэк. Regression: `test_resolve_df_ignores_bool`.

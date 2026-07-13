@@ -65,10 +65,11 @@ def _resolve_df(tail_df, symbol, metric, const_df):
     Возвращает (df, источник) — источник уходит в протокол скана (П8: видно, чем посчитан p)."""
     per = ((tail_df or {}).get("per_instrument") or {}).get(symbol) or {}
     v = per.get(metric)
-    if isinstance(v, (int, float)) and v > 0:
+    # bool — подкласс int (True==1): df=1.0 из ошибочного True в конфиге отравил бы t-хвост.
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
         return float(v), "per_instrument"
     fb = ((tail_df or {}).get("fallback") or {}).get(metric)
-    if isinstance(fb, (int, float)) and fb > 0:
+    if isinstance(fb, (int, float)) and not isinstance(fb, bool) and fb > 0:
         return float(fb), "фолбэк_калибровки"
     return const_df, "константа_F2#19"
 
@@ -94,8 +95,11 @@ def trend_signals(trends_rows):
         except ValueError:
             continue
         med = sorted(background)[len(background) // 2]
+        # _p_raw — ПОЛНАЯ точность для FDR; p_value (округлённый) только для протокола (Д1 #5:
+        # BH обязан работать на неокруглённых p, иначе округление до 4 знаков меняет открытия).
         sigs.append({"вид": "trend", "ключ": kw, "interest": round(latest, 1),
-                     "медиана_фона": round(med, 1), "p_value": round(p, 4)})
+                     "медиана_фона": round(med, 1), "p_value": round(p, 4),
+                     "_p_raw": float(min(max(p, 0.0), 1.0))})
     return sigs
 
 
@@ -117,9 +121,11 @@ def price_vol_signals(indicators, tail_df=None):
                 if tail_df is not None:
                     df, src = _resolve_df(tail_df, sym, metric, df)
                 p = TP.student_t_two_sided_p(z, df)
+                p_clamped = max(min(p, 1.0), 0.0)
                 sig = {"вид": "price", "символ": sym, "метрика": metric,
                        "z": round(z, 3), "df_нуля": df,
-                       "p_value": round(max(min(p, 1.0), 0.0), 4)}
+                       "p_value": round(p_clamped, 4),
+                       "_p_raw": float(p_clamped)}   # Д1 #5: полная точность для BH (см. scan_events)
                 if src is not None:
                     sig["df_источник"] = src
                 sigs.append(sig)
@@ -146,11 +152,15 @@ def scan_events(news=None, trends_rows=None, indicators=None, q_max=0.1, tail_df
     price = price_vol_signals(indicators or {}, tail_df=tail_df)
     trends = trend_signals(trends_rows or [])
     statistical = price + trends                          # есть p → единый FDR
-    pvals = [s["p_value"] for s in statistical]
+    # Д1 #5 (кросс-ревью): BH считается по ПОЛНОЙ точности p (_p_raw), НЕ по округлённому до 4
+    # знаков p_value — иначе на больших m истинный p=0.000049 → 0.0000 гарантированно проходит,
+    # 0.05004 → 0.05 ложно проходит, меняя набор открытий. Округление — только протокол/показ.
+    pvals = [s["_p_raw"] for s in statistical]
     bh = fdr.benjamini_hochberg(pvals, q=q_max) if pvals else {"rejected": [], "qvalues": [], "n_signif": 0}
     for i, s in enumerate(statistical):
         s["q_value"] = round(bh["qvalues"][i], 4) if bh.get("qvalues") else None
         s["сигнал_после_FDR"] = bool(bh["rejected"][i]) if bh.get("rejected") else False
+        s.pop("_p_raw", None)                             # внутреннее поле не выходит наружу
     news_events = news_event_signals(news)
 
     # Кандидат-события §6 Эт.1: значимые статистические + новостные кластеры (открыто, без тикер-якоря).

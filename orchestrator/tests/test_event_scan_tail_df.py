@@ -75,6 +75,46 @@ def test_resolve_df_ignores_garbage_values():
     assert df == 5 and src == "константа_F2#19"
 
 
+def test_resolve_df_ignores_bool(monkeypatch):
+    """Д1 #9: bool — подкласс int (True==1); df=1.0 из ошибочного True в конфиге отравил бы
+    t-хвост. _resolve_df обязан игнорировать bool и на per_instrument, и на фолбэке."""
+    td = {"per_instrument": {"AAA.US": {"ret_z_20": True}}, "fallback": {"ret_z_20": True}}
+    df, src = ES._resolve_df(td, "AAA.US", "ret_z_20", 5)
+    assert df == 5 and src == "константа_F2#19"
+    # валидное число рядом по-прежнему берётся
+    td2 = {"per_instrument": {"AAA.US": {"ret_z_20": 12.0}}}
+    assert ES._resolve_df(td2, "AAA.US", "ret_z_20", 5) == (12.0, "per_instrument")
+
+
+def test_bh_runs_on_unrounded_pvalues(monkeypatch):
+    """Д1 #5: Benjamini–Hochberg обязан получать p ПОЛНОЙ точности, а не округлённые до 4 знаков
+    (иначе округление меняет набор открытий FDR). Протокол при этом показывает округлённый p."""
+    captured = {}
+
+    def fake_bh(pvals, q):
+        captured["pvals"] = list(pvals)
+        return {"rejected": [False] * len(pvals), "qvalues": list(pvals), "n_signif": 0}
+
+    monkeypatch.setattr(ES.fdr, "benjamini_hochberg", fake_bh)
+    # z, дающий p с более чем 4 значащими знаками после запятой
+    out = ES.scan_events(indicators={"X.US": {"ret_z_20": 3.333}})
+    p_raw = captured["pvals"][0]
+    assert p_raw != round(p_raw, 4), "в BH ушёл уже округлённый p"
+    assert out["сигналы"][0]["p_value"] == round(p_raw, 4)   # показ округлён
+    assert "_p_raw" not in out["сигналы"][0]                  # внутреннее поле не утекло
+
+
+def test_bh_rounding_would_flip_decision():
+    """Прямой контрпример из ревью: истинный p чуть выше порога BH проходит ложно, если его
+    округлить. m=2, q=0.1 → порог ранга-1 = 0.05; p=0.05004 (raw) НЕ проходит, round→0.05 прошёл бы.
+    Собираем статистические сигналы вручную и прогоняем через настоящий BH обоими путями."""
+    from mathlib import fdr as FDR
+    p_raw = 0.05004
+    # BH по сырому p: с ним сигнал НЕ отвергается (порог 0.05); по округлённому — отверг бы
+    assert FDR.benjamini_hochberg([p_raw, 0.9], q=0.1)["rejected"][0] is False
+    assert FDR.benjamini_hochberg([round(p_raw, 4), 0.9], q=0.1)["rejected"][0] is True
+
+
 def test_tail_df_from_thresholds_parsing():
     assert ES.tail_df_from_thresholds({"fdr": {"tail_df": {"fallback": {}}}}) == {"fallback": {}}
     assert ES.tail_df_from_thresholds({"fdr": {}}) is None
