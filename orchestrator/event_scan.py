@@ -186,7 +186,12 @@ def _mark_candidates(statistical):
                       key=lambda s: s.get("_p_raw", 1.0))
         for s in chan[:top]:
             s["кандидат"] = True
+    # НАДМНОЖЕСТВО (stage-review 14.07): всё, что прошло строгий FDR (сигнал_после_FDR), ОБЯЗАНО
+    # дойти до суда — иначе самый значимый по honesty-метке сигнал мог бы выпасть (CAND_P_MAX=0.05
+    # строже q_max=0.1, плюс кап канала). Кандидатский набор ⊇ FDR-положительных.
     for s in statistical:
+        if s.get("сигнал_после_FDR"):
+            s["кандидат"] = True
         s.setdefault("кандидат", False)
 
 

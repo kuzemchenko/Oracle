@@ -92,18 +92,20 @@ def _shock_sources(scan, universe, con, max_sources):
     """Источники шока из ОТКРЫТОГО скана: значимые ценовые сигналы + прокси тем, чьи слова совпали
     с салиентными новостными кластерами (событие дня → инструмент-исток)."""
     cand = []
-    # Д1-Вариант2: источники шока — ценовые КАНДИДАТЫ (топ по значимости), а не прошедшие строгий
-    # BH (их структурно ~0). Порядок по возрастанию q_value → [:max_sources] берёт самые аномальные.
-    cand_sigs = sorted((s for s in scan["сигналы"] if s.get("кандидат") and s.get("символ")),
-                       key=lambda s: (s.get("q_value") if s.get("q_value") is not None else 1.0))
-    for s in cand_sigs:
-        cand.append(s["символ"])
+    # Д1-Вариант2 + stage-review 14.07: новостные прокси СНАЧАЛА — дорогой 21-агентный контур обязан
+    # якориться на СОБЫТИИ дня (новость), а не только на крупнейшем ценовом движении. Иначе ценовые
+    # кандидаты (их до 15) монополизировали бы sources[:k] и вытесняли событие. Ценовые кандидаты
+    # (топ по значимости, возр. q_value) ЗАПОЛНЯЮТ оставшиеся слоты.
     for ne in scan["новостные_события"][:8]:
         theme, _ = EM.match_cluster_to_theme({"keywords": ne["ключи"], "sample": ne["пример"]}, universe)
         if theme:
             proxy = ((universe.get("themes") or {}).get(theme) or {}).get("proxy_etf")
             if proxy:
                 cand.append(proxy)
+    cand_sigs = sorted((s for s in scan["сигналы"] if s.get("кандидат") and s.get("символ")),
+                       key=lambda s: (s.get("q_value") if s.get("q_value") is not None else 1.0))
+    for s in cand_sigs:
+        cand.append(s["символ"])
     seen, uniq = set(), []
     for s in cand:
         if s in seen or not U.is_sealable(s, con=con):

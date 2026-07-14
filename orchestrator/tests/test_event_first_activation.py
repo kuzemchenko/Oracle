@@ -49,6 +49,32 @@ def test_no_activation_without_theme_or_signal():
     assert EF.activated_chains(scan, UNIVERSE, CHAINS, []) == []
 
 
+def test_variant2_candidate_is_superset_of_fdr():
+    """stage-review 14.07: всё, что прошло строгий FDR, ОБЯЗАНО быть кандидатом — даже если p выше
+    порога заметности CAND_P_MAX (BH отвергает вплоть до q_max=0.1 > 0.05) или вытеснено бы капом."""
+    from orchestrator import event_scan as ES
+    stat = [
+        {"вид": "price", "символ": "A", "_p_raw": 0.08, "сигнал_после_FDR": True},   # p>0.05, но FDR+
+        {"вид": "price", "символ": "B", "_p_raw": 0.30, "сигнал_после_FDR": False},  # не заметен, не FDR
+    ]
+    ES._mark_candidates(stat)
+    assert stat[0]["кандидат"] is True    # прошёл FDR → кандидат несмотря на p=0.08>0.05
+    assert stat[1]["кандидат"] is False   # ни заметности, ни FDR
+
+
+def test_variant2_shock_sources_news_before_price(monkeypatch):
+    """stage-review 14.07: новостной прокси СОБЫТИЯ дня идёт в источники шока ПЕРЕД ценовыми
+    кандидатами — дорогой контур якорится на событии, а не на крупнейшем движении."""
+    from orchestrator import event_first as EF2
+    monkeypatch.setattr(EF2.EM, "match_cluster_to_theme", lambda cl, uni: ("th", 1.0))
+    monkeypatch.setattr(EF2.U, "is_sealable", lambda s, con=None: True)
+    uni = {"themes": {"th": {"proxy_etf": "OIH.US"}}}
+    scan = {"сигналы": [{"символ": "AAA.US", "кандидат": True, "q_value": 0.2}],
+            "новостные_события": [{"ключи": ["hormuz"], "пример": "strike"}]}
+    src = EF2._shock_sources(scan, uni, con=None, max_sources=8)
+    assert src.index("OIH.US") < src.index("AAA.US")   # новостной прокси впереди ценового
+
+
 def test_proposal_ideas_promotes_far_node_company_ranked():
     # РЕШЕНИЕ A: предложения картографа (вне тем) → research-идеи на конкретной дальней компании
     proposals = [

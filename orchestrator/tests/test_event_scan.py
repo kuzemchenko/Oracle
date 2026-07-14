@@ -102,14 +102,17 @@ def test_variant2_candidate_survives_failed_fdr():
 
 
 def test_variant2_candidate_cap_per_channel():
-    """Д1-Вариант2: кап ширины — не больше CAND_PRICE_TOP ценовых кандидатов, отбор по значимости."""
-    # 40 инструментов, |z| = 0.2*i → S13..S39 дают p<0.05 (|z|>~2.5); из них топ-15 по p — кандидаты.
-    inds = {f"S{i:02d}.US": {"ret_z_20": 0.2 * i, "vol_z_20": 0.0} for i in range(40)}
+    """Д1-Вариант2: кап ширины — не больше CAND_PRICE_TOP ЗАМЕТНЫХ (p<0.05) ценовых кандидатов,
+    отбор по значимости. Шум раздувает m → строгий FDR никого не пропускает (суперсет не мешает капу)."""
+    # 20 заметных (|z| 2.6..3.0, p<0.05) + 100 шумовых (|z|=0.2) → BH отвергает 0 (планка q/m мала).
+    inds = {f"S{i:02d}.US": {"ret_z_20": 2.6 + 0.02 * i, "vol_z_20": 0.0} for i in range(20)}
+    inds.update({f"N{i:03d}.US": {"ret_z_20": 0.2, "vol_z_20": 0.1} for i in range(100)})
     r = ES.scan_events(news=[], trends_rows=[], indicators=inds, q_max=0.1)
+    assert r["статистических_после_FDR"] == 0                    # строгий FDR пуст → суперсет не влияет
     price_cand = [s for s in r["сигналы"] if s.get("вид") == "price" and s.get("кандидат")]
-    assert len(price_cand) == ES.CAND_PRICE_TOP                  # ровно кап (заметных > капа)
+    assert len(price_cand) == ES.CAND_PRICE_TOP                  # ровно кап (заметных 20 > капа 15)
     cand_syms = {s["символ"] for s in price_cand}
-    assert "S39.US" in cand_syms and "S00.US" not in cand_syms   # самый аномальный да, тихий нет
+    assert "S19.US" in cand_syms and "S00.US" not in cand_syms   # самый аномальный да, слабейший нет
 
 
 def test_variant2_notability_floor_quiet_day():

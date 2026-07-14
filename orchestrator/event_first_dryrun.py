@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT))
 import yaml  # noqa: E402
 
 from orchestrator import event_scan as ES            # noqa: E402
+from orchestrator import event_first as EF           # noqa: E402
 from orchestrator import cascade_resolve as CR       # noqa: E402
 from orchestrator import universe_resolver as U      # noqa: E402
 from orchestrator import event_mapping as EM         # noqa: E402
@@ -60,27 +61,10 @@ def dry_run(horizon_days=5, max_sources=4, write=True):
     try:
         scan = ES.scan_events_live(q_max=0.1, con=con)
 
-        # шок-источники: (а) символы значимых ценовых сигналов; (б) прокси тем, чьи слова совпали
-        # с салиентными новостными кластерами (событие дня → инструмент-исток).
-        sources = []
-        for s in scan["сигналы"]:
-            if s.get("сигнал_после_FDR") and s.get("символ"):
-                sources.append(s["символ"])
-        for ne in scan["новостные_события"][:8]:
-            theme, overlap = EM.match_cluster_to_theme(
-                {"keywords": ne["ключи"], "sample": ne["пример"]}, universe)
-            if theme:
-                proxy = ((universe.get("themes") or {}).get(theme) or {}).get("proxy_etf")
-                if proxy:
-                    sources.append(proxy)
-        # уникальные, только §9-разрешимые как ИСТОЧНИК, ограничим
-        seen, uniq = set(), []
-        for s in sources:
-            if s in seen or not U.is_sealable(s, con=con):
-                continue
-            seen.add(s)
-            uniq.append(s)
-        uniq = uniq[:max_sources]
+        # шок-источники: БОЕВОЙ отбор (Д1-Вариант2: новостные прокси + ценовые кандидаты, дедуп, кап).
+        # Переиспользуем EF._shock_sources, чтобы сухой прогон НЕ расходился с боевым путём впредь
+        # (stage-review 14.07: инлайн-копия отстала на строгом FDR после Варианта2).
+        uniq = EF._shock_sources(scan, universe, con, max_sources)
 
         cascades = []
         for src in uniq:
@@ -104,7 +88,8 @@ def dry_run(horizon_days=5, max_sources=4, write=True):
         "режим": "event-first СУХОЙ ПРОГОН (рядом с боевым, без LLM/seal/run_funnel)",
         "spec_ref": "§6 Эт.1 скан + §5/П5 каскад + §9 резолв; PLAN_cascade_first Этапы 1/2/4",
         "скан": {"источники": scan["источники"], "сырых_сигналов": scan["сырых_сигналов"],
-                 "статистических_после_FDR": scan["статистических_после_FDR"],
+                 "статистических_после_FDR": scan["статистических_после_FDR"],   # ярлык честности §15
+                 "кандидатов_к_суду": scan.get("кандидатов_к_суду"),             # боевой путь Вариант2
                  "топ_события": [e["метка"] for e in scan["кандидат_события"][:10]],
                  "ограничение_П8": scan["ограничение_П8"]},
         "шок_источники": uniq,
