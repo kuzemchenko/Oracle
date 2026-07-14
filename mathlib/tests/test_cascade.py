@@ -104,3 +104,31 @@ def test_unpriced_realized_none_is_none_not_crash():
     assert cascade_edge(0.05, None) is None
     r = cascade_edge(0.05, 0.01)
     assert r is not None and r["edge"] == 0.04
+
+
+# ── Этап1 (аудит 07.2026): гард вырожденной подгонки / короткого ряда ──────────────────
+def test_short_series_returns_none_no_exception():
+    """Ряд короче MIN_TRANSFER_OBS → node_sensitivity честно None, БЕЗ исключения (2-3 точки)."""
+    for k in (2, 3, 10, CAS.MIN_TRANSFER_OBS - 1):
+        assert CAS.node_sensitivity([0.01] * k, [0.02] * k, min_obs=2) is None
+
+
+def test_degenerate_fit_not_established():
+    """Идеальный фит (node = 2·source, n≥порога) → r²≈1.0, но перенос НЕ «установлен» (вырожден)."""
+    src = list(np.random.default_rng(1).normal(0, 0.02, 40))
+    node = [2.0 * x for x in src]                    # r²=1.0 ровно
+    out = CAS.node_sensitivity(src, node, min_obs=20)
+    assert out is not None
+    assert out["r2"] >= CAS.R2_DEGENERATE
+    assert out["degenerate"] is True
+    assert out["перенос_установлен"] is False        # вырожденный фит не течёт в ярус A
+
+
+def test_genuine_transfer_still_established():
+    """Реальный (не вырожденный) перенос с шумом и достаточной историей — перенос установлен."""
+    r = np.random.default_rng(2)
+    src = r.normal(0, 0.02, 300)
+    node = 1.3 * src + r.normal(0, 0.01, 300)        # сильная, но НЕ идеальная связь
+    out = CAS.node_sensitivity(list(src), list(node), min_obs=60)
+    assert out is not None and out["degenerate"] is False
+    assert out["перенос_установлен"] is True

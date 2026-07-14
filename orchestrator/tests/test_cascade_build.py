@@ -140,3 +140,30 @@ def test_promotion_only_applies_to_exact_edge_key():
     promotions = {FP.edge_key("A.US", "B.US", 999): {"promote": True, "reliability": 0.5}}
     link = CB._link_from_sensitivity("A.US", "B.US", 30, None, promotions=promotions)
     assert link["tier"] == "C"                      # лаг не совпал → промоушен не применён
+
+
+# ── Этап1 (аудит 07.2026): вырожденный/короткий пин НЕ даёт ярус A ─────────────────────
+def test_degenerate_pin_demoted_to_tier_c():
+    """Пин с r²=1.0 (фиктивная надёжность 14/24 money-печатей июня) → ярус C, не A."""
+    rec = {"pinned": True, "beta_pinned": 1.0, "r2_fullsample": 1.0, "n_obs": 800,
+           "rel_dispersion": 0.1, "beta_fullsample": 1.0}
+    link = CB._link_from_sensitivity("AAA", "BBB", 0, rec)
+    assert link["tier"] == "C"
+    assert link["established"] is False
+    assert "вырожд" in link["провенанс"]
+
+
+def test_short_series_pin_demoted_to_tier_c():
+    """Пин на коротком ряде (n_obs < min_transfer_obs) → ярус C, не A."""
+    rec = {"pinned": True, "beta_pinned": 0.8, "r2_fullsample": 0.4,
+           "n_obs": CB._MIN_TRANSFER_OBS - 1, "rel_dispersion": 0.1, "beta_fullsample": 0.8}
+    link = CB._link_from_sensitivity("AAA", "BBB", 0, rec)
+    assert link["tier"] == "C"
+
+
+def test_healthy_pin_still_tier_a():
+    """Здоровый пин (r² умеренный, длинный ряд) остаётся ярус A — гард не задевает норму."""
+    rec = {"pinned": True, "beta_pinned": 0.9, "r2_fullsample": 0.42, "n_obs": 800,
+           "rel_dispersion": 0.12, "beta_fullsample": 0.9}
+    link = CB._link_from_sensitivity("AAA", "BBB", 0, rec)
+    assert link["tier"] == "A" and link["established"] is True

@@ -32,6 +32,21 @@ MIN_BARS = 60
 R2_PIN_CAP = 0.95   # P1#6: верхний кап надёжности пина — r²≈1.0 на рынках = артефакт, не идеальная связь
 
 
+def _cascade_thresholds():
+    """Этап1: пороги гарда вырожденного пина из config/thresholds.yaml (секция cascade). Нет секции/
+    ключа → дефолты из mathlib.cascade (fail-safe, поведение без секции — прежнее)."""
+    try:
+        th = yaml.safe_load(open(ROOT / "config" / "thresholds.yaml", encoding="utf-8")) or {}
+        c = th.get("cascade") or {}
+        return (int(c.get("min_transfer_obs", CAS.MIN_TRANSFER_OBS)),
+                float(c.get("r2_degenerate", CAS.R2_DEGENERATE)))
+    except Exception:
+        return CAS.MIN_TRANSFER_OBS, CAS.R2_DEGENERATE
+
+
+_MIN_TRANSFER_OBS, _R2_DEGENERATE = _cascade_thresholds()
+
+
 def load_chains(path=CHAINS):
     return (yaml.safe_load(open(path, encoding="utf-8")) or {}).get("chains", [])
 
@@ -72,7 +87,11 @@ def _rep_with_data(node, has_data_fn):
 def _link_from_sensitivity(up, down, lag, rec, promotions=None):
     """Звено по ярусам §3c: исторический пин → A; иначе ФОРВАРД-промоушен ребра → A (заработан на
     запечатанных исходах, §10); иначе механизм-гипотеза карты (C, research-only)."""
-    if rec and rec.get("pinned") and rec.get("beta_pinned") is not None:
+    _r2fs = float(rec.get("r2_fullsample") or 0.0) if rec else 0.0
+    _nobs = rec.get("n_obs") if rec else None                    # None → длина неизвестна (не демотируем по ней)
+    _short = _nobs is not None and int(_nobs) < _MIN_TRANSFER_OBS
+    _degenerate_pin = bool(rec and rec.get("pinned") and (_r2fs >= _R2_DEGENERATE or _short))
+    if rec and rec.get("pinned") and rec.get("beta_pinned") is not None and not _degenerate_pin:
         beta = float(rec["beta_pinned"])
         sd = round(abs(beta) * max(float(rec.get("rel_dispersion") or 0.1), 0.05), 6)
         # P1#6: кап r² — даже пин не бывает «идеальным» на реальных рынках; r²≈1.0 = артефакт
@@ -82,6 +101,15 @@ def _link_from_sensitivity(up, down, lag, rec, promotions=None):
                 "reliability": round(rel, 4),
                 "lag": int(lag), "established": True,
                 "провенанс": f"ярус A (пин β={round(beta,4)}): {up}→{down}"}
+    # Этап1 (аудит 07.2026): вырожденный пин (r²≈1.0 — фиктивная надёжность 14/24 money-печатей июня)
+    # ИЛИ короткий ряд (n_obs < min_transfer_obs) НЕ даёт ярус A — падаем в механизм-гипотезу (ярус C,
+    # research-only). Так «идеальная связь» на коротком/коллинеарном ряде не течёт в денежный трек.
+    if _degenerate_pin:
+        prior = float(rec.get("beta_pinned") or rec.get("beta_fullsample") or 1.0)
+        return CAS.link_mechanism(prior, lag=int(lag),
+                                  провенанс=f"{up}→{down}: пин вырожден (r²={round(_r2fs,3)}, "
+                                            f"n={_nobs if _nobs is not None else '?'}) → механизм "
+                                            f"(ярус C, research-only)")
     # ФОРВАРД-промоушен (решение 28.06): ребро заработало ярус A корректными запечатанными форвард-
     # прогнозами (N≥30, значимый скилл, §10). Перенос ДОКАЗАН форвардом; величину берём точечной.
     prom = (promotions or {}).get(FP.edge_key(up, down, lag)) if promotions else None

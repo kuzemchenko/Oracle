@@ -25,6 +25,12 @@ from mathlib.calibration import causal as CA
 
 MIN_OBS = 60            # минимум синхронных наблюдений для оценки беты (иначе «нет данных»)
 WEAK_R2 = 0.10          # ниже — перенос помечается слабым (но не запрещается; решает контур)
+# Этап1 (аудит 07.2026): 14/24 денежных печатей июня несли R²=1.0 — вырожденная подгонка на коротком
+# ряде даёт ФИКТИВНУЮ надёжность (прямое объяснение расхождения 40% факт / 79% обещаний). Гард:
+MIN_TRANSFER_OBS = 20   # абсолютный минимум наблюдений для ЛЮБОЙ оценки переноса (консервативный дефолт;
+#                         финальный порог — walk-forward, config/thresholds.yaml cascade.min_transfer_obs).
+R2_DEGENERATE = 0.999   # r²≥этого = вырожденный фит (идеальный на рыночных доходностях = артефакт
+#                         короткого/коллинеарного ряда, НЕ реальный перенос) → не «установлен», ярус C.
 
 
 def _norm_cdf(x):
@@ -103,14 +109,21 @@ def node_sensitivity(source_ret, node_ret, lag=0, min_obs=MIN_OBS):
     данных» — мало синхронных наблюдений). перенос_установлен = CI корреляции (Fisher) исключает 0.
     """
     s, nd = _align_lag(source_ret, node_ret, lag)
-    if min(s.size, nd.size) < min_obs:
+    # Этап1: жёсткий пол длины ряда — ниже MIN_TRANSFER_OBS перенос НЕ оцениваем даже если вызов
+    # передал меньший min_obs (короткий ряд = вырожденный/неустойчивый фит, источник фикции r²=1.0).
+    if min(s.size, nd.size) < max(min_obs, MIN_TRANSFER_OBS):
         return None
     fit = ols_beta(s, nd)
     if fit is None:
         return None
+    # Этап1: вырожденный фит (r²≈1.0 на рыночных доходностях) — артефакт, НЕ установленный перенос.
+    # Раньше именно вырожденный CI (|corr|→1) считался «явно установленным» — это и текло в ярус A.
+    degenerate = fit["r2"] >= R2_DEGENERATE
     lo, hi = CA._fisher_ci(fit["corr"], fit["n"])
-    if lo is None or hi is None:           # вырожденный CI (|corr|→1) → перенос явно установлен
-        established = abs(fit["corr"]) >= 0.999
+    if degenerate:
+        established = False
+    elif lo is None or hi is None:         # невырожденный, но CI не посчитан → консервативно не установлен
+        established = False
     else:
         established = bool(lo > 0 or hi < 0)   # CI не пересекает 0 → перенос статистически установлен
     ci = [None if lo is None else round(lo, 4), None if hi is None else round(hi, 4)]
@@ -119,6 +132,7 @@ def node_sensitivity(source_ret, node_ret, lag=0, min_obs=MIN_OBS):
             "r2": round(fit["r2"], 4), "n": fit["n"], "resid_std": round(fit["resid_std"], 6),
             "lag": int(lag), "corr_ci95": ci,
             "se_beta": (None if se is None or math.isinf(se) else round(se, 6)),
+            "degenerate": bool(degenerate),
             "перенос_установлен": established}
 
 
