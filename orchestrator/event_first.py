@@ -92,9 +92,12 @@ def _shock_sources(scan, universe, con, max_sources):
     """Источники шока из ОТКРЫТОГО скана: значимые ценовые сигналы + прокси тем, чьи слова совпали
     с салиентными новостными кластерами (событие дня → инструмент-исток)."""
     cand = []
-    for s in scan["сигналы"]:
-        if s.get("сигнал_после_FDR") and s.get("символ"):
-            cand.append(s["символ"])
+    # Д1-Вариант2: источники шока — ценовые КАНДИДАТЫ (топ по значимости), а не прошедшие строгий
+    # BH (их структурно ~0). Порядок по возрастанию q_value → [:max_sources] берёт самые аномальные.
+    cand_sigs = sorted((s for s in scan["сигналы"] if s.get("кандидат") and s.get("символ")),
+                       key=lambda s: (s.get("q_value") if s.get("q_value") is not None else 1.0))
+    for s in cand_sigs:
+        cand.append(s["символ"])
     for ne in scan["новостные_события"][:8]:
         theme, _ = EM.match_cluster_to_theme({"keywords": ne["ключи"], "sample": ne["пример"]}, universe)
         if theme:
@@ -111,9 +114,11 @@ def _shock_sources(scan, universe, con, max_sources):
 
 
 def _price_signal_syms(scan):
-    """Символы со статистически значимым ценовым сигналом (после FDR) — узлы цепочки могут совпасть."""
+    """Символы с заметным ценовым сигналом — узлы цепочки могут совпасть. Д1-Вариант2: берём ценовых
+    КАНДИДАТОВ (топ по значимости, кап ширины), а не прошедших строгий BH (их структурно ~0) — иначе
+    трендо-событийные дни не активируют ни одной каскадной цепочки по цене. Контроль качества — суд."""
     return sorted({s["символ"] for s in scan["сигналы"]
-                   if s.get("сигнал_после_FDR") and s.get("символ")})
+                   if s.get("кандидат") and s.get("символ")})
 
 
 def _theme_for_chain(chain_id, universe):

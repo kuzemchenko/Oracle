@@ -87,6 +87,40 @@ def test_volume_prefers_log_metric_with_raw_fallback():
     assert len(vraw) == 1 and vraw[0]["df_нуля"] == 3         # фолбэк на сырой с тяжёлым df=3
 
 
+def test_variant2_candidate_survives_failed_fdr():
+    """Д1-Вариант2: всплеск тренда, который строгий BH НЕ пропускает (пул раздут ценовым шумом),
+    всё равно доходит до суда как топ-кандидат канала. FDR-ярлык при этом честно False."""
+    # 20 шумовых инструментов раздувают m → планка BH-одиночки недостижима для тренда (пол p≈0.036).
+    noise = {f"N{i}.US": {"ret_z_20": 0.2, "vol_z_20": 0.1} for i in range(20)}
+    r = ES.scan_events(news=[], trends_rows=_trends(), indicators=noise, q_max=0.1)
+    lithium = [s for s in r["сигналы"] if s.get("ключ") == "lithium supply"]
+    assert lithium and lithium[0]["сигнал_после_FDR"] is False   # строгий FDR не пропустил
+    assert lithium[0]["кандидат"] is True                        # но это топ-кандидат канала
+    labels = [e["метка"] for e in r["кандидат_события"]]
+    assert any("lithium" in (lbl or "") for lbl in labels)       # дошёл до кандидат-событий
+    assert r["кандидатов_к_суду"] >= 1
+
+
+def test_variant2_candidate_cap_per_channel():
+    """Д1-Вариант2: кап ширины — не больше CAND_PRICE_TOP ценовых кандидатов, отбор по значимости."""
+    # 40 инструментов, |z| = 0.2*i → S13..S39 дают p<0.05 (|z|>~2.5); из них топ-15 по p — кандидаты.
+    inds = {f"S{i:02d}.US": {"ret_z_20": 0.2 * i, "vol_z_20": 0.0} for i in range(40)}
+    r = ES.scan_events(news=[], trends_rows=[], indicators=inds, q_max=0.1)
+    price_cand = [s for s in r["сигналы"] if s.get("вид") == "price" and s.get("кандидат")]
+    assert len(price_cand) == ES.CAND_PRICE_TOP                  # ровно кап (заметных > капа)
+    cand_syms = {s["символ"] for s in price_cand}
+    assert "S39.US" in cand_syms and "S00.US" not in cand_syms   # самый аномальный да, тихий нет
+
+
+def test_variant2_notability_floor_quiet_day():
+    """Д1-Вариант2: в ШТИЛЬ (все |z| малы, p≥0.05) кандидатов НЕТ — событийная чувствительность,
+    не «топ-N шевелящихся каждый день». Это и есть честный пустой день (§6)."""
+    inds = {f"Q{i:02d}.US": {"ret_z_20": 0.5, "vol_z_20": 0.3} for i in range(30)}  # |z| мелкие
+    r = ES.scan_events(news=[], trends_rows=[], indicators=inds, q_max=0.1)
+    assert r["кандидатов_к_суду"] == 0
+    assert r["кандидат_события"] == []
+
+
 def test_empty_scan_is_legitimate():
     r = ES.scan_events(news=[], trends_rows=[], indicators={}, q_max=0.1)
     assert r["сырых_сигналов"] == 0

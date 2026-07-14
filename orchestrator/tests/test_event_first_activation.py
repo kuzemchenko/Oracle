@@ -19,11 +19,12 @@ CHAINS = [{"id": "demo", "nodes": [
 ]}]
 
 
-def test_price_signal_syms_filters_fdr():
+def test_price_signal_syms_filters_candidates():
+    # Д1-Вариант2: активация каскадов идёт по КАНДИДАТУ (топ по значимости), а НЕ по строгому FDR.
     scan = {"сигналы": [
-        {"символ": "GEV.US", "сигнал_после_FDR": True},
-        {"символ": "X.US", "сигнал_после_FDR": False},     # не прошёл FDR
-        {"символ": None, "сигнал_после_FDR": True},
+        {"символ": "GEV.US", "кандидат": True, "сигнал_после_FDR": False},  # FDR не прошёл — но кандидат
+        {"символ": "X.US", "кандидат": False, "сигнал_после_FDR": False},   # не кандидат → мимо
+        {"символ": None, "кандидат": True},
     ]}
     assert EF._price_signal_syms(scan) == ["GEV.US"]
 
@@ -35,7 +36,7 @@ def test_theme_for_chain():
 
 def test_activation_by_node_price_signal():
     # новостей нет (тема не сматчится) → активация ТОЛЬКО по ценовому сигналу на узле GEV
-    scan = {"новостные_события": [], "сигналы": [{"символ": "GEV.US", "сигнал_после_FDR": True}]}
+    scan = {"новостные_события": [], "сигналы": [{"символ": "GEV.US", "кандидат": True}]}
     act = EF.activated_chains(scan, UNIVERSE, CHAINS, EF._price_signal_syms(scan))
     assert len(act) == 1
     assert act[0]["chain"]["id"] == "demo"
