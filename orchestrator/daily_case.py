@@ -238,6 +238,61 @@ def _build_case(status, n, court, rid, name_fn, дата=None):
     }
 
 
+def _build_postmortem(rec, rid, name_fn, дата):
+    """Постмортем разрешённого прогноза: схема outcomes.jsonl (asset/direction/threshold/observed/
+    outcome/probability) → читаемый кейс. Отдельный сборщик — исход это НЕ идея-кандидат, у него
+    своя форма (прогноз против факта), а не цепочка-аргументация."""
+    asset = rec.get("asset") or rec.get("актив")
+    label = _node_label(asset, name_fn)
+    dir_word = {"above": "выше", "below": "ниже"}.get(rec.get("direction"), rec.get("direction") or "?")
+    thr = rec.get("threshold")
+    obs = rec.get("observed_value")
+    hit = rec.get("outcome")
+    prob = rec.get("probability")
+    вердикт = "прогноз СБЫЛСЯ" if hit == 1 else "прогноз НЕ сбылся" if hit == 0 else "исход неоднозначен"
+    by = str(rec.get("resolve_by") or "")[:10]
+    баллы = [
+        ("что прогнозировали", f"{label} {dir_word} {thr}" if thr is not None else f"{label} {dir_word}"),
+        ("что вышло по факту", f"{obs}" if obs is not None else None),
+        ("исход", вердикт),
+        ("заявленная вероятность", f"{prob:.0%}" if isinstance(prob, (int, float)) else None),
+        ("срок сверки", by or None),
+        ("трек", "провизорный (гипотеза, в деньги не пускали)"
+         if str(rec.get("kind", "")).endswith("provisional") else rec.get("kind")),
+    ]
+    цепочка_txt = (f"Одношаговый форвард-тест: прогноз «{dir_word} {thr}» запечатан заранее к {by}, "
+                   "исход сверён с фактом без подглядывания (§16).")
+    кто = ("Это форвард-тест связи, а не спор с рынком — «другой стороны» у него нет; ценность в "
+           "честном счёте прогноз против факта.")
+    if hit == 1:
+        неверна = ["один совпавший исход ещё не доказывает калибровку — это счёт, а не победа; "
+                   "смотрим на длинной дистанции, не бьётся ли заявленная вероятность с частотой попаданий"]
+        воронка = (f"Разрешён по стандарту §9: факт {obs} подтвердил порог {thr} ({dir_word}). "
+                   "Запечатан заранее, сверен по времени — это улика честности, не сделка.")
+    else:
+        неверна = ["если промах системный (заявляли высокую вероятность, а не сбылось) — сигнал, что "
+                   "логика переноса слабее заявленного; один промах сам по себе ещё не приговор"]
+        воронка = (f"Разрешён по стандарту §9: факт {obs} НЕ дотянул до порога {thr} ({dir_word}). "
+                   "Прогноз был запечатан заранее — промах виден честно, не задним числом.")
+    return {
+        "статус": "resolved_postmortem",
+        "статус_человек": СТАТУС_ЧЕЛОВЕК["resolved_postmortem"],
+        "дата": дата,
+        "значит_для_тебя": _meaning_for_you("resolved_postmortem", label),
+        "заголовок": f"{label}: {вердикт} (прогноз «{dir_word} {thr}»)",
+        "актив": asset,
+        "повод": None,
+        "цепочка": [{"порядок": None, "узел": цепочка_txt, "чокпоинт": False, "тикеры": []}],
+        "баллы": баллы,
+        "кто_продаёт": кто,
+        "неверна_если": неверна,
+        "статус_воронки": воронка,
+        "что_делать": _what_to_do("resolved_postmortem", rec, None),
+        "вопрос": _question("resolved_postmortem"),
+        "тех_id": rid,
+    }
+
+
 def _candidates_from_protocol(protocol):
     """Все узлы-кандидаты дня с их вердиктом суда: [(node, court_or_None)]. Порядок = продуктовый
     ранг показа, если он проставлен (не влияет на статус, только на выбор среди равных)."""
@@ -261,10 +316,16 @@ def select_case(protocol, *, outcomes=None, phenomena=None, name_fn=None, now=No
     кандидаты = _candidates_from_protocol(protocol)
 
     пул = {}   # статус → (node, court)  — по одному лучшему на статус
-    # resolved_postmortem — из переданных исходов (самый обучающий)
-    if outcomes:
-        o = outcomes[0]
-        пул["resolved_postmortem"] = (o, o.get("суд"))
+    # resolved_postmortem — из переданных исходов (самый обучающий). Берём только исход с активом
+    # И разрешённый (есть outcome/observed) — иначе постмортему нечего сверять (П8, не «?»).
+    _res_out = None
+    for o in (outcomes or []):
+        if (o.get("asset") or o.get("актив")) and (o.get("outcome") is not None
+                                                    or o.get("observed_value") is not None):
+            _res_out = o
+            break
+    if _res_out is not None:
+        пул["resolved_postmortem"] = ("__outcome__", _res_out)
     # живой кандидат / вскрытие — по вердикту суда (НЕ переклеиваем: РАЗБИТА = вскрытие, честно)
     for n, court in кандидаты:
         исход = court.get("исход") if isinstance(court, dict) else None
@@ -283,6 +344,8 @@ def select_case(protocol, *, outcomes=None, phenomena=None, name_fn=None, now=No
     for status in _ПРИОРИТЕТ:
         if status in пул:
             n, court = пул[status]
+            if status == "resolved_postmortem":
+                return _build_postmortem(court, rid, name_fn, дата)   # court здесь = outcome-запись
             return _build_case(status, n, court, rid, name_fn, дата=дата)
     return {"пусто": "сегодня не набралось даже учебного кейса — ни кандидатов, ни исходов, ни урока шума",
             "дата": дата, "тех_id": rid}

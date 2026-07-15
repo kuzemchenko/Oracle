@@ -46,12 +46,25 @@ def test_autopsy_not_upgraded_to_live():
 
 
 def test_resolved_postmortem_wins_when_outcome_present():
+    """Постмортем строится из РЕАЛЬНОЙ схемы outcomes.jsonl (asset/direction/threshold/outcome)."""
     p = _proto(top_k=[_node("GEV.US")], суд={"GEV.US": {"исход": "УСТОЯЛА"}})
-    out = [{"актив": "LNG.US", "событие": "прошлый прогноз", "порядок": 2,
-            "факт_словом": "движение подтвердилось"}]
+    out = [{"asset": "FRO.US", "kind": "cascade_provisional", "direction": "above",
+            "threshold": 36.75, "observed_value": 36.92, "outcome": 1, "probability": 0.5045,
+            "resolve_by": "2026-07-13T20:00:00+00:00"}]
     case = DC.select_case(p, outcomes=out)
     assert case["статус"] == "resolved_postmortem"
-    assert case["актив"] == "LNG.US"
+    assert case["актив"] == "FRO.US"
+    assert "СБЫЛСЯ" in case["заголовок"]
+    баллы = dict(case["баллы"])
+    assert баллы["исход"] == "прогноз СБЫЛСЯ"
+    assert case["актив"] != "?"
+
+
+def test_postmortem_skipped_when_outcome_lacks_asset():
+    """Исход без актива/факта НЕ даёт постмортем (нечего сверять) — кейс берётся из кандидатов."""
+    p = _proto(top_k=[_node("GEV.US")], суд={"GEV.US": {"исход": "УСТОЯЛА"}})
+    case = DC.select_case(p, outcomes=[{"kind": "x"}, {"asset": None}])
+    assert case["статус"] == "live_candidate"
 
 
 def test_signal_noise_lesson_when_only_noise():
