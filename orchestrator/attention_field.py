@@ -181,31 +181,102 @@ def field_for_asset(con, asset, *, asof, run_id, candidates=None,
     return field
 
 
+def _load_theme_keys(news_path=None):
+    """{тема: [trends_keywords]} из config/news.yaml — те же ключи, что суточный фетч тем
+    (data/trends.scan_keywords): данные по ним уже накапливаются в канонике."""
+    import yaml
+    p = pathlib.Path(news_path) if news_path else ROOT / "config" / "news.yaml"
+    if not p.exists():
+        return {}
+    cfg = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    return {str(t.get("name")): list(t.get("trends_keywords") or [])
+            for t in (cfg.get("themes") or []) if t.get("name")}
+
+
+def track_candidates_for(треки, *, universe=None, theme_keys=None, news_path=None,
+                         chain_keys=None):
+    """Кандидат-ключи для узлов ТРЕКОВ (фикс 2026-07-15, дыра №1 спеки): узел → его цепочка
+    (_chain) → тема универсума (themes.<t>.cascade_chain) → ПЕРВЫЙ trends_keywords темы.
+    Ключи тем уже в суточном фетче → поле меряется в тот же день. Для цепочек КАРТОГРАФА
+    (вне тем) — chain_keys: {chain_id: ключи новостного кластера карты} (те же кандидаты,
+    что у research-идей той же карты; данные придут дофетчем). Тема приоритетнее кластера.
+    Узел без обоих — кандидата нет (честное «не_измерено», §R0#5)."""
+    theme_keys = _load_theme_keys(news_path) if theme_keys is None else theme_keys
+    themes = (universe or {}).get("themes") or {}
+    chain2theme = {(t or {}).get("cascade_chain"): name
+                   for name, t in themes.items() if (t or {}).get("cascade_chain")}
+    out = {}
+    for track in ("money", "provisional", "digest_only"):
+        for s in (треки or {}).get(track, []) or []:
+            sym = str(s.get("symbol") or "").strip().upper()
+            keys = (theme_keys.get(chain2theme.get(s.get("_chain")))
+                    or (chain_keys or {}).get(s.get("_chain")) or [])
+            keys = [k for k in keys if k and str(k).strip()]
+            if sym and keys and sym not in out:
+                out[sym] = [str(keys[0]).strip()]
+    return out
+
+
+# Причины «не_измерено», которые лечатся немедленным фетчем ключа (дыра №2 спеки).
+_FETCHABLE_REASON = "суточного фетча"
+FETCH_NOW_CAP = 6      # кэп дофетча в прогоне: пауза ~10с/ключ — не раздуваем время прогона
+
+
 def annotate_ideas(con, картограф_идеи, треки, *, asof, run_id,
-                   seeds=None, registry_path=None, fix_keys=True):
+                   seeds=None, registry_path=None, fix_keys=True,
+                   track_candidates=None, fetcher=None, fetch_cap=FETCH_NOW_CAP):
     """Прикрепить поле «внимание» идеям выдачи (мутирует dict'ы) и вернуть покрытие (§R5).
 
     картограф_идеи: candidates = их «ключи» (слова кластера, журналируемое назначение);
-    треки (money/provisional/digest_only): только сиды/реестр — кандидатов у узлов графа нет.
-    Поле НЕ влияет на ранжирование: прикрепляется ПОСЛЕ отбора/маршрутизации.
-    fix_keys=False (mock/dry): только ЧТЕНИЕ реестра/сидов, назначения НЕ журналируются
-    (конвенция П16: mock журналы не трогает). Реестр перечитывается на каждый актив
-    (объём — единицы идей на прогон)."""
+    треки (money/provisional/digest_only): сиды/реестр + track_candidates (ключ ТЕМЫ цепочки
+    узла, см. track_candidates_for — фикс 2026-07-15). Поле НЕ влияет на ранжирование:
+    прикрепляется ПОСЛЕ отбора/маршрутизации.
+    fetcher (фикс 2026-07-15, дыра №2): callable(keys) — немедленный фетч ключей, назначенных
+    в этом прогоне, но без канонических строк; после фетча поля пересчитываются, покрытие §R5
+    считается ПОСЛЕ дофетча. Ошибка фетча — fail-soft (поле остаётся «не_измерено»).
+    fix_keys=False (mock/dry): только ЧТЕНИЕ реестра/сидов, назначения НЕ журналируются и
+    дофетч НЕ вызывается (конвенция П16: mock журналы/сеть не трогает). Реестр перечитывается
+    на каждый актив (объём — единицы идей на прогон)."""
     seeds = _load_seeds() if seeds is None else seeds
-    ok = missing = 0
-    for idea in (картограф_идеи or []):
-        f = field_for_asset(con, idea.get("актив"), asof=asof, run_id=run_id,
-                            candidates=idea.get("ключи"), seeds=seeds,
-                            registry_path=registry_path, fix_keys=fix_keys)
-        idea["внимание"] = f
-        ok, missing = (ok + 1, missing) if f["статус"] == "ok" else (ok, missing + 1)
+    track_candidates = track_candidates or {}
+
+    def _args_for(item):
+        """(dict-носитель, актив, кандидаты) — единые аргументы поля для идеи/узла трека."""
+        if "symbol" in item:
+            sym = str(item.get("symbol") or "").strip().upper()
+            return item, item.get("symbol"), track_candidates.get(sym)
+        return item, item.get("актив"), item.get("ключи")
+
+    items = [_args_for(i) for i in (картограф_идеи or [])]
     for track in ("money", "provisional", "digest_only"):
-        for s in (треки or {}).get(track, []) or []:
-            f = field_for_asset(con, s.get("symbol"), asof=asof, run_id=run_id,
-                                seeds=seeds, registry_path=registry_path, fix_keys=fix_keys)
-            s["внимание"] = f
-            ok, missing = (ok + 1, missing) if f["статус"] == "ok" else (ok, missing + 1)
-    total = ok + missing
-    return {"всего_идей": total, "с_данными": ok, "не_измерено": missing,
+        items += [_args_for(s) for s in (треки or {}).get(track, []) or []]
+
+    refetch = []
+    for obj, asset, cands in items:
+        f = field_for_asset(con, asset, asof=asof, run_id=run_id, candidates=cands,
+                            seeds=seeds, registry_path=registry_path, fix_keys=fix_keys)
+        obj["внимание"] = f
+        if (fix_keys and fetcher is not None and f["статус"] == "не_измерено"
+                and f.get("ключ") and _FETCHABLE_REASON in (f.get("причина") or "")):
+            refetch.append((obj, asset, cands, f["ключ"]))
+
+    if refetch:
+        keys = list(dict.fromkeys(k for *_, k in refetch))[:max(0, int(fetch_cap))]
+        try:
+            fetcher(keys)
+            fetched = set(keys)
+        except Exception as e:  # noqa: BLE001 — fail-soft: поле остаётся честным «не_измерено»
+            print(f"⚠ дофетч ключей «внимания» не удался ({e}) — поля остаются «не_измерено»",
+                  file=sys.stderr)
+            fetched = set()
+        for obj, asset, cands, key in refetch:
+            if key in fetched:
+                obj["внимание"] = field_for_asset(con, asset, asof=asof, run_id=run_id,
+                                                  candidates=cands, seeds=seeds,
+                                                  registry_path=registry_path, fix_keys=fix_keys)
+
+    ok = sum(1 for obj, *_ in items if obj["внимание"]["статус"] == "ok")
+    total = len(items)
+    return {"всего_идей": total, "с_данными": ok, "не_измерено": total - ok,
             "покрытие": (round(ok / total, 3) if total else None),
             "цель_§R5": "покрытие ≥0.60 (наблюдение, не гейт П2а)"}

@@ -193,6 +193,40 @@ def load_keywords():
     return kws, timeframe, geos, pause
 
 
+def fetch_keywords_now(con, keywords, cap=6, pause=None, verbose=True):
+    """Точечный фетч КАНОНИЧЕСКИМ окном для ключей, назначенных по ходу прогона (фикс
+    2026-07-15, spec/FIX_2026-07-15_attention_keys.md дыра №2): убирает вечное «появятся
+    после суточного фетча» у поля «внимание». Кэп — защита времени прогона (пауза между
+    ключами как у суточного фетча). Ошибки на ключе — warn и пропуск, не валят вызывающего.
+    Возвращает список успешно сфетченных ключей."""
+    kws = list(dict.fromkeys(k for k in (keywords or []) if k))[:max(0, int(cap))]
+    if not kws:
+        return []
+    if pause is None:
+        try:
+            import yaml
+            with open(NEWS_CFG, encoding="utf-8") as f:
+                pause = float((yaml.safe_load(f).get("trends", {}) or {}).get("pause_sec", 10.0))
+        except Exception:  # noqa: BLE001
+            pause = 10.0
+    done = []
+    for i, kw in enumerate(kws):
+        try:
+            ri, rr = fetch_keyword(kw, geo="", timeframe=CANON_TIMEFRAME)
+            a, b = store(con, ri, rr, timeframe=CANON_TIMEFRAME)
+            done.append(kw)
+            if verbose:
+                print(f"✅ trends-сейчас '{kw}': {a} точек ряда, {b} related")
+        except RateLimited:
+            print(f"⏳ trends-сейчас '{kw}': Google 429 — пропуск (данные придут суточным фетчем)",
+                  file=sys.stderr)
+        except Exception as e:  # noqa: BLE001
+            print(f"❌ trends-сейчас '{kw}': {e}", file=sys.stderr)
+        if i < len(kws) - 1:
+            time.sleep(pause)
+    return done
+
+
 def run_all(con, verbose=True):
     kws, timeframe, geos, pause = load_keywords()
     _warn_if_not_canonical(timeframe)
