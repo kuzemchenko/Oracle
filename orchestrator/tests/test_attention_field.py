@@ -262,3 +262,154 @@ def test_string_candidates_is_single_key_not_chars(tmp_path):
     f = AF.field_for_asset(con, "CCJ.US", asof=ASOF, run_id="r",
                            candidates="uranium squeeze", seeds={}, registry_path=reg)
     assert f["ключ"] == "uranium squeeze"
+
+
+# --- ФИКС 2026-07-15 (spec/FIX_2026-07-15_attention_keys.md): «ключ ещё не заведён» ---
+
+def test_track_candidates_for_maps_chain_theme_to_news_key():
+    # Т1: узел трека → _chain → тема универсума → ПЕРВЫЙ trends_keywords темы.
+    universe = {"themes": {"lng_normalization": {"cascade_chain": "lng_chain"},
+                           "ai_power": {"cascade_chain": "ai_power_transformers_metal"}}}
+    theme_keys = {"lng_normalization": ["LNG", "natural gas price"], "ai_power": ["AI data center"]}
+    треки = {"money": [{"symbol": "GLNG.US", "_chain": "lng_chain"}],
+             "provisional": [{"symbol": "gev.us", "_chain": "ai_power_transformers_metal"},
+                             {"symbol": "INFY.US", "_chain": "цепочка_вне_тем"}],
+             "digest_only": []}
+    tc = AF.track_candidates_for(треки, universe=universe, theme_keys=theme_keys)
+    assert tc == {"GLNG.US": ["LNG"], "GEV.US": ["AI data center"]}   # вне тем — кандидата нет
+
+
+def test_track_candidates_for_cartographer_chain_uses_cluster_keys():
+    # Т1: цепочка КАРТОГРАФА (вне тем) → ключи её новостного кластера; тема приоритетнее кластера.
+    universe = {"themes": {"ai_power": {"cascade_chain": "ai_power_transformers_metal"}}}
+    theme_keys = {"ai_power": ["AI data center"]}
+    треки = {"money": [{"symbol": "MOS.US", "_chain": "carto_wpi_india"}],
+             "provisional": [{"symbol": "GEV.US", "_chain": "ai_power_transformers_metal"}],
+             "digest_only": []}
+    tc = AF.track_candidates_for(треки, universe=universe, theme_keys=theme_keys,
+                                 chain_keys={"carto_wpi_india": ["wpi inflation", "food"],
+                                             "ai_power_transformers_metal": ["мимо — тема выше"]})
+    assert tc == {"MOS.US": ["wpi inflation"], "GEV.US": ["AI data center"]}
+
+
+def test_annotate_track_idea_measured_same_day_via_theme_candidate(tmp_path):
+    # Т1: узел трека без сида/реестра меряется В ТОТ ЖЕ день по ключу темы (данные уже в канонике).
+    reg = tmp_path / "reg.jsonl"
+    con = _con_with_series("LNG", [10, 15, 20, 30, 45, 60, 80, 95])
+    треки = {"money": [], "provisional": [{"symbol": "GLNG.US", "_chain": "lng_chain"}],
+             "digest_only": []}
+    cov = AF.annotate_ideas(con, [], треки, asof=ASOF, run_id="t", seeds={},
+                            registry_path=reg, track_candidates={"GLNG.US": ["LNG"]})
+    f = треки["provisional"][0]["внимание"]
+    assert f["статус"] == "ok" and f["ключ"] == "LNG"
+    assert cov["с_данными"] == 1
+    rec = json.loads(reg.read_text().splitlines()[0])                # назначение журналируется
+    assert rec["актив"] == "GLNG.US" and rec["ключ"] == "LNG"
+
+
+def test_seed_beats_track_candidate(tmp_path):
+    # Порядок resolve_key НЕ меняется: сид приоритетнее кандидата трека.
+    reg = tmp_path / "reg.jsonl"
+    con = _con_with_series("transformer shortage", [10, 15, 20, 30, 45, 60, 80, 95])
+    треки = {"money": [], "digest_only": [],
+             "provisional": [{"symbol": "GEV.US", "_chain": "ai_power_transformers_metal"}]}
+    AF.annotate_ideas(con, [], треки, asof=ASOF, run_id="t",
+                      seeds={"GEV.US": "transformer shortage"}, registry_path=reg,
+                      track_candidates={"GEV.US": ["AI data center"]})
+    assert треки["provisional"][0]["внимание"]["ключ"] == "transformer shortage"
+
+
+def _fake_fetcher_into(con, key, calls):
+    def fetcher(keys):
+        calls.append(list(keys))
+        for i in range(8):
+            con.execute(
+                "INSERT INTO trends (keyword,geo,date,interest,is_partial,source,fetched_at,timeframe)"
+                " VALUES (?,?,?,?,0,'google_trends',?,?)",
+                (key, "", f"2026-06-{i+1:02d}", 10 * (i + 1), FETCH, A.TRENDS_TIMEFRAME))
+    return fetcher
+
+
+def test_fetcher_fills_new_key_same_run(tmp_path):
+    # Т2: ключ назначен в прогоне, канона нет → fetcher вызван ОДИН раз, поле пересчитано до ok.
+    reg = tmp_path / "reg.jsonl"
+    con = sqlite3.connect(":memory:"); con.executescript(nc.SCHEMA)
+    calls = []
+    идеи = [{"актив": "FRO.US", "ключи": ["hormuz", "blockade"]}]
+    cov = AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={},
+                            registry_path=reg, fetcher=_fake_fetcher_into(con, "hormuz", calls))
+    assert calls == [["hormuz"]]
+    assert идеи[0]["внимание"]["статус"] == "ok" and идеи[0]["внимание"]["ключ"] == "hormuz"
+    assert cov["с_данными"] == 1 and cov["не_измерено"] == 0        # покрытие §R5 — ПОСЛЕ дофетча
+
+
+def test_fetcher_not_called_without_fix_keys(tmp_path):
+    # П16: mock/dry (fix_keys=False) — назначений нет и фетч НЕ вызывается.
+    reg = tmp_path / "reg.jsonl"
+    con = sqlite3.connect(":memory:"); con.executescript(nc.SCHEMA)
+    calls = []
+    идеи = [{"актив": "FRO.US", "ключи": ["hormuz"]}]
+    AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={}, registry_path=reg,
+                      fix_keys=False, fetcher=_fake_fetcher_into(con, "hormuz", calls))
+    assert calls == []
+
+
+def test_fetcher_failure_is_fail_soft(tmp_path):
+    # Ошибка дофетча не валит annotate: поле честно остаётся «не_измерено».
+    reg = tmp_path / "reg.jsonl"
+    con = sqlite3.connect(":memory:"); con.executescript(nc.SCHEMA)
+    def boom(keys): raise RuntimeError("сеть упала")
+    идеи = [{"актив": "FRO.US", "ключи": ["hormuz"]}]
+    cov = AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={},
+                            registry_path=reg, fetcher=boom)
+    assert идеи[0]["внимание"]["статус"] == "не_измерено"
+    assert cov["не_измерено"] == 1
+
+
+def test_fetcher_cap_limits_keys(tmp_path):
+    # Кэп дофетча: fetcher получает не больше fetch_cap ключей (порядок идей, дедуп).
+    reg = tmp_path / "reg.jsonl"
+    con = sqlite3.connect(":memory:"); con.executescript(nc.SCHEMA)
+    calls = []
+    def fetcher(keys): calls.append(list(keys))
+    идеи = [{"актив": f"A{i}.US", "ключи": [f"key{i}"]} for i in range(5)]
+    AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={},
+                      registry_path=reg, fetcher=fetcher, fetch_cap=2)
+    assert calls == [["key0", "key1"]]
+
+
+def test_track_candidates_for_battle_form_route_tracks(tmp_path):
+    # РЕВЬЮ 15.07 (БЛОКЕР): боевая форма треков — _chain ВНУТРИ s["node"] (route_tracks/graph_build),
+    # digest_only (отсев) узла не несёт. Проверяем через НАСТОЯЩИЙ route_tracks.
+    from orchestrator import graph_build as GB
+    selection = {
+        "ранжировано": [
+            {"symbol": "CLF.US", "score": 1.0,
+             "node": {"research": False, "_chain": "ai_power_transformers_metal"}},
+            {"symbol": "MOS.US", "score": 0.5,
+             "node": {"research": True, "_chain": "carto_wpi_india"}},
+        ],
+        "отсев": [{"symbol": "XYZ.US", "fails": ["нет окна"]}],
+    }
+    треки = GB.route_tracks(selection)
+    universe = {"themes": {"ai_power": {"cascade_chain": "ai_power_transformers_metal"}}}
+    tc = AF.track_candidates_for(треки, universe=universe,
+                                 theme_keys={"ai_power": ["AI data center"]},
+                                 chain_keys={"carto_wpi_india": ["wpi inflation"]})
+    assert tc == {"CLF.US": ["AI data center"], "MOS.US": ["wpi inflation"]}
+    # отсев без узла — кандидата честно нет (не падает)
+
+
+def test_fetcher_partial_result_recomputes_only_fetched(tmp_path):
+    # РЕВЬЮ 15.07 (мелочь №1): fetcher вернул СПИСОК реально сфетченных — пересчитываем только их.
+    reg = tmp_path / "reg.jsonl"
+    con = sqlite3.connect(":memory:"); con.executescript(nc.SCHEMA)
+    def fetcher(keys):
+        _fake_fetcher_into(con, "hormuz", [])(keys)   # данные легли только по hormuz
+        return ["hormuz"]                              # второй ключ упал на 429
+    идеи = [{"актив": "FRO.US", "ключи": ["hormuz"]}, {"актив": "MOS.US", "ключи": ["wpi"]}]
+    cov = AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={},
+                            registry_path=reg, fetcher=fetcher)
+    assert идеи[0]["внимание"]["статус"] == "ok"
+    assert идеи[1]["внимание"]["статус"] == "не_измерено"
+    assert cov["с_данными"] == 1 and cov["не_измерено"] == 1

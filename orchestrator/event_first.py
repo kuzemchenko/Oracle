@@ -741,9 +741,25 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # Stage-review П2а HIGH-2: поле ИНФОРМАЦИОННОЕ — его сбой (реестр/БД/датчик) не имеет
         # права ронять боевой прогон после уже сделанного отбора. Fail-soft с честной пометкой.
         try:
+            # Фикс 2026-07-15 (spec/FIX_2026-07-15_attention_keys.md): узлы треков получают
+            # кандидата от ТЕМЫ своей цепочки (данные темы уже в канонике — меряется сегодня);
+            # ключи, назначенные в этом прогоне, дофетчиваются сразу (кэп, fail-soft) — тезис
+            # «появятся после суточного фетча» больше не вечный.
+            from data import trends as _TR
             внимание_покрытие = AF.annotate_ideas(con, картограф_идеи, треки,
                                                   asof=now.isoformat(timespec="seconds"), run_id=run_id,
-                                                  fix_keys=(mode != "mock"))   # mock реестр не трогает (П16)
+                                                  fix_keys=(mode != "mock"),   # mock реестр не трогает (П16)
+                                                  track_candidates=AF.track_candidates_for(
+                                                      треки, universe=universe,
+                                                      chain_keys={(pc.get("chain") or {}).get("id"):
+                                                                  list(pc.get("ключи") or [])
+                                                                  for pc in (pcs or [])
+                                                                  if (pc.get("chain") or {}).get("id")}),
+                                                  fetcher=(None if mode == "mock" else
+                                                           # кэп режет annotate_ideas (fetch_cap) —
+                                                           # здесь cap=len, чтобы кэпы не рассинхр.
+                                                           (lambda keys: _TR.fetch_keywords_now(
+                                                               con, keys, cap=len(keys)))))
         except Exception as _e:  # noqa: BLE001
             внимание_покрытие = {"ошибка": f"{type(_e).__name__}: {_e}",
                                  "пояснение": "поле «внимание» не посчитано — прогон продолжен (fail-soft)"}
