@@ -106,6 +106,10 @@ def _shock_sources(scan, universe, con, max_sources):
                        key=lambda s: (s.get("q_value") if s.get("q_value") is not None else 1.0))
     for s in cand_sigs:
         cand.append(s["символ"])
+    # Этап2 (роутинг трендов до суда, закрытие долга Д1-Вариант2): трендовый кандидат → тема → proxy_etf
+    # (как новостной прокси). Заполняют оставшиеся слоты — трендовый канал реально доходит до контура.
+    for _key, proxy in _trend_proxy_syms(scan, universe):
+        cand.append(proxy)
     seen, uniq = set(), []
     for s in cand:
         if s in seen or not U.is_sealable(s, con=con):
@@ -115,12 +119,79 @@ def _shock_sources(scan, universe, con, max_sources):
     return uniq[:max_sources]
 
 
+def _trend_proxy_syms(scan, universe):
+    """Этап2: трендовый КАНДИДАТ → тема универсума (матч по ключу, как новостной кластер) → proxy_etf.
+    Возвращает [(ключ, proxy)] для ЗАМАПЛЕННЫХ. Незамапленные честно выпадают (П8: нет привязки к
+    инструменту — трендовый канал доходит до суда ТОЛЬКО через реальный инструмент, а не декларацией).
+    Закрывает долг Д1-Вариант2 (трендовые кандидаты считались, но кода-пути до суда не имели)."""
+    themes = (universe or {}).get("themes") or {}
+    out = []
+    for s in scan.get("сигналы", []):
+        if s.get("вид") != "trend" or not s.get("кандидат"):
+            continue
+        key = s.get("ключ")
+        theme, _ = EM.match_cluster_to_theme({"keywords": [key], "sample": key or ""}, universe)
+        proxy = ((themes.get(theme) or {}).get("proxy_etf")) if theme else None
+        if proxy:
+            out.append((key, proxy))
+    return out
+
+
 def _price_signal_syms(scan):
-    """Символы с заметным ценовым сигналом — узлы цепочки могут совпасть. Д1-Вариант2: берём ценовых
-    КАНДИДАТОВ (топ по значимости, кап ширины), а не прошедших строгий BH (их структурно ~0) — иначе
-    трендо-событийные дни не активируют ни одной каскадной цепочки по цене. Контроль качества — суд."""
+    """Символы с заметным ЦЕНОВЫМ сигналом-кандидатом — узлы цепочки могут совпасть (Д1-Вариант2:
+    кандидаты, не строгий BH). Трендовые узлы добавляет _candidate_node_syms (Этап2)."""
     return sorted({s["символ"] for s in scan["сигналы"]
                    if s.get("кандидат") and s.get("символ")})
+
+
+def _daily_debate_alert(mode, now, *, costs_log=None, limits_path=None, notices=None):
+    """Этап2 (2.4): суммарная стоимость LLM за СЕГОДНЯ > дневного ориентира (config/limits.yaml
+    budget.daily_debate_alert_usd, дефолт = месячный токен-бюджет/30) → АЛЕРТ владельцу в
+    journal/notices.jsonl (бот пушит). Прогон НЕ урезается, пороги НЕ двигаются (§12). Дедуп: один
+    алерт в день (маркер с датой). mode=mock → не считаем. Возвращает {spent_today, cap, over}.
+    Пути опциональны (тестируемость); по умолчанию — боевые файлы репозитория."""
+    if mode == "mock":
+        return None
+    limits_path = pathlib.Path(limits_path) if limits_path else ROOT / "config" / "limits.yaml"
+    costs_log = pathlib.Path(costs_log) if costs_log else ROOT / "journal" / "costs.jsonl"
+    notices = pathlib.Path(notices) if notices else ROOT / "journal" / "notices.jsonl"
+    try:
+        limits = yaml.safe_load(open(limits_path, encoding="utf-8")) or {}
+    except Exception:
+        return None
+    b = limits.get("budget") or {}
+    cap = b.get("daily_debate_alert_usd")
+    cap = float(cap) if cap is not None else float(b.get("tokens_usd_month", 500)) / 30.0
+    today = now.date().isoformat()
+    spent = 0.0
+    if costs_log.exists():
+        for line in costs_log.read_text(encoding="utf-8").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("mode") != "mock" and str(rec.get("ts", "")).startswith(today):
+                spent += float(rec.get("cost_usd") or 0)
+    res = {"spent_today": round(spent, 4), "cap": round(cap, 4), "over": spent > cap}
+    if not res["over"]:
+        return res
+    marker = f"[дневной-расход {today}]"
+    if notices.exists() and marker in notices.read_text(encoding="utf-8"):
+        return res                                       # уже алертили сегодня — не спамим
+    text = (f"{marker} Расход на работу за сегодня {spent:.2f}$ превысил дневной ориентир "
+            f"{cap:.2f}$ (= месячный токен-бюджет ${b.get('tokens_usd_month', 500)}/30). Прогон НЕ "
+            f"урезан и пороги НЕ тронуты — сообщаю, чтобы ты видел расход (§12).")
+    notices.parent.mkdir(parents=True, exist_ok=True)
+    with open(notices, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": now.isoformat(timespec="seconds"), "text": text},
+                           ensure_ascii=False) + "\n")
+    return res
+
+
+def _candidate_node_syms(scan, universe):
+    """Этап2: инструменты-кандидаты для активации каскадных цепочек = ценовые кандидаты + трендовые
+    кандидаты, замапленные на proxy_etf. Так трендо-событийный день активирует цепочку и через тренд."""
+    return sorted(set(_price_signal_syms(scan)) | {p for _k, p in _trend_proxy_syms(scan, universe)})
 
 
 def _theme_for_chain(chain_id, universe):
@@ -602,9 +673,11 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # ТЕМЫ в новостях ИЛИ ценовому сигналу на узле. Узлы ВСЕХ активированных цепочек сливаются в
         # ОДИН граф и проходят воронку отбора (ворота → пред-ранг по edge-возможности → топ-K), затем
         # маршрутизируются по трекам (money / провизорный / дайджест). Запечатывание — отдельно (B3c).
-        price_syms = _price_signal_syms(scan)
-        # активации цепочек: (а) АВТОРСКИЕ по теме/ценовому сигналу + (б) КАРТОГРАФ из новостей (B2.5)
-        chain_acts = list(activated_chains(scan, universe, chains_doc, price_syms))
+        # Этап2: узлы-кандидаты для активации = ценовые кандидаты + трендовые (замапленные на proxy_etf),
+        # чтобы трендо-событийный день активировал цепочку и через трендовый канал (роутинг до суда).
+        node_syms = _candidate_node_syms(scan, universe)
+        # активации цепочек: (а) АВТОРСКИЕ по теме/сигналу-кандидату + (б) КАРТОГРАФ из новостей (B2.5)
+        chain_acts = list(activated_chains(scan, universe, chains_doc, node_syms))
         for _a in chain_acts:
             _a["источник_карты"] = "авторская"
         chain_acts += [{"chain": pc["chain"], "anchor": pc["anchor"], "источник_карты": "картограф",
@@ -810,6 +883,14 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                  f"{' (выключен под --vet)' if skip_contour else ''}; "
                  f"новых событий на регистрацию {len(proposals)}"),
     }
+    # Этап2: честный роутинг трендов (сколько трендовых кандидатов реально замаплено до суда) +
+    # алерт дневного расхода (2.4). Обе метрики — в протокол; алерт при превышении уходит владельцу.
+    _tr_cands = [s for s in scan.get("сигналы", []) if s.get("вид") == "trend" and s.get("кандидат")]
+    _tr_mapped = _trend_proxy_syms(scan, universe)
+    protocol["трендовый_роутинг"] = {"кандидатов": len(_tr_cands),
+                                     "замаплено_до_суда": len(_tr_mapped),
+                                     "инструменты": sorted({p for _k, p in _tr_mapped})}
+    protocol["дневной_расход"] = _daily_debate_alert(mode, now)
     if write:
         LOGS.mkdir(parents=True, exist_ok=True)
         PROG.atomic_write_text(LOGS / f"{run_id}.json",

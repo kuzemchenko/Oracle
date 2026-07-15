@@ -137,3 +137,20 @@ def test_live_smoke():
     assert r["discovery_open"] is True
     assert "источники" in r and "кандидат_события" in r
     assert r["источники"]["news_clusters"] >= 0   # структура валидна на живых данных
+
+
+# ── Этап2: бирка статистической силы канала (ярлык, не фильтр) ─────────────────────────
+def test_strength_badge_buckets():
+    assert ES._strength_from_p(0.001) == "сильный"
+    assert ES._strength_from_p(0.01) == "средний"
+    assert ES._strength_from_p(0.04) == "слабый"
+    assert ES._strength_from_p(None) is None
+
+
+def test_candidates_carry_strength_badge():
+    """Каждый кандидат-событие несёт бирку силы (для протокола и «Разбора дня» Этапа3)."""
+    inds = {f"S{i:02d}.US": {"ret_z_20": 2.6 + 0.05 * i, "vol_z_20": 0.0} for i in range(10)}
+    r = ES.scan_events(news=[], trends_rows=[], indicators=inds, q_max=0.1)
+    cand_events = [e for e in r["кандидат_события"] if e["вид"] == "price"]
+    assert cand_events and all(e.get("сила_сигнала") in ("сильный", "средний", "слабый")
+                               for e in cand_events)

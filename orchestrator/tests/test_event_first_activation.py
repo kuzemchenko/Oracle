@@ -161,3 +161,46 @@ def test_deep_report_high_manipulation_triggers_veto(monkeypatch):
                                 client=None)
     assert deep["процедурное_вето"] is True
     assert "манипул" in deep["причина_вето"].lower()
+
+
+def test_variant2_trend_candidate_routes_to_proxy(monkeypatch):
+    """Этап2: трендовый кандидат → тема → proxy_etf доходит до узлов активации (закрытие долга Д1-В2).
+    Незамапленный трендовый кандидат честно выпадает (нет привязки к инструменту)."""
+    from orchestrator import event_first as EF2
+    monkeypatch.setattr(EF2.EM, "match_cluster_to_theme",
+                        lambda cl, uni: ("oil", 1.0)
+                        if "lithium" in " ".join(cl.get("keywords", [])) else (None, 0))
+    uni = {"themes": {"oil": {"proxy_etf": "USO.US"}}}
+    scan = {"сигналы": [
+        {"вид": "trend", "ключ": "lithium supply", "кандидат": True},   # мапится → USO
+        {"вид": "trend", "ключ": "random noise", "кандидат": True},     # не мапится → выпадает
+        {"вид": "trend", "ключ": "lithium supply", "кандидат": False},  # не кандидат → игнор
+        {"вид": "price", "символ": "AAA.US", "кандидат": True},
+    ]}
+    assert EF2._trend_proxy_syms(scan, uni) == [("lithium supply", "USO.US")]
+    nodes = EF2._candidate_node_syms(scan, uni)
+    assert "USO.US" in nodes and "AAA.US" in nodes          # трендовый+ценовой узлы вместе
+
+
+def test_daily_debate_alert_fires_and_dedups(tmp_path):
+    """Этап2 (2.4): расход за день > ориентира → алерт в notices; дедуп на день; mock/чужой день не в счёт."""
+    import datetime, json as _j
+    from orchestrator import event_first as EF2
+    now = datetime.datetime(2026, 7, 15, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    limits = tmp_path / "limits.yaml"
+    limits.write_text("budget:\n  daily_debate_alert_usd: 5\n  tokens_usd_month: 500\n", encoding="utf-8")
+    costs = tmp_path / "costs.jsonl"
+    costs.write_text("\n".join(_j.dumps(x) for x in [
+        {"ts": "2026-07-15T09:00:00Z", "mode": "live", "cost_usd": 4.0},
+        {"ts": "2026-07-15T10:00:00Z", "mode": "live", "cost_usd": 3.0},   # итого 7 > 5
+        {"ts": "2026-07-14T10:00:00Z", "mode": "live", "cost_usd": 9.0},   # другой день — не в счёт
+        {"ts": "2026-07-15T11:00:00Z", "mode": "mock", "cost_usd": 9.0},   # mock — не в счёт
+    ]) + "\n", encoding="utf-8")
+    notices = tmp_path / "notices.jsonl"
+    res = EF2._daily_debate_alert("live", now, costs_log=costs, limits_path=limits, notices=notices)
+    assert res["over"] and abs(res["spent_today"] - 7.0) < 1e-6 and res["cap"] == 5
+    assert "[дневной-расход 2026-07-15]" in notices.read_text(encoding="utf-8")
+    n1 = len(notices.read_text(encoding="utf-8").splitlines())
+    EF2._daily_debate_alert("live", now, costs_log=costs, limits_path=limits, notices=notices)  # повтор
+    assert len(notices.read_text(encoding="utf-8").splitlines()) == n1                          # без дубля
+    assert EF2._daily_debate_alert("mock", now, costs_log=costs, limits_path=limits, notices=notices) is None
