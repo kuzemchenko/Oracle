@@ -884,13 +884,14 @@ class Bot:
                     # Этап3: «Разбор дня» — читаемый кейс без эмодзи, проверенный линтером стиль-
                     # контракта (fail-closed). При daily_case_lead=true он ГЛАВНЫЙ дневной пуш вместо
                     # длинного эмодзи-дайджеста (потолок шума: один читаемый артефакт в день).
-                    card = None
+                    card, _artifact = None, "дайджест"
                     if pres.get("daily_case_lead"):
                         case_text, _case, _viol = R.daily_case_from_protocol(proto)
                         if case_text is None:                # линтер завалил шаблон → не шлём сломанное
                             log("Разбор дня не прошёл стиль-контракт — фолбэк на дайджест", run_id, _viol)
                         else:
                             card = case_text
+                            _artifact = "Разбор дня"
                             # Этап3: запоминаем показанный кейс — свободный ответ владельца на вопрос
                             # («Твой ход: …») попадёт в decisions_user.jsonl как разметка качества (§25).
                             q = (_case or {}).get("вопрос") or {}
@@ -940,7 +941,7 @@ class Bot:
                 for rec in added:
                     self.state["seen_watchlist"].append(rec["id"])
                 self.state["pushed_runs"].append(run_id)
-                log("пуш research-дайджеста event-first", run_id)
+                log(f"пуш дневного артефакта event-first ({_artifact})", run_id)
                 continue
             ideas = R.ideas_from_protocol(proto)
             if ideas:
