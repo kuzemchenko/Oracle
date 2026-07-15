@@ -125,6 +125,41 @@ def test_money_rejected_leads_honestly_when_no_research():
     assert "сила 2.7" not in low                       # не смешиваем §11-балл со шкалой силы
 
 
+def test_money_failed_intro_does_not_say_rejected():
+    """Ревью wf_1bbe7c6a #а: ПРОПУСК/ОШИБКА_СУДА (суд не смог оценить) НЕ подписывается «отклонил» —
+    иначе вводка противоречит строке-однострочнику того же сообщения («не смог оценить»)."""
+    суд = {"FRO": {"исход": "ПРОПУСК", "направление": "лонг",
+                   "кто_против": "нет котировки", "почему_возможность": "механизм есть"}}
+    text, meta, viol = R.top3_from_protocol(_proto(разбор={}, суд=суд, топ=[
+        _node("FRO", edge=0.08, rel=0.42, order=1, event="Атака у Ормуза — рост фрахта")]))
+    assert viol == [] and meta["idx"]["1"] == "FRO"
+    low = text.lower()
+    assert "не смог" in low and "отклонил" not in low   # честно: не «отклонил», а «не смог оценить»
+
+
+def test_money_uncontested_not_called_quick_scan():
+    """Ревью wf_1bbe7c6a #б: УСТОЯЛА_БЕЗ_КРИТИКА (прошла §11, но критик невалиден) НЕ подаётся как
+    «быстрый скан/наводка» — идея реально прошла денежный суд, отмечаем «без ред-тима»."""
+    суд = {"FRO": {"исход": "УСТОЯЛА_БЕЗ_КРИТИКА", "балл": 3.4, "порог": 3.0, "направление": "лонг",
+                   "кто_против": "риск деэскалации", "почему_возможность": "не в цене"}}
+    text, meta, viol = R.top3_from_protocol(_proto(разбор={}, суд=суд, топ=[
+        _node("FRO", edge=0.08, rel=0.42, order=1, event="Атака у Ормуза — рост фрахта")]))
+    assert viol == [] and meta["idx"]["1"] == "FRO"
+    low = text.lower()
+    assert "без ред-тима" in low and "денежный суд" in low
+    assert "быстрый скан" not in low and "наводк" not in low
+
+
+def test_rejection_threshold_read_from_verdict_field():
+    """Ревью wf_1bbe7c6a #в,г: порог §11 берётся из поля вердикта «порог», а не хардкодом «3.0»."""
+    суд = {"FRO": {"исход": "РАЗБИТА", "балл": 2.6, "порог": 3.5, "направление": "лонг",
+                   "кто_против": "edge не подтверждён", "почему_возможность": "механизм правдоподобен"}}
+    text, _, viol = R.top3_from_protocol(_proto(разбор={}, суд=суд, топ=[
+        _node("FRO", edge=0.08, rel=0.42, order=1, event="Атака у Ормуза — рост фрахта")]))
+    assert viol == []
+    assert "из 3.5" in text and "из 3.0" not in text     # планка из вердикта, не зашитая
+
+
 def test_provisional_caveat_present_for_research_lead():
     """Провизорная идея №1 (research) метится «связь ценами пока НЕ подтверждена»."""
     text, _, viol = R.top3_from_protocol(_proto(разбор=_STRONG_FRO))

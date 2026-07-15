@@ -1311,7 +1311,8 @@ def _idea_read(verdict):
     флагами money_survived/money_rejected/money_failed + money_балл.
     Возвращает: score/band/kind/money_survived/money_rejected/money_failed/money_балл/оценено/…"""
     d = {"score": None, "band": None, "kind": None, "money_survived": False,
-         "money_rejected": False, "money_failed": False, "money_балл": None, "оценено": False,
+         "money_uncontested": False, "money_rejected": False, "money_failed": False,
+         "money_балл": None, "money_порог": None, "оценено": False,
          "кто_против": None, "почему": None, "критерии": {}}
     if not isinstance(verdict, dict):
         return d
@@ -1327,10 +1328,14 @@ def _idea_read(verdict):
         d["kind"] = "money"
         исход = verdict.get("исход")
         d["money_survived"] = исход == "УСТОЯЛА"
+        d["money_uncontested"] = исход == "УСТОЯЛА_БЕЗ_КРИТИКА"   # прошла §11, но критик невалиден (П10 не подтв.)
         d["money_rejected"] = исход in ("РАЗБИТА", "ВЕТО")
         d["money_failed"] = исход in ("ПРОПУСК", "ОШИБКА_СУДА")
-        d["money_балл"] = verdict.get("балл")            # балл §11 — порог 3.0, а не сила → мимо score
-        d["band"] = {"УСТОЯЛА": "прошла денежный суд", "РАЗБИТА": "разбита денежным судом",
+        d["money_балл"] = verdict.get("балл")            # балл §11 — порог допуска, а не сила → мимо score
+        d["money_порог"] = verdict.get("порог")          # порог §11 из вердикта (не хардкодим «3.0»)
+        d["band"] = {"УСТОЯЛА": "прошла денежный суд",
+                     "УСТОЯЛА_БЕЗ_КРИТИКА": "прошла денежный суд без ред-тима",
+                     "РАЗБИТА": "разбита денежным судом",
                      "ВЕТО": "снята вето", "ПРОПУСК": "суд не смог оценить (нет котировки)",
                      "ОШИБКА_СУДА": "сбой суда"}.get(исход)
     return d
@@ -1339,6 +1344,13 @@ def _idea_read(verdict):
 def _score5(x):
     """Балл силы идеи → «3.4/5» (шкала рубрики 0–5). None → пусто."""
     return f"{x:.1f}/5" if isinstance(x, (int, float)) else None
+
+
+def _порог_txt(r, default=3.0):
+    """Ярлык порога §11 «из 3.0» — из поля вердикта «порог» (money_порог), а не хардкодом (латентный
+    дрейф, если владелец сдвинет планку). Порога нет в вердикте → дефолт 3.0."""
+    п = r.get("money_порог")
+    return f"из {п:.1f}" if isinstance(п, (int, float)) and not isinstance(п, bool) else f"из {default:.1f}"
 
 
 def _crit_line(критерии):
@@ -1414,6 +1426,8 @@ def _lead_mode(top):
     r = _idea_read(top[0][1])
     if r["money_survived"]:
         return "money"
+    if r["money_uncontested"]:
+        return "money_uncontested"
     if r["оценено"] and r.get("band") in _BAND_MODE:
         return _BAND_MODE[r["band"]]
     if r["money_rejected"] or r["money_failed"]:
@@ -1454,11 +1468,14 @@ def _top3_oneliner(brief, court, rank, name_fn=None):
         parts.append(f" {повод}.")
     if r["money_survived"]:
         parts.append(" Прошла денежный суд.")
+    elif r["money_uncontested"]:
+        parts.append(" Прошла денежный суд §11 (без ред-тима).")
     elif r["оценено"] and _score5(r["score"]):
         parts.append(f" Сила {_score5(r['score'])}.")
     elif r["money_rejected"]:
         parts.append(f" Денежный суд §11 отклонил"
-                     + (f" (балл {r['money_балл']:.1f} из 3.0)" if isinstance(r["money_балл"], (int, float)) else "")
+                     + (f" (балл {r['money_балл']:.1f} {_порог_txt(r)})"
+                        if isinstance(r["money_балл"], (int, float)) else "")
                      + ".")
     elif r["money_failed"]:
         parts.append(" Денежный суд §11 не смог оценить (нет котировки).")
@@ -1483,6 +1500,9 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
     L = [head]
     if r["money_survived"]:
         L.append("Прошла даже строгий денежный суд §11 — редкий сильный сигнал.")
+    elif r["money_uncontested"]:
+        L.append("Прошла денежный суд §11, но критик дал невалидный ответ — состязательность (П10) "
+                 "не подтверждена. Беру осторожно, не как полностью просуженную.")
     elif r["оценено"] and _score5(r["score"]):
         строка = f"Сила идеи: {_score5(r['score'])}" + (f" — {r['band']}" if r.get("band") else "") + "."
         crit = _crit_line(r["критерии"])
@@ -1490,7 +1510,7 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
             строка += f" По критериям: {crit}."
         L.append(строка)
     elif r["money_rejected"]:
-        балл = f" (балл {r['money_балл']:.1f} из 3.0)" if isinstance(r["money_балл"], (int, float)) else ""
+        балл = f" (балл {r['money_балл']:.1f} {_порог_txt(r)})" if isinstance(r["money_балл"], (int, float)) else ""
         L.append(f"Денежный суд §11 отклонил эту идею{балл} — в деньги не пускаю. "
                  "Это не оценка силы идеи, а порог допуска к деньгам (нужен подтверждённый историей edge).")
     elif r["money_failed"]:
@@ -1554,8 +1574,16 @@ def format_top3(protocol, *, name_fn=None, max_n=3):
         значит = (f"Честно: сегодня даже лучшая идея слабовата ({lead_score}) — но я её не прячу, "
                   f"показываю и прямо говорю, где тонко. Сильная идея = крепкий механизм + неочевидный "
                   f"бенефициар + толпа ещё не зашла; сегодня до этого недотянули. Разбираю №1.")
+    elif mode == "money_uncontested":
+        значит = (f"Ниже — {len(top)} идей дня. №1 прошла денежный суд §11, но БЕЗ ред-тима "
+                  f"(критик не отработал) — состязательность не подтверждена, показываю с оговоркой. "
+                  f"Разбираю №1; по любой другой скажи номер.")
+    elif mode == "money_out" and lead["money_failed"]:
+        значит = (f"Ниже — {len(top)} идей дня. №1 пробовалась на деньги, но денежный суд §11 её "
+                  f"НЕ смог оценить (нет котировки/сбой) — показываю честно; исследовательских идей "
+                  f"сильнее сегодня не набралось. Разбираю №1; по любой другой скажи номер.")
     elif mode == "money_out":
-        балл = (f" (балл {lead['money_балл']:.1f} из 3.0)"
+        балл = (f" (балл {lead['money_балл']:.1f} {_порог_txt(lead)})"
                 if isinstance(lead["money_балл"], (int, float)) else "")
         значит = (f"Ниже — {len(top)} идей дня. №1 пробовалась на деньги, но денежный суд §11 её "
                   f"отклонил{балл} — показываю честно, а не прячу; исследовательских идей сильнее "
