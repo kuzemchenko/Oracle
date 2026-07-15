@@ -209,8 +209,14 @@ def track_candidates_for(треки, *, universe=None, theme_keys=None, news_pat
     for track in ("money", "provisional", "digest_only"):
         for s in (треки or {}).get(track, []) or []:
             sym = str(s.get("symbol") or "").strip().upper()
-            keys = (theme_keys.get(chain2theme.get(s.get("_chain")))
-                    or (chain_keys or {}).get(s.get("_chain")) or [])
+            # Боевая форма route_tracks: цепочка ВНУТРИ узла (s["node"]["_chain"], graph_build:141);
+            # верхний уровень — фолбэк (ревью 15.07, БЛОКЕР: s.get("_chain") в бою всегда None).
+            # digest_only (= отсев graph_select) узла не несёт → кандидата честно нет.
+            chain = (s.get("node") or {}).get("_chain") or s.get("_chain")
+            if chain is None:
+                continue
+            keys = (theme_keys.get(chain2theme.get(chain))
+                    or (chain_keys or {}).get(chain) or [])
             keys = [k for k in keys if k and str(k).strip()]
             if sym and keys and sym not in out:
                 out[sym] = [str(keys[0]).strip()]
@@ -263,8 +269,11 @@ def annotate_ideas(con, картограф_идеи, треки, *, asof, run_id
     if refetch:
         keys = list(dict.fromkeys(k for *_, k in refetch))[:max(0, int(fetch_cap))]
         try:
-            fetcher(keys)
-            fetched = set(keys)
+            res = fetcher(keys)
+            # Контракт (ревью 15.07, мелочь №1): fetcher МОЖЕТ вернуть список реально сфетченных
+            # (fetch_keywords_now возвращает именно его — частичный 429 не пересчитывается впустую);
+            # None → считаем сфетченными все запрошенные.
+            fetched = set(res) if res is not None else set(keys)
         except Exception as e:  # noqa: BLE001 — fail-soft: поле остаётся честным «не_измерено»
             print(f"⚠ дофетч ключей «внимания» не удался ({e}) — поля остаются «не_измерено»",
                   file=sys.stderr)

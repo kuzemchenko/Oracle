@@ -753,9 +753,13 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                                                       треки, universe=universe,
                                                       chain_keys={(pc.get("chain") or {}).get("id"):
                                                                   list(pc.get("ключи") or [])
-                                                                  for pc in (pcs or [])}),
+                                                                  for pc in (pcs or [])
+                                                                  if (pc.get("chain") or {}).get("id")}),
                                                   fetcher=(None if mode == "mock" else
-                                                           (lambda keys: _TR.fetch_keywords_now(con, keys))))
+                                                           # кэп режет annotate_ideas (fetch_cap) —
+                                                           # здесь cap=len, чтобы кэпы не рассинхр.
+                                                           (lambda keys: _TR.fetch_keywords_now(
+                                                               con, keys, cap=len(keys)))))
         except Exception as _e:  # noqa: BLE001
             внимание_покрытие = {"ошибка": f"{type(_e).__name__}: {_e}",
                                  "пояснение": "поле «внимание» не посчитано — прогон продолжен (fail-soft)"}

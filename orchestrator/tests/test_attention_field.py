@@ -376,3 +376,40 @@ def test_fetcher_cap_limits_keys(tmp_path):
     AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={},
                       registry_path=reg, fetcher=fetcher, fetch_cap=2)
     assert calls == [["key0", "key1"]]
+
+
+def test_track_candidates_for_battle_form_route_tracks(tmp_path):
+    # РЕВЬЮ 15.07 (БЛОКЕР): боевая форма треков — _chain ВНУТРИ s["node"] (route_tracks/graph_build),
+    # digest_only (отсев) узла не несёт. Проверяем через НАСТОЯЩИЙ route_tracks.
+    from orchestrator import graph_build as GB
+    selection = {
+        "ранжировано": [
+            {"symbol": "CLF.US", "score": 1.0,
+             "node": {"research": False, "_chain": "ai_power_transformers_metal"}},
+            {"symbol": "MOS.US", "score": 0.5,
+             "node": {"research": True, "_chain": "carto_wpi_india"}},
+        ],
+        "отсев": [{"symbol": "XYZ.US", "fails": ["нет окна"]}],
+    }
+    треки = GB.route_tracks(selection)
+    universe = {"themes": {"ai_power": {"cascade_chain": "ai_power_transformers_metal"}}}
+    tc = AF.track_candidates_for(треки, universe=universe,
+                                 theme_keys={"ai_power": ["AI data center"]},
+                                 chain_keys={"carto_wpi_india": ["wpi inflation"]})
+    assert tc == {"CLF.US": ["AI data center"], "MOS.US": ["wpi inflation"]}
+    # отсев без узла — кандидата честно нет (не падает)
+
+
+def test_fetcher_partial_result_recomputes_only_fetched(tmp_path):
+    # РЕВЬЮ 15.07 (мелочь №1): fetcher вернул СПИСОК реально сфетченных — пересчитываем только их.
+    reg = tmp_path / "reg.jsonl"
+    con = sqlite3.connect(":memory:"); con.executescript(nc.SCHEMA)
+    def fetcher(keys):
+        _fake_fetcher_into(con, "hormuz", [])(keys)   # данные легли только по hormuz
+        return ["hormuz"]                              # второй ключ упал на 429
+    идеи = [{"актив": "FRO.US", "ключи": ["hormuz"]}, {"актив": "MOS.US", "ключи": ["wpi"]}]
+    cov = AF.annotate_ideas(con, идеи, {}, asof=ASOF, run_id="t", seeds={},
+                            registry_path=reg, fetcher=fetcher)
+    assert идеи[0]["внимание"]["статус"] == "ok"
+    assert идеи[1]["внимание"]["статус"] == "не_измерено"
+    assert cov["с_данными"] == 1 and cov["не_измерено"] == 1
