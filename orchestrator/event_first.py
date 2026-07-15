@@ -831,12 +831,12 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         edge = n.get("amplitude")
         # направление = знак ожидаемого движения узла (П8: из посчитанной амплитуды, не выдумка)
         напр = None if edge is None else ("лонг" if edge > 0 else "шорт" if edge < 0 else "флэт")
-        # Этап3 stage-review #5: пробрасываем ОТЫГРАННОСТЬ узла (priced = 1−unpriced_fraction) и текст
-        # звена в бриф — иначе «Разбор дня» у живого кандидата всегда пуст по таймингу/цепочке, а
-        # заголовок голословно утверждал «ещё не отыграл» без измерения.
-        _frac = (n.get("edge") or {}).get("unpriced_fraction")
-        priced = (1.0 - float(_frac)) if isinstance(_frac, (int, float)) else None
-        узел_txt = (n.get("узел") or "").strip()
+        # Этот n — СЛОВАРЬ ФАКТОВ из node_to_facts (не сырой узел каскада!). Отыгранность узла и текст
+        # звена уже посчитаны и склампены ТАМ (graph_build._priced_frac, ключи отыгранность_узла/
+        # узел_текст) — читаем их отсюда. Раньше читалось n.get("edge")/n.get("узел") — ключей нет в
+        # facts-контракте → поля всегда пусты (stage-review #5: рассинхрон писатель/читатель).
+        priced = n.get("отыгранность_узла")
+        узел_txt = (n.get("узел_текст") or "").strip()
         узлы = ([{"порядок": n.get("order"), "узел": узел_txt,
                   "чокпоинт": bool(n.get("chokepoint")), "тикеры": [s["symbol"]]}]
                 if узел_txt else [])

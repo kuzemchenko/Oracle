@@ -40,10 +40,43 @@ def _correlated(n=160, seed=0):
     return {"ROOT.US": root, "TERM.US": term, "TERM2.US": term2}
 
 
-def _node(sym, *, tiers, amplitude, lag=30, rel=0.5, total=None, order=2):
-    return {"узел": sym, "tiers": tiers, "amplitude": amplitude, "reliability_r2": rel,
-            "lag_total": lag, "amplitude_total": total or amplitude, "order": order,
-            "chokepoint": False, "research": ("A" not in tiers)}
+def _node(sym, *, tiers, amplitude, lag=30, rel=0.5, total=None, order=2,
+          unpriced=None, описание=None):
+    n = {"узел": sym, "tiers": tiers, "amplitude": amplitude, "reliability_r2": rel,
+         "lag_total": lag, "amplitude_total": total or amplitude, "order": order,
+         "chokepoint": False, "research": ("A" not in tiers)}
+    if unpriced is not None:
+        n["edge"] = {"unpriced_fraction": unpriced}
+    if описание is not None:
+        n["узел_описание"] = описание
+    return n
+
+
+# ── Этап3 #5: отыгранность узла и текст звена ДОХОДЯТ до facts (контракт writer→reader _node_brief) ──
+def test_node_to_facts_carries_priced_and_node_text():
+    """node_to_facts обязан ОТДАВАТЬ отыгранность_узла (=1−unpriced, кламп [0,1]) и узел_текст —
+    ровно те ключи, что читает event_first._node_brief. Раньше их не было → «Разбор дня» был пуст."""
+    con = _mk_db(_correlated())
+    f = GB.node_to_facts(_node("TERM.US", tiers=["A"], amplitude=0.04, unpriced=0.8,
+                               описание="дефицит трансформаторов"),
+                         con=con, root_symbol="ROOT.US", horizon_days=20)
+    assert "отыгранность_узла" in f and "узел_текст" in f      # ключи контракта _node_brief
+    assert f["отыгранность_узла"] == pytest.approx(0.2)        # 1−0.8
+    assert f["узел_текст"] == "дефицит трансформаторов"
+
+
+def test_node_to_facts_priced_clamped_to_unit_interval():
+    """unpriced_fraction вне [0,1] (рынок пошёл против прогноза) → priced клампится, без «-100%»."""
+    con = _mk_db(_correlated())
+    over = GB.node_to_facts(_node("TERM.US", tiers=["A"], amplitude=0.04, unpriced=1.5),
+                            con=con, root_symbol="ROOT.US", horizon_days=20)
+    assert over["отыгранность_узла"] == 0.0                    # 1−1.5=−0.5 → кламп 0
+    under = GB.node_to_facts(_node("TERM.US", tiers=["A"], amplitude=0.04, unpriced=-0.3),
+                             con=con, root_symbol="ROOT.US", horizon_days=20)
+    assert under["отыгранность_узла"] == 1.0                   # 1−(−0.3)=1.3 → кламп 1
+    none = GB.node_to_facts(_node("TERM.US", tiers=["A"], amplitude=0.04),  # нет edge
+                            con=con, root_symbol="ROOT.US", horizon_days=20)
+    assert none["отыгранность_узла"] is None                   # нет доли → честно «не измерено»
 
 
 # ── резолв фактов ───────────────────────────────────────────────────────────────────
@@ -104,7 +137,8 @@ def test_aligned_returns_insufficient_overlap_is_none():
 def test_select_from_nodes_keeps_low_basis_gates_only_actionable():
     con = _mk_db(_correlated())
     nodes = [
-        _node("TERM.US", tiers=["A"], amplitude=0.04, rel=0.5),         # пройдёт ворота
+        _node("TERM.US", tiers=["A"], amplitude=0.04, rel=0.5, unpriced=0.7,
+              описание="дефицит трансформаторов"),                      # пройдёт ворота
         _node("TERM2.US", tiers=["C", "C"], amplitude=0.03, rel=0.05),  # ярус C — НЕ отсев (директива 20.06)
         _node("GHOST.US", tiers=["A"], amplitude=0.04),                 # отсев: нет инструмента/объёма
     ]
@@ -113,7 +147,11 @@ def test_select_from_nodes_keeps_low_basis_gates_only_actionable():
     crit = res["отсев_по_критериям"]
     assert "сцепление" not in crit
     assert crit.get("торгуемость") == 1                 # GHOST (нет инструмента)
-    assert res["топ_k"][0]["symbol"] == "TERM.US"       # ярус A, больше амплитуда/изоляция → выше ранг
+    top = res["топ_k"][0]
+    assert top["symbol"] == "TERM.US"                   # ярус A, больше амплитуда/изоляция → выше ранг
+    # Этап3 #5: facts выбранного узла (то, что читает event_first._node_brief) НАПОЛНЕНЫ, не пусты
+    assert top["node"]["отыгранность_узла"] == pytest.approx(0.3)   # 1−0.7
+    assert top["node"]["узел_текст"] == "дефицит трансформаторов"
 
 
 def test_route_tracks_splits_by_basis():

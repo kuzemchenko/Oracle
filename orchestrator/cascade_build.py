@@ -200,6 +200,7 @@ def build_chain_nodes(chain, shock0, *, horizon_days,
         genuine_unpriced = (frac is not None and frac > 0)
         out.append({
             "узел": down, "order": order, "chokepoint": bool(node.get("chokepoint")),
+            "узел_описание": node.get("node"),   # Этап3 #5: ТЕКСТ звена из карты цепочки (для «Разбора дня»)
             "amplitude": (edge["edge"] if edge else None),       # резолв по НЕпрокинутому edge
             "amplitude_total": amp_total,
             "sealable": bool(comp.get("sealable_path")),

@@ -92,6 +92,16 @@ def _min_reliability(compose_r, iso_r):
     return min(vals) if vals else None
 
 
+def _priced_frac(node):
+    """Этап3 #5: отыгранность узла рынком = 1 − unpriced_fraction, КЛАМП в [0,1]. unpriced_fraction
+    может быть >1 или <0 (движение рынка против прогноза) — без клампа «Разбор дня» напечатал бы
+    бессмысленное «отыграно ~-100%». None, если доли нет (тогда тайминг честно «не измерено»)."""
+    frac = (node.get("edge") or {}).get("unpriced_fraction")
+    if not isinstance(frac, (int, float)):
+        return None
+    return max(0.0, min(1.0, 1.0 - float(frac)))
+
+
 def node_to_facts(node, *, con, horizon_days, root_symbol=None):
     """Узел cascade_build → факты для ворот/пред-ранга B1 (graph_select). Резолвит торгуемость,
     объём, изоляцию-R², шумовой пол. Разрешимость = есть §9-инструмент И посчитана амплитуда (edge).
@@ -120,6 +130,12 @@ def node_to_facts(node, *, con, horizon_days, root_symbol=None):
         # справочно для лога / дорогой ступени:
         "order": node.get("order"), "chokepoint": node.get("chokepoint"),
         "edge_total": node.get("amplitude_total"), "research": node.get("research"),
+        # Этап3 stage-review #5: ОТЫГРАННОСТЬ узла (priced = 1−unpriced_fraction, КЛАМП в [0,1] —
+        # при движении рынка против прогноза frac>1 иначе дал бы отрицательный процент) и ТЕКСТ звена.
+        # Прокидываем из СЫРОГО узла каскада (здесь он есть) — в facts-словарь, который читает
+        # _node_brief; иначе «Разбор дня» у живого кандидата пуст по таймингу/цепочке (П8).
+        "отыгранность_узла": _priced_frac(node),
+        "узел_текст": (node.get("узел_описание") or "").strip() or None,  # ОПИСАНИЕ звена (не символ)
         # связь идеи с породившим её событием/цепочкой (для разбора в дайджесте: «почему»).
         # Прокидываем как есть — фабрикации нет, просто не теряем то, что уже посчитано.
         "_chain": node.get("_chain"), "root": node.get("root"),
