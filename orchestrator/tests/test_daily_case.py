@@ -114,6 +114,42 @@ def test_unmeasured_is_marked_not_invented():
     assert крит["близость к твоей компетенции"] is None
 
 
+def test_skip_verdict_not_labeled_as_passed_court():
+    """stage-review #7 (П8, анти-инфляция): ПРОПУСК (узел исключён ДО суда, нет данных) НЕ выдаётся
+    за «прошёл состязательный суд». Статус live_candidate, но человеко-метка честная."""
+    p = _proto(top_k=[_node("GEV.US")], суд={"GEV.US": {"исход": "ПРОПУСК", "примечание": "нет котировок"}})
+    case = DC.select_case(p)
+    assert case["статус"] == "live_candidate"
+    assert case["судебное_состояние"] == "skip"
+    assert "не смог" in case["статус_человек"].lower() or "не вынес" in case["статус_человек"].lower()
+    assert "прош" not in case["статус_человек"].lower()          # НЕ «прошёл суд»
+    assert "не смог вынести" in case["статус_воронки"].lower() or "нет" in case["статус_воронки"].lower()
+
+
+def test_untried_node_not_labeled_as_passed_court():
+    """court=None (суд не гонялся, напр. под --vet) → «ещё НЕ прошла суд», не «дошёл до суда сегодня»."""
+    p = _proto(top_k=[_node("ADM.US")], суд={})                  # нет вердикта
+    case = DC.select_case(p)
+    assert case["статус"] == "live_candidate" and case["судебное_состояние"] == "untried"
+    assert "не прош" in case["статус_человек"].lower() or "сыр" in case["статус_человек"].lower()
+    assert "прошёл слепой" not in case["значит_для_тебя"].lower()
+
+
+def test_passed_court_labeled_honestly():
+    p = _proto(top_k=[_node("X.US")], суд={"X.US": {"исход": "УСТОЯЛА"}})
+    case = DC.select_case(p)
+    assert case["судебное_состояние"] == "passed"
+    assert "прош" in case["статус_человек"].lower()
+
+
+def test_headline_no_unbacked_priced_claim():
+    """stage-review #5: «ещё не отыграл» утверждаем ТОЛЬКО при измеренной низкой отыгранности."""
+    p_nodata = _proto(top_k=[_node("X.US")], суд={})             # без отыгранность_узла
+    assert "не отыграл" not in DC.select_case(p_nodata)["заголовок"]
+    p_low = _proto(top_k=[_node("Y.US", отыгранность_узла=0.15)], суд={})
+    assert "не отыграл" in DC.select_case(p_low)["заголовок"]
+
+
 def test_status_label_matches_reality():
     """статус_человек соответствует фактическому статусу (не переклеиваем ярлык)."""
     p = _proto(top_k=[_node("X.US")], суд={"X.US": {"исход": "РАЗБИТА"}})

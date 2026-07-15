@@ -831,12 +831,23 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         edge = n.get("amplitude")
         # направление = знак ожидаемого движения узла (П8: из посчитанной амплитуды, не выдумка)
         напр = None if edge is None else ("лонг" if edge > 0 else "шорт" if edge < 0 else "флэт")
+        # Этап3 stage-review #5: пробрасываем ОТЫГРАННОСТЬ узла (priced = 1−unpriced_fraction) и текст
+        # звена в бриф — иначе «Разбор дня» у живого кандидата всегда пуст по таймингу/цепочке, а
+        # заголовок голословно утверждал «ещё не отыграл» без измерения.
+        _frac = (n.get("edge") or {}).get("unpriced_fraction")
+        priced = (1.0 - float(_frac)) if isinstance(_frac, (int, float)) else None
+        узел_txt = (n.get("узел") or "").strip()
+        узлы = ([{"порядок": n.get("order"), "узел": узел_txt,
+                  "чокпоинт": bool(n.get("chokepoint")), "тикеры": [s["symbol"]]}]
+                if узел_txt else [])
         return {"актив": s["symbol"], "score": s["score"], "edge": edge, "направление": напр,
                 "ярусы": n.get("tiers"), "лаг_дней": n.get("lag_days"),
                 "горизонт_дней": n.get("horizon_days"), "вероятность": n.get("probability"),
                 "надёжность_r2": n.get("reliability"), "изоляция_r2": n.get("r2"),
                 "надёжность_метка": s["prerank"].get("reliability"), "цепочка": n.get("_chain"),
                 "порядок": n.get("order"), "чокпоинт": n.get("chokepoint"),
+                "отыгранность_узла": priced,             # Этап3 #5: тайминг РАНО/ВОВРЕМЯ/ПОЗДНО в «Разборе дня»
+                "узлы_каскада": узлы,                     # Этап3 #5: реальный текст звена (не якорь-фолбэк)
                 "провизорный": bool(n.get("research")),
                 "внимание": s.get("внимание"),          # П2а: инфо-поле (ранжирование не трогает)
                 # «почему»: событие, активировавшее цепочку, и её якорь (источник корневого шока)
