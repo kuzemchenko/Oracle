@@ -546,7 +546,10 @@ def load_presentation(path=None):
         cfg = {}
     return {"mode": cfg.get("mode", "long"),
             "still_unclear": set(cfg.get("still_unclear") or []),
-            "send_mock_to_telegram": bool(cfg.get("send_mock_to_telegram", False))}
+            "send_mock_to_telegram": bool(cfg.get("send_mock_to_telegram", False)),
+            # Этап3: «Разбор дня» как ГЛАВНЫЙ дневной пуш (читаемый кейс без эмодзи) вместо длинного
+            # эмодзи-дайджеста. Дефолт False — включаем после подтверждения читаемости владельцем.
+            "daily_case_lead": bool(cfg.get("daily_case_lead", False))}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -1050,6 +1053,143 @@ def format_research_digest(protocol):
     lines.append(f"· тех.id {rid}")
     return "\n".join(lines)
 
+
+# ── Этап3 (пакет после аудита): артефакт «Разбор дня» — материал для тренировки суждения ──────
+# Рендер БЕЗ ЭМОДЗИ (style contract STYLE_CONTRACT.md): владельцу нужен читаемый текст, а не иконки.
+# Данные — orchestrator.daily_case.select_case; здесь только человекочитаемая раскладка 7 блоков.
+DAILY_CASE_MAX = 3500     # кэп «Разбора дня» (STYLE_CONTRACT); линтер ops/presentation_lint это держит
+
+
+def format_daily_case(case):
+    """«Разбор дня» → 7 обязательных блоков простым языком, БЕЗ эмодзи. case — из
+    daily_case.select_case. Пустой день (нет даже урока) — честная строка, не отписка (§15)."""
+    if not case or case.get("пусто"):
+        rid = (case or {}).get("тех_id", "?")
+        дата = (case or {}).get("дата")
+        head = f"Разбор дня{(', ' + дата) if дата else ''}."
+        return (head + "\n"
+                "Что это значит для тебя. Сегодня не набралось даже учебного кейса — ни кандидатов "
+                "к разбору, ни разрешённых прогнозов, ни урока про шум. Молчу честно, а не натягиваю "
+                "материал.\n"
+                "Что делать. Ничего — навязывать пустой день не буду. Загляну завтра.\n"
+                f"Как я искал — /progress · тех.id {rid}")
+
+    дата = case.get("дата")
+    L = [f"Разбор дня{(', ' + дата) if дата else ''}. Тип: {case.get('статус_человек')}.",
+         "",
+         # Секция «что это значит для тебя» (STYLE_CONTRACT п.3 — обязательна, линтер валит без неё)
+         f"Что это значит для тебя. {case.get('значит_для_тебя')}",
+         "",
+         f"Тезис. {case.get('заголовок') or '—'}"]
+
+    # Блок 2 — цепочка рассуждения по порядкам (данные или честное «данных нет»)
+    цепочка = case.get("цепочка") or []
+    L.append("")
+    L.append("Цепочка рассуждения — как связь доходит до компании:")
+    if цепочка:
+        for nd in цепочка:
+            ordn = nd.get("порядок")
+            head = f"  {ordn}-й шаг от события" if isinstance(ordn, int) else "  звено"
+            if nd.get("чокпоинт"):
+                head += " (узкое место — через него идёт весь поток)"
+            tk = ", ".join(_safe_name(t) for t in (nd.get("тикеры") or []))
+            L.append(f"{head}: {_trunc(nd.get('узел') or 'узел не назван', 150)}"
+                     + (f" [{tk}]" if tk else ""))
+    else:
+        L.append("  Данных по звеньям пока нет — связь не разложена по шагам (честно: здесь данных нет).")
+
+    # Блок 3 — таблица баллов (6 критериев; неизмеренное = «не измерено», не выдумка)
+    L.append("")
+    L.append("Баллы по кейсу (что не измерено — так и помечено):")
+    for крит, знач in (case.get("баллы") or []):
+        L.append(f"  {крит}: {_score_human(знач)}")
+
+    # Блок 4 — кто продаёт нам и почему он неправ, или честное «ответа нет»
+    L.append("")
+    кто = case.get("кто_продаёт")
+    if кто:
+        L.append(f"Кто на другой стороне и почему может быть неправ: {_trunc(кто, 300)}")
+    else:
+        L.append("Кто на другой стороне: честного ответа пока нет — идею не прогоняли через "
+                 "глубокий состязательный разбор. Это быстрый дневной кейс, а не вердикт.")
+
+    # Блок 5 — идея неверна, если…
+    L.append("")
+    L.append("Идея неверна, если:")
+    for w in (case.get("неверна_если") or []):
+        L.append(f"  — {_trunc(w, 200)}")
+
+    # Блок 6 — статус в воронке + причина смерти/остановки
+    L.append("")
+    L.append(f"Где кейс в воронке: {_trunc(case.get('статус_воронки') or '—', 300)}")
+
+    # Секция «что делать / чего не делать / что решать» (STYLE_CONTRACT п.6 — обязательна)
+    L.append("")
+    L.append(f"Что делать. {case.get('что_делать')}")
+
+    # Блок 7 — вопрос владельцу с вариантами (кормит decisions_user.jsonl)
+    q = case.get("вопрос") or {}
+    if q.get("текст"):
+        L.append("")
+        L.append(f"Твой ход: {q['текст']}")
+        вар = q.get("варианты") or []
+        if вар:
+            L.append("  Варианты: " + " · ".join(вар))
+
+    L.append(f"· тех.id {case.get('тех_id', '?')}")
+    text = "\n".join(L)
+    if len(text) > DAILY_CASE_MAX:                       # кэп STYLE_CONTRACT: режем ХВОСТ, шапку храним
+        text = text[:DAILY_CASE_MAX - 1].rstrip() + "…"
+    return text
+
+
+def _score_human(знач):
+    """Значение критерия таблицы баллов → человеческий текст. None → честное «не измерено» (П8)."""
+    if знач is None:
+        return "не измерено"
+    if isinstance(знач, float):
+        return f"{знач:.2f}"
+    return str(знач)
+
+
+def _recent_outcomes(limit=1, path=None):
+    """Свежие РАЗРЕШЁННЫЕ исходы из journal/outcomes.jsonl (ТОЛЬКО чтение — журнал не трогаем; П16).
+    Для resolved_postmortem «Разбора дня». Сбой/нет файла → пусто (кейс возьмётся из кандидатов)."""
+    p = pathlib.Path(path or (ROOT / "journal" / "outcomes.jsonl"))
+    if not p.exists():
+        return []
+    out = []
+    try:
+        for line in p.read_text(encoding="utf-8").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("актив") or rec.get("asset"):
+                out.append(rec)
+    except OSError:
+        return []
+    return list(reversed(out))[:limit]
+
+
+def daily_case_from_protocol(proto, *, name_fn=None, outcomes=None):
+    """Этап3: протокол прогона → текст «Разбора дня», ПРОВЕРЕННЫЙ линтером стиль-контракта
+    (fail-closed: сломанный шаблон НЕ уходит владельцу — возвращаем None, вызывающий логирует).
+    outcomes — свежие исходы (по умолчанию читаются из журнала read-only). name_fn — тикер→имя."""
+    from orchestrator import daily_case as DC
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    if name_fn is None:
+        name_fn = lambda s: _safe_name(s)
+    outs = outcomes if outcomes is not None else _recent_outcomes(1)
+    case = DC.select_case(proto, outcomes=outs, name_fn=name_fn)
+    text = format_daily_case(case)
+    viol = PL.check_daily_case(text)
+    if viol:
+        return None, case, viol            # fail-closed: не отправляем сломанный артефакт
+    return text, case, []
 
 
 # ── П3: сессия партнёра (§17.6, REVISION_2026-07 §R3) ─────────────────────────────

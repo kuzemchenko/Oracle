@@ -192,5 +192,25 @@ def append_motive(*, run_id, asset, action, motive, chat_id, now=None, path=None
     return rec
 
 
+def append_case_feedback(*, run_id, asset, status, answer, chat_id, now=None, path=None):
+    """Этап3: разметка владельца по «Разбору дня» — ответ на вопрос кейса (тренировка суждения).
+    Append-only отдельной строкой type='case_feedback'; это НЕ ставка (§12 accept/reject/defer к нему
+    не применяются) — сигнал качества выдачи для петли §25. run_id/asset/status привязывают ответ к
+    показанному кейсу; answer — выбранный владельцем вариант (или свободный текст)."""
+    now = now or now_utc()
+    rec = {
+        "ts": iso(now),
+        "type": "case_feedback",
+        "run_id": run_id,
+        "asset": asset,
+        "case_status": status,
+        "answer": answer,
+        "source": "telegram_bot",
+        "chat_id": chat_id,
+    }
+    _append_jsonl(path or DECISIONS_PATH, rec)
+    return rec
+
+
 def action_ru(action):
     return _ACTION_RU.get(action, action)

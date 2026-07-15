@@ -209,6 +209,10 @@ class Bot:
             self.state["awaiting_motive"] = None
             self.save()
             return
+        # Этап3: ответ на вопрос «Разбора дня» («Твой ход: …») → разметка качества в decisions_user.
+        # Ловим ТОЛЬКО короткий текст, совпавший с показанным вариантом (иначе это обычный вопрос).
+        if not text.startswith("/") and self._capture_case_feedback(chat, text):
+            return
         if text.startswith("/"):
             self._command(chat, text)
             return
@@ -228,6 +232,36 @@ class Bot:
             return
         # Свободный текст → диалог с Дирижёром (как в терминале).
         self._chat(chat, text)
+
+    def _capture_case_feedback(self, chat, text):
+        """Этап3: если последним был показан «Разбор дня» и владелец ответил коротким текстом,
+        совпавшим с одним из предложенных вариантов, — пишем разметку в decisions_user.jsonl (§25)
+        и подтверждаем. Иначе False (пусть текст обработают обычные интенты/Дирижёр). Строго:
+        ловим только явное совпадение варианта, чтобы не перехватывать реальные вопросы."""
+        case = self.state.get("last_case")
+        if not case:
+            return False
+        варианты = case.get("варианты") or []
+        t = text.lower().strip().strip(".!?…")
+        if len(t) > 40:                                  # длинный текст — это вопрос, не выбор варианта
+            return False
+        matched = None
+        for v in варианты:
+            vl = v.lower().strip()
+            # совпадение по ключевому слову варианта (первое слово-маркер) или полной фразе
+            head = vl.split(",")[0].split(" ")[0]
+            if t == vl or (head and head in t):
+                matched = v
+                break
+        if not matched:
+            return False
+        S.append_case_feedback(run_id=case.get("run_id"), asset=case.get("asset"),
+                               status=case.get("status"), answer=matched, chat_id=self.chat_id)
+        self.state["last_case"] = None
+        self.save()
+        self.tg.send_message(chat, "Записал твою оценку кейса — она идёт в счёт качества выдачи (§25). "
+                                   "Хочешь глубже — «разбери ТИКЕР».")
+        return True
 
     @staticmethod
     def _intent_session(text):
@@ -844,9 +878,28 @@ class Bot:
                 # run помечается pushed ТОЛЬКО когда всё дошло; недоставленное ретраится следующим tick.
                 self.state.setdefault("digest_sent", [])
                 if run_id not in self.state["digest_sent"]:
-                    # дайджест с разбором новость→цепочка→суд длиннее лимита Telegram (4096) → частями.
-                    if self._send_card(R.format_research_digest(proto), None) is None:
-                        log("сбой отправки дайджеста — ретрай в следующий tick", run_id)
+                    # Этап3: «Разбор дня» — читаемый кейс без эмодзи, проверенный линтером стиль-
+                    # контракта (fail-closed). При daily_case_lead=true он ГЛАВНЫЙ дневной пуш вместо
+                    # длинного эмодзи-дайджеста (потолок шума: один читаемый артефакт в день).
+                    card = None
+                    if pres.get("daily_case_lead"):
+                        case_text, _case, _viol = R.daily_case_from_protocol(proto)
+                        if case_text is None:                # линтер завалил шаблон → не шлём сломанное
+                            log("Разбор дня не прошёл стиль-контракт — фолбэк на дайджест", run_id, _viol)
+                        else:
+                            card = case_text
+                            # Этап3: запоминаем показанный кейс — свободный ответ владельца на вопрос
+                            # («Твой ход: …») попадёт в decisions_user.jsonl как разметка качества (§25).
+                            q = (_case or {}).get("вопрос") or {}
+                            self.state["last_case"] = {
+                                "run_id": run_id, "asset": (_case or {}).get("актив"),
+                                "status": (_case or {}).get("статус"),
+                                "варианты": q.get("варианты") or []}
+                    if card is None:                         # флаг выключен ИЛИ линтер завалил → дайджест
+                        card = R.format_research_digest(proto)
+                    # длиннее лимита Telegram (4096) → шлём частями.
+                    if self._send_card(card, None) is None:
+                        log("сбой отправки дневного артефакта — ретрай в следующий tick", run_id)
                         continue
                     self.state["digest_sent"].append(run_id)
                 # §11 fail-closed: money-каскады, ПЕРЕЖИВШИЕ слепой суд («УСТОЯЛА», без вето §6),

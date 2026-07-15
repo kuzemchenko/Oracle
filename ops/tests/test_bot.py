@@ -224,6 +224,29 @@ def test_motive_capture_after_decision(paths):
     assert bot.state.get("awaiting_motive") is None
 
 
+def test_case_feedback_captured_on_variant_match(paths):
+    """Этап3: ответ на вопрос «Разбора дня», совпавший с вариантом, пишется как case_feedback (§25)."""
+    bot = _fresh_bot()
+    bot.state["last_case"] = {"run_id": "ef_T", "asset": "GEV.US", "status": "live_candidate",
+                              "варианты": ["убедительно, копнуть", "связь притянута", "мимо интереса"]}
+    bot._on_message({"chat": {"id": 555}, "text": "связь притянута"})
+    rows = [json.loads(l) for l in paths["decisions"].read_text().splitlines()]
+    assert any(r["type"] == "case_feedback" and r["answer"] == "связь притянута"
+               and r["case_status"] == "live_candidate" for r in rows)
+    assert bot.state.get("last_case") is None       # разметка снята, повторно не ловим
+
+
+def test_case_feedback_ignores_unrelated_question(paths):
+    """Обычный вопрос НЕ перехватывается как разметка кейса (роутится дальше к Дирижёру)."""
+    bot = _fresh_bot()
+    bot.state["last_case"] = {"run_id": "ef_T", "asset": "GEV.US", "status": "live_candidate",
+                              "варианты": ["убедительно, копнуть", "связь притянута", "мимо интереса"]}
+    captured = bot._capture_case_feedback(555, "а что там с инфляцией в Индии на самом деле?")
+    assert captured is False
+    assert not paths["decisions"].exists()          # ничего не записано
+    assert bot.state.get("last_case") is not None    # кейс ещё ждёт ответа
+
+
 def test_allow_list_blocks_foreign_chat(paths):
     bot = _fresh_bot(chat="555")
     token = "tok123"
