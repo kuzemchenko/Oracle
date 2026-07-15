@@ -147,6 +147,20 @@ def test_strength_badge_buckets():
     assert ES._strength_from_p(None) is None
 
 
+def test_news_strength_degenerate_day_not_forced_weak():
+    """stage-review Этап2: единственный/равносалиентный кластер → сила НЕ измерена (None), а не
+    принудительный «слабый» (иначе сильное одиночное событие лгало бы «слабый»)."""
+    single = [{"салиентность": 9}]
+    ES._tag_news_strength(single)
+    assert single[0]["сила_сигнала"] is None
+    equal = [{"салиентность": 5}, {"салиентность": 5}]
+    ES._tag_news_strength(equal)
+    assert all(e["сила_сигнала"] is None for e in equal)
+    varied = [{"салиентность": 9}, {"салиентность": 1}]
+    ES._tag_news_strength(varied)
+    assert varied[0]["сила_сигнала"] == "сильный" and varied[1]["сила_сигнала"] == "слабый"
+
+
 def test_candidates_carry_strength_badge():
     """Каждый кандидат-событие несёт бирку силы (для протокола и «Разбора дня» Этапа3)."""
     inds = {f"S{i:02d}.US": {"ret_z_20": 2.6 + 0.05 * i, "vol_z_20": 0.0} for i in range(10)}

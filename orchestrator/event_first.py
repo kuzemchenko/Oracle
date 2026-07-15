@@ -145,11 +145,15 @@ def _price_signal_syms(scan):
 
 
 def _daily_debate_alert(mode, now, *, costs_log=None, limits_path=None, notices=None):
-    """Этап2 (2.4): суммарная стоимость LLM за СЕГОДНЯ > дневного ориентира (config/limits.yaml
+    """Этап2 (2.4): суммарная стоимость ВСЕХ LLM-вызовов за СЕГОДНЯ (любой agent/режим, кроме mock —
+    картограф, воронка, дебаты, суд) > дневного ориентира (config/limits.yaml
     budget.daily_debate_alert_usd, дефолт = месячный токен-бюджет/30) → АЛЕРТ владельцу в
     journal/notices.jsonl (бот пушит). Прогон НЕ урезается, пороги НЕ двигаются (§12). Дедуп: один
     алерт в день (маркер с датой). mode=mock → не считаем. Возвращает {spent_today, cap, over}.
-    Пути опциональны (тестируемость); по умолчанию — боевые файлы репозитория."""
+    Пути опциональны (тестируемость); по умолчанию — боевые файлы репозитория.
+
+    Имя (…_debate_…) историческое; по смыслу это ВЕСЬ дневной LLM-расход, а не только дебаты —
+    поэтому текст алерта говорит «расход на работу за сегодня» (stage-review Этап2, честность имени)."""
     if mode == "mock":
         return None
     limits_path = pathlib.Path(limits_path) if limits_path else ROOT / "config" / "limits.yaml"
@@ -189,8 +193,14 @@ def _daily_debate_alert(mode, now, *, costs_log=None, limits_path=None, notices=
 
 
 def _candidate_node_syms(scan, universe):
-    """Этап2: инструменты-кандидаты для активации каскадных цепочек = ценовые кандидаты + трендовые
-    кандидаты, замапленные на proxy_etf. Так трендо-событийный день активирует цепочку и через тренд."""
+    """Этап2: СПРАВОЧНЫЙ union инструментов-кандидатов дня = ценовые кандидаты + трендовые,
+    замапленные на proxy_etf. Использование/тест — маркер «какие бумаги в игре».
+
+    ПУТЬ ТРЕНДА ДО СУДА (stage-review Этап2, честность): ОСНОВНОЙ — _shock_sources (трендовый proxy
+    добавляется в источники шока → run_funnel как тема → суд). Совпадение proxy с УЗЛОМ цепочки —
+    ВТОРИЧНЫЙ, оппортунистический канал (у большинства тем proxy≠узел, поэтому там он no-op); в
+    activated_chains он теперь помечается КАК ТРЕНДОВЫЙ (не «ценовой сигнал»). Активация в боевом
+    пути берёт price_syms и trend_syms РАЗДЕЛЬНО (не этот union) — чтобы не терять источник."""
     return sorted(set(_price_signal_syms(scan)) | {p for _k, p in _trend_proxy_syms(scan, universe)})
 
 
@@ -202,10 +212,15 @@ def _theme_for_chain(chain_id, universe):
     return None
 
 
-def activated_chains(scan, universe, chains, price_signal_syms):
+def activated_chains(scan, universe, chains, price_signal_syms, trend_proxy_syms=None):
     """ШИРОКАЯ активация (дыра №1): авторская цепочка включается, если её ТЕМА салиентна в новостях
     ИЛИ есть ценовой сигнал на ЛЮБОМ её узле — а не только когда якорь попал в источники шока.
     Якорь (узел минимального порядка) даёт корневой шок для свёртки вниз по каскаду.
+
+    Этап2 stage-review (П8, регрессия): источник срабатывания на узле различается ЧЕСТНО — ценовой
+    сигнал vs трендовый интерес (тема→proxy_etf). trend_proxy_syms — символы, пришедшие из трендового
+    канала (_trend_proxy_syms), а НЕ из ценового шока: их совпадение с узлом помечается как трендовое,
+    иначе трендовая активация ложно объявлялась бы «ценовым сигналом на узле» (нарушение ссылки).
     """
     # тема → КОНКРЕТНЫЙ заголовок, который её активировал (П8: не «тема салиентна», а сама новость).
     matched = {}
@@ -213,7 +228,8 @@ def activated_chains(scan, universe, chains, price_signal_syms):
         th, _ = EM.match_cluster_to_theme({"keywords": ne["ключи"], "sample": ne["пример"]}, universe)
         if th and th not in matched:
             matched[th] = (ne.get("пример") or "").strip()
-    sigset = set(price_signal_syms or [])
+    price_set = set(price_signal_syms or [])
+    trend_set = set(trend_proxy_syms or [])
     out = []
     for ch in (chains or []):
         reasons = []
@@ -227,9 +243,12 @@ def activated_chains(scan, universe, chains, price_signal_syms):
             else:
                 reasons.append(f"тема «{th}» салиентна в новостях")
         node_syms = {i for n in (ch.get("nodes") or []) for i in (n.get("instruments") or [])}
-        hit = node_syms & sigset
-        if hit:
-            reasons.append(f"ценовой сигнал на узле(ах): {sorted(hit)}")
+        price_hit = node_syms & price_set
+        trend_hit = (node_syms & trend_set) - price_hit   # цена приоритетна, если узел в обоих каналах
+        if price_hit:
+            reasons.append(f"ценовой сигнал на узле(ах): {sorted(price_hit)}")
+        if trend_hit:
+            reasons.append(f"трендовый интерес темы (тема→proxy) на узле(ах): {sorted(trend_hit)}")
         if reasons:
             anchor_nodes = sorted((ch.get("nodes") or []), key=lambda n: n.get("order", 0))
             anchor = (anchor_nodes[0].get("instruments") or [None])[0] if anchor_nodes else None
@@ -675,9 +694,11 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # маршрутизируются по трекам (money / провизорный / дайджест). Запечатывание — отдельно (B3c).
         # Этап2: узлы-кандидаты для активации = ценовые кандидаты + трендовые (замапленные на proxy_etf),
         # чтобы трендо-событийный день активировал цепочку и через трендовый канал (роутинг до суда).
-        node_syms = _candidate_node_syms(scan, universe)
+        # stage-review (П8): каналы РАЗДЕЛЕНЫ — причина срабатывания честно помечает источник (цена/тренд).
+        price_syms = _price_signal_syms(scan)
+        trend_syms = [p for _k, p in _trend_proxy_syms(scan, universe)]
         # активации цепочек: (а) АВТОРСКИЕ по теме/сигналу-кандидату + (б) КАРТОГРАФ из новостей (B2.5)
-        chain_acts = list(activated_chains(scan, universe, chains_doc, node_syms))
+        chain_acts = list(activated_chains(scan, universe, chains_doc, price_syms, trend_syms))
         for _a in chain_acts:
             _a["источник_карты"] = "авторская"
         chain_acts += [{"chain": pc["chain"], "anchor": pc["anchor"], "источник_карты": "картограф",
@@ -883,12 +904,15 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                  f"{' (выключен под --vet)' if skip_contour else ''}; "
                  f"новых событий на регистрацию {len(proposals)}"),
     }
-    # Этап2: честный роутинг трендов (сколько трендовых кандидатов реально замаплено до суда) +
-    # алерт дневного расхода (2.4). Обе метрики — в протокол; алерт при превышении уходит владельцу.
+    # Этап2: честный роутинг трендов + алерт дневного расхода (2.4). Обе метрики — в протокол; алерт
+    # при превышении уходит владельцу. stage-review (честность ярлыка): считаем то, что реально
+    # измеряем — трендовые кандидаты, ЗАМАПЛЕННЫЕ на инструмент (proxy_etf). До суда доходит НЕ
+    # обязательно каждый (фильтр is_sealable + кэп источников + активация цепочки — ниже по потоку),
+    # поэтому поле честно называется «замаплено_на_инструмент», а не «дошло до суда».
     _tr_cands = [s for s in scan.get("сигналы", []) if s.get("вид") == "trend" and s.get("кандидат")]
     _tr_mapped = _trend_proxy_syms(scan, universe)
     protocol["трендовый_роутинг"] = {"кандидатов": len(_tr_cands),
-                                     "замаплено_до_суда": len(_tr_mapped),
+                                     "замаплено_на_инструмент": len(_tr_mapped),
                                      "инструменты": sorted({p for _k, p in _tr_mapped})}
     protocol["дневной_расход"] = _daily_debate_alert(mode, now)
     if write:

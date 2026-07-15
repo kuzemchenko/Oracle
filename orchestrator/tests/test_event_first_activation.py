@@ -182,6 +182,29 @@ def test_variant2_trend_candidate_routes_to_proxy(monkeypatch):
     assert "USO.US" in nodes and "AAA.US" in nodes          # трендовый+ценовой узлы вместе
 
 
+def test_activation_reason_distinguishes_price_and_trend(monkeypatch):
+    """Этап2 stage-review (П8, регрессия): активация цепочки трендовым прокси помечается КАК ТРЕНДОВАЯ,
+    а не ложно «ценовой сигнал на узле». Ценовая — остаётся ценовой. Приоритет цены при совпадении."""
+    from orchestrator import event_first as EF2
+    monkeypatch.setattr(EF2, "_theme_for_chain", lambda cid, uni: None)   # активация только по узлам
+    scan = {"новостные_события": []}
+    uni = {"themes": {}}
+    chains = [{"id": "c1", "nodes": [{"order": 1, "instruments": ["TREND.US"]},
+                                     {"order": 2, "instruments": ["PRICE.US"]}]}]
+    acts = EF2.activated_chains(scan, uni, chains, ["PRICE.US"], ["TREND.US"])
+    assert len(acts) == 1
+    reasons = " ".join(acts[0]["причины"])
+    assert "ценовой сигнал на узле(ах): ['PRICE.US']" in reasons
+    assert "трендовый интерес" in reasons and "TREND.US" in reasons
+    assert "ценовой сигнал на узле(ах): ['TREND.US']" not in reasons   # тренд НЕ выдаётся за цену
+
+    # узел в обоих каналах → метится как ценовой (приоритет), не дублируется в трендовый
+    chains2 = [{"id": "c2", "nodes": [{"order": 1, "instruments": ["BOTH.US"]}]}]
+    acts2 = EF2.activated_chains(scan, uni, chains2, ["BOTH.US"], ["BOTH.US"])
+    r2 = " ".join(acts2[0]["причины"])
+    assert "ценовой сигнал на узле(ах): ['BOTH.US']" in r2 and "трендовый интерес" not in r2
+
+
 def test_daily_debate_alert_fires_and_dedups(tmp_path):
     """Этап2 (2.4): расход за день > ориентира → алерт в notices; дедуп на день; mock/чужой день не в счёт."""
     import datetime, json as _j
