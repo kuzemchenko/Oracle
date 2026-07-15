@@ -97,6 +97,34 @@ def test_money_survivor_leads_over_research():
     assert "денежный суд" in text.lower()
 
 
+def test_money_rejected_not_labeled_as_strength_and_ranks_below_research():
+    """Блокер stage-review wf_b7dfc21f: §11-ОТКЛОНЁННАЯ money-идея (балл<3.0) НЕ подписывается «Силой»
+    (её балл — порог допуска, не шкала силы) и НЕ обгоняет исследовательскую идею в ранжире по силе."""
+    разбор = {"LNG": _idea(2.4)}                       # слабоватая, но ОЦЕНЁННАЯ по силе
+    суд = {"FRO": {"исход": "РАЗБИТА", "балл": 2.9, "порог": 3.0, "направление": "лонг",
+                   "кто_против": "нет исторического edge", "почему_возможность": "механизм есть"}}
+    text, meta, viol = R.top3_from_protocol(_proto(разбор=разбор, суд=суд))
+    assert viol == []
+    # исследовательская идея (даже слабая) выше §11-отклонённой money — money-балл не на оси силы
+    assert meta["idx"]["1"] == "LNG"
+    # §11-балл 2.9 НЕ показан как «Сила 2.9/5»; показан честный ярлык отказа
+    assert "Сила 2.9" not in text
+    assert "отклонил" in text.lower() and "3.0" in text
+
+
+def test_money_rejected_leads_honestly_when_no_research():
+    """Если сильнее ничего нет и лид — §11-отклонённая money-идея: вводка честная («суд §11 отклонил»),
+    без самопротиворечия «средняя X/5» vs «разбита»."""
+    суд = {"FRO": {"исход": "РАЗБИТА", "балл": 2.7, "порог": 3.0, "направление": "лонг",
+                   "кто_против": "edge не подтверждён", "почему_возможность": "механизм правдоподобен"}}
+    text, meta, viol = R.top3_from_protocol(_proto(разбор={}, суд=суд, топ=[
+        _node("FRO", edge=0.08, rel=0.42, order=1, event="Атака у Ормуза — рост фрахта")]))
+    assert viol == [] and meta["idx"]["1"] == "FRO"
+    low = text.lower()
+    assert "отклонил" in low and "2.7 из 3.0" in text
+    assert "сила 2.7" not in low                       # не смешиваем §11-балл со шкалой силы
+
+
 def test_provisional_caveat_present_for_research_lead():
     """Провизорная идея №1 (research) метится «связь ценами пока НЕ подтверждена»."""
     text, _, viol = R.top3_from_protocol(_proto(разбор=_STRONG_FRO))

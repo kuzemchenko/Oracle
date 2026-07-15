@@ -549,27 +549,27 @@ _RESEARCH_CRIT_IDS = ["mechanism_real", "non_obviousness", "crowd_fresh",
 
 
 def _criteria_scores(judge_judgment, ordered_ids):
-    """Из ответа судьи (рубрика.оценки) → {id_критерия: балл}. Матч по id/критерий/title; фолбэк —
-    по позиции (порядок критериев зафиксирован в рубрике). Для «одна строка силы идеи» в подаче."""
+    """Из ответа судьи (рубрика.оценки) → {id_критерия: балл}. Матч по id/критерий/title. Позиционный
+    фолбэк — ТОЛЬКО когда судья вернул ЧИСТО безымянный список ровно нужной длины (ни один id не совпал
+    и len == len(ordered_ids)); при частичном совпадении по id позиционно НЕ добираем (иначе рискуем
+    подписать балл не тем критерием — ревью stage-review). Строка «силы идеи» — только для подачи."""
     rub = (judge_judgment or {}).get("рубрика") or {}
     оценки = rub.get("оценки")
     if not isinstance(оценки, list):
         return {}
-    by_id, leftover = {}, []
+    by_id, ordered_vals = {}, []
     for o in оценки:
         if not isinstance(o, dict):
             continue
         b = o.get("балл")
         if not (isinstance(b, (int, float)) and not isinstance(b, bool)):
             continue
+        ordered_vals.append(float(b))
         key = o.get("id") or o.get("критерий_id") or o.get("критерий")
         if isinstance(key, str) and key in ordered_ids:
             by_id[key] = float(b)
-        else:
-            leftover.append(float(b))
-    if len(by_id) < len(ordered_ids) and leftover:           # добор непроставленных id по позиции
-        for cid, b in zip([c for c in ordered_ids if c not in by_id], leftover):
-            by_id[cid] = b
+    if not by_id and len(ordered_vals) == len(ordered_ids):   # безымянный список ровной длины → по позиции
+        return dict(zip(ordered_ids, ordered_vals))
     return by_id
 
 
