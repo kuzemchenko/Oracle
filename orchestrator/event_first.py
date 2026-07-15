@@ -139,7 +139,8 @@ def _trend_proxy_syms(scan, universe):
 
 def _price_signal_syms(scan):
     """Символы с заметным ЦЕНОВЫМ сигналом-кандидатом — узлы цепочки могут совпасть (Д1-Вариант2:
-    кандидаты, не строгий BH). Трендовые узлы добавляет _candidate_node_syms (Этап2)."""
+    кандидаты, не строгий BH). Трендовые узлы идут отдельным каналом через _trend_proxy_syms
+    (Этап2, stage-review: каналы РАЗДЕЛЕНЫ, чтобы честно помечать источник активации)."""
     return sorted({s["символ"] for s in scan["сигналы"]
                    if s.get("кандидат") and s.get("символ")})
 
@@ -190,18 +191,6 @@ def _daily_debate_alert(mode, now, *, costs_log=None, limits_path=None, notices=
         f.write(json.dumps({"ts": now.isoformat(timespec="seconds"), "text": text},
                            ensure_ascii=False) + "\n")
     return res
-
-
-def _candidate_node_syms(scan, universe):
-    """Этап2: СПРАВОЧНЫЙ union инструментов-кандидатов дня = ценовые кандидаты + трендовые,
-    замапленные на proxy_etf. Использование/тест — маркер «какие бумаги в игре».
-
-    ПУТЬ ТРЕНДА ДО СУДА (stage-review Этап2, честность): ОСНОВНОЙ — _shock_sources (трендовый proxy
-    добавляется в источники шока → run_funnel как тема → суд). Совпадение proxy с УЗЛОМ цепочки —
-    ВТОРИЧНЫЙ, оппортунистический канал (у большинства тем proxy≠узел, поэтому там он no-op); в
-    activated_chains он теперь помечается КАК ТРЕНДОВЫЙ (не «ценовой сигнал»). Активация в боевом
-    пути берёт price_syms и trend_syms РАЗДЕЛЬНО (не этот union) — чтобы не терять источник."""
-    return sorted(set(_price_signal_syms(scan)) | {p for _k, p in _trend_proxy_syms(scan, universe)})
 
 
 def _theme_for_chain(chain_id, universe):

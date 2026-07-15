@@ -178,8 +178,9 @@ def test_variant2_trend_candidate_routes_to_proxy(monkeypatch):
         {"вид": "price", "символ": "AAA.US", "кандидат": True},
     ]}
     assert EF2._trend_proxy_syms(scan, uni) == [("lithium supply", "USO.US")]
-    nodes = EF2._candidate_node_syms(scan, uni)
-    assert "USO.US" in nodes and "AAA.US" in nodes          # трендовый+ценовой узлы вместе
+    # боевой путь берёт каналы РАЗДЕЛЬНО: ценовой узел из _price_signal_syms, трендовый — из proxy
+    assert "AAA.US" in EF2._price_signal_syms(scan)          # ценовой кандидат — узел
+    assert "USO.US" in {p for _k, p in EF2._trend_proxy_syms(scan, uni)}  # трендовый — свой канал
 
 
 def test_activation_reason_distinguishes_price_and_trend(monkeypatch):
