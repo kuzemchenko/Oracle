@@ -76,19 +76,25 @@ def _generator_family(models=None):
     return cfg.get("family") or OR.family_of(cfg["primary"], models)
 
 
-def _cascade_rubric(rubric, дело):
-    """FГ B1: под-рубрика каскадов, если дело каскадное И секция задана в rubric.yaml. Иначе None."""
+def _subrubric(rubric, дело, вид=None):
+    """Выбор под-рубрики судьи:
+      • вид=='исследование' → research_subrubric (A1, v1.5): судим ИДЕЮ по силе/неочевидности, не деньги;
+      • дело каскадное (и не research) → cascade_subrubric (деньги, требует исторический edge);
+      • иначе → None (базовые 6 критериев).
+    Research приоритетнее cascade: у research-дела тоже есть каскадное дело, но судим по другой карте."""
+    if вид == "исследование" and rubric.get("research_subrubric"):
+        return rubric.get("research_subrubric")
     return rubric.get("cascade_subrubric") if дело else None
 
 
-def _active_criteria(rubric, дело):
-    """Критерии для судьи: каскадные, когда дело каскадное; иначе базовые 6."""
-    return (_cascade_rubric(rubric, дело) or rubric).get("criteria", [])
+def _active_criteria(rubric, дело, вид=None):
+    """Критерии для судьи: research/каскадные/базовые 6 в зависимости от вида дела."""
+    return (_subrubric(rubric, дело, вид) or rubric).get("criteria", [])
 
 
-def _active_mandatory(rubric, дело):
-    """Обязательные вопросы: те же два слота, но текст под каскад, если дело каскадное."""
-    return (_cascade_rubric(rubric, дело) or rubric).get("mandatory_questions")
+def _active_mandatory(rubric, дело, вид=None):
+    """Обязательные вопросы: слоты под research/каскад, иначе базовые."""
+    return (_subrubric(rubric, дело, вид) or rubric).get("mandatory_questions")
 
 
 def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, models=None,
@@ -125,6 +131,9 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     # ФАКТЫ дела, не авторство, поэтому слепоту судьи (П10) не нарушает. Без них ревьюер по П8 клеймил
     # аргументы по событию как недоказанные, а судья снижал балл «нет первоисточника/нет расчёта».
     дело = candidate.get("дело_каскада")
+    # A1: вид дела выбирает под-рубрику судьи. 'исследование' → research_subrubric (судим ИДЕЮ по
+    # силе/неочевидности, r² не ворота); иначе каскадная/базовая (деньги). Слепоту судьи не трогает.
+    вид = candidate.get("вид_дела")
     if дело:
         idea_slice["каскадное_дело_проверяемое"] = дело
 
@@ -182,10 +191,12 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
             "version": rubric.get("version"),
             "scale": rubric.get("scale"),
             "criteria": [{"id": c["id"], "title": c["title"], "desc": c["desc"]}
-                         for c in _active_criteria(rubric, дело)],
+                         for c in _active_criteria(rubric, дело, вид)],
             "verdict": rubric.get("verdict"),
-            "mandatory_questions": _active_mandatory(rubric, дело),
-            "тип": ("каскадная под-рубрика" if _cascade_rubric(rubric, дело) else "базовая"),
+            "mandatory_questions": _active_mandatory(rubric, дело, вид),
+            "тип": ("исследовательская под-рубрика (балл = сила идеи, НЕ порог допуска)"
+                    if вид == "исследование" and rubric.get("research_subrubric")
+                    else "каскадная под-рубрика" if дело else "базовая"),
             # П-2 (v1.4, подпись 09.07): судья знает границы данных системы — «нет внутридневных
             # котировок» = «не измерено» (нейтрально), а не довод «отыграно» (П8)
             "границы_данных": rubric.get("data_context"),
