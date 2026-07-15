@@ -549,7 +549,10 @@ def load_presentation(path=None):
             "send_mock_to_telegram": bool(cfg.get("send_mock_to_telegram", False)),
             # Этап3: «Разбор дня» как ГЛАВНЫЙ дневной пуш (читаемый кейс без эмодзи) вместо длинного
             # эмодзи-дайджеста. Дефолт False — включаем после подтверждения читаемости владельцем.
-            "daily_case_lead": bool(cfg.get("daily_case_lead", False))}
+            "daily_case_lead": bool(cfg.get("daily_case_lead", False)),
+            # Flow-fix В1 (15.07): «Топ-3 одной строкой» + защита №1 — формат, выбранный владельцем
+            # взамен «Разбора дня». Приоритетнее daily_case_lead: если включён и собрался — он лид.
+            "top3_lead": bool(cfg.get("top3_lead", False))}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -1190,6 +1193,362 @@ def daily_case_from_protocol(proto, *, name_fn=None, outcomes=None):
     if viol:
         return None, case, viol            # fail-closed: не отправляем сломанный артефакт
     return text, case, []
+
+
+# ── Flow-fix В1 (решение владельца 15.07): «Топ-3 одной строкой» + защита №1 ───────────────────
+# Формат выбран владельцем (он забраковал длинный «Разбор дня» как «сложный и бесполезный»):
+# три сильнейшие идеи дня по одной строке, №1 — с готовой защитой (аргумент «за» + голос скептика
+# «против» из состязательного суда, поле протокола «защита_гипотез»), приглашение «скажи номер».
+# Стиль Forbes: без эмодзи, без жаргона (линтер стиль-контракта fail-closed). LLM-текст суда чистим
+# от служебных терминов _clean_llm ДО показа (иначе редкий «каскад»/«ярус» в реплике судьи валит
+# линтер и роняет пуш на эмодзи-фолбэк). Это слой ПОДАЧИ — журналы/треки/суд не трогаются.
+_MONTHS_RU = ["", "января", "февраля", "марта", "апреля", "мая", "июня",
+              "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+
+# Служебные термины (стоп-список стиль-контракта) в СВОБОДНОМ тексте суда/новостей → человеческий
+# эквивалент. Только для ПОКАЗА; регистр игнорируем; латиница по границе слова.
+_DEJARGON = [
+    # «каскад»→«сценарий», «ярус»→«уровень»: нейтральные существительные — в отличие от «цепочке
+    # последствий» сохраняют согласование («медвежий каскад»→«медвежий сценарий», не «…цепочке»).
+    (re.compile(r"[\w-]*каскад[\w-]*", re.I), "сценарий"),
+    (re.compile(r"[\w-]*ярус[\w-]*", re.I), "уровень"),
+    (re.compile(r"\btier\w*\b", re.I), "уровень"),
+    (re.compile(r"\bfdr\b", re.I), "контроль ложных срабатываний"),
+    (re.compile(r"\bz-?score\w*\b", re.I), "отклонение от нормы"),
+    (re.compile(r"\bbrier\w*\b", re.I), "точность прогнозов"),
+    (re.compile(r"\bq-?value\w*\b", re.I), "значимость"),
+    (re.compile(r"r²|\br2\b", re.I), "статистика связи"),
+    (re.compile(r"σ", re.I), "сигма"),
+]
+
+
+def _trunc_words(s, n):
+    """Обрезка по ГРАНИЦЕ СЛОВА (не «…from Jo»): режем до n, откатываемся к последнему пробелу."""
+    s = " ".join(str(s).split())
+    if len(s) <= n:
+        return s
+    cut = s[: n - 1]
+    sp = cut.rfind(" ")
+    if sp >= n // 2:                      # откат к слову, только если не съедаем половину
+        cut = cut[:sp]
+    return cut.rstrip(" ,;:-–—") + "…"
+
+
+def _clean_llm(s, n=170):
+    """Свободный текст LLM (реплика суда, заголовок новости) → безопасный для стиль-контракта:
+    убираем эмодзи/декор, заменяем служебный жаргон человеческим, обрезаем по слову. П8: смысл
+    сохраняем, ничего не добавляем. Пусто/не-строка → None."""
+    if not isinstance(s, str) or not s.strip():
+        return None
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    out = "".join(ch for ch in s if ch not in set(PL._emoji_glyphs(s)))
+    for rx, repl in _DEJARGON:
+        out = rx.sub(repl, out)
+    out = " ".join(out.split())          # схлопываем пробелы после вырезаний
+    return _trunc_words(out, n) if out.strip() else None
+
+
+# Хвост-атрибуция агрегатора новостей: «… - Jordan News | Latest News from Jo», «… | Reuters».
+# Режем всё после « | » и после « - <Источник>», если хвост похож на имя издания (латиница/News/…).
+_SRC_TAIL = re.compile(
+    r"\s+[|]\s+.*$"
+    r"|\s+[-–—]\s+(?=[^а-яё]*$)[A-Z][\w.& ]{1,40}$",
+    re.U)
+
+
+def _looks_latin(s):
+    """Текст преимущественно латиница (английский заголовок)? Доля латинских букв среди букв > 0.6."""
+    lat = sum(1 for c in s if "a" <= c.lower() <= "z")
+    cyr = sum(1 for c in s if "а" <= c.lower() <= "я")
+    return (lat + cyr) > 0 and lat / (lat + cyr) > 0.6
+
+
+def _clean_event(s):
+    """Заголовок-повод → человекочитаемый: снять служебный хвост-источник, почистить, обрезать по
+    слову. Возвращает (текст|None, английский?). Английские заголовки помечаем — на одной строке
+    их лучше заменить русским механизмом (владельцу нужен читаемый русский)."""
+    if not isinstance(s, str) or not s.strip():
+        return None, False
+    core = _SRC_TAIL.sub("", s).strip() or s.strip()
+    txt = _clean_llm(core, 130)
+    if not txt:
+        return None, False
+    return txt, _looks_latin(txt)
+
+
+def _human_date(ts):
+    """ISO-время прогона → «15 июля» (человеку). Сбой парса → исходная дата-строка либо None."""
+    try:
+        import datetime as _dt
+        d = _dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date()
+        return f"{d.day} {_MONTHS_RU[d.month]}"
+    except Exception:
+        s = str(ts or "")
+        return s[:10] or None
+
+
+_DIR_WORD = {"лонг": "вверх", "long": "вверх", "шорт": "вниз", "short": "вниз",
+             "флэт": "вбок", "flat": "вбок"}
+
+
+def _court_state(court):
+    """Вердикт суда (защита_гипотез/суд_money) → структура состояния. КРИТИЧНО (честность): судья
+    заполняет «почему_возможность» и для РАЗБИТОЙ идеи — но там он объясняет, почему возможности
+    НЕТ. Поэтому «почему» подаём как довод «за» ТОЛЬКО у выжившей (УСТОЯЛА); у разбитой это часть
+    «почему не прошла». Возвращает dict: survived/rejected/почему/против/словом/балл/порог/есть_суд."""
+    d = {"survived": False, "rejected": False, "почему": None, "против": None,
+         "словом": None, "балл": None, "порог": None, "есть_суд": False}
+    if not isinstance(court, dict):
+        return d
+    исход = court.get("исход")
+    d["survived"] = исход == "УСТОЯЛА"
+    d["rejected"] = исход in ("РАЗБИТА", "ВЕТО")
+    d["почему"] = _clean_llm(court.get("почему_возможность"), 300)
+    d["против"] = _clean_llm(court.get("кто_против"), 300)
+    d["балл"], d["порог"] = court.get("балл"), court.get("порог")
+    d["словом"] = {"УСТОЯЛА": "устояла под критикой", "РАЗБИТА": "разбита критикой",
+                   "ВЕТО": "снята процедурным вето"}.get(исход)
+    d["есть_суд"] = bool(d["survived"] or d["rejected"] or d["почему"] or d["против"])
+    return d
+
+
+def _top3_pool(protocol, *, name_fn=None):
+    """Ранжированный пул идей дня для «Топ-3»: узлы графа (топ_k) по продуктовому рангу П2б, с
+    прикреплённым вердиктом суда по символу (защита_гипотез для провизорных, суд_money для money).
+    Возвращает список (brief, court|None). Пусто → честный пустой день."""
+    g = protocol.get("граф_отбор") or {}
+    топ = list(g.get("топ_k") or [])
+    if not топ:
+        return []
+    from orchestrator import product_rank as PR
+    ranked = PR.annotate_and_sort(топ)
+    защ = g.get("защита_гипотез") or {}
+    суд = g.get("суд_money") or {}
+    out = []
+    for b in ranked:
+        a = b.get("актив")
+        court = защ.get(a) or суд.get(a)
+        out.append((b, court if isinstance(court, dict) else None))
+    return out
+
+
+def _top3_selection(protocol, *, name_fn=None, max_n=3):
+    """Единый ПОРЯДОК показа «Топ-3» (общий для текста и карты номер→тикер). ЧЕСТНЫЙ выбор лида №1:
+      1) есть выжившая суд (УСТОЯЛА) → лид = она (по продуктовому рангу среди выживших) — защищаю;
+      2) выживших нет, но кого-то судили (РАЗБИТА) → лид = БЛИЖАЙШАЯ к порогу (макс. балл суда) —
+         честно «почти, но не прошла», а не случайный топ-ранга;
+      3) суд не гонялся → лид = топ продуктового ранга.
+    Остальные — по продуктовому рангу. Разбитую НЕ выдаём за защищённую."""
+    pool = _top3_pool(protocol, name_fn=name_fn)          # уже по продуктовому рангу (убыв.)
+    if not pool:
+        return []
+    survivors = [x for x in pool if _court_state(x[1])["survived"]]
+    rejected = [x for x in pool if _court_state(x[1])["rejected"]]
+    if survivors:
+        lead = survivors[0]
+    elif rejected:
+        lead = max(rejected, key=lambda x: (_court_state(x[1])["балл"] or 0.0))
+    else:
+        lead = pool[0]
+    rest = [x for x in pool if x is not lead]
+    return ([lead] + rest)[:max_n]
+
+
+def _lead_mode(top):
+    """Режим подачи по состоянию суда над лидом: 'survived' | 'all_rejected' | 'unjudged'."""
+    if not top:
+        return "unjudged"
+    st = _court_state(top[0][1])
+    return "survived" if st["survived"] else "all_rejected" if st["rejected"] else "unjudged"
+
+
+def _oneend(s):
+    """Фрагмент внутрь строки: снимаем финальную пунктуацию, чтобы не плодить «..» при склейке."""
+    return (s or "").rstrip(" .!?…") or None
+
+
+def _idea_label(brief, name_fn):
+    a = brief.get("актив")
+    nm = (name_fn or _safe_name)(a)
+    return a if nm == a else f"{nm} ({a})"
+
+
+def _top3_oneliner(brief, court, rank, name_fn=None):
+    """Одна строка идеи: «N. Название (ТИКЕР) — вверх/вниз. <повод>. Риск: <контр>.» Плоский язык,
+    без эмодзи/жаргона. Повод — из события (новости) либо цепочки; риск — из голоса суда «против»
+    либо посчитанного контрдовода. Всё из посчитанного (П8), ничего не выдумано."""
+    label = _idea_label(brief, name_fn)
+    dir_word = _DIR_WORD.get((brief.get("направление") or "").lower(), "движение")
+    # повод: событие-новость (главный «почему»). Английский заголовок владельцу не показываем —
+    # заменяем русским механизмом «импульс по <исток> доходит до <актив>» (читаемость важнее).
+    повод, is_en = _clean_event(brief.get("событие"))
+    if not повод or is_en:
+        як = brief.get("якорь")
+        if як:
+            повод = f"импульс по {_safe_name(як)} доходит до {(name_fn or _safe_name)(brief.get('актив'))}"
+    # риск в ОДНОЙ строке — ЧИСТЫЙ посчитанный контрдовод (детерминир., читаемый русский). court=None
+    # намеренно: не тянем сюда длинный сырой текст судьи (рвётся на середине) — он в защите/раскрытии.
+    _, против = _pro_con(brief, None)
+    риск = _trunc_words(против[0], 130) if против else None
+    parts = [f"{rank}. {label} — {dir_word}."]
+    повод = _oneend(повод)
+    if повод:
+        повод = повод[0].upper() + повод[1:]        # предложение с заглавной (после «вверх.»)
+        parts.append(f" {повод}.")
+    риск = _oneend(риск)
+    if риск:
+        parts.append(f" Риск: {риск}.")
+    return "".join(parts)
+
+
+def _score_tail(st):
+    """«, оценка 1.3 из 3» из вердикта суда, если баллы есть — иначе пусто."""
+    балл, порог = st.get("балл"), st.get("порог")
+    return (f", оценка {балл:.1f} из {порог:.0f}"
+            if isinstance(балл, (int, float)) and isinstance(порог, (int, float)) else "")
+
+
+def _defense_block(brief, court, ts, rank=None, name_fn=None):
+    """Разбор одной идеи без эмодзи. ЧЕСТНО по исходу суда:
+      • УСТОЯЛА → «защищаю»: довод суда «за» + голос скептика «против» + отметка «прошла суд»;
+      • РАЗБИТА/ВЕТО → «защищать не буду»: прямо говорю, что суд разбил, и главное возражение;
+      • без суда → посчитанные доводы за/против + честная пометка «через суд не гоняли».
+    Судейское «почему_возможность» подаём как «за» ТОЛЬКО у выжившей (у разбитой оно объясняет, почему
+    возможности НЕТ — выдать это за довод «за» было бы враньём). Возвращает list строк."""
+    label = _idea_label(brief, name_fn)
+    dir_word = _DIR_WORD.get((brief.get("направление") or "").lower(), "движение")
+    st = _court_state(court)
+    за, против = _pro_con(brief, None)     # ЧИСТЫЕ посчитанные доводы (без сырого текста судьи)
+    за_calc = _trunc_words(re.sub(r"^суд:\s*", "", за[0]), 240) if за else None
+    против_calc = _trunc_words(против[0], 240) if против else None
+    L = []
+    if st["survived"]:
+        L.append((f"Защищаю №{rank} — {label}" if rank else f"Защищаю {label}") + f" (ставка на {dir_word}).")
+        if st["почему"] or за_calc:
+            L.append(f"Почему это возможность: {st['почему'] or за_calc}")
+        if st["против"] or против_calc:
+            L.append(f"Кто на другой стороне и почему может быть неправ: {st['против'] or против_calc}")
+    elif st["rejected"]:
+        L.append((f"№{rank} — {label}" if rank else label) + f" (ставка на {dir_word}). "
+                 f"Честно: защищать не буду — идея {st['словом']}{_score_tail(st)}.")
+        возр = st["против"] or st["почему"] or против_calc
+        if возр:
+            L.append(f"Главное возражение суда: {возр}")
+        L.append("В деньги её не пускаю — показываю как ближайшую к порогу, чтобы ты видел, чего "
+                 "идее не хватило.")
+    else:
+        L.append((f"№{rank} — {label}" if rank else label) + f" (ставка на {dir_word}).")
+        if за_calc:
+            L.append(f"Довод за: {за_calc}")
+        if против_calc:
+            L.append(f"Довод против: {против_calc}")
+        L.append("Через состязательный суд эту идею ещё не гоняли — это быстрый дневной скан, "
+                 "не вердикт.")
+    when = _when_line_plain(brief, ts)
+    if when:
+        L.append(when)
+    if st["словом"]:
+        L.append(f"Независимая проверка другой моделью: идея {st['словом']}{_score_tail(st)}.")
+    return L
+
+
+def _when_line_plain(n, ts):
+    """«Когда ждать» без эмодзи (для стиль-контракта): из посчитанных лага и горизонта (П8)."""
+    лаг, гор = n.get("лаг_дней"), n.get("горизонт_дней")
+    parts = []
+    if isinstance(лаг, (int, float)) and лаг:
+        parts.append(f"исторически реакция доходила до этого звена за ~{int(round(лаг))} дн.")
+    if isinstance(гор, (int, float)) and гор:
+        d = _resolve_date(ts, гор)
+        parts.append(f"горизонт оценки {int(гор)} дн" + (f", сверю ~{d}" if d else ""))
+    return "Когда ждать: " + "; ".join(parts) + "." if parts else None
+
+
+def format_top3(protocol, *, name_fn=None, max_n=3):
+    """Flow-fix В1: главный дневной пуш — «Топ-3 одной строкой» + защита №1. Без эмодзи, стиль Forbes.
+    Пустой день — честная строка (§15). Проверку линтером делает top3_from_protocol (fail-closed)."""
+    rid = protocol.get("run_id", "?")
+    ts = protocol.get("ts")
+    дата = _human_date(ts)
+    top = _top3_selection(protocol, name_fn=name_fn, max_n=max_n)
+    поток = ((protocol.get("поток_идей") or {}).get("всего")) or len(top)
+    if not top:
+        return ("Идеи дня" + (f" — {дата}" if дата else "") + ".\n"
+                "Что это значит для тебя. Сегодня ни одно событие в мире не дотянуло до торгуемой "
+                "цепочки — честный пустой день, а не сбой. Лучше промолчать, чем выдумать идею.\n"
+                "Что делать. Ничего — навязывать пустой день не буду. Загляну завтра.\n"
+                f"· как я искал — /progress · тех.id {rid}")
+    mode = _lead_mode(top)
+    if mode == "survived":
+        значит = (f"Ниже — {len(top)} идеи, которые я на сегодня считаю сильнейшими. №1 прошла мой "
+                  f"независимый суд — её и защищаю; по любой другой скажи номер, разберу так же.")
+    elif mode == "all_rejected":
+        значит = (f"Честно: сегодня ни одна идея не прошла мой независимый суд — защищать нечего, и я "
+                  f"не буду натягивать. Показываю {len(top)} ближайшие к порогу и разбираю №1 — чего "
+                  f"именно ей не хватило. Это и есть ответ, где искать хорошую: там, где связь "
+                  f"подтверждена ценой, а ход ещё не отыгран.")
+    else:
+        значит = (f"Ниже — {len(top)} идеи дня, ближайшие к порогу. Это быстрый скан: через полный "
+                  f"состязательный суд их сегодня не гоняли, поэтому это наводки, а не вердикты. "
+                  f"№1 разбираю подробнее; за глубоким разбором любой — скажи номер.")
+    L = ["Идеи дня" + (f" — {дата}" if дата else "") + f". {len(top)} ближайших из {поток} за день.",
+         "",
+         f"Что это значит для тебя. {значит}",
+         ""]
+    for i, (b, c) in enumerate(top, 1):
+        L.append(_top3_oneliner(b, c, i, name_fn=name_fn))
+    L.append("")
+    L += _defense_block(top[0][0], top[0][1], ts, rank=1, name_fn=name_fn)
+    L.append("")
+    L.append("Что делать. Скажи номер (1–3) — разберу любую идею подробно; или «разбери ТИКЕР» "
+             "для полного состязательного разбора. Решение за тобой.")
+    L.append(f"Это {RESEARCH_FRAME}.")
+    L.append(f"· тех.id {rid}")
+    return "\n".join(L)
+
+
+def top3_from_protocol(proto, *, name_fn=None):
+    """Протокол → текст «Топ-3» + мета для бота ({run_id, idx: {«1»:ТИКЕР,…}}), ПРОВЕРЕННЫЙ линтером
+    стиль-контракта (fail-closed: сломанный шаблон НЕ уходит владельцу → (None, meta, нарушения))."""
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    text = format_top3(proto, name_fn=name_fn)
+    top = _top3_selection(proto, name_fn=name_fn, max_n=3)   # тот же порядок, что в тексте
+    idx = {str(i): b.get("актив") for i, (b, _c) in enumerate(top, 1) if b.get("актив")}
+    meta = {"run_id": proto.get("run_id"), "idx": idx}
+    viol = PL.lint_for_user(text, require_sections=[
+        ("что это значит для тебя", "нет секции «что это значит для тебя»"),
+        ("что делать", "нет вывода «что делать»")], max_len=PL.MAX_LEN)
+    if viol:
+        return None, meta, viol
+    return text, meta, []
+
+
+def top3_defense_card(proto, ticker, *, name_fn=None):
+    """Ответ на «скажи номер»: полная (но без эмодзи) защита выбранной идеи из ГОТОВОГО суда
+    (защита_гипотез/суд_money) — мгновенно, без нового прогона. Линтер fail-closed → None."""
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    for b, c in _top3_pool(proto, name_fn=name_fn):
+        if b.get("актив") == ticker:
+            L = _defense_block(b, c, proto.get("ts"), name_fn=name_fn)
+            L.append("")
+            L.append("Что делать. Хочешь ещё глубже — «разбери " + str(ticker) +
+                     "»: прогоню полный состязательный разбор (генератор, критик, независимый судья). "
+                     "Решение за тобой.")
+            L.append(f"Это {RESEARCH_FRAME}.")
+            text = "\n".join(L)
+            viol = PL.lint_for_user(text, require_sections=[("что делать", "нет вывода «что делать»")],
+                                    max_len=PL.MAX_LEN)
+            return (None if viol else text), viol
+    return None, ["идея не найдена в последнем прогоне"]
 
 
 # ── П3: сессия партнёра (§17.6, REVISION_2026-07 §R3) ─────────────────────────────

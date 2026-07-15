@@ -174,6 +174,7 @@ def _run_multi(args):
 
 def _run_event_first(args):
     from orchestrator.event_first import run_event_first
+    from orchestrator import event_first as EF
     mode = "mock" if args.mock else "auto"     # auto → live при ключе OpenRouter
     vet = getattr(args, "vet", False)
     deep = getattr(args, "deep", False)
@@ -181,7 +182,10 @@ def _run_event_first(args):
                         seal_predictions=getattr(args, "seal", False),
                         skip_contour=vet,            # --vet: НЕ жжём 21-агентный контур на слепых шок-источниках
                         vet_money_k=3 if vet else 0,  # вместо него — точечный слепой суд по топ-K money
-                        deep_money_report=deep)       # --deep (решение D в.3): полный §8-контур по пережившим суд
+                        deep_money_report=deep,       # --deep (решение D в.3): полный §8-контур по пережившим суд
+                        # Flow-fix В1 (решение владельца 15.07): в дневном режиме (--vet) ЗАЩИЩАЕМ топ-гипотезы
+                        # через тот же слепой суд — чтобы отчёт нёс аргумент+контраргумент, а не сырьё.
+                        defend_prov_k=EF.DEFEND_PROV_K if vet else 0)
     if p.get("ОТКАЗ_бюджет") or p.get("ОСТАНОВ_бюджет"):   # F0#9 пред-проверка / долг[HIGH] стоп-на-лету
         d = p.get("ОТКАЗ_бюджет") or p["ОСТАНОВ_бюджет"]
         что = "ОТКАЗ (пред-проверка)" if p.get("ОТКАЗ_бюджет") else "ОСТАНОВ на лету"

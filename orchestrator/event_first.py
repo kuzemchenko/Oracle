@@ -43,6 +43,18 @@ LOGS = ROOT / "journal" / "funnel_logs"
 # дорогой контур). Раньше оба были k=2: узкий скан привязан к бюджету контура. Теперь скан шире.
 MAX_SHOCK_SOURCES = 8
 
+# Flow-fix Вариант 2 (решение владельца 15.07): ШИРЕ ВЕРХ ВОРОНКИ. Раньше картограф пытался
+# построить каскад лишь из 10 верхних новостных кластеров дня из ~50 — 40 сюжетов не доходили даже
+# до попытки. Поднято до 24: больше событий получают шанс стать торгуемой цепочкой. Каждая попытка —
+# LLM-вызов (учтён в бюджете event_first, поднятом под это решение); пустые карты честно отсекаются.
+CARTO_MAX_MAP = 24
+
+# Flow-fix Вариант 1 (решение владельца 15.07): сколько ТОП-ГИПОТЕЗ (провизорный трек) прогоняем через
+# слепой суд ДЛЯ ЗАЩИТЫ — чтобы у идеи был аргумент «за» и голос скептика «против», а не сырая наводка.
+# ЭТО ТОЛЬКО ДЛЯ ПОДАЧИ: вердикт защиты НЕ запечатывается в деньги §11, провизорный seal не меняется
+# (герметичность §11/П16 цела — защита живёт в отдельном поле протокола «защита_гипотез»).
+DEFEND_PROV_K = 3
+
 
 def _now():
     return datetime.datetime.now(datetime.timezone.utc)
@@ -606,7 +618,7 @@ def run_replay(cutoff, *, top_k=8, horizon_days=5, write=True):
 
 
 def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
-                    seal_predictions=False, vet_money_k=0, deep_money_report=False):
+                    seal_predictions=False, vet_money_k=0, deep_money_report=False, defend_prov_k=0):
     """Полный event-first прогон. Возвращает сводный протокол.
 
     skip_contour=True — research-only: без дорогого 21-агентного качественного контура по источникам
@@ -644,7 +656,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         sources = _shock_sources(scan, universe, con, max(k, MAX_SHOCK_SOURCES))
         # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
         # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
-        pcs = _cartographer_pass(scan, universe, mode, run_id, guard=guard)
+        pcs = _cartographer_pass(scan, universe, mode, run_id, max_map=CARTO_MAX_MAP, guard=guard)
         proposals = _stage_cartographer(pcs, now)
         картограф_идеи = _proposal_ideas(proposals)
         # FГ B2: дорогой контур — только по первым k источникам (бюджет). Остальные найденные
@@ -770,12 +782,24 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # ПЕРЕНАПРАВЛЕНИЕ КОНТУРА: дорогой состязательный суд — на топ-K money-каскадов (не на слепые
         # шок-источники). Сломанные слепым судом money-идеи демотируются в провизорный (гейт §11).
         суд_money = {}
+        chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
+                        for c in каскады if c.get("chain_id")}
         if vet_money_k and mode != "mock":
             # событие-исток по цепочке → судья видит ПОВОД, а не голый edge (см. _money_thesis)
-            chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
-                            for c in каскады if c.get("chain_id")}
             суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events,
                                    deep_report=deep_money_report, guard=guard)
+
+        # Flow-fix Вариант 1 (решение владельца 15.07): ЗАЩИТА ТОП-ГИПОТЕЗ. Дорогой состязательный суд
+        # (тот же _vet_money: генератор/критик/слепой судья П10) — на топ-K ПРОВИЗОРНЫХ идей, чтобы у
+        # каждой был аргумент «за» и голос скептика «против» (кто_против / почему_возможность), а не
+        # сырая наводка. КРИТИЧНО: это НЕ денежный трек — вердикт защиты идёт в ОТДЕЛЬНОЕ поле
+        # «защита_гипотез» и НЕ участвует в seal §11 (provisional seal ниже — фикс. kind, не смотрит на
+        # эти вердикты). deep_report=False: только аргумент, без §8-контура (бюджет).
+        защита_гипотез = {}
+        if defend_prov_k and mode != "mock":
+            # top провизорных по ранжиру graph_select (edge/надёжность/изоляция) — самые убеждённые
+            защита_гипотез = _vet_money(треки["provisional"], run_id, defend_prov_k,
+                                        chain_events=chain_events, deep_report=False, guard=guard)
 
         # Ревью 2026-07-04: seal_prediction идемпотентен (дедуп той же ставки) — перезапуск прогона
         # в тот же день не плодит дубли, искусственно приближающие ворота-270. Дубли считаем честно.
@@ -897,6 +921,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             "треки": {"money": money_n, "провизорный": prov_n, "дайджест": dig_n},
             "запечатано": запечатано,           # B3c: фактически в журнал (только seal_predictions)
             "суд_money": суд_money,              # слепой суд по топ-K money-каскадов (перенаправл. контур)
+            "защита_гипотез": защита_гипотез,    # Flow-fix В1: слепой суд по топ-гипотезам ДЛЯ ПОДАЧИ (не §11)
             "топ_k": [_node_brief(s) for s in отбор["топ_k"]],
             "money_трек": [_node_brief(s) for s in треки["money"]],
             "провизорный_трек": [_node_brief(s) for s in треки["provisional"]],
