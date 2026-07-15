@@ -160,3 +160,63 @@ def test_word_boundary_truncation_no_mid_word_cut():
     out = R._trunc_words(long_ru, 60)
     assert out.endswith("…") and not out[:-1].endswith(" ")
     assert " " in out and not out[:-1].split()[-1].endswith("-")
+
+
+# ── Ревью flow-fix (wf_66cc7be3): закрытие находок #2/#3/#4/#6/#7 ──────────────────────────
+_SURV_PROV = {"FRO": {"исход": "УСТОЯЛА", "направление": "лонг", "балл": 3.3, "порог": 3.0,
+                      "кто_против": "Деэскалация вернёт ставки вниз.",
+                      "почему_возможность": "Рынок ещё не заложил закрытие маршрута."}}
+
+
+def test_survived_provisional_carries_price_caveat():
+    """#3: провизорная идея, устоявшая в суде, ВСЁ РАВНО помечается «связь ценами не подтверждена» —
+    суд проверяет тезис, а не статистическую связь звена (герметичность provisional≠money видима)."""
+    # FRO в _node провизорная (prov=True по умолчанию) и survived
+    text, meta, viol = R.top3_from_protocol(_proto(защита=_SURV_PROV))
+    assert viol == [] and "Защищаю №1" in text
+    assert "ценами пока НЕ подтверждена" in text and "провизорный трек" in text
+
+
+def test_oneliner_risk_never_claims_court_status():
+    """#6: строка-риск НИКОГДА не заявляет «идею не прогоняли/не гоняли» — это чистый посчитанный
+    контрдовод (иначе врала бы про money-идею, реально прошедшую суд)."""
+    text, _, _ = R.top3_from_protocol(_proto(защита=_SURV_PROV))
+    # найти строки-идеи и проверить, что в «Риск:» нет ложного статуса суда
+    for ln in text.splitlines():
+        if ln[:3] in ("1. ", "2. ", "3. ") and "Риск:" in ln:
+            risk = ln.split("Риск:", 1)[1]
+            assert "не гоняли" not in risk and "не прогоняли" not in risk
+
+
+def test_court_failed_is_distinct_from_not_run():
+    """#7: суд ЗАПУСКАЛСЯ, но ПРОПУСК (нет котировки) → «вердикт вынести не смог», НЕ «не гоняли»."""
+    failed = {"FRO": {"исход": "ПРОПУСК", "направление": "лонг",
+                      "примечание": "нет котировки терминала"}}
+    text, meta, viol = R.top3_from_protocol(_proto(защита=failed))
+    assert viol == []
+    assert meta["idx"]["1"] == "FRO"
+    assert "вердикт вынести не смог" in text
+    assert "не гоняли" not in text.split("Защищаю")[0] if "Защищаю" in text else True
+
+
+def test_english_headline_without_anchor_is_omitted():
+    """#2/#10: английский повод БЕЗ якоря (нечем заменить) не показывается — не уходит сырой английский."""
+    en = "Trump threatens to strike Iranian power plants next week"
+    топ = [_node("XYZ", edge=0.05, rel=0.3, order=2, event=en, anchor=None)]
+    text, _, viol = R.top3_from_protocol(_proto(топ=топ, поток=3))
+    assert viol == [] and "Trump" not in text and "threatens" not in text
+
+
+def test_judged_idea_outside_topk_still_surfaces():
+    """#4: судимая идея вне топ_k (money заполнил верх) добирается из трека и может стать №1."""
+    # топ_k БЕЗ FRO; FRO живёт только в money_треке и имеет вердикт суд_money
+    топ = [_node("AAA", edge=0.02, rel=0.05, order=3, prov=True, event="сырьё дешевеет"),
+           _node("BBB", edge=0.01, rel=0.04, order=3, prov=True, event="спрос падает")]
+    proto = _proto(топ=топ, суд=_FRO_VERDICT, поток=9)
+    # добавим FRO в money_трек протокола (как реальный route_tracks для вне-топ_k идеи)
+    proto["граф_отбор"]["money_трек"] = [_node("FRO", edge=0.08, rel=0.42, order=1,
+                                               prov=False, event="Ормуз под ударом")]
+    text, meta, viol = R.top3_from_protocol(proto)
+    assert viol == []
+    assert "FRO" in meta["idx"].values()      # судимая вне-топ_k идея показана
+    assert meta["idx"]["1"] == "FRO"           # и стала №1 (выжившая в суде)

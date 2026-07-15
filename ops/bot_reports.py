@@ -1299,19 +1299,22 @@ def _court_state(court):
     заполняет «почему_возможность» и для РАЗБИТОЙ идеи — но там он объясняет, почему возможности
     НЕТ. Поэтому «почему» подаём как довод «за» ТОЛЬКО у выжившей (УСТОЯЛА); у разбитой это часть
     «почему не прошла». Возвращает dict: survived/rejected/почему/против/словом/балл/порог/есть_суд."""
-    d = {"survived": False, "rejected": False, "почему": None, "против": None,
+    d = {"survived": False, "rejected": False, "не_смог": False, "почему": None, "против": None,
          "словом": None, "балл": None, "порог": None, "есть_суд": False}
     if not isinstance(court, dict):
         return d
     исход = court.get("исход")
     d["survived"] = исход == "УСТОЯЛА"
     d["rejected"] = исход in ("РАЗБИТА", "ВЕТО")
+    # суд ЗАПУСКАЛСЯ, но не смог вынести вердикт (нет котировки терминала / сбой LLM) — это НЕ «не
+    # гоняли» (ревью #7): у идеи есть court-объект с ПРОПУСК/ОШИБКА_СУДА, честно так и говорим.
+    d["не_смог"] = исход in ("ПРОПУСК", "ОШИБКА_СУДА")
     d["почему"] = _clean_llm(court.get("почему_возможность"), 300)
     d["против"] = _clean_llm(court.get("кто_против"), 300)
     d["балл"], d["порог"] = court.get("балл"), court.get("порог")
     d["словом"] = {"УСТОЯЛА": "устояла под критикой", "РАЗБИТА": "разбита критикой",
                    "ВЕТО": "снята процедурным вето"}.get(исход)
-    d["есть_суд"] = bool(d["survived"] or d["rejected"] or d["почему"] or d["против"])
+    d["есть_суд"] = bool(d["survived"] or d["rejected"] or d["не_смог"] or d["почему"] or d["против"])
     return d
 
 
@@ -1321,12 +1324,23 @@ def _top3_pool(protocol, *, name_fn=None):
     Возвращает список (brief, court|None). Пусто → честный пустой день."""
     g = protocol.get("граф_отбор") or {}
     топ = list(g.get("топ_k") or [])
+    защ = g.get("защита_гипотез") or {}
+    суд = g.get("суд_money") or {}
+    # Ревью #4: защита/суд гоняются по ПОЛНОМУ ранжиру треков (route_tracks → «ранжировано»), а показ
+    # берёт топ_k (top-8). Судимая идея может оказаться за пределами top-8 (когда money заполняет верх)
+    # → её вердикт есть, но показать неоткуда, и защищённая идея не станет №1. Добираем СУДИМЫЕ идеи,
+    # не попавшие в топ_k, из треков (их брифы protocol уже несёт). Сегодня money≈0 → эффекта нет.
+    seen = {b.get("актив") for b in топ if b.get("актив")}
+    judged = set(защ) | set(суд)
+    for b in ((g.get("money_трек") or []) + (g.get("провизорный_трек") or [])):
+        a = b.get("актив")
+        if a and a in judged and a not in seen:
+            топ.append(b)
+            seen.add(a)
     if not топ:
         return []
     from orchestrator import product_rank as PR
     ranked = PR.annotate_and_sort(топ)
-    защ = g.get("защита_гипотез") or {}
-    суд = g.get("суд_money") or {}
     out = []
     for b in ranked:
         a = b.get("актив")
@@ -1347,10 +1361,13 @@ def _top3_selection(protocol, *, name_fn=None, max_n=3):
         return []
     survivors = [x for x in pool if _court_state(x[1])["survived"]]
     rejected = [x for x in pool if _court_state(x[1])["rejected"]]
+    failed = [x for x in pool if _court_state(x[1])["не_смог"]]   # суд пытался, но не смог оценить
     if survivors:
         lead = survivors[0]
     elif rejected:
         lead = max(rejected, key=lambda x: (_court_state(x[1])["балл"] or 0.0))
+    elif failed:                                          # пытались судить (ближе, чем не тронутые)
+        lead = failed[0]
     else:
         lead = pool[0]
     rest = [x for x in pool if x is not lead]
@@ -1358,11 +1375,18 @@ def _top3_selection(protocol, *, name_fn=None, max_n=3):
 
 
 def _lead_mode(top):
-    """Режим подачи по состоянию суда над лидом: 'survived' | 'all_rejected' | 'unjudged'."""
+    """Режим подачи по состоянию суда над лидом:
+    'survived' | 'all_rejected' | 'court_failed' (запускался, не смог) | 'unjudged' (не гоняли)."""
     if not top:
         return "unjudged"
     st = _court_state(top[0][1])
-    return "survived" if st["survived"] else "all_rejected" if st["rejected"] else "unjudged"
+    if st["survived"]:
+        return "survived"
+    if st["rejected"]:
+        return "all_rejected"
+    if st["не_смог"]:
+        return "court_failed"
+    return "unjudged"
 
 
 def _oneend(s):
@@ -1376,23 +1400,39 @@ def _idea_label(brief, name_fn):
     return a if nm == a else f"{nm} ({a})"
 
 
+def _oneliner_risk(brief):
+    """Короткий контрдовод для строки «Топ-3» — ТОЛЬКО из посчитанных признаков идеи (детерминир.,
+    читаемый русский). Никогда не заявляет статус суда (это делает блок защиты). None → без риска."""
+    order, rel = brief.get("порядок"), brief.get("надёжность_r2")
+    if isinstance(order, int) and order >= 3:
+        return f"дальнее звено ({order}-й порядок): связь косвенная, эффект может рассеяться"
+    if isinstance(rel, (int, float)) and rel < _WEAK_R2:
+        return f"слабая статистика связи (объясняет лишь ~{rel * 100:.0f}% движений звена)"
+    if brief.get("провизорный"):
+        return "это пока гипотеза — связь ценами не подтверждена"
+    if isinstance(order, int) and order == 2:
+        return "не прямое звено: между событием и бумагой есть посредник"
+    return None
+
+
 def _top3_oneliner(brief, court, rank, name_fn=None):
     """Одна строка идеи: «N. Название (ТИКЕР) — вверх/вниз. <повод>. Риск: <контр>.» Плоский язык,
     без эмодзи/жаргона. Повод — из события (новости) либо цепочки; риск — из голоса суда «против»
     либо посчитанного контрдовода. Всё из посчитанного (П8), ничего не выдумано."""
     label = _idea_label(brief, name_fn)
     dir_word = _DIR_WORD.get((brief.get("направление") or "").lower(), "движение")
-    # повод: событие-новость (главный «почему»). Английский заголовок владельцу не показываем —
-    # заменяем русским механизмом «импульс по <исток> доходит до <актив>» (читаемость важнее).
+    # повод: событие-новость (главный «почему»). Английский заголовок владельцу НЕ показываем —
+    # заменяем русским механизмом «импульс по <исток> доходит до <актив>»; если якоря нет (нечем
+    # заменить) — повод ОПУСКАЕМ целиком (ревью #2/#10: сырой английский к владельцу не уходит).
     повод, is_en = _clean_event(brief.get("событие"))
-    if not повод or is_en:
+    if is_en or not повод:
         як = brief.get("якорь")
-        if як:
-            повод = f"импульс по {_safe_name(як)} доходит до {(name_fn or _safe_name)(brief.get('актив'))}"
-    # риск в ОДНОЙ строке — ЧИСТЫЙ посчитанный контрдовод (детерминир., читаемый русский). court=None
-    # намеренно: не тянем сюда длинный сырой текст судьи (рвётся на середине) — он в защите/раскрытии.
-    _, против = _pro_con(brief, None)
-    риск = _trunc_words(против[0], 130) if против else None
+        повод = (f"импульс по {_safe_name(як)} доходит до {(name_fn or _safe_name)(brief.get('актив'))}"
+                 if як else None)
+    # риск в ОДНОЙ строке — ЧИСТЫЙ посчитанный контрдовод (детерминир., читаемый русский), который
+    # НИКОГДА не заявляет статус суда (ревью #6: старый _pro_con(court=None) врал «идею не прогоняли»
+    # даже для money-идеи, прошедшей суд). Развёрнутый довод судьи — в защите №1/раскрытии.
+    риск = _oneliner_risk(brief)
     parts = [f"{rank}. {label} — {dir_word}."]
     повод = _oneend(повод)
     if повод:
@@ -1420,6 +1460,7 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
     возможности НЕТ — выдать это за довод «за» было бы враньём). Возвращает list строк."""
     label = _idea_label(brief, name_fn)
     dir_word = _DIR_WORD.get((brief.get("направление") or "").lower(), "движение")
+    provis = bool(brief.get("провизорный"))
     st = _court_state(court)
     за, против = _pro_con(brief, None)     # ЧИСТЫЕ посчитанные доводы (без сырого текста судьи)
     за_calc = _trunc_words(re.sub(r"^суд:\s*", "", за[0]), 240) if за else None
@@ -1431,6 +1472,12 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
             L.append(f"Почему это возможность: {st['почему'] or за_calc}")
         if st["против"] or против_calc:
             L.append(f"Кто на другой стороне и почему может быть неправ: {st['против'] or против_calc}")
+        # Ревью #3: суд проверяет ТЕЗИС, а не подтверждает статистическую связь звена. Провизорная
+        # идея, устоявшая в суде, — всё ещё НЕ подтверждена ценами (герметичность provisional≠money).
+        if provis:
+            L.append("Важно: связь этого звена ценами пока НЕ подтверждена — это провизорный трек. "
+                     "Суд принял ход мысли, но на историческую статистику связи опираться рано; "
+                     "в деньги не пускаю.")
     elif st["rejected"]:
         L.append((f"№{rank} — {label}" if rank else label) + f" (ставка на {dir_word}). "
                  f"Честно: защищать не буду — идея {st['словом']}{_score_tail(st)}.")
@@ -1439,6 +1486,15 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
             L.append(f"Главное возражение суда: {возр}")
         L.append("В деньги её не пускаю — показываю как ближайшую к порогу, чтобы ты видел, чего "
                  "идее не хватило.")
+    elif st["не_смог"]:
+        # Ревью #7: суд ЗАПУСКАЛСЯ, но не смог вынести вердикт (нет котировки терминала / сбой) —
+        # честно это и говорим, не выдаём за «не гоняли» и не за «прошла».
+        L.append((f"№{rank} — {label}" if rank else label) + f" (ставка на {dir_word}). "
+                 "Суд запускался, но вердикт вынести не смог — нет котировки терминала или сбой.")
+        if за_calc:
+            L.append(f"Довод за: {за_calc}")
+        if против_calc:
+            L.append(f"Довод против: {против_calc}")
     else:
         L.append((f"№{rank} — {label}" if rank else label) + f" (ставка на {dir_word}).")
         if за_calc:
@@ -1490,6 +1546,10 @@ def format_top3(protocol, *, name_fn=None, max_n=3):
                   f"не буду натягивать. Показываю {len(top)} ближайшие к порогу и разбираю №1 — чего "
                   f"именно ей не хватило. Это и есть ответ, где искать хорошую: там, где связь "
                   f"подтверждена ценой, а ход ещё не отыгран.")
+    elif mode == "court_failed":
+        значит = (f"Ниже — {len(top)} идеи дня. По №1 суд запускался, но вердикт вынести не смог "
+                  f"(нет котировки терминала или сбой) — поэтому это наводка, а не вердикт. №1 "
+                  f"разбираю подробнее; за глубоким разбором любой — скажи номер.")
     else:
         значит = (f"Ниже — {len(top)} идеи дня, ближайшие к порогу. Это быстрый скан: через полный "
                   f"состязательный суд их сегодня не гоняли, поэтому это наводки, а не вердикты. "
