@@ -1152,7 +1152,7 @@ def _score_human(знач):
     return str(знач)
 
 
-def _recent_outcomes(limit=1, path=None):
+def _recent_outcomes(limit=10, path=None):
     """Свежие РАЗРЕШЁННЫЕ исходы из journal/outcomes.jsonl (ТОЛЬКО чтение — журнал не трогаем; П16).
     Для resolved_postmortem «Разбора дня». Сбой/нет файла → пусто (кейс возьмётся из кандидатов)."""
     p = pathlib.Path(path or (ROOT / "journal" / "outcomes.jsonl"))
@@ -1183,7 +1183,7 @@ def daily_case_from_protocol(proto, *, name_fn=None, outcomes=None):
         import presentation_lint as PL
     if name_fn is None:
         name_fn = lambda s: _safe_name(s)
-    outs = outcomes if outcomes is not None else _recent_outcomes(1)
+    outs = outcomes if outcomes is not None else _recent_outcomes(10)
     case = DC.select_case(proto, outcomes=outs, name_fn=name_fn)
     text = format_daily_case(case)
     viol = PL.check_daily_case(text)

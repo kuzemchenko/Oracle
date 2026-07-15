@@ -60,6 +60,18 @@ def test_resolved_postmortem_wins_when_outcome_present():
     assert case["актив"] != "?"
 
 
+def test_postmortem_stale_outcome_yields_to_candidate():
+    """stage-review: несвежий исход (разрешён давно) НЕ даёт постмортем — иначе один и тот же
+    «сегодня подводим итог» топит живого кандидата много дней. Свежий (≤2 дн) — даёт."""
+    p = _proto(top_k=[_node("GEV.US")], суд={"GEV.US": {"исход": "УСТОЯЛА"}}, ts="2026-07-15T09:00:00Z")
+    stale = [{"asset": "FRO.US", "direction": "above", "threshold": 36.75, "observed_value": 36.92,
+              "outcome": 1, "resolved_at": "2026-07-01T21:00:00+00:00"}]     # 14 дней назад
+    assert DC.select_case(p, outcomes=stale)["статус"] == "live_candidate"
+    fresh = [{"asset": "FRO.US", "direction": "above", "threshold": 36.75, "observed_value": 36.92,
+              "outcome": 1, "resolved_at": "2026-07-14T21:00:00+00:00"}]     # вчера
+    assert DC.select_case(p, outcomes=fresh)["статус"] == "resolved_postmortem"
+
+
 def test_postmortem_skipped_when_outcome_lacks_asset():
     """Исход без актива/факта НЕ даёт постмортем (нечего сверять) — кейс берётся из кандидатов."""
     p = _proto(top_k=[_node("GEV.US")], суд={"GEV.US": {"исход": "УСТОЯЛА"}})

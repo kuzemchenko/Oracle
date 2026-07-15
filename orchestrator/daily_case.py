@@ -38,7 +38,10 @@
 _ПРИОРИТЕТ = ["resolved_postmortem", "live_candidate", "candidate_autopsy",
               "phenomenon_watch", "signal_noise_lesson"]
 
-_ПОРОГ_R2_СЛАБ = 0.10   # зеркалит mathlib.cascade.WEAK_R2 (модуль отбора кейса не тянет mathlib)
+# Порог СЛАБОЙ НАДЁЖНОСТИ ПЕРЕНОСА (надёжность_r2 = P, что шок доходит по цепочке; НЕ R² цены —
+# то изоляция_r2). 0.10 = «доходит реже 1 из 10» → цепочка ненадёжна. Отдельно от mathlib.WEAK_R2
+# (тот про одиночный r2); здесь величина другой природы, порог держим локально осознанно.
+_ПОРОГ_НАДЁЖНОСТИ_СЛАБ = 0.10
 
 
 def _node_label(sym, name_fn):
@@ -115,16 +118,18 @@ def _wrong_if(n, court):
     """Блок 5: «идея неверна, если…» — конкретные условия провала ИЗ посчитанного (П8)."""
     out = []
     order = n.get("порядок")
-    rel = n.get("надёжность_r2")
-    edge = n.get("edge")
+    rel = n.get("надёжность_r2")     # НАДЁЖНОСТЬ ПЕРЕНОСА по цепочке (P, что шок доходит), НЕ R² цены
+    edge = n.get("edge")             # НЕОТЫГРАННЫЙ (оставшийся) ход, на который рассчитываем
     if isinstance(order, int) and order >= 3:
         out.append(f"эффект рассеется по дороге — звено дальнее ({order}-й порядок), связь косвенная")
-    if isinstance(rel, (int, float)) and rel < _ПОРОГ_R2_СЛАБ:
-        out.append(f"связь окажется случайной — история цен объясняет лишь ~{rel * 100:.0f}% движений звена")
+    if isinstance(rel, (int, float)) and rel < _ПОРОГ_НАДЁЖНОСТИ_СЛАБ:
+        out.append(f"цепочка ненадёжна — исторически шок доходит до этого звена лишь ~{rel * 100:.0f}% "
+                   "случаев, часто рассеивается по дороге")
     if n.get("провизорный"):
         out.append("связь не подтвердится ценами — пока это гипотеза, а не проверенный перенос")
     if isinstance(edge, (int, float)) and edge:
-        out.append(f"рынок уже отыграл ход ~{edge * 100:+.1f}% до того, как мы вошли")
+        out.append(f"неотыгранного хода нет — заявленные ~{edge * 100:+.1f}% на деле уже в цене "
+                   "(запас, на который рассчитываем, переоценён)")
     if isinstance(court, dict) and court.get("кто_против"):
         out.append("права «другая сторона»: " + str(court["кто_против"]).strip()[:150])
     if not out:
@@ -316,14 +321,21 @@ def select_case(protocol, *, outcomes=None, phenomena=None, name_fn=None, now=No
     кандидаты = _candidates_from_protocol(protocol)
 
     пул = {}   # статус → (node, court)  — по одному лучшему на статус
-    # resolved_postmortem — из переданных исходов (самый обучающий). Берём только исход с активом
-    # И разрешённый (есть outcome/observed) — иначе постмортему нечего сверять (П8, не «?»).
+    # resolved_postmortem — из переданных исходов. Берём исход с активом И разрешённый (есть
+    # outcome/observed) И СВЕЖИЙ (разрешён не дальше POSTMORTEM_FRESH_DAYS от даты прогона) — иначе
+    # один и тот же постмортем «сегодня подводим итог» висел бы много дней и топил живого кандидата
+    # (stage-review). Свежесть отсекает застой; несвежий исход → постмортема нет, идём к кандидатам.
+    ref = _run_dt(protocol, now)
     _res_out = None
     for o in (outcomes or []):
-        if (o.get("asset") or o.get("актив")) and (o.get("outcome") is not None
-                                                    or o.get("observed_value") is not None):
-            _res_out = o
-            break
+        if not (o.get("asset") or o.get("актив")):
+            continue
+        if o.get("outcome") is None and o.get("observed_value") is None:
+            continue
+        if ref is not None and not _resolved_recently(o, ref):
+            continue
+        _res_out = o
+        break
     if _res_out is not None:
         пул["resolved_postmortem"] = ("__outcome__", _res_out)
     # живой кандидат / вскрытие — по вердикту суда (НЕ переклеиваем: РАЗБИТА = вскрытие, честно)
@@ -349,6 +361,39 @@ def select_case(protocol, *, outcomes=None, phenomena=None, name_fn=None, now=No
             return _build_case(status, n, court, rid, name_fn, дата=дата)
     return {"пусто": "сегодня не набралось даже учебного кейса — ни кандидатов, ни исходов, ни урока шума",
             "дата": дата, "тех_id": rid}
+
+
+POSTMORTEM_FRESH_DAYS = 2   # исход считается «свежим» для показа постмортема ≤2 дней от даты прогона
+
+
+def _run_dt(protocol, now):
+    """datetime прогона (для фильтра свежести исходов): из ts прогона, иначе now (инъекция)."""
+    ts = protocol.get("ts")
+    if ts:
+        try:
+            import datetime as _dt
+            return _dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            pass
+    return now
+
+
+def _resolved_recently(outcome, ref_dt):
+    """Исход разрешён не дальше POSTMORTEM_FRESH_DAYS от даты прогона (по resolved_at/resolve_by)."""
+    import datetime as _dt
+    for key in ("resolved_at", "resolve_by", "observed_at"):
+        v = outcome.get(key)
+        if not v:
+            continue
+        try:
+            d = _dt.datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            continue
+        # оба к naive-UTC для сравнения (ref может быть aware/naive)
+        rd = ref_dt.replace(tzinfo=None) if ref_dt.tzinfo else ref_dt
+        dd = d.replace(tzinfo=None) if d.tzinfo else d
+        return abs((rd - dd).days) <= POSTMORTEM_FRESH_DAYS
+    return False
 
 
 _МЕСЯЦЫ = ["", "января", "февраля", "марта", "апреля", "мая", "июня",

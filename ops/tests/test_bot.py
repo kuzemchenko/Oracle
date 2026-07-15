@@ -247,6 +247,20 @@ def test_case_feedback_ignores_unrelated_question(paths):
     assert bot.state.get("last_case") is not None    # кейс ещё ждёт ответа
 
 
+def test_case_feedback_does_not_swallow_short_common_words(paths):
+    """Регрессия stage-review: короткое «да»/«нет»/«не знаю» НЕ перехватывается как разметка кейса
+    (раньше подстрочный матч головы варианта глотал их и писал ложную запись §25)."""
+    bot = _fresh_bot()
+    bot.state["last_case"] = {"run_id": "ef_T", "asset": "ADM.US", "status": "candidate_autopsy",
+                              "варианты": ["да, идея слабая", "нет, суд ошибся", "нужен глубокий разбор"]}
+    for msg in ("да", "нет", "не знаю", "ок"):
+        assert bot._capture_case_feedback(555, msg) is False, msg
+    assert not paths["decisions"].exists()          # ни одной ложной записи
+    assert bot.state.get("last_case") is not None
+    # полный вариант — ловится
+    assert bot._capture_case_feedback(555, "да, идея слабая") is True
+
+
 def test_allow_list_blocks_foreign_chat(paths):
     bot = _fresh_bot(chat="555")
     token = "tok123"
