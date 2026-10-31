@@ -2012,7 +2012,7 @@ def _honesty_line(base_prov, base_money, money_recent):
         if hit is None or n < 30:
             return "сверенных исходов пока мало"
         return "хуже монетки" if hit < 0.45 else ("лучше монетки" if hit > 0.55 else "как монетка")
-    парт = [f"исследовательские идеи сбываются {word(base_prov)}"]
+    парт = [f"Исследовательские идеи сбываются {word(base_prov)}"]
     if (base_money or {}).get("n"):
         парт.append(f"денежные — {word(base_money)}")
     if money_recent is None:
@@ -2103,6 +2103,9 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
         шаг = _ORD_RU.get(my_order, "дальний")
         if not isinstance(my_frac, (int, float)):
             L.append(f"Моё звено — {шаг} шаг; его отыгранность не измерена — считать его неотыгранным не могу.")
+        elif my_frac >= 0.8:                       # сюда попадает только лид, прошедший денежный суд
+            L.append(f"Моё звено — {шаг} шаг; рынок его уже отыграл — защищаю потому, что идея прошла "
+                     f"денежный суд; проверь меня на этом.")
         elif my_frac >= 0.3:
             L.append(f"Моё звено — {шаг} шаг; рынок отыграл его частично — идея держится на остатке хода; "
                      f"проверь меня на этом.")
