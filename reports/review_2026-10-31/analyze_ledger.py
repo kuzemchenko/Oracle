@@ -14,7 +14,7 @@ import sys
 
 ROOT = pathlib.Path("/home/user/Oracle")
 OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else pathlib.Path(".")
-CUTOFF_NOTE = "данные клона по 2026-07-15 (сервер не пушил чекпоинты позже)"
+CUTOFF_NOTE = "полные данные 2026-06-12…2026-10-31 (чекпоинт сервера 31.10)"
 
 
 def load_jsonl(p):
@@ -58,7 +58,7 @@ S = collections.defaultdict(lambda: {
     "probs": [], "probs_resolved": [], "first": None, "last": None,
     "unresolved_ripe": 0, "assets": collections.Counter(), "bins": collections.defaultdict(lambda: [0, 0]),
 })
-CUTOFF = "2026-07-15T23:59:59+00:00"
+CUTOFF = "2026-10-31T23:59:59+00:00"
 rows_money = []
 for p in preds:
     tr = track_of(p)
@@ -117,7 +117,7 @@ for tr, s in sorted(S.items()):
         "brier": round(s["brier_sum"] / n, 4) if n else None,
         "brier_базовой_частоты": round(s["brier_base_sum"] / n, 4) if n else None,
         "skill_vs_base": round((s["brier_base_sum"] - s["brier_sum"]) / n, 4) if n else None,
-        "созрело_но_не_сверено_в_клоне": s["unresolved_ripe"],
+        "созрело_но_не_сверено": s["unresolved_ripe"],
         "калибровка_бины_P→(N,факт)": {
             f"{b/10:.1f}–{(b+1)/10:.1f}": {"N": v[0], "факт_частота": round(v[1] / v[0], 3)}
             for b, v in sorted(s["bins"].items()) if v[0] >= 5},
