@@ -78,6 +78,11 @@ roles:
     primary:   anthropic/claude-fable-5      # Fable 5 — аргументирует, спорит, отстаивает позицию;
     fallbacks: [anthropic/claude-opus-4.8, anthropic/claude-sonnet-4.6]  # денежные вердикты — суд П10
     family:    anthropic
+  voice_transcriber:         # Голосовые владельца в Telegram → текст (STT через input_audio).
+    primary:   google/gemini-3.5-flash      # НЕ суждение о рынке — П10 не касается; дёшево, аудио-вход
+    fallbacks: [google/gemini-2.5-flash, openai/gpt-4o-audio-preview]
+    family:    google
+    temperature: 0.0
   report_synthesizer:        # Синтезатор отчёта
     primary:   anthropic/claude-sonnet-4.6
     fallbacks: [anthropic/claude-haiku-4.5, google/gemini-3.5-flash]
