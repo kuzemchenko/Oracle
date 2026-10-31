@@ -43,6 +43,19 @@ LOGS = ROOT / "journal" / "funnel_logs"
 # дорогой контур). Раньше оба были k=2: узкий скан привязан к бюджету контура. Теперь скан шире.
 MAX_SHOCK_SOURCES = 8
 
+# Flow-fix Вариант 2 (решение владельца 15.07): ШИРЕ ВЕРХ ВОРОНКИ. Раньше картограф пытался
+# построить каскад лишь из 10 верхних новостных кластеров дня из ~50 — 40 сюжетов не доходили даже
+# до попытки. Поднято до 24: больше событий получают шанс стать торгуемой цепочкой. Каждая попытка —
+# LLM-вызов (учтён в бюджете event_first, поднятом под это решение); пустые карты честно отсекаются.
+CARTO_MAX_MAP = 24
+
+# A1 (согласие владельца 15.07 «А+B»): сколько ТОП-ИДЕЙ провизорного трека прогоняем через
+# ИССЛЕДОВАТЕЛЬСКИЙ суд (research_subrubric: сила идеи по механизму/неочевидности/свежести/тайминг+ход/
+# асимметрии/проверяемости; r² — плюс, не ворота). РЕЗУЛЬТАТ = БАЛЛ для ранжирования и показа, НЕ kill.
+# Судим больше, показываем топ-3 (запас на ранжирование). Вердикт в поле протокола «разбор_идей»; НЕ
+# запечатывается в деньги §11, провизорный seal не меняется (герметичность §11/П16 цела).
+RESEARCH_VET_K = 5
+
 
 def _now():
     return datetime.datetime.now(datetime.timezone.utc)
@@ -531,6 +544,209 @@ def _vet_money(money_members, run_id, top_k=3, chain_events=None, deep_report=Fa
     return out
 
 
+_RESEARCH_CRIT_IDS = ["mechanism_real", "non_obviousness", "crowd_fresh",
+                      "timing_amplitude", "asymmetry", "falsifiability"]
+
+
+def _criteria_scores(judge_judgment, ordered_ids):
+    """Из ответа судьи (рубрика.оценки) → {id_критерия: балл}. Матч по id/критерий/title. Позиционный
+    фолбэк — ТОЛЬКО когда судья вернул ЧИСТО безымянный список ровно нужной длины (ни один id не совпал
+    и len == len(ordered_ids)); при частичном совпадении по id позиционно НЕ добираем (иначе рискуем
+    подписать балл не тем критерием — ревью stage-review). Строка «силы идеи» — только для подачи."""
+    rub = (judge_judgment or {}).get("рубрика") or {}
+    оценки = rub.get("оценки")
+    if not isinstance(оценки, list):
+        return {}
+    by_id, ordered_vals = {}, []
+    for o in оценки:
+        if not isinstance(o, dict):
+            continue
+        b = o.get("балл")
+        if not (isinstance(b, (int, float)) and not isinstance(b, bool)):
+            continue
+        ordered_vals.append(float(b))
+        key = o.get("id") or o.get("критерий_id") or o.get("критерий")
+        if isinstance(key, str) and key in ordered_ids:
+            by_id[key] = float(b)
+    if not by_id and len(ordered_vals) == len(ordered_ids):   # безымянный список ровной длины → по позиции
+        return dict(zip(ordered_ids, ordered_vals))
+    return by_id
+
+
+def _research_thesis(n, событие=None):
+    """Тезис для ИССЛЕДОВАТЕЛЬСКОГО суда (A1): не «доказанный edge», а «почему идея интересна и
+    неочевидна». Из посчитанных полей узла (П8): повод → неочевидная цепочка → сторона/ход → порядок
+    (глубина = неочевидность) → окно. Исторический r² — как СПРАВКА (низкий у неочевидных ОЖИДАЕМ), НЕ
+    как довод-ворота."""
+    def _p(x):
+        return f"{x * 100:+.1f}%" if isinstance(x, (int, float)) else None
+    amp = n.get("amplitude")
+    full = n.get("edge_total", n.get("amplitude_total"))
+    order, lag, root = n.get("order"), n.get("lag_days", n.get("lag_total")), n.get("root")
+    chain = [str(x) for x in (n.get("провенанс_звеньев") or []) if x and "без данных" not in str(x)]
+    dv = amp if isinstance(amp, (int, float)) else full
+    side = "рост" if (dv or 0) > 0 else "снижение" if (dv or 0) < 0 else "движение"
+    parts = []
+    if событие:
+        parts.append(f"Событие-повод: {событие}")
+    if root:
+        parts.append(f"Импульс идёт от {root}.")
+    if chain:
+        parts.append("Неочевидная цепочка до цели: " + " → ".join(chain) + ".")
+    if order is not None:
+        parts.append(f"Цель — {order}-й порядок цепочки"
+                     + (" (узкое место — через него идёт весь поток)" if n.get("chokepoint") else "")
+                     + "; чем дальше звено, тем менее очевиден бенефициар для толпы.")
+    if n.get("инверсия"):
+        parts.append("Это ИНВЕРСНАЯ/контринтуитивная связь: толпа ждёт ОБРАТНОГО эффекта, а выигрывает "
+                     "этот узел (плюс к неочевидности — люди её в упор не видят).")
+    if _p(full) or _p(amp):
+        tail = (f", из них ещё не отыграно ≈ {_p(amp)}" if _p(amp) and _p(amp) != _p(full) else "")
+        parts.append(f"Ожидаемая сторона — {side}; расчётный ход ≈ {_p(full) or _p(amp)}{tail}.")
+    if isinstance(lag, (int, float)) and lag:
+        parts.append(f"Историческое окно реакции ≈ {int(round(lag))} дн.")
+    r2 = n.get("reliability", n.get("reliability_r2"))
+    if isinstance(r2, (int, float)):
+        parts.append(f"Справочно: исторический r² связи = {r2}. Низкий r² у НЕОЧЕВИДНОЙ идеи ОЖИДАЕМ — "
+                     f"это НЕ довод против (прецедент — плюс к силе, не ворота).")
+    return " ".join(parts) or "идея: посчитанных полей нет (П8 — нет данных для тезиса)"
+
+
+def _crowd_signal(field):
+    """A2: директива судье для критерия crowd_fresh из ДЕТЕРМИНИРОВАННОГО датчика внимания (Google
+    Trends → mathlib/attention.py). Даём судье число (свежесть) и фазу, чтобы crowd_fresh опирался на
+    сенсор, а не на глазомер (Инв#6: датчик — код, вердикт — LLM). «Не измерено» → НЕЙТРАЛЬНО, не штраф
+    (правило рубрики: отсутствие данных о внимании неочевидное не казнит). None → нет сигнала."""
+    if not isinstance(field, dict):
+        return None
+    if field.get("статус") != "ok":
+        причина = field.get("причина") or "нет ряда Google Trends по ключу"
+        return (f"Датчик толпы (Google Trends): НЕ измерено ({причина}). По рубрике crowd_fresh здесь "
+                f"НЕЙТРАЛЬНО — отсутствие данных о внимании НЕ штраф.")
+    свеж, фаза = field.get("свежесть"), field.get("фаза")
+    hint = {"РАНО": "интерес есть, толпа ещё НЕ набежала — свежо, crowd_fresh скорее ВЫСОКИЙ",
+            "ВОВРЕМЯ": "толпа заходит сейчас — crowd_fresh средний",
+            "ПОЗДНО": "тема уже на радаре толпы — crowd_fresh НИЗКИЙ",
+            "ЛОВУШКА": "цена уехала / перегрето — crowd_fresh НИЗКИЙ",
+            "ОТЫГРАНО": "хайп сдулся, тема отыграна — crowd_fresh НИЗКИЙ"}.get(фаза, "")
+    свеж_txt = (f"свежесть {свеж * 100:.0f}% (1=свежо, 0=перегрето/цена уехала)"
+                if isinstance(свеж, (int, float)) else "свежесть н/д")
+    return f"Датчик толпы (Google Trends, детерминир.): {свеж_txt}, фаза {фаза}. {hint}".strip()
+
+
+def _falsifiable_forecast(n):
+    """A2: явный ПРОВЕРЯЕМЫЙ прогноз (§9: что / насколько / к сроку) из ПОСЧИТАННЫХ полей узла — опора
+    для критерия falsifiability (проверяемость), а не глазомер. Неполные параметры → честно помечаем,
+    что проверяемость ограничена (расплывчатый прогноз = низкий балл по рубрике)."""
+    amp = n.get("amplitude")
+    full = n.get("edge_total", n.get("amplitude_total"))
+    ход = full if isinstance(full, (int, float)) else amp
+    dv = amp if isinstance(amp, (int, float)) else full
+    side = "рост" if (dv or 0) > 0 else "снижение" if (dv or 0) < 0 else None
+    гор = n.get("horizon_days")
+    parts = []
+    if side and isinstance(ход, (int, float)):
+        parts.append(f"направление — {side}, ожидаемая величина ≈ {abs(ход) * 100:.1f}%")
+    elif side:
+        parts.append(f"направление — {side} (величина не посчитана)")
+    if isinstance(гор, (int, float)) and гор:
+        parts.append(f"срок ≈ {int(round(гор))} торг. дн")
+    if not parts:
+        return "Проверяемый прогноз (§9): параметры (сторона/величина/срок) НЕ полны — проверяемость ниже."
+    полный = bool(side and isinstance(ход, (int, float)) and isinstance(гор, (int, float)) and гор)
+    tail = (" → чёткий что/сколько/срок, можно свериться с фактом (falsifiability высокий)."
+            if полный else " → прогноз неполный, проверяемость ограничена.")
+    return "Проверяемый прогноз (§9): " + ", ".join(parts) + "." + tail
+
+
+def _vet_research(members, run_id, top_k=5, chain_events=None, guard=None):
+    """A1 (согласие владельца 15.07 «А+B»): ИССЛЕДОВАТЕЛЬСКИЙ суд по топ-K идей провизорного трека.
+    Тот же состязательный контур (генератор/критик/СЛЕПОЙ судья П10, разные семейства), но по
+    research_subrubric: судим СИЛУ идеи (механизм/неочевидность/свежесть/тайминг+ход/асимметрия/
+    проверяемость); исторический r² — плюс-если-есть, НЕ ворота. РЕЗУЛЬТАТ = БАЛЛ силы для
+    РАНЖИРОВАНИЯ и показа, НЕ kill — идею не убиваем. Денежный суд (_vet_money)/§11 НЕ тронуты.
+    В отличие от money-суда, НЕ фейлится без котировки (идею можно судить по механизму без цены).
+    Возвращает {symbol: {оценка(0-5|None), band, критерии{id:балл}, кто_против, почему_возможность}}."""
+    from orchestrator import context as _C
+    from orchestrator import debate as _D
+    from orchestrator.openrouter import LiveClient
+    chain_events = chain_events or {}
+    try:
+        client = LiveClient(run_id=run_id)
+    except Exception as e:  # noqa: BLE001
+        return {s.get("symbol"): {"оценка": None, "band": "не оценено",
+                                  "примечание": f"суд идей недоступен (LLM): {e}"}
+                for s in (members or [])[:top_k] if s.get("symbol")}
+    if guard is not None:
+        client.cost_guard = guard
+    rubric = _D.load_rubric()
+    bands = (rubric.get("research_subrubric") or {}).get("bands") or {}
+    ctx = _C.build_context()
+    con = sqlite3.connect(str(_C.DB), timeout=30) if _C.DB.exists() else None
+    out = {}
+    try:
+        for s in (members or [])[:top_k]:
+            n = s.get("node") or {}
+            sym, amp = s.get("symbol"), n.get("amplitude")
+            direction = "лонг" if (amp or 0) > 0 else "шорт"
+            if con is not None and sym and sym not in ctx.get("quotes", {}):
+                q = _C._quotes(con, sym)
+                if q:
+                    ctx["quotes"][sym] = {"last": q[-1], "n_bars": len(q),
+                                          "first_date": q[0]["date"], "last_date": q[-1]["date"]}
+                    ctx["indicators"][sym] = _C._indicators(q)
+            событие = chain_events.get(n.get("_chain"))
+            дело = {
+                "событие_исток_заголовок": событие,
+                "якорь_корневого_шока": n.get("root"),
+                "механизм_по_звеньям": [str(x) for x in (n.get("провенанс_звеньев") or []) if x],
+                "порядок_узла": n.get("order"), "чокпоинт": bool(n.get("chokepoint")),
+                "инверсия_контринтуитивная": bool(n.get("инверсия")),   # B1: узел выигрывает от обратного эффекта
+                "ожидаемый_полный_ход": n.get("edge_total", n.get("amplitude_total")),
+                "неотыгранный_ход": amp,
+                "исторический_r2_справочно": n.get("reliability", n.get("reliability_r2")),
+                "лаг_дней": n.get("lag_days", n.get("lag_total")),
+                "котировка_терминала": (ctx.get("quotes", {}).get(sym) or {}).get("last"),
+                "внимание_trends": s.get("внимание"),
+                # A2: два ДЕТЕРМИНИРОВАННЫХ сигнала-опоры судье (не глазомер) — толпа для crowd_fresh и
+                # проверяемый §9-прогноз для falsifiability.
+                "сигнал_толпы_crowd_fresh": _crowd_signal(s.get("внимание")),
+                "проверяемый_прогноз_falsifiability": _falsifiable_forecast(n),
+                "напоминание_суду": ("суди СИЛУ идеи по исследовательской карте; исторический r²≈0 у "
+                                     "НЕОЧЕВИДНЫХ идей ОЖИДАЕМ и НЕ штрафуется; прецедент — плюс, не ворота. "
+                                     "crowd_fresh опирай на «сигнал_толпы_crowd_fresh» (датчик Trends), не на "
+                                     "глазомер; «не измерено» — нейтрально. falsifiability опирай на "
+                                     "«проверяемый_прогноз_falsifiability» (есть ли чёткое что/сколько/срок)"),
+            }
+            cand = {"актив": sym, "направление": direction, "тезис": _research_thesis(n, событие),
+                    "дело_каскада": дело, "школа": "каскад", "вид_дела": "исследование",
+                    "разрешимость": None}
+            try:
+                d = _D.run_debate(cand, ctx, client, run_id=f"{run_id}__idea__{sym}")
+                v = d.get("вердикт") or {}
+                judge = ((d.get("реплики") or {}).get("судья") or {}).get("judgment") or {}
+                оценка = v.get("средний_балл_рубрики")
+                if isinstance(оценка, (int, float)):
+                    band = ("сильная" if оценка >= bands.get("strong", 3.5)
+                            else "средняя" if оценка >= bands.get("medium", 2.5) else "слабая")
+                else:
+                    band = "не оценено"
+                out[sym] = {
+                    "оценка": оценка, "band": band, "направление": direction,
+                    "критерии": _criteria_scores(judge, _RESEARCH_CRIT_IDS),
+                    "кто_против": judge.get("кто_продаёт_нам_и_почему_неправ"),
+                    "почему_возможность": judge.get("почему_возможность_ещё_существует"),
+                    "примечание": v.get("примечание") or v.get("причина"),
+                }
+            except Exception as e:  # noqa: BLE001
+                out[sym] = {"оценка": None, "band": "не оценено", "направление": direction,
+                            "примечание": f"сбой суда идей: {type(e).__name__}: {e}"}
+    finally:
+        if con is not None:
+            con.close()
+    return out
+
+
 REPLAY_LOGS = ROOT / "journal" / "replay_logs"
 
 
@@ -606,7 +822,7 @@ def run_replay(cutoff, *, top_k=8, horizon_days=5, write=True):
 
 
 def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, skip_contour=False,
-                    seal_predictions=False, vet_money_k=0, deep_money_report=False):
+                    seal_predictions=False, vet_money_k=0, deep_money_report=False, research_vet_k=0):
     """Полный event-first прогон. Возвращает сводный протокол.
 
     skip_contour=True — research-only: без дорогого 21-агентного качественного контура по источникам
@@ -644,7 +860,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         sources = _shock_sources(scan, universe, con, max(k, MAX_SHOCK_SOURCES))
         # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
         # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
-        pcs = _cartographer_pass(scan, universe, mode, run_id, guard=guard)
+        pcs = _cartographer_pass(scan, universe, mode, run_id, max_map=CARTO_MAX_MAP, guard=guard)
         proposals = _stage_cartographer(pcs, now)
         картограф_идеи = _proposal_ideas(proposals)
         # FГ B2: дорогой контур — только по первым k источникам (бюджет). Остальные найденные
@@ -770,10 +986,10 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # ПЕРЕНАПРАВЛЕНИЕ КОНТУРА: дорогой состязательный суд — на топ-K money-каскадов (не на слепые
         # шок-источники). Сломанные слепым судом money-идеи демотируются в провизорный (гейт §11).
         суд_money = {}
+        chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
+                        for c in каскады if c.get("chain_id")}
         if vet_money_k and mode != "mock":
             # событие-исток по цепочке → судья видит ПОВОД, а не голый edge (см. _money_thesis)
-            chain_events = {c.get("chain_id"): _событие_из_цепочки(c)
-                            for c in каскады if c.get("chain_id")}
             суд_money = _vet_money(треки["money"], run_id, vet_money_k, chain_events=chain_events,
                                    deep_report=deep_money_report, guard=guard)
 
@@ -806,6 +1022,21 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                         запечатано["провизорный"] += 1
                     else:
                         запечатано["дубль_пропущен"] += 1
+
+        # A1 (согласие владельца 15.07 «А+B»): ИССЛЕДОВАТЕЛЬСКИЙ СУД по топ-K провизорных идей. Тот же
+        # состязательный контур (генератор/критик/слепой судья П10), но по research_subrubric: судим
+        # СИЛУ идеи (механизм/неочевидность/свежесть/тайминг+ход/асимметрия/проверяемость); исторический
+        # r² — плюс-если-есть, НЕ ворота. РЕЗУЛЬТАТ = БАЛЛ для ранжирования и показа, НЕ kill (идею не
+        # убиваем — этим лечим «фильтр в принципе не пропускает ни одной идеи»). Вердикт в ОТДЕЛЬНОЕ
+        # поле «разбор_идей», НЕ участвует в seal §11. Денежный суд (_vet_money выше)/§11 — не тронуты.
+        # ⚠ РЕВЬЮ flow-fix (регрессия #1/#9): это presentation-only LLM-траты — ОБЯЗАНЫ стоять ПОСЛЕ
+        # цикла seal_predictions. Иначе RB.RunBudgetExceeded на этом шаге сорвал бы запечатывание дня.
+        # Порядок: суд money → SEAL §11 → исследовательский суд подачи. Инвариант защищён.
+        разбор_идей = {}
+        if research_vet_k and mode != "mock":
+            # top провизорных по ранжиру graph_select (edge/надёжность/изоляция) — судим их СИЛУ как идей
+            разбор_идей = _vet_research(треки["provisional"], run_id, research_vet_k,
+                                        chain_events=chain_events, guard=guard)
     except RB.RunBudgetExceeded as e:
         # Долг[HIGH]: хард-стоп бюджета на лету (§24) — прогон ОСТАНОВЛЕН, graceful-протокол (не крэш)
         PROG.finish(f"остановлен по бюджету (§24): потрачено ${e.spent_usd:.2f} ≥ ${e.cap_usd}")
@@ -865,6 +1096,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
                 "отыгранность_узла": priced,             # Этап3 #5: тайминг РАНО/ВОВРЕМЯ/ПОЗДНО в «Разборе дня»
                 "узлы_каскада": узлы,                     # Этап3 #5: реальный текст звена (не якорь-фолбэк)
                 "провизорный": bool(n.get("research")),
+                "инверсия": bool(n.get("инверсия")),     # B1: контринтуитивный узел (для пометки в показе)
                 "внимание": s.get("внимание"),          # П2а: инфо-поле (ранжирование не трогает)
                 # «почему»: событие, активировавшее цепочку, и её якорь (источник корневого шока)
                 "событие": _событие_из_цепочки(ch),
@@ -897,6 +1129,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
             "треки": {"money": money_n, "провизорный": prov_n, "дайджест": dig_n},
             "запечатано": запечатано,           # B3c: фактически в журнал (только seal_predictions)
             "суд_money": суд_money,              # слепой суд по топ-K money-каскадов (перенаправл. контур)
+            "разбор_идей": разбор_идей,          # A1: исследовательский суд — БАЛЛ силы идей для ПОКАЗА (не §11)
             "топ_k": [_node_brief(s) for s in отбор["топ_k"]],
             "money_трек": [_node_brief(s) for s in треки["money"]],
             "провизорный_трек": [_node_brief(s) for s in треки["provisional"]],

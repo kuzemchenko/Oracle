@@ -1,14 +1,11 @@
 # knowledge/prob_shrink.yaml — политика сжатия вероятностей к базовой частоте (§10).
-# ПОДПИСАНО владельцем 09.07.2026 (П-1, journal/proposals/proposals_20260709_calibration_court.md).
-# Пере-подгонка ЕЖЕМЕСЯЧНО: ops/refit_prob_shrink.py --apply (walk-forward, N≥30) — авто-apply
-# авторизован той же подписью П-1 («λ и p0 пере-подгоняются ежемесячно петлёй §25»).
-# Применяется ТОЛЬКО к official probability каскадных треков (cascade_money, cascade_provisional)
-# при запечатывании; сырая уверенность сохраняется рядом (probability_raw) — по ней меряется
-# скилл рёбер (forward_promotion) и будущие пере-подгонки λ.
+# СГЕНЕРИРОВАНО ops/refit_prob_shrink.py (ежемесячная пере-подгонка по подписи П-1
+# 09.07.2026, journal/proposals/proposals_20260709_calibration_court.md). Правки руками
+# будут перезаписаны. Сырая уверенность хранится в probability_raw печатей.
 applies_to: [cascade_money, cascade_provisional]
-lambda: 0.0            # доверие собственной уверенности: 0 = только базовая частота
-p0: 0.431              # базовая частота исходов боевых треков (money+provisional, N=98)
-fitted_at: "2026-07-09"
-fit: {n_fit: 58, n_oos: 40, brier_oos_raw: 0.3129, brier_oos_shrunk: 0.2479, split: 0.6}
-signed_by: "владелец, 09.07.2026 (в сессии: «сделай все, я согласен»)"
-spec_ref: "§10 поправки по форвард-статистике; П-1 09.07; mathlib/calibration/prob_shrink.py"
+lambda: 0.0
+p0: 0.4669
+fitted_at: "2026-10-01"
+fit: {n_fit: 876, n_oos: 584, brier_oos_raw: 0.2527, brier_oos_shrunk: 0.2519, split: 0.6}
+signed_by: "владелец, 09.07.2026 (П-1: ежемесячная пере-подгонка авторизована)"
+spec_ref: "§10; П-1 09.07; mathlib/calibration/prob_shrink.py"

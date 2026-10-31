@@ -1,0 +1,2 @@
+{"ts": "2026-09-22T09:08:44Z", "agent": "event_mapper", "role": "generator", "attempted": "anthropic/claude-opus-4.8", "used": "anthropic/claude-sonnet-4.6", "reason": "error: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"}
+{"ts": "2026-09-22T09:23:27Z", "agent": "e_generator", "role": "generator", "attempted": "anthropic/claude-opus-4.8", "used": "anthropic/claude-sonnet-4.6", "reason": "error: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"}

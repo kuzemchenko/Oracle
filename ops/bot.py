@@ -235,6 +235,9 @@ class Bot:
         # Ловим ТОЛЬКО короткий текст, совпавший с показанным вариантом (иначе это обычный вопрос).
         if not text.startswith("/") and self._capture_case_feedback(chat, text):
             return
+        # Flow-fix В1: ответ «1»/«2»/«3» на «Топ-3» → мгновенная защита выбранной идеи из готового суда.
+        if not text.startswith("/") and self._capture_top3_pick(chat, text):
+            return
         if text.startswith("/"):
             self._command(chat, text)
             return
@@ -286,6 +289,41 @@ class Bot:
         self.save()
         self.tg.send_message(chat, "Записал твою оценку кейса — она идёт в счёт качества выдачи (§25). "
                                    "Хочешь глубже — «разбери ТИКЕР».")
+        return True
+
+    def _capture_top3_pick(self, chat, text):
+        """Flow-fix В1: если последним показан «Топ-3» и владелец ответил номером (1–3, «разбери 2»,
+        «первая»…) — раскрываем защиту этой идеи из ГОТОВОГО суда (мгновенно, без прогона). Строго:
+        ловим только явный выбор номера, чтобы не перехватывать обычные сообщения. Иначе False."""
+        lt = self.state.get("last_top3")
+        if not lt or not (lt.get("idx")):
+            return False
+        t = text.lower().strip().strip(".!?…")
+        if len(t) > 24:                                  # длинный текст — это вопрос, не выбор номера
+            return False
+        for pre in ("разбери ", "раскрой ", "покажи ", "идея ", "идею ", "номер ", "№", "давай "):
+            if t.startswith(pre):
+                t = t[len(pre):].strip()
+        t = {"первая": "1", "первую": "1", "первый": "1", "вторая": "2", "вторую": "2", "второй": "2",
+             "третья": "3", "третью": "3", "третий": "3"}.get(t, t)
+        if t not in ("1", "2", "3"):
+            return False
+        ticker = (lt.get("idx") or {}).get(t)
+        if not ticker:
+            self.tg.send_message(chat, f"Под номером {t} сегодня идеи нет.")
+            return True
+        proto = R.load_protocol(lt.get("run_id"))
+        if not proto:
+            self.tg.send_message(chat, "Не нашёл прогон, из которого была та подборка — сделай свежий "
+                                       "(«найди идеи») и выбери заново.")
+            return True
+        card, viol = R.top3_defense_card(proto, ticker)
+        if card is None:
+            log("Топ-3 защита не прошла стиль-контракт", lt.get("run_id"), ticker, viol)
+            self.tg.send_message(chat, f"Не смог собрать чистую защиту по {ticker}. Попробуй "
+                                       f"«разбери {ticker}» — полный разбор.")
+            return True
+        self._send_card(card, None)
         return True
 
     def _voice_text(self, chat, msg):
@@ -944,7 +982,27 @@ class Bot:
                     # контракта (fail-closed). При daily_case_lead=true он ГЛАВНЫЙ дневной пуш вместо
                     # длинного эмодзи-дайджеста (потолок шума: один читаемый артефакт в день).
                     card, _artifact = None, "дайджест"
-                    if pres.get("daily_case_lead"):
+                    # Ревью #5/#8: сбрасываем «показанную подборку Топ-3» ДО выбора артефакта. Иначе
+                    # при фолбэке на «Разбор дня»/дайджест старая last_top3 доживает, и ответ «1/2/3»
+                    # раскрыл бы идею ЧУЖОГО (прошлого) прогона как сегодняшнюю. Ставим заново только
+                    # если сегодня реально ушёл «Топ-3».
+                    self.state["last_top3"] = None
+                    # Flow-fix В1 (15.07): лид-каскад ПОДАЧИ — «Топ-3 одной строкой» + защита №1
+                    # (выбор владельца) → фолбэк «Разбор дня» → фолбэк эмодзи-дайджест. Каждый слой
+                    # fail-closed по линтеру стиль-контракта: сломанный шаблон не уходит, берём следующий.
+                    if pres.get("top3_lead"):
+                        t3_text, t3_meta, t3_viol = R.top3_from_protocol(proto)
+                        if t3_text is None:
+                            log("Топ-3 не прошёл стиль-контракт — фолбэк на Разбор дня", run_id, t3_viol)
+                        else:
+                            card = t3_text
+                            _artifact = "Топ-3"
+                            # запоминаем показанные идеи: ответ владельца «1»/«2»/«3» раскроет защиту
+                            # соответствующей идеи из ГОТОВОГО суда (без нового прогона).
+                            self.state["last_top3"] = {"run_id": run_id,
+                                                       "idx": (t3_meta or {}).get("idx") or {}}
+                            self.state["last_case"] = None
+                    if card is None and pres.get("daily_case_lead"):
                         case_text, _case, _viol = R.daily_case_from_protocol(proto)
                         if case_text is None:                # линтер завалил шаблон → не шлём сломанное
                             log("Разбор дня не прошёл стиль-контракт — фолбэк на дайджест", run_id, _viol)
@@ -958,7 +1016,7 @@ class Bot:
                                 "run_id": run_id, "asset": (_case or {}).get("актив"),
                                 "status": (_case or {}).get("статус"),
                                 "варианты": q.get("варианты") or []}
-                    if card is None:                         # флаг выключен ИЛИ линтер завалил → дайджест
+                    if card is None:                         # флаги выключены ИЛИ линтер завалил → дайджест
                         card = R.format_research_digest(proto)
                     # длиннее лимита Telegram (4096) → шлём частями.
                     if self._send_card(card, None) is None:
