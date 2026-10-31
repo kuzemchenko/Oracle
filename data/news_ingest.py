@@ -33,6 +33,41 @@ import newsapi_ai
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LOG = ROOT / "journal" / "news_ingest.log"
+NOTICES = ROOT / "journal" / "notices.jsonl"   # канал заметок владельцу (бот пушит по курсору, как §25)
+
+
+def source_health_notices(gdelt_res=None, trends_res=None):
+    """Разбор 31.10.2026: источники умирали МОЛЧА. GDELT с 26.10 отдавал 0 статей (HTTP 429 на все 21
+    запроса/день — бан IP), Google Trends 3,5 месяца не фетчил ни одного ключа реестра «внимания» — а
+    сборщик выходил кодом 0 и алерта не было. Здесь — чистая функция: по итогам источников возвращает
+    тексты заметок владельцу (пусто = всё здорово). Пишется в notices.jsonl (не alerts: alerts = «прогон
+    упал, идей не будет», а это частичная деградация данных при живом конвейере).
+    gdelt_res = (new, seen, fails); trends_res = (n_iot, n_rel, rate_limited, njobs)."""
+    out = []
+    if gdelt_res is not None:
+        new, seen, fails = gdelt_res
+        if seen == 0 and fails:
+            out.append(f"⚠ Источник новостей GDELT сегодня не отдал ни одной статьи ({fails} запросов из "
+                       f"{fails} — отказ, обычно HTTP 429 = GDELT ограничил наш IP). Поток идёт только с "
+                       f"NewsAPI.ai: половина мирового скана (мультиязычная) выпала. Если повторяется "
+                       f"несколько дней — нужен разбор (пауза между запросами в config/news.yaml).")
+    if trends_res is not None:
+        n_iot, n_rel, rl, njobs = trends_res
+        if njobs and rl >= njobs:
+            out.append(f"⚠ Google Trends: все {njobs} ключей сегодня отбиты лимитом (429) — датчик толпы "
+                       f"«внимание» сегодня без свежих данных.")
+        elif njobs and rl / njobs >= 0.5:
+            out.append(f"⚠ Google Trends: отбито лимитом {rl} из {njobs} ключей — обновились только первые "
+                       f"в очереди (тематические); ключи реестра «внимания» снова без данных.")
+    return out
+
+
+def _notice(text, path=None):
+    path = pathlib.Path(path) if path else NOTICES
+    rec = {"ts": nc.now_utc_iso(), "text": text}
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return rec
 
 
 def quality_report(con):
@@ -116,11 +151,13 @@ def main():
 
     print(f"=== Суточный сбор новостей {nc.now_utc_iso()} ===")
     news_fail = 0
+    gdelt_res = trends_res = None
 
     # 1. GDELT (мультиязычная основа)
     if not args.no_gdelt:
         try:
             new, seen, fails = gdelt.run_all(con)
+            gdelt_res = (new, seen, fails)
             print(f"GDELT: +{new} новых / {seen} получено, сбоев {fails}")
             if new == 0 and fails:
                 news_fail += 1
@@ -149,9 +186,12 @@ def main():
     if not args.no_trends:
         try:
             import trends
-            n_iot, n_rel, rl, njobs = trends.run_all(con, verbose=False)
+            # verbose=True (31.10): построчно «✅/⏳ trends 'ключ'» в cron.log — иначе 429 по ключам реестра
+            # «внимания» был невидим 3,5 месяца (в базе не обновился ни один ключ реестра после 15.07).
+            n_iot, n_rel, rl, njobs = trends.run_all(con, verbose=True)
+            trends_res = (n_iot, n_rel, rl, njobs)
             if n_iot:
-                print(f"Google Trends: {n_iot} точек ряда, {n_rel} related")
+                print(f"Google Trends: {n_iot} точек ряда, {n_rel} related; отбито лимитом 429: {rl}/{njobs} ключей")
             else:
                 print(f"Google Trends: данных нет (rate-limited {rl}/{njobs}) — коннектор исправен, "
                       f"Google ограничил IP; не блокирует поток")
@@ -169,7 +209,16 @@ def main():
                and f["published_at"] >= 95)
     print("\nGate Нед.2:", "✅ автотегирование и дедуп работают" if auto_ok
           else "❌ тегирование неполно — проверь карты нормализации")
-    return 0 if (auto_ok and news_fail == 0) else (0 if auto_ok else 1)
+    # Здоровье источников → заметки владельцу (31.10). Прежнее выражение кода выхода было тавтологией
+    # (при auto_ok всегда 0 независимо от news_fail) — частичный отказ источника никуда не сообщался.
+    # Код выхода оставляем 0 при живом потоке: cron_alert трактует ненулевой как «прогон упал, идей не
+    # будет», что для деградации одного источника — ложь (П8). Канал — notices.jsonl, текст готов здесь.
+    for text in source_health_notices(gdelt_res, trends_res):
+        try:
+            _notice(text)
+        except OSError as e:
+            print(f"⚠ заметка о здоровье источников не записана: {e}", file=sys.stderr)
+    return 0 if auto_ok else 1
 
 
 if __name__ == "__main__":
