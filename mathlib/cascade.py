@@ -206,7 +206,10 @@ def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
                 **(conditional_kwargs or {}))
         return no_data
     amp = node_amplitude(sens["beta"], shock)
-    prob = node_probability(amp, sens["resid_std"], horizon_days, threshold)
+    # V0 (карта v3, 31.10; корень ложной уверенности 0.99 у слабых связей): reliability=r² сжимает p к 0.5
+    # пропорционально надёжности — как уже делает боевой путь cascade_build (P1#4). Без этого однозвенный
+    # путь node_cascade давал P≈0.99 при r²≈0.04 (П8: мы не уверены, когда связь статистически пуста).
+    prob = node_probability(amp, sens["resid_std"], horizon_days, threshold, reliability=sens["r2"])
     weak = sens["r2"] < WEAK_R2
     if not sens["перенос_установлен"]:
         sealable, причина = False, "перенос статистически не установлен (CI корреляции включает 0) — П8"

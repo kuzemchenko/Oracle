@@ -550,6 +550,9 @@ def load_presentation(path=None):
             # Этап3: «Разбор дня» как ГЛАВНЫЙ дневной пуш (читаемый кейс без эмодзи) вместо длинного
             # эмодзи-дайджеста. Дефолт False — включаем после подтверждения читаемости владельцем.
             "daily_case_lead": bool(cfg.get("daily_case_lead", False)),
+            # V0 (карта v3, 31.10): «Идея дня» — формат владельца 15.07; ГЛАВНЫЙ пуш, приоритетнее Топ-3.
+            # Не прошёл линт → пуш НЕ уходит, заметка в дозор (без фолбэка — по правилу этапа V0).
+            "idea_day_lead": bool(cfg.get("idea_day_lead", False)),
             # Flow-fix В1 (15.07): «Топ-3 одной строкой» + защита №1 — формат, выбранный владельцем
             # взамен «Разбора дня». Приоритетнее daily_case_lead: если включён и собрался — он лид.
             "top3_lead": bool(cfg.get("top3_lead", False))}
@@ -1491,8 +1494,9 @@ def _top3_oneliner(brief, court, rank, name_fn=None):
         parts.append(" Прошла денежный суд.")
     elif r["money_uncontested"]:
         parts.append(" Прошла денежный суд §11 (без ред-тима).")
-    elif r["оценено"] and _score5(r["score"]):
-        parts.append(f" Сила {_score5(r['score'])}.")
+    elif r["оценено"] and r.get("band"):
+        # П-4 (31.10): «Сила X/5» убрана — балл vs исход r=0.038 на 501 вердикте (шум). Оставляем слово суда.
+        parts.append(f" Суд оценил как {r['band']}.")
     elif r["money_rejected"]:
         parts.append(f" Денежный суд §11 отклонил"
                      + (f" (балл {r['money_балл']:.1f} {_порог_txt(r)})"
@@ -1528,8 +1532,9 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
     elif r["money_uncontested"]:
         L.append("Прошла денежный суд §11, но критик дал невалидный ответ — состязательность (П10) "
                  "не подтверждена. Беру осторожно, не как полностью просуженную.")
-    elif r["оценено"] and _score5(r["score"]):
-        строка = f"Сила идеи: {_score5(r['score'])}" + (f" — {r['band']}" if r.get("band") else "") + "."
+    elif r["оценено"] and r.get("band"):
+        # П-4 (31.10): без «Сила X/5» (балл не связан с исходами: r=0.038); словесная оценка + критерии.
+        строка = f"Оценка суда: {r['band']}."
         crit = _crit_line(r["критерии"])
         if crit:
             строка += f" По критериям: {crit}."
@@ -1587,21 +1592,26 @@ def format_top3(protocol, *, name_fn=None, max_n=3):
                 f"· как я искал — /progress · тех.id {rid}")
     mode = _lead_mode(top)
     lead = _idea_read(top[0][1])
-    lead_score = _score5(lead["score"])
+    # П-4 (31.10): «Сила X/5» из подачи убрана (балл силы vs исход r=0.038 — шум); вместо неё честная
+    # база трека — доля сбывшихся идей этого типа по журналу исходов (только чтение).
+    base = track_base_rate()
+    база = (f" Честная база: идеи этого трека за последние месяцы сбывались примерно в "
+            f"{base['hit'] * 100:.0f}% случаев — отличать хорошие от плохих система пока не умеет."
+            if base.get("hit") is not None else "")
     if mode == "money":
         значит = (f"Ниже — {len(top)} идей дня по силе. №1 прошла даже строгий денежный суд §11 — "
                   f"редкий сильный сигнал; разбираю её первой. По любой другой скажи номер.")
     elif mode == "strong":
-        значит = (f"Ниже — {len(top)} идей дня, отсортированы по силе (моя оценка по механизму, "
-                  f"неочевидности, свежести, таймингу, асимметрии, проверяемости). №1 — сильная "
-                  f"({lead_score}), разбираю её первой. По любой другой скажи номер.")
+        значит = (f"Ниже — {len(top)} идей дня, отсортированы по оценке суда (механизм, неочевидность, "
+                  f"свежесть, тайминг, асимметрия, проверяемость). №1 суд назвал сильной, разбираю её "
+                  f"первой. По любой другой скажи номер.{база}")
     elif mode == "medium":
-        значит = (f"Ниже — {len(top)} идей дня по силе. №1 — средняя ({lead_score}): есть сильные "
-                  f"стороны и слабые, показываю честно и разбираю первой. По любой другой скажи номер.")
+        значит = (f"Ниже — {len(top)} идей дня. №1 суд оценил как среднюю: есть сильные стороны и слабые, "
+                  f"показываю честно и разбираю первой. По любой другой скажи номер.{база}")
     elif mode == "weak":
-        значит = (f"Честно: сегодня даже лучшая идея слабовата ({lead_score}) — но я её не прячу, "
+        значит = (f"Честно: сегодня даже лучшую идею суд оценил как слабую — но я её не прячу, "
                   f"показываю и прямо говорю, где тонко. Сильная идея = крепкий механизм + неочевидный "
-                  f"бенефициар + толпа ещё не зашла; сегодня до этого недотянули. Разбираю №1.")
+                  f"бенефициар + толпа ещё не зашла; сегодня до этого недотянули. Разбираю №1.{база}")
     elif mode == "money_uncontested":
         значит = (f"Ниже — {len(top)} идей дня. №1 прошла денежный суд §11, но БЕЗ ред-тима "
                   f"(критик не отработал) — состязательность не подтверждена, показываю с оговоркой. "
@@ -1844,3 +1854,225 @@ def format_trigger_alert(fired):
 def escape(s):
     """На случай parse_mode=HTML (по умолчанию шлём без разметки — экранирование не требуется)."""
     return html.escape(str(s))
+
+
+# ── V0 «Идея дня» (карта v3, 31.10.2026; формат владельца 15.07) ──────────────────────────────────
+# Одна идея, которую защищаем: событие → цепочка с отыгранностью каждого звена → «моё звено» →
+# «потенциал × шанс × срок ≈ матожидание» → кто продаёт нам → суд за/против → счёт честности одной
+# строкой. ≤4 числа вне цитат, 0 тех.id, тикеры с именами (линт ops/presentation_lint.lint_idea_of_day —
+# блокирующий). «Честный ноль» — одной фразой. Остальные идеи — по запросу («что ещё было»).
+_ORD_RU = {1: "первый", 2: "второй", 3: "третий", 4: "четвёртый", 5: "пятый", 6: "шестой", 7: "седьмой"}
+_BASE_RATE_CACHE = {}
+_OUTCOMES_JOURNAL = ROOT / "journal" / "outcomes.jsonl"     # ТОЛЬКО чтение (П16)
+
+
+def track_base_rate(kind="cascade_provisional", path=None):
+    """Честная база трека: доля сбывшихся печатей этого kind по журналу исходов (ТОЛЬКО чтение,
+    П16). Это и есть «шанс» в строке потенциала: система пока не умеет отличать идеи (балл силы vs исход
+    r=0.038), поэтому честный шанс любой идеи трека = его базовая частота. Кэш по mtime файла."""
+    p = pathlib.Path(path or _OUTCOMES_JOURNAL)
+    try:
+        mtime = p.stat().st_mtime
+    except OSError:
+        return {"hit": None, "n": 0}
+    key = (str(p), kind)
+    cached = _BASE_RATE_CACHE.get(key)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    k = n = 0
+    try:
+        for line in p.read_text(encoding="utf-8").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("kind") == kind and rec.get("outcome") in (0, 1):
+                n += 1
+                k += int(rec["outcome"])
+    except OSError:
+        return {"hit": None, "n": 0}
+    res = {"hit": (k / n) if n else None, "n": n}
+    _BASE_RATE_CACHE[key] = (mtime, res)
+    return res
+
+
+def _played_word(frac):
+    """Отыгранность узла (0..1, из посчитанного unpriced_fraction) → слова, без чисел (лимит ≤4)."""
+    if not isinstance(frac, (int, float)):
+        return "отыгранность не измерена"
+    if frac >= 0.8:
+        return "рынок уже отыграл"
+    if frac >= 0.3:
+        return "отыграно частично"
+    return "ещё не отыграно"
+
+
+def _chain_links(protocol, chain_id):
+    """Все звенья цепочки chain_id, дошедшие до протокола (топ_k + треки), по порядку. Звено = запись
+    трека (актив, порядок, текст узла, отыгранность). Чего нет в протоколе — того нет (честно)."""
+    g = protocol.get("граф_отбор") or {}
+    seen, out = set(), []
+    for e in (g.get("топ_k") or []) + (g.get("money_трек") or []) + (g.get("провизорный_трек") or []):
+        if e.get("цепочка") != chain_id or e.get("актив") in seen or not e.get("актив"):
+            continue
+        seen.add(e["актив"])
+        out.append(e)
+    return sorted(out, key=lambda e: (e.get("порядок") if isinstance(e.get("порядок"), int) else 99,
+                                      e.get("актив")))
+
+
+def _idea_label_v0(asset, name_fn):
+    """«Nvidia (NVDA.US)» или честное «NVDA.US — компанию не опознал» (П8: имя не выдумываем)."""
+    nm = (name_fn or _safe_name)(asset)
+    if nm and nm != asset:
+        return f"{nm} ({asset})"
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    return f"{asset} — {PL.UNKNOWN_NAME_MARK}"
+
+
+def _horizon_words(days):
+    if not isinstance(days, (int, float)) or not days:
+        return "срок не задан"
+    if days <= 6:
+        return "около недели"
+    if days <= 12:
+        return "около двух недель"
+    return "около месяца"
+
+
+def _honest_zero(дата):
+    return ("Идея дня" + (f" — {дата}" if дата else "") + ".\n"
+            "Что это значит для тебя. Сегодня стоящего нет: ни одно событие не дотянуло до торгуемой "
+            "цепочки — пустой день, не сбой.\n"
+            "Что делать. Ничего. Загляну завтра.\n"
+            f"Это {RESEARCH_FRAME}.")
+
+
+def format_idea_of_day(protocol, *, name_fn=None, base_rate=None):
+    """V0: текст «Идеи дня» из ГОТОВОГО протокола (лид = верх порядка _top3_selection). Все числа — из
+    посчитанных полей; чего нет — говорим «нет данных». base_rate — {hit, n} трека (по умолчанию из
+    журнала исходов)."""
+    ts = protocol.get("ts")
+    дата = _human_date(ts)
+    top = _top3_selection(protocol, name_fn=name_fn, max_n=3)
+    if not top:
+        return _honest_zero(дата)
+    b, court = top[0]
+    a = b.get("актив")
+    label = _idea_label_v0(a, name_fn)
+    dir_word = _DIR_WORD.get((b.get("направление") or "").lower(), "движение")
+    ставка = {"вверх": "рост", "вниз": "снижение"}.get(dir_word, "движение")
+    r = _idea_read(court)
+    base = base_rate if base_rate is not None else track_base_rate()
+    L = [f"Идея дня — {дата}. {label}: ставка на {ставка}." if дата else f"Идея дня. {label}: ставка на {ставка}.",
+         "",
+         "Что это значит для тебя. Одна идея, которую я сегодня защищаю. Остальные — по запросу: «что ещё было».",
+         ""]
+    # Повод
+    ev = str(b.get("событие") or "").strip()
+    як = b.get("якорь")
+    src = "авторской карты" if b.get("источник_карты") == "авторская" else "карты картографа"
+    if ev and not ev.lower().startswith("ценовой"):
+        L.append(f"Повод. «{_trunc(ev, 220)}» — цепочка из {src}.")
+    elif як:
+        L.append(f"Повод. Ценовой импульс по {_idea_label_v0(як, name_fn)} — цепочка из {src}.")
+    else:
+        L.append("Повод. Событие-исток в протоколе не названо — честно: здесь данных нет.")
+    # Цепочка целиком с отыгранностью
+    L.append("")
+    L.append("Цепочка от события до бумаги и что уже отыграно:")
+    if як:
+        L.append(f"— исток: {_idea_label_v0(як, name_fn)} — первый порядок, рынок отыгрывает за часы.")
+    links = _chain_links(protocol, b.get("цепочка")) if b.get("цепочка") else []
+    my_order = b.get("порядок") if isinstance(b.get("порядок"), int) else None
+    nearer_unplayed = []
+    for e in links:
+        o = e.get("порядок")
+        node_txt = ((e.get("узлы_каскада") or [{}])[0].get("узел") or "").strip()
+        frac = e.get("отыгранность_узла")
+        word = _played_word(frac)
+        ordw = _ORD_RU.get(o, "дальний") + " шаг" if isinstance(o, int) else "звено"
+        who = _idea_label_v0(e.get("актив"), name_fn)
+        txt = f"«{_trunc(node_txt, 110)}» — " if node_txt else ""
+        mine = " — моё звено" if e.get("актив") == a else ""
+        L.append(f"— {ordw}: {txt}{who} — {word}{mine}.")
+        if (my_order is not None and isinstance(o, int) and o < my_order
+                and isinstance(frac, (int, float)) and frac < 0.3):
+            nearer_unplayed.append(who)
+    if not links:
+        L.append(f"— {label} — звено выдачи; остальные звенья цепочки до протокола не дошли (здесь данных нет).")
+    if my_order is not None:
+        if nearer_unplayed:
+            L.append(f"Моё звено — {_ORD_RU.get(my_order, 'дальний')} шаг. Честно: ближе к событию есть "
+                     f"неотыгранные звенья ({', '.join(nearer_unplayed[:2])}) — это звено выбрано рангом, "
+                     f"а не близостью; проверь меня на этом.")
+        else:
+            L.append(f"Моё звено — {_ORD_RU.get(my_order, 'дальний')} шаг: ближайшее из неотыгранных, "
+                     f"что дошли до выдачи.")
+    # Потенциал × шанс × срок — обязательная строка владельца (до 4 чисел во всём тексте)
+    L.append("")
+    amp = b.get("edge")
+    гор = b.get("горизонт_дней")
+    hit = base.get("hit") if isinstance(base, dict) else None
+    if isinstance(amp, (int, float)) and amp:
+        if hit is not None:
+            ev_pct = (2 * hit - 1) * abs(amp) * 100
+            вывод = ("на деньги не тянет, показываю как исследовательскую идею" if ev_pct <= 0 else
+                     "положительное, но связь ценами не подтверждена — в деньги не пускаю")
+            L.append(f"Потенциал. Ход около {abs(amp) * 100:.1f}% {dir_word}, шанс около {hit * 100:.0f}% "
+                     f"(столько идей этого трека сбывалось за последние месяцы; отличать хорошие от плохих "
+                     f"система пока не умеет), срок {_horizon_words(гор)} → матожидание около "
+                     f"{ev_pct:+.1f}%: {вывод}.")
+        else:
+            L.append(f"Потенциал. Ход около {abs(amp) * 100:.1f}% {dir_word}, срок {_horizon_words(гор)}; "
+                     f"шанс не измерен — сверенных исходов этого трека пока нет.")
+    else:
+        L.append("Потенциал. Величина хода не посчитана — честно: здесь данных нет.")
+    # Кто продаёт нам
+    L.append("")
+    if r["кто_против"]:
+        L.append(f"Кто продаёт нам. «{r['кто_против']}»")
+    else:
+        L.append("Кто продаёт нам. Суд не отвечал — идея не прошла состязательный разбор; ответа нет.")
+    # Суд: за / против
+    band = r.get("band")
+    за = r["почему"]
+    if band or за:
+        L.append("Суд. " + (f"Оценка суда: {band}. " if band else "") + (f"За: «{за}»" if за else "Довода «за» нет."))
+    else:
+        L.append("Суд. Идею сегодня не судили — наводка, не вердикт.")
+    if b.get("провизорный"):
+        L.append("Связь этого звена ценами не подтверждена — исследовательская идея, не денежная ставка.")
+    # Счёт честности — одной строкой, без чисел
+    L.append("")
+    L.append("Счёт честности. Идеи этого трека сбываются как монетка — умение пока не доказано; "
+             "денежный суд этой осенью не пропустил ни одной идеи. Подробности — /review-week.")
+    d = _resolve_date(ts, гор) if isinstance(гор, (int, float)) and гор else None
+    when = _human_date(d) if d else None
+    if when:
+        L.append(f"Сверю к {when}.")
+    L.append("")
+    L.append(f"Что делать. Скажи «что ещё было» — покажу остальные идеи дня; «разбери {str(a).split('.')[0]}» "
+             f"— полный разбор. Решение за тобой.")
+    L.append(f"Это {RESEARCH_FRAME}.")
+    return "\n".join(L)
+
+
+def idea_of_day_from_protocol(proto, *, name_fn=None, base_rate=None):
+    """Протокол → («Идея дня», meta, нарушения). Линт блокирующий: нарушения → (None, meta, viol) —
+    пуш НЕ уходит, вызывающий пишет заметку в дозор (правило V0)."""
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    text = format_idea_of_day(proto, name_fn=name_fn, base_rate=base_rate)
+    top = _top3_selection(proto, name_fn=name_fn, max_n=3)
+    meta = {"run_id": proto.get("run_id"),
+            "idx": {str(i): b.get("актив") for i, (b, _c) in enumerate(top, 1) if b.get("актив")}}
+    viol = PL.lint_idea_of_day(text)
+    if viol:
+        return None, meta, viol
+    return text, meta, []

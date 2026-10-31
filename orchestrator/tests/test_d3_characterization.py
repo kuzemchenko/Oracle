@@ -101,8 +101,10 @@ def test_node_cascade_default_is_additive_only():
     sens = CAS.node_sensitivity(src, node, lag=0)
     assert res["sensitivity"] == sens
     assert res["amplitude"] == round(CAS.node_amplitude(sens["beta"], -0.05), 6)
+    # V0 (31.10): node_cascade сжимает p к 0.5 по надёжности r² (reliability=sens["r2"]) — как боевой
+    # путь cascade_build (P1#4); характеризация сверяется с тем же прямым расчётом.
     assert res["probability"] == CAS.node_probability(
-        CAS.node_amplitude(sens["beta"], -0.05), sens["resid_std"], 5, 0.0)
+        CAS.node_amplitude(sens["beta"], -0.05), sens["resid_std"], 5, 0.0, reliability=sens["r2"])
     assert res["sealable"] is True
 
 
