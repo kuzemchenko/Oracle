@@ -44,6 +44,8 @@ EDGE_CANDIDATES = ROOT / "knowledge" / "edge_candidates.jsonl"   # Э4(ж): ре
 WEEK_DAYS = 7
 DROUGHT_ALERT_DAYS = 7          # засуха money-печати: первый алерт на 7-й день, далее раз в 7
 COURT_STREAK_MIN = 4            # 100% РАЗБИТА при ≥N судах за неделю — это уже закономерность
+PUSH_AGE_ALERT_DAYS = 4         # v3/V1: тишина в GitHub >N дней = конвейер публикации мёртв
+ROADMAP_STATE = ROOT / "ops" / "roadmap_state.yaml"   # v3/V1: машинное состояние карты
 
 
 def _now():
@@ -339,8 +341,51 @@ def _save_state(st, state_path=None):
     path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
 
 
+def _github_push_age_days(now=None, repo_dir=None):
+    """Возраст (в днях) последнего коммита origin/master на GitHub, или None при недоступности.
+
+    v3/V1 «тишина в GitHub»: с 15.07 по 31.10 пуши молчали 3.5 месяца и никто не заметил —
+    теперь дозор меряет сам. fail-soft: нет сети/не git — честный None, не крах дозора."""
+    import subprocess
+    now = now or _now()
+    cwd = str(repo_dir or ROOT)
+    try:
+        subprocess.run(["git", "fetch", "--quiet", "origin", "master"],
+                       cwd=cwd, timeout=60, check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        out = subprocess.run(["git", "log", "-1", "--format=%ct", "FETCH_HEAD"],
+                             cwd=cwd, timeout=30, check=True,
+                             capture_output=True, text=True)
+        ts = int(out.stdout.strip())
+    except Exception:                                    # noqa: BLE001 — сеть/гит недоступны
+        return None
+    return (now - datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)).days
+
+
+def _roadmap_stuck(state_path=None):
+    """Этапы карты v3 с stuck_count>=2 → список (этап, название, stuck_count, blocked_on).
+
+    v3/V1 «буксовка»: три июльских пивота умерли молча — теперь брошенный этап обязан шуметь."""
+    path = pathlib.Path(state_path) if state_path else ROADMAP_STATE
+    if not path.exists():
+        return []
+    try:
+        import yaml
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:                                    # noqa: BLE001 — битый yaml = нет данных
+        return []
+    stuck = []
+    for eid, e in (data.get("этапы") or {}).items():
+        if isinstance(e, dict) and int(e.get("stuck_count") or 0) >= 2:
+            stuck.append({"этап": eid, "название": e.get("название") or "",
+                          "циклов": int(e["stuck_count"]),
+                          "вопрос": e.get("blocked_on") or "причина не записана"})
+    return stuck
+
+
 def run_watch(predictions_path=None, outcomes_path=None, funnel_glob=None,
-              promo_path=None, notices_path=None, state_path=None, now=None):
+              promo_path=None, notices_path=None, state_path=None, now=None,
+              roadmap_path=None, push_age_days="auto", repo_dir=None):
     """Ежедневный дозор: алерт только при срабатывании и один раз на состояние (дедуп)."""
     now = now or _now()
     st = _load_state(state_path)
@@ -387,6 +432,36 @@ def run_watch(predictions_path=None, outcomes_path=None, funnel_glob=None,
                 f"(авто-apply удержан: открыт долг B4(а) псевдорепликации корма).",
                 notices_path))
             st["promo_alerted_mtime"] = mt
+
+    # 4) v3/V1: тишина в GitHub — последний коммит origin/master старше PUSH_AGE_ALERT_DAYS.
+    #    Дедуп ступенями (4, 8, 12… дней), как засуха. push_age_days: "auto" = померить git'ом;
+    #    число/None — для тестов и офлайна.
+    age = _github_push_age_days(now, repo_dir) if push_age_days == "auto" else push_age_days
+    if age is not None and age >= PUSH_AGE_ALERT_DAYS:
+        step = age // PUSH_AGE_ALERT_DAYS
+        if st.get("push_age_step") != step:
+            fired.append(_notice(
+                f"🩺 Дозор §25: в GitHub не было пушей {age} дн. — вечерний чекпоинт "
+                f"(ops/checkpoint.sh, cron 22:00) не доносит журналы. Летом так молча пропали "
+                f"3.5 месяца. Проверить: crontab -u oracle -l и хвост journal/cron.log.",
+                notices_path))
+            st["push_age_step"] = step
+    elif age is not None:
+        st.pop("push_age_step", None)
+
+    # 5) v3/V1: буксовка этапа дорожной карты — stuck_count>=2 в ops/roadmap_state.yaml →
+    #    вопрос-развилка владельцу (дедуп по (этап, счётчик): рост счётчика шумит снова).
+    for sk in _roadmap_stuck(roadmap_path):
+        key = f"{sk['этап']}@{sk['циклов']}"
+        seen = st.setdefault("roadmap_stuck_alerted", [])
+        if key not in seen:
+            fired.append(_notice(
+                f"🧭 Дорожная карта v3: этап {sk['этап']} «{sk['название']}» буксует "
+                f"{sk['циклов']} цикла подряд. Нужно твоё слово: {sk['вопрос']} — "
+                f"ответь в чате или боту, иначе этап стоит (правило против тихого бросания).",
+                notices_path))
+            seen.append(key)
+            st["roadmap_stuck_alerted"] = seen[-20:]
 
     _save_state(st, state_path)
     print(f"[auto_review --watch] сработавших сигналов: {len(fired)}"

@@ -93,11 +93,11 @@ def test_watch_дедуп_состояний(tmp_path, monkeypatch):
     j = _journals(tmp_path)                                 # засуха 11 дн., судов 1 (<4)
     notices = tmp_path / "notices.jsonl"
     state = tmp_path / "state.json"
-    r1 = AR.run_watch(notices_path=notices, state_path=state, now=NOW, **j)
+    r1 = AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)
     assert r1["засуха_дней"] == 11
     lines = notices.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1 and "ДЕНЕЖНОЙ" in json.loads(lines[0])["text"]
-    r2 = AR.run_watch(notices_path=notices, state_path=state, now=NOW, **j)  # повтор — дедуп
+    r2 = AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)  # повтор — дедуп
     assert len(notices.read_text(encoding="utf-8").splitlines()) == 1
     assert r2["fired"] == []
 
@@ -111,12 +111,12 @@ def test_watch_промоушен_доступен(tmp_path, monkeypatch):
               open(j["promo_path"], "w", encoding="utf-8"))
     notices = tmp_path / "notices.jsonl"
     state = tmp_path / "state.json"
-    AR.run_watch(notices_path=notices, state_path=state, now=NOW, **j)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)
     lines = [json.loads(l) for l in notices.read_text(encoding="utf-8").splitlines()]
     assert any("КОРРЕКТИРОВКА ДОСТУПНА" in n["text"] for n in lines)
     assert all("--apply" in n["text"] for n in lines if "КОРРЕКТИРОВКА" in n["text"])
     # повтор без нового отчёта — тишина (дедуп по mtime)
-    AR.run_watch(notices_path=notices, state_path=state, now=NOW, **j)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)
     assert len(notices.read_text(encoding="utf-8").splitlines()) == len(lines)
 
 
@@ -146,3 +146,69 @@ def test_weekly_edge_candidates_empty_registry(tmp_path, monkeypatch):
     r = AR.compute_review(now=NOW, candidates_path=tmp_path / "нет_файла.jsonl", **j)
     assert r["рёбра_кандидаты"]["всего_в_реестре"] == 0
     assert "Реестр кандидат-рёбер пуст" in AR.render_md(r)
+
+
+def test_watch_github_тишина_и_дедуп_ступеней(tmp_path, monkeypatch):
+    """v3/V1: пуш старше 4 дней → заметка; та же ступень — молчим; рост ступени — шумим снова."""
+    j = _journals(tmp_path, money_seal_day="2026-07-08")   # без засухи, чтобы изолировать сигнал
+    notices, state = tmp_path / "notices.jsonl", tmp_path / "st.json"
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=5, **j)
+    rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
+    assert any("не было пушей 5 дн" in r["text"] for r in rows), "алерт тишины GitHub не ушёл"
+    n1 = len(rows)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=6, **j)
+    assert len([x for x in notices.read_text("utf-8").splitlines()]) == n1, "дедуп ступени не сработал"
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=9, **j)
+    rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
+    assert any("9 дн" in r["text"] for r in rows), "новая ступень (9 дн) должна шуметь"
+    # пуш ожил → состояние сброшено, следующий застой шумит заново
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=0, **j)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=4, **j)
+    rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
+    assert any("4 дн" in r["text"] for r in rows)
+
+
+def test_watch_github_офлайн_не_шумит(tmp_path):
+    """Нет сети (None) — дозор не падает и не алертит про GitHub."""
+    j = _journals(tmp_path, money_seal_day="2026-07-08")
+    notices, state = tmp_path / "notices.jsonl", tmp_path / "st.json"
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)
+    text = notices.read_text("utf-8") if notices.exists() else ""
+    assert "не было пушей" not in text
+
+
+def test_watch_буксовка_этапа_вопрос_развилка(tmp_path):
+    """v3/V1: stuck_count>=2 в roadmap_state → вопрос владельцу; дедуп по (этап, счётчик)."""
+    j = _journals(tmp_path, money_seal_day="2026-07-08")
+    notices, state = tmp_path / "notices.jsonl", tmp_path / "st.json"
+    rm = tmp_path / "roadmap_state.yaml"
+    rm.write_text(
+        "этапы:\n"
+        "  V2:\n"
+        "    название: \"Кнопки и петля\"\n"
+        "    stuck_count: 2\n"
+        "    blocked_on: \"нужна Подпись-1: показывать идею до суда?\"\n"
+        "  V0:\n"
+        "    название: \"Идея дня\"\n"
+        "    stuck_count: 0\n", encoding="utf-8")
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None,
+                 roadmap_path=rm, **j)
+    rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
+    boost = [r for r in rows if "буксует" in r["text"]]
+    assert len(boost) == 1 and "V2" in boost[0]["text"] and "Подпись-1" in boost[0]["text"]
+    # повтор при том же счётчике — молчит; счётчик вырос — шумит снова
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None,
+                 roadmap_path=rm, **j)
+    assert sum("буксует" in json.loads(x)["text"] for x in notices.read_text("utf-8").splitlines()) == 1
+    rm.write_text(rm.read_text(encoding="utf-8").replace("stuck_count: 2", "stuck_count: 3"), encoding="utf-8")
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None,
+                 roadmap_path=rm, **j)
+    assert sum("буксует" in json.loads(x)["text"] for x in notices.read_text("utf-8").splitlines()) == 2
+
+
+def test_watch_битый_roadmap_не_роняет_дозор(tmp_path):
+    j = _journals(tmp_path, money_seal_day="2026-07-08")
+    rm = tmp_path / "roadmap_state.yaml"
+    rm.write_text("этапы: [незакрытая: {скобка", encoding="utf-8")
+    AR.run_watch(notices_path=tmp_path / "n.jsonl", state_path=tmp_path / "s.json",
+                 now=NOW, push_age_days=None, roadmap_path=rm, **j)
