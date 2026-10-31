@@ -158,6 +158,13 @@ class Bot:
             return
         data = cq.get("data") or ""
         parts = data.split(":")
+        # V2 (карта v3): кнопки «Идеи дня» (v:...) и еженедельной карточки тем (t:...).
+        if len(parts) == 3 and parts[0] == "v":
+            self._on_idea_day_cb(cb_id, chat, msg, parts[1], parts[2])
+            return
+        if len(parts) == 3 and parts[0] == "t":
+            self._on_theme_cb(cb_id, chat, msg, parts[1], parts[2])
+            return
         if len(parts) != 3 or parts[0] != "d":
             self.tg.answer_callback(cb_id)        # noop / неизвестная кнопка
             return
@@ -329,6 +336,115 @@ class Bot:
             return True
         self._send_card(card, None)
         return True
+
+    # ── V2 (карта v3): кнопки «Идеи дня» и карточки тем ─────────────────────────────
+    def _on_idea_day_cb(self, cb_id, chat, msg, code, run_id):
+        """Кнопки под «Идеей дня»: q=Качаем 2 дня, w=Что ещё было, m=Мимо.
+
+        Качаем/Мимо пишутся в journal/decisions_user.jsonl (§12, append-only) — впервые
+        у ежедневного пуша есть действие в один клик (аудит 31.10: ноль нажатий за жизнь,
+        потому что нажимать было не на что). «Качаем» дополнительно ставит идею в очередь
+        прокачки journal/deep_dive.jsonl (двухдневный конвейер V3) и СРАЗУ запускает
+        полный состязательный разбор тикера (существующий контур «разбери ТИКЕР»)."""
+        lid = self.state.get("last_idea_day") or {}
+        if not lid or lid.get("run_id") != run_id:
+            self.tg.answer_callback(cb_id, "Эта подборка устарела — свежая придёт утром.")
+            return
+        lead = lid.get("lead")
+        issued_at = lid.get("issued_at")
+        if code == "w":
+            self.tg.answer_callback(cb_id)
+            self._cmd_more_ideas(chat)
+            return
+        if code not in ("q", "m") or not lead:
+            self.tg.answer_callback(cb_id)
+            return
+        already = lid.get("action")
+        if already:
+            self.tg.answer_callback(cb_id, f"Уже {S.action_ru(already)}.")
+            return
+        action = "deep_dive" if code == "q" else "skip"
+        S.append_decision(run_id=run_id, asset=lead, direction=None, score=None,
+                          action=action, issued_at=issued_at, chat_id=self.chat_id)
+        lid["action"] = action
+        self.state["last_idea_day"] = lid
+        if msg.get("message_id"):      # кнопки сняли — решение одно на идею дня
+            self.tg.edit_reply_markup(chat, msg["message_id"], {"inline_keyboard": []})
+        if action == "skip":
+            self.tg.answer_callback(cb_id, "Понял: мимо.")
+            self.tg.send_message(chat, "Записал «мимо» — это тоже сигнал, учитываю в отборе. "
+                                       "«Что ещё было» покажет остальные идеи дня.")
+            self.save()
+            return
+        # Качаем: очередь прокачки V3 + немедленный состязательный разбор (готовый контур).
+        self.tg.answer_callback(cb_id, "Качаем!")
+        self._append_deep_dive(run_id, lead)
+        name = R._asset_human(lead)[0]
+        self.tg.send_message(chat, f"Взял {name} ({lead}) в прокачку. Сейчас прогоню полный "
+                                   f"состязательный разбор, а конвейер двухдневной прокачки "
+                                   f"добавит углубления по утрам.")
+        self.save()
+        self._cmd_check_idea(chat, lead)
+
+    def _append_deep_dive(self, run_id, asset):
+        """Очередь двухдневной прокачки (V3 читает по крону). Append-only, не журнал §16."""
+        import json as _json
+        import datetime as _dt
+        path = ROOT / "journal" / "deep_dive.jsonl"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            rec = {"ts": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+                   "run_id": run_id, "asset": asset, "status": "queued",
+                   "source": "button_deep_dive"}
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+        except OSError as e:
+            log("deep_dive queue ошибка", repr(e))
+
+    def _on_theme_cb(self, cb_id, chat, msg, code, key):
+        """Кнопки еженедельной карточки тем: y=взять под наблюдение, n=мимо.
+        Решение → journal/theme_decisions.jsonl; конфиг вносит машинист через git (П16/§30)."""
+        import bot_themes as TH
+        pend = self.state.get("themes_pending") or {}
+        row = pend.get(key)
+        if row is None:
+            self.tg.answer_callback(cb_id, "Эта тема уже разобрана или карточка устарела.")
+            return
+        decision = "approved" if code == "y" else "rejected"
+        TH.record_decision(key, decision, row, self.chat_id)
+        pend.pop(key, None)
+        self.state["themes_pending"] = pend
+        self.tg.answer_callback(cb_id, "Взял ✅" if decision == "approved" else "Мимо ❌")
+        if not pend:
+            self.tg.send_message(chat, "Пакет тем разобран, спасибо. Одобренные возьму под "
+                                       "наблюдение при ближайшем обновлении библиотеки (с проверкой).")
+        self.save()
+
+    def _tick_theme_batch(self, now=None):
+        """Раз в неделю (суббота, после 10:00 UTC) — карточка «утверди темы» (V2, подпись П5).
+        Дедуп по ISO-неделе; без неразобранных тем карточка не шлётся."""
+        import bot_themes as TH
+        now = now or S.now_utc()
+        if now.isoweekday() != 6 or now.hour < 10:
+            return
+        week = now.strftime("%G-%V")
+        if self.state.get("themes_week") == week:
+            return
+        if self.state.get("themes_pending"):      # прошлый пакет не разобран — не наслаиваем
+            self.state["themes_week"] = week
+            return
+        items = TH.pending_queue()
+        if not items:
+            self.state["themes_week"] = week
+            return
+        text = TH.format_card(items)
+        kb = TH.build_keyboard(items)
+        if self._send_card(text, kb) is None:
+            return                                 # не дошло — попробуем следующим tick'ом
+        self.state["themes_week"] = week
+        self.state["themes_pending"] = {k: r for k, r in items}
+        self.save()
+        log("карточка тем недели отправлена:", len(items))
 
     @staticmethod
     def _intent_more_ideas(text):
@@ -933,6 +1049,10 @@ class Bot:
             self._tick_notices()
         except Exception as e:                                   # noqa: BLE001
             log("tick notices ошибка", repr(e))
+        try:
+            self._tick_theme_batch(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick themes ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):
@@ -1058,7 +1178,9 @@ class Bot:
                             card = id_text
                             _artifact = "Идея дня"
                             self.state["last_idea_day"] = {"run_id": run_id,
-                                                           "idx": (id_meta or {}).get("idx") or {}}
+                                                           "idx": (id_meta or {}).get("idx") or {},
+                                                           "lead": (id_meta or {}).get("lead"),
+                                                           "issued_at": issued_at}
                             # ответ «1» раскрывает защиту лида из готового суда (как у Топ-3)
                             self.state["last_top3"] = {"run_id": run_id,
                                                        "idx": (id_meta or {}).get("idx") or {}}
@@ -1097,7 +1219,16 @@ class Bot:
                         self.state["digest_sent"].append(run_id)   # V0: пуша нет, заметка ушла; не ретраим
                     else:
                         # длиннее лимита Telegram (4096) → шлём частями.
-                        if self._send_card(card, None) is None:
+                        # V2: у «Идеи дня» — кнопки действия (клавиатура на последней части);
+                        # впервые у ежедневного пуша есть отклик в один клик (§12-петля).
+                        kb_lead = None
+                        if _artifact == "Идея дня" and (self.state.get("last_idea_day") or {}).get("lead"):
+                            kb_lead = {"inline_keyboard": [[
+                                {"text": "🔍 Качаем 2 дня", "callback_data": f"v:q:{run_id}"},
+                                {"text": "📋 Что ещё было", "callback_data": f"v:w:{run_id}"},
+                                {"text": "👎 Мимо", "callback_data": f"v:m:{run_id}"},
+                            ]]}
+                        if self._send_card(card, kb_lead) is None:
                             log("сбой отправки дневного артефакта — ретрай в следующий tick", run_id)
                             continue
                         self.state["digest_sent"].append(run_id)
