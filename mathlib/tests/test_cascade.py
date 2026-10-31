@@ -51,6 +51,30 @@ def test_probability_baseline_and_drift():
     assert CAS.node_probability(0.0, 0.02, 5, 0.03) < 0.5
 
 
+def test_node_cascade_weak_link_probability_shrinks_to_half():
+    """V0 (31.10): node_cascade передаёт reliability=r² в node_probability — слабая связь не даёт P≈0.99."""
+    r = _rng()
+    src = r.normal(0, 0.02, 400)
+    weak = 0.15 * src + r.normal(0, 0.02, 400)          # r² мал, связь едва видна
+    res = CAS.node_cascade(src, weak, shock=-0.30, horizon_days=5, lag=0)
+    assert res["probability"] is not None
+    assert abs(res["probability"] - 0.5) <= 0.5 * res["reliability_r2"] + 1e-9   # сжато к 0.5 по r²
+    raw = CAS.node_probability(res["amplitude"], 0.02, 5, 0.0)
+    assert abs(res["probability"] - 0.5) < abs(raw - 0.5)
+
+
+def test_node_probability_shrinks_to_threshold_base_not_half():
+    """stage-review V0: при threshold>0 слабая связь сжимает p к базе Φ(−thr/σ), а не к 0.5 (иначе
+    r²≈0 уводил бы p ВВЕРХ от честной базы)."""
+    base = CAS.node_probability(0.0, 0.02, 5, 0.03)            # снос 0 → честная база < 0.5
+    weak = CAS.node_probability(0.05, 0.02, 5, 0.03, reliability=0.0)
+    assert abs(weak - base) < 1e-9 and base < 0.5
+    full = CAS.node_probability(0.05, 0.02, 5, 0.03, reliability=1.0)
+    assert full == CAS.node_probability(0.05, 0.02, 5, 0.03)
+    mid = CAS.node_probability(0.05, 0.02, 5, 0.03, reliability=0.5)
+    assert base < mid < full
+
+
 def test_node_cascade_sealable_true():
     r = _rng()
     src = r.normal(0, 0.02, 400)

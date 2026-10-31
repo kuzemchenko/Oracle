@@ -94,6 +94,67 @@ def lint_for_user(text, *, require_sections=None, max_len=None):
     return viol
 
 
+# ── V0 «Идея дня» (карта v3, 31.10; формат владельца 15.07) ─────────────────────────────────────
+# Правила подачи сверх общего прохода: ≤4 числа, 0 тех.id, тикеры только с именами, ≤3500 знаков.
+# «Число» считаем ВНЕ цитат «…» (цитата = заголовок новости или реплика суда — их не редактируем) и
+# без дат («5 ноября», 2026-11-05) — дата срока не «цифра анализа». Это зафиксировано здесь, а не в
+# шаблоне, чтобы правило нельзя было обойти формулировкой.
+IDEA_DAY_MAX_NUMBERS = 4
+IDEA_DAY_MAX_LEN = 3500
+_MONTHS_RU = ("январ", "феврал", "март", "апрел", "ма[яй]", "июн", "июл", "август", "сентябр",
+              "октябр", "ноябр", "декабр")
+_DATE_RE = re.compile(r"\b\d{1,2}\s+(?:" + "|".join(_MONTHS_RU) + r")\w*|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\d{2}\.\d{2,4}\b")
+_NUM_RE = re.compile(r"(?<![A-Za-z§])[+−-]?\d+(?:[.,]\d+)?\s*%?")
+_TICKER_RE = re.compile(r"\b[A-Z]{1,6}\.(?:US|INDX|LSE|TO)\b")
+_TECH_ID_RE = re.compile(r"тех\.?\s*id|\b(?:ef|b4|calibrate|funnel)_\d{8}T\d{6}Z|\bwf_[0-9a-f]{6,}", re.IGNORECASE)
+UNKNOWN_NAME_MARK = "компанию не опознал"
+
+
+def _strip_quotes(text):
+    """Текст без содержимого цитат «…» (новость/реплика суда — чужие слова, их числа не наши)."""
+    # жадно в пределах строки: реплика суда может содержать вложенные «кавычки» — режем до последней »
+    return "\n".join(re.sub(r"«.*»", "«»", line) for line in text.split("\n"))
+
+
+_NAME_NUM_RE = re.compile(r"[^\s«»(]*\d[^\s«»(]*(?=\s+\([A-Z]{1,6}\.(?:US|INDX|LSE|TO)\))")
+
+
+def count_numbers(text):
+    """Числа анализа в тексте: вне цитат, без дат и без цифр в ИМЕНИ компании перед тикером
+    («Phillips 66 (PSX.US)» — имя, не число анализа). Возвращает список найденных токенов."""
+    t = _NAME_NUM_RE.sub(" ", _DATE_RE.sub(" ", _strip_quotes(text)))
+    return [m.group(0).strip() for m in _NUM_RE.finditer(t)]
+
+
+def _bare_tickers(text):
+    """Тикеры без имени: тикер обязан стоять в скобках сразу после имени — «Nvidia (NVDA.US)» —
+    либо нести честную пометку «компанию не опознал» (П8: имя не выдумываем)."""
+    bad = []
+    text = _strip_quotes(text)          # тикер внутри цитаты суда/новости — чужой текст, не наша подача
+    for m in _TICKER_RE.finditer(text):
+        before = text[max(0, m.start() - 2):m.start()]
+        after = text[m.end():m.end() + 40]
+        ok = before.endswith("(") or UNKNOWN_NAME_MARK in after
+        if not ok:
+            bad.append(m.group(0))
+    return sorted(set(bad))
+
+
+def lint_idea_of_day(text):
+    """Блокирующий линт «Идеи дня» (V0): общий проход + ≤4 числа вне цитат + 0 тех.id + тикеры с
+    именами + секции + длина. Непустой список = пуш НЕ уходит, алерт в дозор."""
+    viol = lint_for_user(text, require_sections=DAILY_SECTIONS, max_len=IDEA_DAY_MAX_LEN)
+    nums = count_numbers(text)
+    if len(nums) > IDEA_DAY_MAX_NUMBERS:
+        viol.append(f"чисел вне цитат {len(nums)} > {IDEA_DAY_MAX_NUMBERS}: {', '.join(nums[:8])}")
+    if _TECH_ID_RE.search(text):
+        viol.append("тех.id в тексте для владельца (V0: 0 тех.id)")
+    bare = _bare_tickers(text)
+    if bare:
+        viol.append("тикеры без имени: " + ", ".join(bare))
+    return viol
+
+
 def check_daily_case(text):
     """Линтер «Разбора дня»: эмодзи + жаргон + обязательные секции + длина. Пустой список = чисто;
     непустой = сборка/пуш ВАЛИТСЯ (fail-closed)."""

@@ -1,0 +1,208 @@
+# -*- coding: utf-8 -*-
+"""V0 «Идея дня» (карта v3, 31.10.2026; формат владельца 15.07): шаблон + блокирующий линт подачи +
+гард отбора лида по отыгранности (stage-review V0, блокер №1) + ветка денежного лида (регрессия №2) +
+чистка чужого текста (регрессия №3). Детерминированно, без LLM/сети; базы треков подаются явно."""
+import pathlib
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "ops"))
+
+import bot_reports as R          # noqa: E402
+import presentation_lint as PL   # noqa: E402
+
+BASE = {"hit": 0.483, "n": 1932}
+MBASE = {"hit": 0.5, "n": 24}
+KW = dict(base_rate=BASE, money_base=MBASE, money_recent=0)
+
+
+def _entry(asset, order, frac, edge=0.071, full=None, chain="c1", node="узел цепочки", direction="лонг"):
+    return {"актив": asset, "score": 0.3, "edge": edge, "полный_ход": full if full is not None else edge,
+            "направление": direction, "ярусы": ["C"], "лаг_дней": 0, "горизонт_дней": 5,
+            "вероятность": 0.467, "надёжность_r2": 0.02, "цепочка": chain, "порядок": order,
+            "чокпоинт": False, "отыгранность_узла": frac,
+            "узлы_каскада": [{"порядок": order, "узел": node, "тикеры": [asset]}],
+            "провизорный": True, "инверсия": False, "внимание": None,
+            "событие": "Технологические акции США теряют $2 трлн капитализации в октябре",
+            "якорь": "VXX.US", "источник_карты": "картограф"}
+
+
+COURT = {"NVDA.US": {"оценка": 2.8, "band": "средняя",
+                     "критерии": {"mechanism_real": 1.0, "non_obviousness": 4.0},
+                     "кто_против": "Продают инвесторы, уходящие в защитные активы (RSI 35, цена 212.08).",
+                     "почему_возможность": "Перепроданность и неотыгранный ход +7.1%."}}
+
+
+def _proto(top, court=None, money=None, built=None):
+    court = COURT if court is None else court
+    p = {"run_id": "ef_20261031T090001Z", "ts": "2026-10-31T09:00:01+00:00",
+         "граф_отбор": {"топ_k": top, "провизорный_трек": top, "money_трек": [],
+                        "разбор_идей": court, "суд_money": money or {}},
+         "поток_идей": {"всего": len(top)}}
+    if built is not None:
+        p["каскады_в_компании"] = [{"chain_id": "c1", "узлов_построено": built}]
+    return p
+
+
+def test_idea_of_day_passes_lint_and_has_required_lines():
+    top = [_entry("NVDA.US", 4, 0.0), _entry("FRO.US", 2, 0.1, edge=0.02), _entry("DAL.US", 3, 0.9, edge=-0.03)]
+    text, meta, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
+    assert viol == [] and text
+    assert meta["idx"]["1"] == "NVDA.US" and meta["lead"] == "NVDA.US"
+    assert text.startswith("Идея дня — 31 октября. Nvidia (NVDA.US): ставка на рост.")
+    assert "Потенциал." in text and "шанс около 48%" in text and "матожидание около -0.2%" in text
+    assert "если выигрыш и проигрыш одного размера" in text
+    assert "Кто продаёт нам." in text and "Суд." in text and "Счёт честности." in text
+    assert "Сверю к 7 ноября." in text            # 5 торговых дней → 7 календарных (как forecast._resolve_by)
+    assert "Сила" not in text and "тех.id" not in text
+
+
+def test_overplayed_lead_is_skipped_and_next_candidate_leads():
+    """Блокер №1: узел с отыгранностью 1.0 (edge = перевёрнутый остаток) не защищаем — лид следующий."""
+    top = [_entry("LNG.US", 3, 1.0, edge=-0.052, full=0.03), _entry("NVDA.US", 4, 0.0)]
+    court = {**COURT, "LNG.US": {"оценка": 3.5, "band": "сильная", "критерии": {}}}
+    text, meta, viol = R.idea_of_day_from_protocol(_proto(top, court=court), **KW)
+    assert viol == [] and meta["lead"] == "NVDA.US"
+    assert text.startswith("Идея дня — 31 октября. Nvidia (NVDA.US)")
+    lead, why, skipped = R.select_idea_day_lead(_proto(top, court=court))
+    assert skipped == [("LNG.US", "рынок уже отыграл")]
+
+
+def test_sign_conflict_edge_vs_full_is_skipped():
+    top = [_entry("FRO.US", 2, 0.5, edge=-0.02, full=0.04), _entry("NVDA.US", 4, 0.0)]
+    court = {**COURT, "FRO.US": {"оценка": 3.9, "band": "сильная", "критерии": {}}}   # FRO выше по баллу
+    lead, why, skipped = R.select_idea_day_lead(_proto(top, court=court))
+    assert lead[0]["актив"] == "NVDA.US" and skipped[0][1].startswith("остаток хода против механизма")
+
+
+def test_all_overplayed_gives_honest_zero_with_reason():
+    top = [_entry("LNG.US", 3, 1.0), _entry("DAL.US", 3, 0.95)]
+    text, meta, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
+    assert viol == [] and "рынок уже отыграл — защищать нечего" in text and meta["lead"] is None
+
+
+def test_direction_and_size_from_full_move_remaining_separately():
+    """Направление и ход — из полного расчётного хода; остаток (edge) — отдельной фразой."""
+    top = [_entry("NVDA.US", 4, 0.4, edge=0.02, full=0.05)]
+    text = R.format_idea_of_day(_proto(top), **KW)
+    assert "ставка на рост" in text and "Ход около 5.0% вверх, из них ещё не отыграно около 2.0%" in text
+    assert "рынок отыграл его частично — идея держится на остатке хода" in text
+
+
+def test_chain_marks_each_link_and_nearer_unplayed_is_admitted():
+    top = [_entry("NVDA.US", 4, 0.0), _entry("FRO.US", 2, 0.1, edge=0.02), _entry("DAL.US", 3, 0.9, edge=-0.03)]
+    text = R.format_idea_of_day(_proto(top, built=5), **KW)
+    assert "— второй шаг:" in text and "Frontline (FRO.US) — ещё не отыграно" in text
+    assert "третий шаг:" in text and "рынок уже отыграл" in text
+    assert "четвёртый шаг:" in text and "моё звено" in text
+    assert "ближе к событию есть неотыгранные звенья (Frontline (FRO.US))" in text
+    assert "Часть звеньев этой цепочки в выдачу не прошла" in text
+
+
+def test_my_link_three_branches():
+    unknown = R.format_idea_of_day(_proto([_entry("NVDA.US", 4, None)]), **KW)
+    assert "отыгранность не измерена — считать его неотыгранным не могу" in unknown
+    nearer_unknown = R.format_idea_of_day(_proto([_entry("NVDA.US", 4, 0.0), _entry("FRO.US", 2, None, edge=0.02)]), **KW)
+    assert "у более близких звеньев отыгранность не измерена" in nearer_unknown
+    clean = R.format_idea_of_day(_proto([_entry("NVDA.US", 4, 0.0)]), **KW)
+    assert "ближайшее из неотыгранных, что дошли до выдачи" in clean
+
+
+def test_money_survived_lead_is_consistent_with_section11_card():
+    """Регрессия №2: лид, прошедший денежный суд, НЕ говорит «на деньги не тянет» и «суд не пропустил ни одной»."""
+    top = [_entry("NVDA.US", 4, 0.0)]
+    money = {"NVDA.US": {"исход": "УСТОЯЛА", "балл": 3.4, "порог": 3.0,
+                         "кто_против": "Продавцы ждут отката.", "почему_возможность": "Ход не отыгран."}}
+    text, meta, viol = R.idea_of_day_from_protocol(_proto(top, court={}, money=money), base_rate=BASE,
+                                                   money_base={"hit": 0.6, "n": 40}, money_recent=1)
+    assert viol == []
+    assert "прошла денежный суд" in text.lower() and "отдельная карточка с кнопками" in text
+    assert "шанс по денежному треку около 60%" in text
+    assert "в деньги не пускаю" not in text and "не пропустил ни одной" not in text
+    assert "денежные — лучше монетки" in text and "пропускал идеи — редко" in text
+
+
+def test_foreign_text_is_cleaned_before_lint():
+    """Регрессия №3: эмодзи/стрелки в чужом тексте (узел картографа, заголовок, судья) не валят пуш."""
+    e = _entry("NVDA.US", 4, 0.0, node="Поставщики ↔ заказчики 📉 давление")
+    e["событие"] = "Nasdaq падает 📉 — техи теряют капитализацию"
+    court = {"NVDA.US": {**COURT["NVDA.US"], "кто_против": "Продают ✅ все подряд ↔ покупают немногие"}}
+    text, meta, viol = R.idea_of_day_from_protocol(_proto([e], court=court), **KW)
+    assert viol == [] and "📉" not in text and "↔" not in text and "✅" not in text
+
+
+def test_english_headline_replaced_by_anchor_phrase():
+    e = _entry("NVDA.US", 4, 0.0)
+    e["событие"] = "US tech stocks lose two trillion in October - Reuters"
+    text = R.format_idea_of_day(_proto([e]), **KW)
+    assert "Повод. Импульс по ставка на страх (VIX) (VXX.US)" in text
+
+
+def test_numbers_cap_counts_outside_quotes_and_dates():
+    text = R.format_idea_of_day(_proto([_entry("NVDA.US", 4, 0.0, edge=0.02, full=0.05)]), **KW)
+    nums = PL.count_numbers(text)
+    assert len(nums) <= PL.IDEA_DAY_MAX_NUMBERS, nums
+    assert not any("212" in n for n in nums)
+
+
+def test_lint_blocks_bare_ticker_tech_id_and_too_many_numbers():
+    bad = ("Идея дня. NVDA.US: ставка на рост.\nЧто это значит для тебя. x\n"
+           "Ход 1%, 2%, 3%, 4%, 5%.\nЧто делать. y · тех.id ef_20261031T090001Z")
+    joined = " | ".join(PL.lint_idea_of_day(bad))
+    assert "тикеры без имени: NVDA.US" in joined and "тех.id" in joined
+    assert "чисел вне цитат" in joined and "> 4" in joined
+
+
+def test_company_name_digits_are_not_analysis_numbers():
+    assert PL.count_numbers("Phillips 66 (PSX.US): ход около 2.4% вниз, шанс около 48%.") == ["2.4%", "48%"]
+
+
+def test_unknown_company_is_marked_honestly_not_invented():
+    top = [_entry("ZZZQ.US", 2, 0.0)]
+    text, meta, viol = R.idea_of_day_from_protocol(_proto(top, court={}), **KW)
+    assert viol == [] and f"ZZZQ.US — {PL.UNKNOWN_NAME_MARK}" in text
+    assert "Суд. Идею сегодня не судили" in text and "Суд не отвечал" in text
+
+
+def test_honest_zero_is_one_short_block_and_passes_lint():
+    text, meta, viol = R.idea_of_day_from_protocol(_proto([], court={}), **KW)
+    assert viol == [] and text.count("\n") <= 4 and "Сегодня стоящего нет" in text
+    assert meta["idx"] == {} and meta["lead"] is None
+
+
+def test_honesty_line_is_computed_in_words():
+    assert "как монетка" in R._honesty_line(BASE, {"hit": None, "n": 0}, 0)
+    assert "сверенных исходов пока мало" in R._honesty_line({"hit": 0.9, "n": 5}, None, None)
+    assert "хуже монетки" in R._honesty_line({"hit": 0.40, "n": 100}, None, 0)
+    assert "данных нет" in R._honesty_line(BASE, None, None)
+
+
+def test_no_base_rate_is_honest():
+    text = R.format_idea_of_day(_proto([_entry("NVDA.US", 4, 0.0)]), base_rate={"hit": None, "n": 0},
+                                money_base={"hit": None, "n": 0}, money_recent=0)
+    assert "шанс не измерен" in text
+
+
+def test_top3_has_no_strength_score_and_shows_base(monkeypatch):
+    monkeypatch.setattr(R, "track_base_rate", lambda *a, **k: BASE)
+    text = R.format_top3(_proto([_entry("NVDA.US", 4, 0.0)]))
+    assert "/5" not in text and "Сила" not in text
+    assert "сбывались примерно в 48% случаев" in text and "Суд оценил как средняя" in text
+
+
+def test_track_base_rate_reads_outcomes_kind(tmp_path):
+    p = tmp_path / "o.jsonl"
+    p.write_text('{"kind":"cascade_provisional","outcome":1}\n{"kind":"cascade_provisional","outcome":0}\n'
+                 '{"kind":"calibration","outcome":1}\nмусор\n', encoding="utf-8")
+    assert R.track_base_rate("cascade_provisional", path=p) == {"hit": 0.5, "n": 2}
+    assert R.track_base_rate("edge_forward", path=p) == {"hit": None, "n": 0}
+
+
+def test_money_seals_recent_counts_by_kind_and_window(tmp_path):
+    p = tmp_path / "p.jsonl"
+    p.write_text('{"kind":"cascade_money","sealed_at":"2099-01-01T00:00:00+00:00"}\n'
+                 '{"kind":"cascade_money","sealed_at":"2000-01-01T00:00:00+00:00"}\n'
+                 '{"kind":"cascade_provisional","sealed_at":"2099-01-01T00:00:00+00:00"}\n', encoding="utf-8")
+    assert R._money_seals_recent(days=90, path=p) == 1
+    assert R._money_seals_recent(days=90, path=tmp_path / "нет.jsonl") is None

@@ -94,7 +94,7 @@ def test_ranks_by_strength_score():
     разбор = {"FRO": _idea(3.7), "LNG": _idea(3.1), "DAL": _idea(2.2)}
     text, meta, viol = R.top3_from_protocol(_proto(разбор=разбор))
     assert viol == [] and meta["idx"] == {"1": "FRO", "2": "LNG", "3": "DAL"}
-    assert "Сила 3.7/5" in text and "сильная" in text
+    assert "Суд оценил как сильная" in text and "/5" not in text   # П-4 (31.10): без «Сила X/5»
 
 
 def test_lower_ranked_but_higher_score_leads():
@@ -111,7 +111,7 @@ def test_never_says_nothing_to_defend_on_weak_day():
     text, meta, viol = R.top3_from_protocol(_proto(разбор=разбор))
     assert viol == []
     assert "защищать нечего" not in text.lower()
-    assert "слабовата" in text.lower() and meta["idx"]["1"] == "FRO"
+    assert "оценил как слабую" in text.lower() and meta["idx"]["1"] == "FRO"
 
 
 def test_money_survivor_leads_over_research():
@@ -220,7 +220,7 @@ def test_defense_card_by_number():
     proto = _proto(разбор=_STRONG_FRO)
     card, viol = R.top3_defense_card(proto, "FRO")
     assert viol == [] and card is not None
-    assert "Сила идеи: 3.7/5" in card and PL._emoji_glyphs(card) == []
+    assert "Оценка суда: сильная" in card and "/5" not in card and PL._emoji_glyphs(card) == []
     none_card, v2 = R.top3_defense_card(proto, "ZZZ")
     assert none_card is None and v2
 

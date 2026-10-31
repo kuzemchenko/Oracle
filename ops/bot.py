@@ -238,6 +238,10 @@ class Bot:
         # Flow-fix В1: ответ «1»/«2»/«3» на «Топ-3» → мгновенная защита выбранной идеи из готового суда.
         if not text.startswith("/") and self._capture_top3_pick(chat, text):
             return
+        # V0: «что ещё было» после «Идеи дня» → остальные идеи того же прогона списком (Топ-3).
+        if not text.startswith("/") and self._intent_more_ideas(text):
+            self._cmd_more_ideas(chat)
+            return
         if text.startswith("/"):
             self._command(chat, text)
             return
@@ -325,6 +329,49 @@ class Bot:
             return True
         self._send_card(card, None)
         return True
+
+    @staticmethod
+    def _intent_more_ideas(text):
+        """V0: «что ещё было» / «ещё идеи» / «остальные идеи» — показать остальные идеи дня списком."""
+        t = (text or "").lower().strip().strip(".!?…")
+        if len(t) > 40:
+            return False
+        # узко (stage-review V0): голое «что ещё» перехватывало бы обычные вопросы владельца
+        return any(k in t for k in ("что ещё было", "что еще было", "ещё идеи", "еще идеи",
+                                    "остальные идеи", "другие идеи"))
+
+    def _cmd_more_ideas(self, chat):
+        """Остальные идеи дня = «Топ-3» того же прогона, из готового суда, через линт стиль-контракта."""
+        lid = self.state.get("last_idea_day") or self.state.get("last_top3")
+        if not lid or not lid.get("run_id"):
+            self.tg.send_message(chat, "Сегодняшней подборки у меня нет — скажи «найди идеи», сделаю прогон.")
+            return
+        proto = R.load_protocol(lid["run_id"])
+        if not proto:
+            self.tg.send_message(chat, "Не нашёл протокол того прогона — сделай свежий («найди идеи»).")
+            return
+        text, meta, viol = R.top3_from_protocol(proto)
+        if text is None:
+            log("«что ещё было»: Топ-3 не прошёл стиль-контракт", lid["run_id"], viol)
+            self.tg.send_message(chat, "Список идей не прошёл проверку подачи — покажу по одной: "
+                                       "напиши «разбери ТИКЕР».")
+            return
+        self._send_card(text, None)
+        self.state["last_top3"] = {"run_id": lid["run_id"], "idx": (meta or {}).get("idx") or {}}
+        self.save()
+
+    def _notice_dozor(self, text):
+        """Заметка в дозор §25 (journal/notices.jsonl, тот же канал, что auto_review): бот сам пушит её
+        следующим tick'ом владельцу. Используется V0, когда «Идея дня» не прошла линт."""
+        import json as _json
+        import datetime as _dt
+        path = ROOT / "journal" / "notices.jsonl"
+        try:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(_json.dumps({"ts": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+                                     "text": text}, ensure_ascii=False) + "\n")
+        except OSError as e:
+            log("заметка дозора не записана", repr(e))
 
     def _voice_text(self, chat, msg):
         """Голосовое сообщение → распознанный текст (или None + человеческое объяснение в чат).
@@ -990,7 +1037,35 @@ class Bot:
                     # Flow-fix В1 (15.07): лид-каскад ПОДАЧИ — «Топ-3 одной строкой» + защита №1
                     # (выбор владельца) → фолбэк «Разбор дня» → фолбэк эмодзи-дайджест. Каждый слой
                     # fail-closed по линтеру стиль-контракта: сломанный шаблон не уходит, берём следующий.
-                    if pres.get("top3_lead"):
+                    # V0 «Идея дня» (карта v3, 31.10; формат владельца 15.07): ГЛАВНЫЙ пуш. Линт
+                    # БЛОКИРУЮЩИЙ: не прошёл → пуш НЕ уходит и заметка в дозор (без фолбэка на Топ-3 —
+                    # правило этапа V0: сломанная подача не маскируется другим форматом). Остальные
+                    # идеи — по запросу «что ещё было» (→ Топ-3 того же прогона).
+                    lint_blocked = False
+                    self.state["last_idea_day"] = None
+                    if pres.get("idea_day_lead"):
+                        id_text, id_meta, id_viol = R.idea_of_day_from_protocol(proto)
+                        if id_text is None:
+                            # stage-review V0 (регрессия №3): без фолбэка один чужой глиф снимал бы
+                            # утренний пуш целиком. Фолбэк — Топ-3 (тоже через линт) + заметка в дозор.
+                            log("Идея дня НЕ прошла линт подачи — фолбэк на Топ-3 (V0)", run_id, id_viol)
+                            self._notice_dozor(
+                                "«Идея дня» сегодня не прошла проверку подачи "
+                                "(" + "; ".join(str(v) for v in (id_viol or [])[:3]) + ") — "
+                                "утром ушёл список идей вместо одной защищаемой. Это защита от "
+                                "сломанного текста, не отсутствие идей.")
+                        else:
+                            card = id_text
+                            _artifact = "Идея дня"
+                            self.state["last_idea_day"] = {"run_id": run_id,
+                                                           "idx": (id_meta or {}).get("idx") or {}}
+                            # ответ «1» раскрывает защиту лида из готового суда (как у Топ-3)
+                            self.state["last_top3"] = {"run_id": run_id,
+                                                       "idx": (id_meta or {}).get("idx") or {}}
+                            self.state["last_case"] = None
+                    if lint_blocked:
+                        self.state["last_idea_day"] = {"run_id": run_id, "idx": {}}
+                    if card is None and not lint_blocked and pres.get("top3_lead"):
                         t3_text, t3_meta, t3_viol = R.top3_from_protocol(proto)
                         if t3_text is None:
                             log("Топ-3 не прошёл стиль-контракт — фолбэк на Разбор дня", run_id, t3_viol)
@@ -1002,7 +1077,7 @@ class Bot:
                             self.state["last_top3"] = {"run_id": run_id,
                                                        "idx": (t3_meta or {}).get("idx") or {}}
                             self.state["last_case"] = None
-                    if card is None and pres.get("daily_case_lead"):
+                    if card is None and not lint_blocked and pres.get("daily_case_lead"):
                         case_text, _case, _viol = R.daily_case_from_protocol(proto)
                         if case_text is None:                # линтер завалил шаблон → не шлём сломанное
                             log("Разбор дня не прошёл стиль-контракт — фолбэк на дайджест", run_id, _viol)
@@ -1016,13 +1091,16 @@ class Bot:
                                 "run_id": run_id, "asset": (_case or {}).get("актив"),
                                 "status": (_case or {}).get("статус"),
                                 "варианты": q.get("варианты") or []}
-                    if card is None:                         # флаги выключены ИЛИ линтер завалил → дайджест
+                    if card is None and not lint_blocked:    # флаги выключены ИЛИ линтер завалил → дайджест
                         card = R.format_research_digest(proto)
-                    # длиннее лимита Telegram (4096) → шлём частями.
-                    if self._send_card(card, None) is None:
-                        log("сбой отправки дневного артефакта — ретрай в следующий tick", run_id)
-                        continue
-                    self.state["digest_sent"].append(run_id)
+                    if lint_blocked:
+                        self.state["digest_sent"].append(run_id)   # V0: пуша нет, заметка ушла; не ретраим
+                    else:
+                        # длиннее лимита Telegram (4096) → шлём частями.
+                        if self._send_card(card, None) is None:
+                            log("сбой отправки дневного артефакта — ретрай в следующий tick", run_id)
+                            continue
+                        self.state["digest_sent"].append(run_id)
                 # §11 fail-closed: money-каскады, ПЕРЕЖИВШИЕ слепой суд («УСТОЯЛА», без вето §6),
                 # доходят до пользователя ОТДЕЛЬНОЙ §8-actionable карточкой с кнопками §12. Дайджест —
                 # обзорный поток, карточка — решение по конкретной идее: РАЗНЫЕ форматы одной идеи,

@@ -106,7 +106,7 @@ def test_ef_surviving_money_idea_pushes_pending_card(paths):
     bot._tick_reports()
     # дневной артефакт ушёл (лид-формат зависит от config: старый «Идеи дня» ИЛИ «Разбор дня» Этапа3 —
     # money-карточка ниже от этого не зависит, тест money-пути не привязан к формату подачи)
-    assert any(("Идеи дня" in s[1] or "Разбор дня" in s[1]) for s in bot.tg.sent)
+    assert any(("Идеи дня" in s[1] or "Идея дня" in s[1] or "Разбор дня" in s[1]) for s in bot.tg.sent)   # V0: «Идея дня»
     # отдельная §8-карточка с кнопками §12
     cards = [s for s in bot.tg.sent if "Идея дня:" in s[1]]
     assert len(cards) == 1
@@ -131,7 +131,7 @@ def test_ef_demoted_money_idea_no_card(paths):
     _write(paths["logs"], _ef_proto(outcome="РАЗБИТА"))
     bot = _fresh_bot()
     bot._tick_reports()
-    assert any(("Идеи дня" in s[1] or "Разбор дня" in s[1]) for s in bot.tg.sent)  # дневной артефакт есть
+    assert any(("Идеи дня" in s[1] or "Идея дня" in s[1] or "Разбор дня" in s[1]) for s in bot.tg.sent)   # V0: «Идея дня»  # дневной артефакт есть
     assert not any("Идея дня:" in s[1] for s in bot.tg.sent)   # карточки-ставки нет
     assert bot.state["pending"] == {}
 

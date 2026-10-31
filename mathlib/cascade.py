@@ -169,8 +169,11 @@ def node_probability(amplitude, resid_std, horizon_days, threshold=0.0,
         return None
     p = _norm_cdf((float(amplitude) - float(threshold)) / sigma_total)
     if reliability is not None:
+        # stage-review V0 (31.10): сжимаем НЕ к 0.5, а к честной базе без сноса p0 = Φ(−threshold/σ):
+        # при threshold>0 слабая связь не должна уводить p ВВЕРХ от базы (§10). При threshold=0 p0=0.5.
         w = max(0.0, min(1.0, float(reliability)))
-        p = 0.5 + (p - 0.5) * w           # надёжность=0 → монетка; =1 → исходная p
+        p0 = _norm_cdf(-float(threshold) / sigma_total)
+        p = p0 + (p - p0) * w             # надёжность=0 → база без сноса; =1 → исходная p
     return round(p, 4)
 
 
@@ -206,7 +209,10 @@ def node_cascade(source_ret, node_ret, shock, *, horizon_days, threshold=0.0,
                 **(conditional_kwargs or {}))
         return no_data
     amp = node_amplitude(sens["beta"], shock)
-    prob = node_probability(amp, sens["resid_std"], horizon_days, threshold)
+    # V0 (карта v3, 31.10; корень ложной уверенности 0.99 у слабых связей): reliability=r² сжимает p к 0.5
+    # пропорционально надёжности — как уже делает боевой путь cascade_build (P1#4). Без этого однозвенный
+    # путь node_cascade давал P≈0.99 при r²≈0.04 (П8: мы не уверены, когда связь статистически пуста).
+    prob = node_probability(amp, sens["resid_std"], horizon_days, threshold, reliability=sens["r2"])
     weak = sens["r2"] < WEAK_R2
     if not sens["перенос_установлен"]:
         sealable, причина = False, "перенос статистически не установлен (CI корреляции включает 0) — П8"
