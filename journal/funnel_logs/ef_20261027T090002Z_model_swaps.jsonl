@@ -1,0 +1,1 @@
+{"ts": "2026-10-27T09:05:50Z", "agent": "event_mapper", "role": "generator", "attempted": "anthropic/claude-opus-4.8", "used": "anthropic/claude-sonnet-4.6", "reason": "error: ChunkedEncodingError: Response ended prematurely"}

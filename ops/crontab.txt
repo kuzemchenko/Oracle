@@ -95,3 +95,9 @@ MAILTO=""
 # (в git НЕ попадает). Токен СКОМПРОМЕТИРОВАН историей — ротировать на сервере femmecode.
 # Устанавливать ВМЕСТЕ (иначе те боты не запустятся):
 #   cat ops/crontab.txt ops/crontab.local.txt | crontab -
+
+# Вечерний чекпоинт журналов/отчётов в GitHub (добавлен 31.10.2026): с 15.07 пушей не было —
+# чекпоинт делала рукой Claude-сессия, задачи в cron не существовало; 3,5 месяца журналов лежали
+# только на сервере. Скрипт ops/checkpoint.sh: git add ТОЛЬКО journal/ reports/ ops/reports/,
+# код не трогает, пуш всего master. 22:00 — после сверки 21:00 и дозора 21:15. Падение → алерт в бота.
+0 22 * * *   cd /home/oracle/oracle && ops/cron_alert.sh checkpoint /home/oracle/oracle/ops/checkpoint.sh >> journal/cron.log 2>&1
