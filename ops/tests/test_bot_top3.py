@@ -21,12 +21,39 @@ import bot_reports as R          # noqa: E402
 from ops import presentation_lint as PL   # noqa: E402
 
 
-def _node(asset, *, edge=0.05, rel=0.4, order=1, prov=True, event=None, anchor="BZ"):
+def _node(asset, *, edge=0.05, rel=0.4, order=1, prov=True, event=None, anchor="BZ",
+          инверсия=False, внимание=None):
     return {"актив": asset, "score": 0.1, "edge": edge,
             "направление": "лонг" if edge >= 0 else "шорт",
             "надёжность_r2": rel, "порядок": order, "чокпоинт": order == 1,
             "провизорный": prov, "событие": event, "якорь": anchor,
+            "инверсия": инверсия, "внимание": внимание,
             "лаг_дней": 4, "горизонт_дней": 5, "вероятность": 0.4}
+
+
+def test_b1_inversion_marked_in_push():
+    """B1: инверсная идея №1 честно помечена «контринтуитивно/2-й порядок» и в строке, и в разборе."""
+    топ = [_node("FRO", edge=0.08, rel=0.42, order=2, инверсия=True,
+                 event="Атака у Ормуза — перекройка маршрутов")]
+    text, meta, viol = R.top3_from_protocol(_proto(топ=топ, разбор={"FRO": _idea(3.2)}, поток=5))
+    assert viol == [] and meta["idx"]["1"] == "FRO"
+    low = text.lower()
+    assert "контринтуитив" in low and "обратного" in low
+
+
+def test_a2_crowd_sensor_shown_when_measured():
+    """A2: измеренный датчик толпы (Google Trends) показан владельцу в разборе; «не измерено» — молчит."""
+    вним = {"статус": "ok", "свежесть": 0.68, "фаза": "РАНО"}
+    топ = [_node("FRO", edge=0.08, rel=0.42, order=2, внимание=вним,
+                 event="Атака у Ормуза — рост фрахта")]
+    text, _, viol = R.top3_from_protocol(_proto(топ=топ, разбор={"FRO": _idea(3.2)}, поток=5))
+    assert viol == []
+    assert "Толпа (Google Trends): свежесть 68" in text
+    # не измерено → строки нет
+    топ2 = [_node("LNG", edge=0.05, rel=0.2, order=2, внимание={"статус": "не_измерено"},
+                  event="Обход Ормуза через СПГ")]
+    text2, _, viol2 = R.top3_from_protocol(_proto(топ=топ2, разбор={"LNG": _idea(3.1)}, поток=5))
+    assert viol2 == [] and "Толпа (Google Trends)" not in text2
 
 
 def _idea(score, *, кто=None, почему=None, крит=None, band=None, side="лонг"):

@@ -1363,6 +1363,25 @@ def _crit_line(критерии):
     return ", ".join(parts) or None
 
 
+_PHASE_RU = {"РАНО": "толпа ещё не зашла — свежо", "ВОВРЕМЯ": "толпа заходит сейчас",
+             "ПОЗДНО": "уже на радаре толпы", "ЛОВУШКА": "перегрето, цена уехала",
+             "ОТЫГРАНО": "хайп сдулся"}
+
+
+def _crowd_line(brief):
+    """A2: одна строка про датчик толпы (Google Trends) для показа владельцу — из посчитанного поля
+    «внимание» узла (attention.py). «Не измерено» → None (не выдумываем свежесть). Плоский язык."""
+    f = brief.get("внимание")
+    if not isinstance(f, dict) or f.get("статус") != "ok":
+        return None
+    свеж, фаза = f.get("свежесть"), f.get("фаза")
+    if not isinstance(свеж, (int, float)):
+        return None
+    хвост = _PHASE_RU.get(фаза)
+    return (f"Толпа (Google Trends): свежесть {свеж * 100:.0f}% из 100"
+            + (f" — {хвост}" if хвост else "") + ".")
+
+
 def _top3_pool(protocol, *, name_fn=None):
     """Ранжированный пул идей дня для «Топ-3»: узлы графа (топ_k) по продуктовому рангу П2б, с
     прикреплённым вердиктом суда по символу (разбор_идей для провизорных, суд_money для money).
@@ -1462,6 +1481,8 @@ def _top3_oneliner(brief, court, rank, name_fn=None):
                  if як else None)
     r = _idea_read(court)
     parts = [f"{rank}. {label} — {dir_word}."]
+    if brief.get("инверсия"):
+        parts.append(" Контринтуитивно: толпа ждёт обратного.")   # B1: инверсная идея 2-го порядка
     повод = _oneend(повод)
     if повод:
         повод = повод[0].upper() + повод[1:]        # предложение с заглавной (после «вверх.»)
@@ -1498,6 +1519,9 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
     против_calc = _trunc_words(против[0], 240) if против else None
     head = (f"Идея №{rank} — {label}" if rank else f"Идея — {label}") + f" (ставка на {dir_word})."
     L = [head]
+    if brief.get("инверсия"):        # B1: инверсная/контринтуитивная идея — честно объясняем, в чём соль
+        L.append("Контринтуитивная идея (2-й порядок): толпа ждёт обратного эффекта, а выигрывает эта "
+                 "бумага — потому её ещё и не заметили.")
     if r["money_survived"]:
         L.append("Прошла даже строгий денежный суд §11 — редкий сильный сигнал.")
     elif r["money_uncontested"]:
@@ -1517,6 +1541,9 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
         L.append("Денежный суд §11 запускался, но оценить не смог (нет котировки/сбой) — вердикта нет.")
     else:
         L.append("Глубоко ещё не оценивал (быстрый скан) — это наводка, не вердикт.")
+    crowd = _crowd_line(brief)                            # A2: датчик толпы (Trends), если измерен
+    if crowd:
+        L.append(crowd)
     if r["почему"] or за_calc:
         L.append(f"Почему может сработать: {r['почему'] or за_calc}")
     if r["кто_против"] or против_calc:
