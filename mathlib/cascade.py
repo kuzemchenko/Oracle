@@ -169,8 +169,11 @@ def node_probability(amplitude, resid_std, horizon_days, threshold=0.0,
         return None
     p = _norm_cdf((float(amplitude) - float(threshold)) / sigma_total)
     if reliability is not None:
+        # stage-review V0 (31.10): сжимаем НЕ к 0.5, а к честной базе без сноса p0 = Φ(−threshold/σ):
+        # при threshold>0 слабая связь не должна уводить p ВВЕРХ от базы (§10). При threshold=0 p0=0.5.
         w = max(0.0, min(1.0, float(reliability)))
-        p = 0.5 + (p - 0.5) * w           # надёжность=0 → монетка; =1 → исходная p
+        p0 = _norm_cdf(-float(threshold) / sigma_total)
+        p = p0 + (p - p0) * w             # надёжность=0 → база без сноса; =1 → исходная p
     return round(p, 4)
 
 
