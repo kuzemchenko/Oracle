@@ -50,7 +50,7 @@ def test_idea_of_day_passes_lint_and_has_required_lines():
     text, meta, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
     assert viol == [] and text
     assert meta["idx"]["1"] == "NVDA.US" and meta["lead"] == "NVDA.US"
-    assert text.startswith("Идея дня — 31 октября. Nvidia (NVDA.US): ставка на рост.")
+    assert text.startswith("Наблюдение дня — 31 октября. Nvidia (NVDA.US): возможный рост.")  # подпись 01.11: вариант А
     assert "Потенциал." in text and "шанс — как у средней идеи этого конвейера, около 48%" in text \
         and "матожидание около -0.2%" in text   # испытатель 01.11: сбываемость потока, не оценка идеи
     assert "если выигрыш и проигрыш одного размера" in text
@@ -65,7 +65,7 @@ def test_overplayed_lead_is_skipped_and_next_candidate_leads():
     court = {**COURT, "LNG.US": {"оценка": 3.5, "band": "сильная", "критерии": {}}}
     text, meta, viol = R.idea_of_day_from_protocol(_proto(top, court=court), **KW)
     assert viol == [] and meta["lead"] == "NVDA.US"
-    assert text.startswith("Идея дня — 31 октября. Nvidia (NVDA.US)")
+    assert text.startswith("Наблюдение дня — 31 октября. Nvidia (NVDA.US)")  # EV<0 → жанр наблюдения (подпись 01.11)
     lead, why, skipped = R.select_idea_day_lead(_proto(top, court=court))
     assert skipped == [("LNG.US", "рынок уже отыграл")]
 
@@ -87,7 +87,7 @@ def test_direction_and_size_from_full_move_remaining_separately():
     """Направление и ход — из полного расчётного хода; остаток (edge) — отдельной фразой."""
     top = [_entry("NVDA.US", 4, 0.4, edge=0.02, full=0.05)]
     text = R.format_idea_of_day(_proto(top), **KW)
-    assert "ставка на рост" in text and "Ход около 5.0% вверх, из них ещё не отыграно около 2.0%" in text
+    assert "возможный рост" in text and "Ход около 5.0% вверх, из них ещё не отыграно около 2.0%" in text  # жанр наблюдения при EV<0
     assert "рынок отыграл его частично — идея держится на остатке хода" in text
 
 
@@ -207,3 +207,42 @@ def test_money_seals_recent_counts_by_kind_and_window(tmp_path):
                  '{"kind":"cascade_provisional","sealed_at":"2099-01-01T00:00:00+00:00"}\n', encoding="utf-8")
     assert R._money_seals_recent(days=90, path=p) == 1
     assert R._money_seals_recent(days=90, path=tmp_path / "нет.jsonl") is None
+
+
+# ── подпись владельца 01.11 (вариант А): два жанра подачи + знак-гард ────────────────
+def test_genre_defend_when_ev_positive():
+    """База с hit>0.5 → матожидание > 0 → жанр «Идея дня … защищаю»."""
+    top = [_entry("NVDA.US", 4, 0.0)]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), base_rate={"hit": 0.6, "n": 100},
+                                                 money_base=MBASE, money_recent=0)
+    assert viol == []
+    assert text.startswith("Идея дня — ") and "которую я сегодня защищаю" in text
+    assert "Наблюдение дня" not in text
+
+
+def test_genre_observe_when_ev_negative():
+    """EV ≤ 0 → «Наблюдение дня», без слова «защищаю», с назначением проверки."""
+    top = [_entry("NVDA.US", 4, 0.0)]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
+    assert viol == []
+    assert text.startswith("Наблюдение дня — ") and "защищать нечего" in text
+    assert "которую я сегодня защищаю" not in text
+    assert "наблюдение, не ставка" in text
+
+
+def test_sign_conflict_forces_observe():
+    """Текст звена «давление на поставщиков» при расчётном ходе ВВЕРХ → наблюдение + явная строка."""
+    top = [_entry("NVDA.US", 4, 0.0, node="обвал оценок ставит под вопрос заказы — давление на поставщиков")]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), base_rate={"hit": 0.6, "n": 100},
+                                                 money_base=MBASE, money_recent=0)
+    assert viol == []
+    assert text.startswith("Наблюдение дня — ")
+    assert "Противоречие внутри идеи" in text
+
+
+def test_chain_gap_is_honest():
+    """Исток(1) → четвёртый шаг без второго/третьего → строка о пропуске словами, без цифр."""
+    top = [_entry("NVDA.US", 4, 0.0)]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
+    assert viol == []
+    assert "до выдачи не дошёл — в цепочке пропуск" in text
