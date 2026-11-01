@@ -1591,7 +1591,8 @@ def _defense_block(brief, court, ts, rank=None, name_fn=None):
     elif r["money_rejected"]:
         балл = f" (балл {r['money_балл']:.1f} {_порог_txt(r)})" if isinstance(r["money_балл"], (int, float)) else ""
         L.append(f"Денежный суд §11 отклонил эту идею{балл} — в деньги не пускаю. "
-                 "Это не оценка силы идеи, а порог допуска к деньгам (нужен подтверждённый историей edge).")
+                 "Это не оценка силы идеи, а порог допуска к деньгам (нужно подтверждённое историей "
+                 "преимущество над рынком).")
     elif r["money_failed"]:
         L.append("Денежный суд §11 запускался, но оценить не смог (нет котировки/сбой) — вердикта нет.")
     else:
@@ -2000,10 +2001,29 @@ def _honest_zero(дата, why=None):
             f"Это {RESEARCH_FRAME}.")
 
 
+_SIGN_DOWN_M = ("давлени", "под вопрос", "страда", "падени", "обвал", "снижен", "сокращ",
+                "убыт", "ущерб", "дешеве", "теря", "слабе", "обруш", "просад")
+_SIGN_UP_M = ("рост", "выигр", "бенефициар", "усилива", "дорожа", "прибав",
+              "укрепл", "наращива", "взлет", "взлёт")
+
+
+def _node_sign_conflict(node_text, dir_word):
+    """Семантический знак-гард (испытатель №1): СЫРОЙ текст звена против направления расчёта.
+    Конфликт — только строгий: маркеры одной стороны БЕЗ маркеров другой («ставка на рост»
+    под звеном «давление на поставщиков»). Единый словарь для гарда лида и рендера."""
+    t = str(node_text or "").lower()
+    if dir_word == "вверх":
+        return any(m in t for m in _SIGN_DOWN_M) and not any(m in t for m in _SIGN_UP_M)
+    if dir_word == "вниз":
+        return any(m in t for m in _SIGN_UP_M) and not any(m in t for m in _SIGN_DOWN_M)
+    return False
+
+
 def _lead_ok(brief, court):
-    """Гард отбора лида (stage-review V0, блокер №1). Узел с отыгранностью ≥0.8 — рынок уже отыграл
-    механизм: его edge = остаток реализованного хода с перевёрнутым знаком, а не прогноз; знак остатка
-    против полного хода — тот же артефакт. Такое НЕ защищаем. Возвращает (ok, причина)."""
+    """Гард отбора лида (stage-review V0, блокер №1 + испытатель №1). Узел с отыгранностью ≥0.8 —
+    рынок уже отыграл механизм: его edge = остаток реализованного хода с перевёрнутым знаком, а не
+    прогноз; знак остатка против полного хода — тот же артефакт; текст звена против направления
+    расчёта — самопротиворечие. Такое НЕ защищаем. Возвращает (ok, причина)."""
     r = _idea_read(court)
     if r["money_survived"] or r["money_uncontested"]:
         return True, None
@@ -2014,6 +2034,11 @@ def _lead_ok(brief, court):
     if (isinstance(edge, (int, float)) and isinstance(full, (int, float)) and edge and full
             and (edge > 0) != (full > 0)):
         return False, "остаток хода против механизма (переотыграно)"
+    ход = full if isinstance(full, (int, float)) and full else edge
+    node = str(((brief.get("узлы_каскада") or [{}])[0]).get("узел") or "")
+    if (isinstance(ход, (int, float)) and ход
+            and _node_sign_conflict(node, "вверх" if ход > 0 else "вниз")):
+        return False, "текст звена против направления расчёта"
     return True, None
 
 
@@ -2028,6 +2053,13 @@ def select_idea_day_lead(protocol, *, name_fn=None):
             return (b, c), None, skipped
         skipped.append((b.get("актив"), why))
     if pool:
+        reasons = {w for _a, w in skipped if w}
+        if reasons == {"текст звена против направления расчёта"}:
+            return None, ("кандидаты противоречат сами себе (текст звена против расчёта) — "
+                          "защищать нечего"), skipped
+        if "текст звена против направления расчёта" in reasons:
+            return None, ("всё, что дошло до выдачи, либо уже отыграно рынком, либо противоречит "
+                          "само себе — защищать нечего"), skipped
         return None, "всё, что дошло до выдачи, рынок уже отыграл — защищать нечего", skipped
     return None, None, skipped
 
@@ -2120,12 +2152,7 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
         if _e.get("актив") == a:
             _my_raw = str((( _e.get("узлы_каскада") or [{}])[0].get("узел") or "")).lower()
             break
-    _down_m = ("давлени", "под вопрос", "страда", "падени", "обвал", "снижен", "сокращ", "убыт", "ущерб")
-    _up_m = ("рост", "выигр", "бенефициар", "усилива", "дорожа")
-    sign_conflict = ((dir_word == "вверх" and any(m in _my_raw for m in _down_m)
-                      and not any(m in _my_raw for m in _up_m))
-                     or (dir_word == "вниз" and any(m in _my_raw for m in _up_m)
-                         and not any(m in _my_raw for m in _down_m)))
+    sign_conflict = _node_sign_conflict(_my_raw, dir_word)   # единый словарь с гардом лида
     defend = bool(money or (_ev_pct is not None and _ev_pct > 0)) and not sign_conflict
     наблюдение = {"рост": "возможный рост", "снижение": "возможное снижение"}.get(ставка, "возможное движение")
     if sign_conflict:
@@ -2155,34 +2182,50 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
     # Цепочка целиком с отыгранностью каждого звена
     L.append("")
     L.append("Цепочка от события до бумаги и что уже отыграно:")
-    if як:
-        L.append(f"— исток: {_idea_label_v0(як, name_fn)} — первая реакция рынка, здесь всё отыгрывается быстрее всего.")
+    # Испытатель №1: цепочка ЦЕЛИКОМ и по порядку (первый→последний), дыры — на своём месте,
+    # а не сноской в конце; номера словами (линт ≤4 чисел цел).
     my_order = b.get("порядок") if isinstance(b.get("порядок"), int) else None
     my_frac = b.get("отыгранность_узла")
     nearer_unplayed, nearer_unknown = [], []
+    by_order = {}
+    stray = []
     for e in links:
         o = e.get("порядок")
+        (by_order.setdefault(o, []) if isinstance(o, int) else stray).append(e)
+
+    def _link_line(e, ordw):
         node_txt = _clean_llm(((e.get("узлы_каскада") or [{}])[0].get("узел") or ""), 400)
         node_txt = _trunc_clause(node_txt, 130) if node_txt else node_txt
-        frac = e.get("отыгранность_узла")
-        ordw = _ORD_RU.get(o, "дальний") + " шаг" if isinstance(o, int) else "звено"
         who = _idea_label_v0(e.get("актив"), name_fn)
         txt = f"«{node_txt}» — " if node_txt else ""
         mine = " — моё звено" if e.get("актив") == a else ""
-        L.append(f"— {ordw}: {txt}{who} — {_played_word(frac)}{mine}.")
+        return f"— {ordw}: {txt}{who} — {_played_word(e.get('отыгранность_узла'))}{mine}."
+
+    max_o = max(by_order) if by_order else 1
+    for o in range(1, max_o + 1):
+        ordw = _ORD_RU.get(o, "дальний") + " шаг"
+        if o == 1 and o not in by_order:
+            if як:
+                L.append(f"— первый шаг (исток): {_idea_label_v0(як, name_fn)} — первая реакция "
+                         f"рынка, здесь всё отыгрывается быстрее всего.")
+            continue
+        if o not in by_order:
+            L.append(f"— {ordw}: до выдачи не дошёл — в цепочке пропуск, показываю его честно.")
+            continue
+        for e in by_order[o]:
+            L.append(_link_line(e, ordw))
+    for e in stray:
+        L.append(_link_line(e, "звено"))
+    for e in links:
+        o, frac = e.get("порядок"), e.get("отыгранность_узла")
         if my_order is not None and isinstance(o, int) and o < my_order and e.get("актив") != a:
+            who = _idea_label_v0(e.get("актив"), name_fn)
             if isinstance(frac, (int, float)) and frac < 0.3:
                 nearer_unplayed.append(who)
             elif not isinstance(frac, (int, float)):
                 nearer_unknown.append(who)
     if not links:
         L.append(f"— {label} — звено выдачи; остальные звенья цепочки до протокола не дошли (здесь данных нет).")
-    _orders = sorted({e.get("порядок") for e in links if isinstance(e.get("порядок"), int)})
-    if _orders:
-        _gaps = [o for o in range(2, max(_orders)) if o not in _orders]
-        if _gaps:
-            _gw = ", ".join(_ORD_RU.get(o, "дальний") for o in _gaps)
-            L.append(f"— {_gw} шаг до выдачи не дошёл — в цепочке пропуск, показываю его честно.")
     built = _chain_built_count(protocol, b.get("цепочка"))
     if isinstance(built, int) and links and built > len(links):
         L.append("Часть звеньев этой цепочки в выдачу не прошла — показываю только дошедшие.")
@@ -2208,6 +2251,22 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
     if sign_conflict:
         L.append("Противоречие внутри идеи: текст звена описывает движение в другую сторону, чем расчёт "
                  "хода, — такое не защищают. Оставляю наблюдением и помечаю для разбора.")
+    # Похожий случай из библиотеки механизмов (V6, приоритет испытателя №1): прецедент с числом
+    # + контрпример, числа в «…» (линт не считает). Матч слабый/библиотеки нет → строки честно нет.
+    try:
+        try:
+            from ops import mechanism_match as MM
+        except ImportError:
+            import mechanism_match as MM
+        _idea_txt = " ".join([str(ev_txt or "")] + [
+            str(((e.get("узлы_каскада") or [{}])[0]).get("узел") or "") for e in links])
+        _mm = MM.match(_idea_txt)
+        _ln = MM.similar_case_line(_mm[0]) if _mm else None
+        if _ln:
+            L.append("")
+            L.append(_ln)
+    except Exception:                                    # noqa: BLE001 — подача живёт без библиотеки
+        pass
     # Потенциал × шанс × срок (до 4 чисел во всём тексте: ход, остаток, шанс, матожидание)
     L.append("")
     гор = b.get("горизонт_дней")

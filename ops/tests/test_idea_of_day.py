@@ -231,11 +231,29 @@ def test_genre_observe_when_ev_negative():
     assert "наблюдение, не ставка" in text
 
 
-def test_sign_conflict_forces_observe():
-    """Текст звена «давление на поставщиков» при расчётном ходе ВВЕРХ → наблюдение + явная строка."""
+def test_sign_conflict_rejects_lead():
+    """Испытатель №1: текст звена «давление на поставщиков» при расчётном ходе ВВЕРХ →
+    лид НЕ проходит гард; единственный кандидат → честный ноль с причиной противоречия."""
     top = [_entry("NVDA.US", 4, 0.0, node="обвал оценок ставит под вопрос заказы — давление на поставщиков")]
+    lead, why, skipped = R.select_idea_day_lead(_proto(top))
+    assert lead is None
+    assert skipped == [("NVDA.US", "текст звена против направления расчёта")]
+    assert "противоречат сами себе" in why
     text, _m, viol = R.idea_of_day_from_protocol(_proto(top), base_rate={"hit": 0.6, "n": 100},
                                                  money_base=MBASE, money_recent=0)
+    assert viol == []
+    assert "противоречат сами себе" in text
+
+
+def test_sign_conflict_money_lead_still_observed_not_defended():
+    """Money-ветка обходит гард лида (прошла суд §11), но при конфликте знака рендер
+    честно НЕ защищает: «Наблюдение дня» + явная строка противоречия."""
+    top = [_entry("NVDA.US", 4, 0.0, node="обвал оценок ставит под вопрос заказы — давление на поставщиков")]
+    money = {"NVDA.US": {"исход": "УСТОЯЛА", "балл": 3.4, "порог": 3.0,
+                         "кто_против": "Продавцы ждут отката.", "почему_возможность": "Ход не отыгран."}}
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top, court={}, money=money),
+                                                 base_rate={"hit": 0.6, "n": 100},
+                                                 money_base={"hit": 0.6, "n": 40}, money_recent=1)
     assert viol == []
     assert text.startswith("Наблюдение дня — ")
     assert "Противоречие внутри идеи" in text
@@ -249,6 +267,20 @@ def test_chain_gap_is_honest():
     assert "до выдачи не дошёл — в цепочке пропуск" in text
 
 
+def test_chain_numbered_in_order_with_gaps_in_place(  ):
+    """Испытатель №1: цепочка целиком и по порядку (первый→N), дыры НА СВОЁМ МЕСТЕ,
+    номера словами (линт чисел цел)."""
+    top = [_entry("NVDA.US", 4, 0.0), _entry("CEG.US", 2, 0.1, node="заказы растут")]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
+    assert viol == []
+    lines = [l for l in text.splitlines() if l.startswith("— ")]
+    i1 = next(i for i, l in enumerate(lines) if l.startswith("— первый шаг (исток)"))
+    i2 = next(i for i, l in enumerate(lines) if l.startswith("— второй шаг:"))
+    i3 = next(i for i, l in enumerate(lines) if l.startswith("— третий шаг: до выдачи не дошёл"))
+    i4 = next(i for i, l in enumerate(lines) if l.startswith("— четвёртый шаг:"))
+    assert i1 < i2 < i3 < i4, lines
+
+
 def test_no_full_move_prints_honest_remainder_label():
     """полный_ход отсутствует (боевые протоколы до фикса event_first) → «Неотыгранный остаток», не «Ход»."""
     top = [_entry("NVDA.US", 4, 0.0)]            # full=None по умолчанию
@@ -259,10 +291,14 @@ def test_no_full_move_prints_honest_remainder_label():
 
 
 def test_sign_conflict_headline_neutral():
-    """При пойманном конфликте знака заголовок не утверждает направление."""
+    """Money-лид с конфликтом знака (обходит гард, идёт в рендер): заголовок не утверждает
+    направление, пометка «направление спорно» на месте."""
     top = [_entry("NVDA.US", 4, 0.0, node="обвал оценок — давление на поставщиков")]
-    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), base_rate={"hit": 0.6, "n": 100},
-                                                 money_base=MBASE, money_recent=0)
+    money = {"NVDA.US": {"исход": "УСТОЯЛА", "балл": 3.4, "порог": 3.0,
+                         "кто_против": "Продавцы ждут отката.", "почему_возможность": "Ход не отыгран."}}
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top, court={}, money=money),
+                                                 base_rate={"hit": 0.6, "n": 100},
+                                                 money_base={"hit": 0.6, "n": 40}, money_recent=1)
     assert viol == []
     assert "направление под вопросом" in text.splitlines()[0]
     assert "направление спорно" in text
