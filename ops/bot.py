@@ -165,6 +165,9 @@ class Bot:
         if len(parts) == 3 and parts[0] == "t":
             self._on_theme_cb(cb_id, chat, msg, parts[1], parts[2])
             return
+        if len(parts) == 3 and parts[0] == "p":
+            self._on_proposal_cb(cb_id, chat, msg, parts[1], parts[2])
+            return
         if len(parts) != 3 or parts[0] != "d":
             self.tg.answer_callback(cb_id)        # noop / неизвестная кнопка
             return
@@ -419,6 +422,52 @@ class Bot:
             self.tg.send_message(chat, "Пакет тем разобран, спасибо. Одобренные возьму под "
                                        "наблюдение при ближайшем обновлении библиотеки (с проверкой).")
         self.save()
+
+    def _on_proposal_cb(self, cb_id, chat, msg, code, key):
+        """Кнопки карточки предложений §25: y=подписываю (авторизация §10, вносит машинист
+        через git), n=отклонить. Решение → journal/proposal_decisions.jsonl (append-only)."""
+        import bot_proposals as PR
+        pend = self.state.get("proposals_pending") or {}
+        row = pend.get(key)
+        if row is None:
+            self.tg.answer_callback(cb_id, "Это предложение уже разобрано или карточка устарела.")
+            return
+        decision = "signed" if code == "y" else "rejected"
+        PR.record_decision(key, decision, row, self.chat_id)
+        pend.pop(key, None)
+        self.state["proposals_pending"] = pend
+        self.tg.answer_callback(cb_id, "Подписал ✅ — внесёт машинист с проверкой."
+                                if decision == "signed" else "Отклонено ❌")
+        if not pend:
+            self.tg.send_message(chat, "Пакет предложений разобран, спасибо. Подписанное "
+                                       "машинист внесёт через git с ревью и тестами.")
+        self.save()
+
+    def _tick_proposal_batch(self, now=None):
+        """Раз в неделю (воскресенье, после 10:00 UTC — суббота занята темами) — карточка
+        предложений петли §25 (V2). Дедуп по ISO-неделе; пустая очередь — карточки нет."""
+        import bot_proposals as PR
+        now = now or S.now_utc()
+        if now.isoweekday() != 7 or now.hour < 10:
+            return
+        week = now.strftime("%G-%V")
+        if self.state.get("proposals_week") == week:
+            return
+        if self.state.get("proposals_pending"):   # прошлый пакет не разобран — не наслаиваем
+            self.state["proposals_week"] = week
+            return
+        items = PR.pending()
+        if not items:
+            self.state["proposals_week"] = week
+            return
+        text = PR.format_card(items)
+        kb = PR.build_keyboard(items)
+        if self._send_card(text, kb) is None:
+            return                                 # не дошло — попробуем следующим tick'ом
+        self.state["proposals_week"] = week
+        self.state["proposals_pending"] = {k: r for k, r in items}
+        self.save()
+        log("карточка предложений §25 отправлена:", len(items))
 
     def _tick_week_odds(self):
         """V5: пуш «Шансов недели» по новому протоколу journal/week_odds/wo_*.json.
@@ -1092,6 +1141,10 @@ class Bot:
             self._tick_theme_batch(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick themes ошибка", repr(e))
+        try:
+            self._tick_proposal_batch(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick proposals ошибка", repr(e))
         try:
             self._tick_week_odds()
         except Exception as e:                                   # noqa: BLE001
