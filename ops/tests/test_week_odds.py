@@ -232,7 +232,9 @@ def test_format_week_odds_passes_lint(tmp_path):
     assert text.startswith("Шансы недели — ")
     assert "около 35%" in text and "около 55%" in text
     assert "не инвестиционная рекомендация" in text
-    assert "USO.US" in text and "нефть" in text.lower()          # тикер с именем
+    # базовый тикер уже назван в вопросе («фонд USO») → скобки-дубля [… (USO.US)] нет
+    assert "USO" in text and "[нефть WTI (USO.US)]" not in text
+    assert "Frontline (FRO.US)" in text                          # не названный — дополняется именем
 
 
 def test_bot_pushes_only_behind_flag(tmp_path, monkeypatch):

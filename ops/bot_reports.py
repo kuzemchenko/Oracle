@@ -2352,9 +2352,12 @@ def format_week_odds(protocol, *, name_fn=None, scores=None):
         имя = _asset_human(asset)[0]
         текст = str(q.get("вопрос") or "").strip().rstrip("?.")
         # тикер в тексте вопроса → имя с тикером (линт: тикер без имени — брак)
+        _base = (asset.split(".")[0] if asset else "")
         if asset and asset in текст and имя not in текст:
             текст = текст.replace(asset, f"{имя} ({asset})")
-        elif asset and asset not in текст:
+        elif asset and asset not in текст and not (
+                _base and re.search(rf"\b{re.escape(_base)}\b", текст)):
+            # базовый тикер уже назван в вопросе («фонд USO») → скобку-дубль не городим
             текст = f"{текст} [{имя} ({asset})]"
         p = q.get("probability")
         строка = f"— {текст}? — думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) else f"— {текст}?"

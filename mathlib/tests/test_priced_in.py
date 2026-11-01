@@ -35,7 +35,9 @@ def test_fraction_verdict_ladder():
     assert P.played_fraction(5, "+30–130%")["вердикт"] == P.РАНО
     assert P.played_fraction(50, "×2–3")["вердикт"] == P.В_ПУТИ         # 25–50%
     out = P.played_fraction(40, "+30–130%")
-    assert out["вердикт"] == P.В_ЦЕНЕ and "31–133%" in out["строка"]
+    assert out["вердикт"] == P.В_ЦЕНЕ
+    assert "от 31% до всего прецедентного хода" in out["строка"]   # >100% не пугаем словами
+    assert "впереди" in P.played_fraction(5, "+30–130%")["строка"]
     assert P.played_fraction(-12, "−3…−8%")["вердикт"] == P.ПЕРЕЛЁТ     # за дальним краем
     assert P.played_fraction(-5, "−3…−8%")["вердикт"] == P.В_ЦЕНЕ       # внутри диапазона
 
