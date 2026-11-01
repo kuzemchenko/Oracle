@@ -108,15 +108,16 @@ def test_run_challenge_explicit_candidate_mock(tmp_path):
     assert (tmp_path / f"{p['run_id']}.json").exists()
 
 
-def test_run_challenge_refuses_empty_doubt():
+def test_run_challenge_refuses_empty_doubt(tmp_path):
     cand = {"актив": "BNO.US", "направление": "лонг"}
-    p = CH.run_challenge("   ", candidate=cand, mode="mock", client=OR.MockClient(run_id="t"))
+    p = CH.run_challenge("   ", candidate=cand, mode="mock", out_dir=tmp_path,
+                         client=OR.MockClient(run_id="t"))
     assert "ОТКАЗ" in p
 
 
 def test_run_challenge_refuses_unknown_idea(tmp_path):
     p = CH.run_challenge("сомнение", asset="НЕТ_ТАКОГО.US", mode="mock",
-                         logs_dir=tmp_path, client=OR.MockClient(run_id="t"))
+                         logs_dir=tmp_path, out_dir=tmp_path, client=OR.MockClient(run_id="t"))
     assert "ОТКАЗ" in p
 
 
