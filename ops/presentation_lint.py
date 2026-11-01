@@ -171,3 +171,15 @@ if __name__ == "__main__":       # ручной прогон: печатает �
             print("  -", x)
         sys.exit(1)
     print("чисто: артефакт проходит стиль-контракт")
+
+
+def lint_week_odds(text):
+    """Блокирующий линт «Шансов недели» (V5): секции/длина/жаргон/эмодзи как у дневного артефакта,
+    0 тех.id, тикеры с именами. ЧИСЛА РАЗРЕШЕНЫ — проценты и пороги и есть содержание пуша."""
+    viol = lint_for_user(text, require_sections=DAILY_SECTIONS, max_len=MAX_LEN)
+    if _TECH_ID_RE.search(text):
+        viol.append("тех.id в тексте для владельца")
+    bare = _bare_tickers(text)
+    if bare:
+        viol.append("тикеры без имени: " + ", ".join(bare))
+    return viol

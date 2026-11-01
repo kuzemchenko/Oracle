@@ -420,6 +420,40 @@ class Bot:
                                        "наблюдение при ближайшем обновлении библиотеки (с проверкой).")
         self.save()
 
+    def _tick_week_odds(self):
+        """V5: пуш «Шансов недели» по новому протоколу journal/week_odds/wo_*.json.
+        За флагом presentation week_odds_push (ПРАВИЛО ВНЕДРЕНИЯ 01.11: включается после
+        ручного прогона испытателя и «ок» владельца). Fail-closed линт; дедуп по файлу."""
+        pres = R.load_presentation()
+        if not pres.get("week_odds_push"):
+            return
+        d = ROOT / "journal" / "week_odds"
+        if not d.exists():
+            return
+        files = sorted(d.glob("wo_*.json"))
+        if not files:
+            return
+        latest = files[-1]
+        sent = self.state.setdefault("week_odds_sent", [])
+        if latest.name in sent:
+            return
+        import json as _json
+        try:
+            proto = _json.loads(latest.read_text(encoding="utf-8"))
+        except ValueError:
+            sent.append(latest.name)
+            return
+        text, viol = R.format_week_odds(proto)
+        if text is None:
+            log("Шансы недели: пуш не ушёл", latest.name, viol[:2])
+            sent.append(latest.name)          # битый/пустой протокол не ретраим вечно
+            return
+        if self._send_card(text, None) is None:
+            return                             # сеть — ретрай следующим tick
+        sent.append(latest.name)
+        self.state["week_odds_sent"] = sent[-50:]
+        log("пуш «Шансы недели»", latest.name)
+
     def _tick_theme_batch(self, now=None):
         """Раз в неделю (суббота, после 10:00 UTC) — карточка «утверди темы» (V2, подпись П5).
         Дедуп по ISO-неделе; без неразобранных тем карточка не шлётся."""
@@ -1053,6 +1087,10 @@ class Bot:
             self._tick_theme_batch(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick themes ошибка", repr(e))
+        try:
+            self._tick_week_odds()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick week_odds ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):

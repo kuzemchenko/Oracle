@@ -2303,3 +2303,50 @@ def idea_of_day_from_protocol(proto, *, name_fn=None, base_rate=None, money_base
     if viol:
         return None, meta, viol
     return text, meta, []
+
+
+# ── V5 «Шансы недели» (карта v3; крон включается после ручного прогона испытателя) ────
+def format_week_odds(protocol, *, name_fn=None):
+    """Протокол week_odds → человеческий пуш: вопросы с процентами и счётом взгляда.
+    Возвращает (text, viol): нарушения линта → пуш не уходит (fail-closed, как Идея дня)."""
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    qs = (protocol or {}).get("вопросы") or []
+    дата = _human_date((protocol or {}).get("ts"))
+    if not qs:
+        return None, ["нет принятых вопросов — пуш не нужен (честный ноль недели)"]
+    L = [f"Шансы недели — {дата}." if дата else "Шансы недели.",
+         "",
+         "Что это значит для тебя. Проценты на события ближайших недель — зона, где прогнозы "
+         "проверяемы. Каждый вопрос запечатан и будет сверен с фактом по цене закрытия: так мой "
+         "взгляд на мир зарабатывает (или теряет) право на доверие.",
+         ""]
+    for q in qs[:8]:
+        asset = q.get("asset") or ""
+        имя = _asset_human(asset)[0]
+        текст = str(q.get("вопрос") or "").strip().rstrip("?.")
+        # тикер в тексте вопроса → имя с тикером (линт: тикер без имени — брак)
+        if asset and asset in текст and имя not in текст:
+            текст = текст.replace(asset, f"{имя} ({asset})")
+        elif asset and asset not in текст:
+            текст = f"{текст} [{имя} ({asset})]"
+        p = q.get("probability")
+        строка = f"— {текст}? — думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) else f"— {текст}?"
+        почему = str(q.get("почему") or "").strip()
+        if почему:
+            строка += f" Почему: {почему}"
+        взгляд = q.get("mechanism_id") or q.get("thesis_id")
+        if взгляд:
+            строка += f" (взгляд: {взгляд}; счёт этого взгляда копится с этих вопросов)"
+        L.append(строка)
+    L += ["",
+          "Счёт честности трека: исходов пока нет — он начинается с этих вопросов, сверка в даты их сроков.",
+          "",
+          "Что делать. Ничего: в срок покажу, что сбылось, и счёт каждого взгляда. Интересно глубже — "
+          "«разбери ТИКЕР» по любой бумаге выше.",
+          "Это исследовательский инструмент, не инвестиционная рекомендация."]
+    text = "\n".join(L)
+    viol = PL.lint_week_odds(text)
+    return (None, viol) if viol else (text, [])

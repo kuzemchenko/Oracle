@@ -1,0 +1,233 @@
+# -*- coding: utf-8 -*-
+"""orchestrator/week_odds.py — V5 «Шансы недели»: тезисы владельца + библиотека механизмов →
+проверяемые §9-вопросы о событиях 3–13 недель, с вероятностями экономиста потоков.
+
+Конструкция (карта v3, подписи владельца 31.10/01.11):
+  • ГЕНЕРАЦИЯ: LLM-роль flow_economist (слияние фундаментальной школы и теории игр,
+    промпт agents/prompts/v5_flow_economist.md) разворачивает knowledge/theses_owner.yaml
+    и knowledge/mechanisms.yaml в кандидатов-вопросы. LLM НЕ решает, что печатать.
+  • ВАЛИДАЦИЯ: детерминированный код (здесь) — §9-разрешимость (актив/порог/дата/источник
+    цены), горизонт строго 3–13 недель, вероятность в [0.05..0.95], формат тикера. Брак
+    отбрасывается с причиной (П8: отказ лучше мусора).
+  • ПЕЧАТЬ: mathlib.sealing.seal в ОТДЕЛЬНЫЙ герметичный трек kind=thesis_event
+    (к §11-деньгам не приближается; счёт форварда копится НА тезисе/механизме —
+    владелец увидит «этот взгляд пока сбывался в X%»).
+  • Протокол прогона: journal/week_odds/wo_<ts>.json (не запечатанный журнал — сводка).
+
+Бюджет: один LLM-вызов за прогон, пишется в costs.jsonl (LiveClient). Mock-режим без сети.
+Боевой крон — ПОСЛЕ ручного прогона испытателя и «ок» владельца (правило внедрения 01.11).
+"""
+import json
+import pathlib
+import datetime
+import argparse
+import re
+import sys
+
+import yaml
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from mathlib import sealing as SEAL                    # noqa: E402
+from orchestrator.openrouter import make_client        # noqa: E402
+
+THESES = ROOT / "knowledge" / "theses_owner.yaml"
+MECHS = ROOT / "knowledge" / "mechanisms.yaml"
+PROMPT = ROOT / "agents" / "prompts" / "v5_flow_economist.md"
+OUT_DIR = ROOT / "journal" / "week_odds"
+
+KIND = "thesis_event"
+TRACK = "thesis_event"
+ROLE = "flow_economist"
+MIN_WEEKS, MAX_WEEKS = 3, 13
+P_MIN, P_MAX = 0.05, 0.95
+MAX_QUESTIONS = 8
+TICKER_RE = re.compile(r"^[A-Z0-9]{1,8}\.US$")
+# идентичность ставки трека: один и тот же вопрос не печатаем дважды
+DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
+
+
+def _now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def load_theses(path=None):
+    p = pathlib.Path(path or THESES)
+    if not p.exists():
+        return {}
+    return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("тезисы") or {}
+
+
+def load_mechanisms(path=None, top=14):
+    """Торгуемые механизмы с прецедентами, компактно для промпта (не весь YAML на 280КБ)."""
+    p = pathlib.Path(path or MECHS)
+    if not p.exists():
+        return []
+    rows = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("механизмы") or []
+    rows = [m for m in rows if m.get("tradeable") and (m.get("precedents") or [])]
+    rows.sort(key=lambda m: -len(m.get("precedents") or []))
+    out = []
+    for m in rows[:top]:
+        out.append({"mechanism_id": m.get("id"), "rule": m.get("rule"),
+                    "trigger": m.get("trigger_class"), "lag_weeks": m.get("lag_weeks"),
+                    "watch": m.get("watch_assets"),
+                    "precedents": [f"{pr.get('year')}: {pr.get('observed')}"
+                                   for pr in (m.get("precedents") or [])[:2]]})
+    return out
+
+
+def build_user_prompt(theses, mechs, now=None):
+    now = now or _now()
+    lines = [f"Сегодня {now.date().isoformat()}. Горизонт вопросов: {MIN_WEEKS}–{MAX_WEEKS} недель.",
+             "", "ТЕЗИСЫ ВЛАДЕЛЬЦА:"]
+    for tid, t in theses.items():
+        lines.append(f"- {tid}: {str(t.get('формулировка') or '').strip()}")
+        for c in (t.get("наблюдаемые_следствия") or [])[:3]:
+            lines.append(f"    следствие: {c}")
+    lines += ["", "МЕХАНИЗМЫ БИБЛИОТЕКИ (выдержка):",
+              json.dumps(mechs, ensure_ascii=False, indent=1),
+              "", f"Верни до {MAX_QUESTIONS} вопросов JSON-массивом по формату из системного промпта."]
+    return "\n".join(lines)
+
+
+def parse_candidates(text):
+    """Достаём первый JSON-массив из ответа модели. Непарсибельно → [] (честный ноль)."""
+    if not isinstance(text, str):
+        return []
+    m = re.search(r"\[.*\]", text, re.S)
+    if not m:
+        return []
+    try:
+        arr = json.loads(m.group(0))
+    except ValueError:
+        return []
+    return arr if isinstance(arr, list) else []
+
+
+def validate_candidate(c, now=None):
+    """Детерминированная §9-проверка кандидата. Возвращает (spec|None, причина_брака|None)."""
+    now = now or _now()
+    if not isinstance(c, dict):
+        return None, "не dict"
+    asset = str(c.get("актив") or "").strip().upper()
+    if not TICKER_RE.match(asset):
+        return None, f"актив не EODHD-тикер *.US: {asset!r}"
+    direction = str(c.get("направление") or "").strip().lower()
+    if direction not in ("above", "below"):
+        return None, f"направление не above/below: {direction!r}"
+    try:
+        threshold = float(c.get("порог"))
+    except (TypeError, ValueError):
+        return None, "порог не число"
+    if threshold <= 0:
+        return None, "порог должен быть > 0"
+    try:
+        weeks = int(c.get("срок_недель"))
+    except (TypeError, ValueError):
+        return None, "срок_недель не число"
+    if not (MIN_WEEKS <= weeks <= MAX_WEEKS):
+        return None, f"срок {weeks} нед вне зоны {MIN_WEEKS}–{MAX_WEEKS} (короче — отыграно, длиннее — не наше окно)"
+    try:
+        prob = float(c.get("вероятность"))
+    except (TypeError, ValueError):
+        return None, "вероятность не число"
+    if not (P_MIN <= prob <= P_MAX):
+        return None, f"вероятность {prob} вне [{P_MIN}..{P_MAX}]"
+    вопрос = str(c.get("вопрос") or "").strip()
+    почему = str(c.get("почему") or "").strip()
+    if not вопрос or not почему:
+        return None, "нет текста вопроса или «почему»"
+    resolve_by = (now + datetime.timedelta(weeks=weeks)).replace(
+        hour=20, minute=0, second=0, microsecond=0)
+    spec = {
+        "kind": KIND, "track": TRACK,
+        "asset": asset, "direction": direction, "threshold": threshold,
+        "resolve_by": resolve_by.isoformat(timespec="seconds"),
+        "price_source": f"EODHD close {asset}",
+        "probability": prob,                      # сырая P экономиста; калибровка трека копится форвардом
+        "вероятность_источник": "flow_economist (не калибровано — трек копит свой счёт)",
+        "horizon_weeks": weeks,
+        "thesis_id": c.get("thesis_id") or None,
+        "mechanism_id": c.get("mechanism_id") or None,
+        "вопрос": вопрос, "почему": почему,
+        "spec_ref": "карта v3 §V5 «Шансы недели»; §9 разрешимость; П16 форвард-онли",
+    }
+    problems = SEAL.validate_resolvable(spec)
+    if problems:
+        return None, "; ".join(problems)
+    return spec, None
+
+
+def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_path=None,
+                  predictions_path=None, out_dir=None, client=None):
+    """Полный прогон: тезисы+механизмы → экономист → валидация → [печать] → протокол."""
+    now = now or _now()
+    run_id = "wo_" + now.strftime("%Y%m%dT%H%M%SZ")
+    theses = load_theses(theses_path)
+    mechs = load_mechanisms(mechs_path)
+    итог = {"run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
+            "тезисов": len(theses), "механизмов_подано": len(mechs),
+            "кандидатов": 0, "принято": 0, "запечатано": 0, "брак": [], "вопросы": []}
+    if not theses and not mechs:
+        итог["ОТКАЗ"] = "нет ни тезисов, ни механизмов — генерировать не из чего (П8)"
+        return _write_protocol(итог, out_dir)
+    cl = client or make_client(mode=mode, run_id=run_id)
+    system = PROMPT.read_text(encoding="utf-8")
+    user = build_user_prompt(theses, mechs, now)
+    try:
+        resp = cl.complete(ROLE, system, user, agent_id="v5_flow_economist",
+                           output_kind="week_odds_questions")
+    except Exception as e:                                   # noqa: BLE001 — честный отказ
+        итог["ОТКАЗ"] = f"экономист недоступен: {type(e).__name__}: {e}"
+        return _write_protocol(итог, out_dir)
+    cands = parse_candidates(resp.get("text") if isinstance(resp, dict) else resp)
+    итог["кандидатов"] = len(cands)
+    seen_local = set()
+    for c in cands[:MAX_QUESTIONS * 2]:
+        spec, why = validate_candidate(c, now)
+        if spec is None:
+            итог["брак"].append({"кандидат": c if isinstance(c, dict) else str(c)[:120], "причина": why})
+            continue
+        key = (spec["asset"], spec["direction"], spec["threshold"], spec["resolve_by"])
+        if key in seen_local:
+            итог["брак"].append({"кандидат": spec["вопрос"], "причина": "дубль внутри прогона"})
+            continue
+        seen_local.add(key)
+        if len(итог["вопросы"]) >= MAX_QUESTIONS:
+            break
+        spec["run_id"] = run_id
+        if seal:
+            sealed = SEAL.seal(dict(spec), path=predictions_path, dedup_fields=DEDUP_FIELDS)
+            if sealed is None:
+                итог["брак"].append({"кандидат": spec["вопрос"], "причина": "дубль в журнале (уже печатали)"})
+                continue
+            spec["hash"] = sealed.get("hash")
+            итог["запечатано"] += 1
+        итог["принято"] += 1
+        итог["вопросы"].append(spec)
+    return _write_protocol(итог, out_dir)
+
+
+def _write_protocol(итог, out_dir=None):
+    d = pathlib.Path(out_dir or OUT_DIR)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{итог['run_id']}.json").write_text(
+        json.dumps(итог, ensure_ascii=False, indent=1), encoding="utf-8")
+    return итог
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="V5 «Шансы недели»: тезисы/механизмы → §9-вопросы")
+    ap.add_argument("--mode", default="auto", choices=["auto", "live", "mock"])
+    ap.add_argument("--seal", action="store_true", help="печатать принятые вопросы (иначе сухой прогон)")
+    a = ap.parse_args(argv)
+    r = run_week_odds(mode=a.mode, seal=a.seal)
+    print(f"[week_odds] {r['run_id']}: кандидатов {r.get('кандидатов', 0)}, принято {r.get('принято', 0)}, "
+          f"запечатано {r.get('запечатано', 0)}, брака {len(r.get('брак', []))}"
+          + (f" · ОТКАЗ: {r['ОТКАЗ']}" if r.get("ОТКАЗ") else ""))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

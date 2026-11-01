@@ -78,6 +78,12 @@ roles:
     primary:   anthropic/claude-fable-5      # Fable 5 — аргументирует, спорит, отстаивает позицию;
     fallbacks: [anthropic/claude-opus-4.8, anthropic/claude-sonnet-4.6]  # денежные вердикты — суд П10
     family:    anthropic
+  flow_economist:            # V5 «Шансы недели»: экономист потоков (слияние фундаментального
+    primary:   openai/gpt-5.5          # аналитика и теоретика игр — приложение А карты v3); НЕ суждение
+    fallbacks: [anthropic/claude-opus-4.8, google/gemini-3.1-pro-preview]  # §11 — свой трек thesis_event
+    family:    openai
+    temperature: 0.4
+    reasoning: true
   voice_transcriber:         # Голосовые владельца в Telegram → текст (STT через input_audio).
     primary:   google/gemini-3.5-flash      # НЕ суждение о рынке — П10 не касается; дёшево, аудио-вход
     fallbacks: [google/gemini-2.5-flash, openai/gpt-4o-audio-preview]
