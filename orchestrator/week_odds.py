@@ -30,6 +30,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from mathlib import sealing as SEAL                    # noqa: E402
+from mathlib import priced_in as PIN                   # noqa: E402
 from orchestrator.openrouter import make_client        # noqa: E402
 
 THESES = ROOT / "knowledge" / "theses_owner.yaml"
@@ -159,9 +160,43 @@ def validate_candidate(c, now=None):
     return spec, None
 
 
+def _amplitudes(mechs_path=None):
+    """id механизма → текст прецедентной амплитуды (для «что уже в цене»)."""
+    p = pathlib.Path(mechs_path or MECHS)
+    if not p.exists():
+        return {}
+    rows = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("механизмы") or []
+    return {m.get("id"): m.get("amplitude") for m in rows if m.get("id")}
+
+
+def annotate_priced_in(spec, amplitudes, move_fn):
+    """Модуль «что уже в цене» (ПОДПИСАН 01.11): реализованный ход актива (в %, от move_fn)
+    против прецедентной амплитуды механизма (mathlib/priced_in). Аннотация ставится ДО
+    печати — контекст «сколько уже в цене» запечатывается вместе с вопросом (П16).
+    Нет move_fn / нет амплитуды / ход не распознан → честно без поля, прогон не падает."""
+    if move_fn is None:
+        return spec
+    amp = amplitudes.get(spec.get("mechanism_id"))
+    if not amp:
+        return spec
+    try:
+        mv = move_fn(spec.get("asset"))
+    except Exception:                                    # noqa: BLE001 — источник цен упал
+        mv = None
+    if mv is None:
+        return spec
+    out = PIN.played_fraction(mv, amp)
+    if "ОТКАЗ" not in out:
+        spec["что_уже_в_цене"] = {"вердикт": out["вердикт"], "строка": out["строка"],
+                                  "реализовано_пп": round(float(mv), 1)}
+    return spec
+
+
 def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_path=None,
-                  predictions_path=None, out_dir=None, client=None):
-    """Полный прогон: тезисы+механизмы → экономист → валидация → [печать] → протокол."""
+                  predictions_path=None, out_dir=None, client=None, move_fn=None):
+    """Полный прогон: тезисы+механизмы → экономист → валидация → [«что уже в цене»] →
+    [печать] → протокол. move_fn(asset)→реализованный ход % — серверный источник цен;
+    в облаке None → аннотации честно нет."""
     now = now or _now()
     run_id = "wo_" + now.strftime("%Y%m%dT%H%M%SZ")
     theses = load_theses(theses_path)
@@ -183,6 +218,7 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
         return _write_protocol(итог, out_dir)
     cands = parse_candidates(resp.get("text") if isinstance(resp, dict) else resp)
     итог["кандидатов"] = len(cands)
+    _amps = _amplitudes(mechs_path) if move_fn is not None else {}
     seen_local = set()
     for c in cands[:MAX_QUESTIONS * 2]:
         spec, why = validate_candidate(c, now)
@@ -197,6 +233,7 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
         if len(итог["вопросы"]) >= MAX_QUESTIONS:
             break
         spec["run_id"] = run_id
+        annotate_priced_in(spec, _amps, move_fn)
         if seal:
             sealed = SEAL.seal(dict(spec), path=predictions_path, dedup_fields=DEDUP_FIELDS)
             if sealed is None:

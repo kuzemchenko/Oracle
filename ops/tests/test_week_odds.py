@@ -65,9 +65,37 @@ def _mechs(tmp_path):
     p = tmp_path / "mechs.yaml"
     p.write_text(json.dumps({"механизмы": [
         {"id": "energy_supply_shock", "rule": "r", "trigger_class": "t", "tradeable": True,
-         "lag_weeks": "2-8", "watch_assets": "нефть", "precedents": [{"year": "2022", "observed": "+35%"}]},
+         "lag_weeks": "2-8", "watch_assets": "нефть", "amplitude": "+30–130% за 2–10 недель",
+         "precedents": [{"year": "2022", "observed": "+35%"}]},
     ]}, ensure_ascii=False), encoding="utf-8")
     return p
+
+
+def test_priced_in_annotation_sealed_and_rendered(tmp_path):
+    """«Что уже в цене» (подпись 01.11): ход против прецедентной амплитуды попадает
+    в запечатанную запись и в подачу; нет цены/механизма — честно без поля."""
+    preds = tmp_path / "predictions.jsonl"
+    r = WO.run_week_odds(mode="mock", seal=True, now=NOW, theses_path=_theses(tmp_path),
+                         mechs_path=_mechs(tmp_path), predictions_path=preds,
+                         out_dir=tmp_path / "wo", client=StubClient(),
+                         move_fn=lambda a: 40.0 if a == "USO.US" else None)
+    qs = {q["asset"]: q for q in r["вопросы"]}
+    pi = qs["USO.US"]["что_уже_в_цене"]
+    assert pi["вердикт"] == "БОЛЬШАЯ ЧАСТЬ В ЦЕНЕ" and "прецедентного хода" in pi["строка"]
+    assert "что_уже_в_цене" not in qs["FRO.US"], "нет цены → честно без поля"
+    rows = [json.loads(x) for x in preds.read_text("utf-8").splitlines()]
+    sealed = {x["asset"]: x for x in rows}
+    assert sealed["USO.US"]["что_уже_в_цене"]["вердикт"] == "БОЛЬШАЯ ЧАСТЬ В ЦЕНЕ"
+    text, viol = R.format_week_odds(r)
+    assert not viol and "Что уже в цене:" in text
+
+
+def test_priced_in_price_source_failure_is_soft(tmp_path):
+    r = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                         mechs_path=_mechs(tmp_path), out_dir=tmp_path / "wo",
+                         client=StubClient(),
+                         move_fn=lambda a: (_ for _ in ()).throw(RuntimeError("нет данных")))
+    assert r["принято"] == 2 and all("что_уже_в_цене" not in q for q in r["вопросы"])
 
 
 def test_run_validates_and_seals(tmp_path):
