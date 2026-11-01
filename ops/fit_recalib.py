@@ -61,6 +61,10 @@ def main():
     raw_total = 0
     for p in preds:
         pr = p.get("probability_raw")
+        if pr is None and p.get("kind") in ("thesis_event",):
+            # аудит 01.11: трек V5 печатает сырую вероятность экономиста ПРЯМО в probability
+            # (shrink П-1 его не трогает) — для него probability и есть raw
+            pr = p.get("probability")
         if pr is None:
             continue
         raw_total += 1

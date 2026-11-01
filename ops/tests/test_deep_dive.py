@@ -72,6 +72,47 @@ def test_day1_then_day2_full_cycle(tmp_path):
     assert r3["продвинуто"] == 0
 
 
+def _battle_challenge(asset):
+    """БОЕВАЯ форма протокола challenge.py: вердикт в дебаты.вердикт.исход, аргументы критика
+    в дебаты.реплики.критик.judgment, резюме с эмодзи (как вживую)."""
+    return {"run_id": "challenge_battle_1",
+            "резюме": f"Разбор идеи: {asset} (лонг)\n\n🟢 Защита (генератор): каскад опирается на "
+                      f"событийный якорь.\n🔴 Критика: связь не подтверждена.",
+            "дебаты": {"вердикт": {"исход": "РАЗБИТА", "средний_балл_рубрики": 2.0, "порог": 3.0},
+                       "реплики": {"критик": {"judgment": {
+                           "вывод": "Лонг по данному каскаду не держится: механизм переноса "
+                                    "события на бумагу не обоснован, надёжность связи низкая.",
+                           "сильнейшее_возражение": "исходное движение не подтверждено котировками",
+                           "скрытые_допущения": ["лаг переноса совпадёт с историческим",
+                                                 "объём события достаточен для второго звена"],
+                       }}}}}
+
+
+def test_day1_battle_protocol_shape(tmp_path):
+    """Аудит 01.11: вживую ключи лежат в дебатах, резюме суда — с эмодзи. День-1 обязан
+    собрать «Идея умирает, если» из критика и пройти линт (эмодзи вычищены)."""
+    q = _queue(tmp_path)
+    notices = tmp_path / "notices.jsonl"
+    r = DD.run_deep_dive(now=D1, queue_path=q, notices_path=notices,
+                         passports_dir=tmp_path / "pass", challenge_fn=_battle_challenge)
+    assert r["день1"] == 1 and not r["ошибки"], r["ошибки"]
+    note = json.loads(notices.read_text("utf-8").splitlines()[0])["text"]
+    assert "Идея умирает, если" in note
+    assert "сильнейшее возражение критика" in note
+    assert "🟢" not in note and "🔴" not in note
+    # резюме в очереди — чистый вывод критика, не эмодзи-простыня
+    rows = [json.loads(x) for x in (q.read_text("utf-8")).splitlines()]
+    day1 = [x for x in rows if x.get("stage") == "day1"][0]
+    assert "не держится" in day1["резюме"] and "🟢" not in day1["резюме"]
+    assert len(day1["смерть"]) == 3           # возражение + 2 допущения
+    # день-2 печатает смерть идеи из боевого дня-1
+    r2 = DD.run_deep_dive(now=D2, queue_path=q, notices_path=notices,
+                          passports_dir=tmp_path / "pass", challenge_fn=_battle_challenge)
+    assert r2["день2"] == 1 and not r2["ошибки"]
+    day2 = json.loads(notices.read_text("utf-8").splitlines()[-1])["text"]
+    assert "сильнейшее возражение критика" in day2
+
+
 def test_challenge_refusal_is_per_idea(tmp_path):
     q = _queue(tmp_path, asset="GEV.US")
     r = DD.run_deep_dive(now=D1, queue_path=q, notices_path=tmp_path / "n.jsonl",

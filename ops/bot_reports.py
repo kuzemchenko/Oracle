@@ -578,7 +578,11 @@ def load_presentation(path=None):
             "idea_day_lead": bool(cfg.get("idea_day_lead", False)),
             # Flow-fix В1 (15.07): «Топ-3 одной строкой» + защита №1 — формат, выбранный владельцем
             # взамен «Разбора дня». Приоритетнее daily_case_lead: если включён и собрался — он лид.
-            "top3_lead": bool(cfg.get("top3_lead", False))}
+            "top3_lead": bool(cfg.get("top3_lead", False)),
+            # V5 (карта v3): пуш «Шансов недели». Дефолт False (ПРАВИЛО ВНЕДРЕНИЯ 01.11) —
+            # включается ТОЛЬКО после ручного прогона испытателя и «ок» владельца.
+            # Баг аудита 01.11: ключ раньше не пробрасывался — флаг было невозможно включить.
+            "week_odds_push": bool(cfg.get("week_odds_push", False))}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -589,7 +593,13 @@ def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
     obj = {"version": 1,
            "mode": mode if mode in ("long", "short") else cur["mode"],
            "still_unclear": sorted(still_unclear if still_unclear is not None else cur["still_unclear"]),
-           "send_mock_to_telegram": cur["send_mock_to_telegram"] if send_mock is None else bool(send_mock)}
+           "send_mock_to_telegram": cur["send_mock_to_telegram"] if send_mock is None else bool(send_mock),
+           # флаги лидов и V5 /format НЕ меняет, но ОБЯЗАН сохранять (аудит 01.11: перезапись
+           # конфига молча стирала включённые руками флаги)
+           "daily_case_lead": cur["daily_case_lead"],
+           "top3_lead": cur["top3_lead"],
+           "idea_day_lead": cur["idea_day_lead"],
+           "week_odds_push": cur["week_odds_push"]}
     p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
                  "Меняется командой /format или руками.\n"
                  + yaml.safe_dump(obj, allow_unicode=True, sort_keys=False), encoding="utf-8")

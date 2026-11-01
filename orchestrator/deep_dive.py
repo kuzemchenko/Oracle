@@ -19,6 +19,7 @@ import json
 import pathlib
 import datetime
 import argparse
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -129,18 +130,58 @@ def _asset_label(asset):
         return str(asset)
 
 
+_EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️]")
+
+
+def _clean_text(s, limit=420):
+    s = _EMOJI_RE.sub("", str(s or "")).strip()
+    s = re.sub(r"\s+", " ", s)
+    # внутренние «» → „“: текст пойдёт во внешнюю цитату «…», вложенность сломала бы линт
+    s = s.replace("«", "„").replace("»", "“")
+    if len(s) <= limit:
+        return s
+    return s[:limit].rsplit(" ", 1)[0].rstrip(".;,— ") + "…"
+
+
+def _extract_challenge(ch):
+    """БОЕВОЙ протокол challenge (orchestrator/challenge.py) → (вердикт, разбор, смерть[]).
+
+    Аудит 01.11: прежний код читал сценарии_инвалидации/вердикт с ВЕРХНЕГО уровня — такие
+    ключи были только в тестовом стабе, вживую день-1 печатал пустой фолбэк, а резюме суда
+    с эмодзи ломало линт. Боевые места: дебаты.вердикт.исход; критик.judgment
+    (вывод / сильнейшее_возражение / скрытые_допущения). Верхнеуровневые ключи
+    (стаб/будущие версии) — в приоритете; эмодзи чистятся (линт подачи)."""
+    деб = ch.get("дебаты") or {}
+    верд = (ch.get("вердикт") or (ch.get("суд") or {}).get("вердикт")
+            or (деб.get("вердикт") or {}).get("исход") or "вердикт в разборе")
+    кр = ((деб.get("реплики") or {}).get("критик") or {}).get("judgment") or {}
+    разбор = str(ch.get("резюме") or "").strip()
+    if not разбор or _EMOJI_RE.search(разбор):
+        разбор = str(кр.get("вывод") or "").strip() or _EMOJI_RE.sub("", разбор).strip()
+    разбор = _clean_text(разбор)
+    смерть = [str(x) for x in (ch.get("сценарии_инвалидации") or ch.get("что_убивает") or [])]
+    if not смерть:
+        s = кр.get("сильнейшее_возражение")
+        if s:
+            смерть.append("подтвердится сильнейшее возражение критика: «" + _clean_text(s, 180) + "»")
+        for a in (кр.get("скрытые_допущения") or [])[:2]:
+            смерть.append("рушится допущение: «" + _clean_text(a, 140) + "»")
+    return str(верд), разбор, смерть
+
+
 def _day1_text(asset, ch, now):
     label = _asset_label(asset)
-    вердикт = ch.get("вердикт") or (ch.get("суд") or {}).get("вердикт") or "вердикт в разборе"
-    резюме = _humanize_tickers(str(ch.get("резюме") or "").strip())
-    смерть = [_humanize_tickers(x) for x in (ch.get("сценарии_инвалидации") or ch.get("что_убивает") or [])]
+    вердикт, разбор, смерть_raw = _extract_challenge(ch)
+    резюме = _humanize_tickers(разбор)
+    смерть = [_humanize_tickers(x) for x in смерть_raw]
     L = [f"Прокачка, день первый — {label}: испытание на прочность.",
          "",
          "Что это значит для тебя. Ты нажал «Качаем» — сегодня идею атаковал её сильнейший "
          "противник, завтра посчитаем экономику ставки.",
          ""]
     if резюме:
-        L.append(резюме)
+        # слова суда/критика — чужой текст, печатаем дословной цитатой (линт «…» не правит)
+        L.append(f"Суд говорит: «{резюме.rstrip('.')}».")
         L.append("")
     if смерть:
         L.append("Идея умирает, если: " + "; ".join(str(x) for x in list(смерть)[:3]) + ".")
@@ -219,7 +260,7 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                 if "ОТКАЗ" in ch:
                     итог["ошибки"].append({"asset": asset, "этап": "day1", "ошибка": str(ch["ОТКАЗ"])})
                     continue
-                смерть = ch.get("сценарии_инвалидации") or []
+                _верд, _разбор, смерть = _extract_challenge(ch)   # боевая структура протокола
                 text = _day1_text(asset, ch, now)
                 viol = _lint_or_fallback(text)
                 if viol:
@@ -229,7 +270,7 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                 _append(queue_path or QUEUE,
                         {"ts": now.isoformat(timespec="seconds"), "run_id": run_id, "asset": asset,
                          "stage": "day1", "challenge_run_id": ch.get("run_id"),
-                         "резюме": str(ch.get("резюме") or "")[:2000], "смерть": list(смерть)[:5]})
+                         "резюме": _разбор[:2000], "смерть": list(смерть)[:5]})
                 итог["день1"] += 1
             else:                                                     # day1 → day2
                 push, md = _day2_passport(asset, run_id, st.get("day1"), now)
