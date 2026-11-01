@@ -51,7 +51,8 @@ def test_idea_of_day_passes_lint_and_has_required_lines():
     assert viol == [] and text
     assert meta["idx"]["1"] == "NVDA.US" and meta["lead"] == "NVDA.US"
     assert text.startswith("Идея дня — 31 октября. Nvidia (NVDA.US): ставка на рост.")
-    assert "Потенциал." in text and "шанс около 48%" in text and "матожидание около -0.2%" in text
+    assert "Потенциал." in text and "шанс — как у средней идеи этого конвейера, около 48%" in text \
+        and "матожидание около -0.2%" in text   # испытатель 01.11: сбываемость потока, не оценка идеи
     assert "если выигрыш и проигрыш одного размера" in text
     assert "Кто продаёт нам." in text and "Суд." in text and "Счёт честности." in text
     assert "Сверю к 7 ноября." in text            # 5 торговых дней → 7 календарных (как forecast._resolve_by)
@@ -136,7 +137,7 @@ def test_english_headline_replaced_by_anchor_phrase():
     e = _entry("NVDA.US", 4, 0.0)
     e["событие"] = "US tech stocks lose two trillion in October - Reuters"
     text = R.format_idea_of_day(_proto([e]), **KW)
-    assert "Повод. Импульс по ставка на страх (VIX) (VXX.US)" in text
+    assert "Повод. Импульс по фонд на индекс страха VIX (VXX.US)" in text   # испытатель 01.11: без двойных скобок
 
 
 def test_numbers_cap_counts_outside_quotes_and_dates():
