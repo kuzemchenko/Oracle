@@ -22,6 +22,7 @@ import pathlib
 import datetime
 import argparse
 import re
+import sqlite3
 import sys
 
 import yaml
@@ -169,18 +170,62 @@ def _amplitudes(mechs_path=None):
     return {m.get("id"): m.get("amplitude") for m in rows if m.get("id")}
 
 
+def make_move_fn(db_path=None, now=None):
+    """Серверный источник реализованного хода для «что уже в цене»: % изменения
+    adjusted_close за окно недель по таблице quotes (storage/oracle.db, кормится
+    EODHD-кроном 06:50). Честные None: нет БД/символа/истории, дыра в начале окна
+    (> 2 нед), последняя котировка старше 2 недель. Детерминированно, сети нет."""
+    db = pathlib.Path(db_path or ROOT / "storage" / "oracle.db")
+    now0 = now or _now()
+
+    def move(asset, weeks=6):
+        if not asset or not db.exists():
+            return None
+        today = now0.date()
+        since = today - datetime.timedelta(weeks=max(1, int(weeks or 6)))
+        try:
+            con = sqlite3.connect(str(db), timeout=10)
+            rows = con.execute(
+                "SELECT date, COALESCE(adjusted_close, close) FROM quotes "
+                "WHERE symbol=? AND date>=? AND date<=? AND COALESCE(adjusted_close, close) "
+                "IS NOT NULL ORDER BY date",
+                (asset, (since - datetime.timedelta(weeks=2)).isoformat(),
+                 today.isoformat())).fetchall()
+            con.close()
+        except sqlite3.Error:
+            return None
+        rows = [(d, p) for d, p in rows if p]
+        if len(rows) < 2:
+            return None
+        last_d, last_p = rows[-1]
+        if last_d < (today - datetime.timedelta(weeks=2)).isoformat():
+            return None                                  # котировки протухли
+        base = next(((d, p) for d, p in rows if d >= since.isoformat()), rows[0])
+        if base[0] > (since + datetime.timedelta(weeks=2)).isoformat():
+            return None                                  # дыра в начале окна
+        if base[1] == 0 or base == (last_d, last_p):
+            return None
+        return (last_p / base[1] - 1.0) * 100.0
+
+    return move
+
+
 def annotate_priced_in(spec, amplitudes, move_fn):
     """Модуль «что уже в цене» (ПОДПИСАН 01.11): реализованный ход актива (в %, от move_fn)
     против прецедентной амплитуды механизма (mathlib/priced_in). Аннотация ставится ДО
     печати — контекст «сколько уже в цене» запечатывается вместе с вопросом (П16).
-    Нет move_fn / нет амплитуды / ход не распознан → честно без поля, прогон не падает."""
+    Окно хода = горизонт вопроса (симметрично и объяснимо владельцу). Нет move_fn /
+    нет амплитуды / ход не распознан → честно без поля, прогон не падает."""
     if move_fn is None:
         return spec
     amp = amplitudes.get(spec.get("mechanism_id"))
     if not amp:
         return spec
     try:
-        mv = move_fn(spec.get("asset"))
+        try:
+            mv = move_fn(spec.get("asset"), spec.get("horizon_weeks") or 6)
+        except TypeError:                                # move_fn(asset) без окна
+            mv = move_fn(spec.get("asset"))
     except Exception:                                    # noqa: BLE001 — источник цен упал
         mv = None
     if mv is None:
@@ -259,7 +304,7 @@ def main(argv=None):
     ap.add_argument("--mode", default="auto", choices=["auto", "live", "mock"])
     ap.add_argument("--seal", action="store_true", help="печатать принятые вопросы (иначе сухой прогон)")
     a = ap.parse_args(argv)
-    r = run_week_odds(mode=a.mode, seal=a.seal)
+    r = run_week_odds(mode=a.mode, seal=a.seal, move_fn=make_move_fn())
     print(f"[week_odds] {r['run_id']}: кандидатов {r.get('кандидатов', 0)}, принято {r.get('принято', 0)}, "
           f"запечатано {r.get('запечатано', 0)}, брака {len(r.get('брак', []))}"
           + (f" · ОТКАЗ: {r['ОТКАЗ']}" if r.get("ОТКАЗ") else ""))

@@ -90,6 +90,53 @@ def test_priced_in_annotation_sealed_and_rendered(tmp_path):
     assert not viol and "Что уже в цене:" in text
 
 
+def _quotes_db(tmp_path, rows):
+    import sqlite3
+    db = tmp_path / "oracle.db"
+    con = sqlite3.connect(str(db))
+    con.execute("CREATE TABLE quotes (symbol TEXT, date TEXT, open REAL, high REAL, "
+                "low REAL, close REAL, adjusted_close REAL, volume INTEGER)")
+    con.executemany("INSERT INTO quotes (symbol, date, close, adjusted_close) "
+                    "VALUES (?,?,?,?)", rows)
+    con.commit()
+    con.close()
+    return db
+
+
+def test_make_move_fn_window_and_staleness(tmp_path):
+    """Серверный move_fn: ход за окно недель по quotes; протухшие/дырявые данные → None."""
+    db = _quotes_db(tmp_path, [
+        ("USO.US", "2026-09-25", 70.0, 70.0),     # начало окна 6 нед от 06.11
+        ("USO.US", "2026-10-15", 80.0, 80.0),
+        ("USO.US", "2026-11-05", 98.0, 98.0),     # свежая
+        ("OLD.US", "2026-09-25", 50.0, 50.0),
+        ("OLD.US", "2026-10-01", 55.0, 55.0),     # последняя старше 2 недель → протухло
+        ("GAP.US", "2026-10-30", 10.0, 10.0),
+        ("GAP.US", "2026-11-05", 11.0, 11.0),     # нет данных на начало окна → дыра
+    ])
+    mv = WO.make_move_fn(db_path=db, now=NOW)
+    assert abs(mv("USO.US", 6) - 40.0) < 0.01     # 70 → 98 = +40%
+    assert mv("OLD.US", 6) is None
+    assert mv("GAP.US", 6) is None
+    assert mv("NOPE.US", 6) is None
+    assert WO.make_move_fn(db_path=tmp_path / "нет.db", now=NOW)("USO.US", 6) is None
+
+
+def test_priced_in_two_arg_move_fn_uses_horizon(tmp_path):
+    """annotate передаёт move_fn(asset, horizon_weeks) — окно хода = горизонт вопроса."""
+    seen = {}
+
+    def mv(asset, weeks=None):
+        seen[asset] = weeks
+        return 40.0 if asset == "USO.US" else None
+
+    r = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                         mechs_path=_mechs(tmp_path), out_dir=tmp_path / "wo",
+                         client=StubClient(), move_fn=mv)
+    assert seen["USO.US"] == 6                    # срок вопроса из стаба — 6 недель
+    assert any("что_уже_в_цене" in q for q in r["вопросы"])
+
+
 def test_priced_in_price_source_failure_is_soft(tmp_path):
     r = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
                          mechs_path=_mechs(tmp_path), out_dir=tmp_path / "wo",
