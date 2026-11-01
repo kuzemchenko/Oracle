@@ -5,19 +5,20 @@
 ## Ошибки (0) — эти механизмы в бой НЕ идут
 - нет
 
-## Предупреждения (42)
+## Предупреждения (43)
 - chokepoint_disruption.прецедент[2]: «observed» качественное, без числа
 - gas_ammonia_cascade: ход без направления: «1) газ региона ×2+ → аммиачные/азотные заводы реги…»
 - critical_materials_export_control: ход без направления: «3) остановки линий у потребителей без запасов (4–1…»
 - breadbasket_drought: ход без направления: «3) продовольственная инфляция импортёров; риск экс…»
 - staple_export_ban: ход без направления: «3) каскад: другие экспортёры вводят свои ограничен…»
 - epizootic_protein_shock.прецедент[2]: «observed» качественное, без числа
-- fuel_substitution_demand_shock.прецедент[1]: «observed» качественное, без числа
+- fuel_substitution_demand_shock.прецедент[0]: «observed» качественное, без числа
 - datacenter_power_demand.прецедент[0]: «observed» качественное, без числа
 - sanctions_major_metal_producer: ход без направления: «3) при смягчении/снятии (Rusal: 27.01.2019) — разв…»
-- export_control_semis.прецедент[1]: «observed» качественное, без числа
+- export_control_semis.прецедент[0]: «observed» качественное, без числа
 - opec_regime_shift: ход без направления: «1) объявление → нефть ±8–30% за 1–3 дня (в цене мг…»
 - fertilizer_trade_restriction.прецедент[1]: «observed» качественное, без числа
+- single_point_component_failure.прецедент[5]: «observed» качественное, без числа
 - dollar_tightening_em_stress: ход без направления: «1) рост долларовых ставок/доллара → отток портфель…»
 - china_stimulus_industrial_metals: ход без направления: «3а) при физическом подтверждении — продолжение ква…»
 - financial_buyer_thin_spot_squeeze: один прецедент — правило на одной точке
