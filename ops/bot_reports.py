@@ -1251,10 +1251,11 @@ _DEJARGON = [
     (re.compile(r"\bкапексу\b", re.I), "капвложениям"),
     (re.compile(r"\bкапекс\w*", re.I), "капвложения"),
     # биржевой жаргон в цитатах судьи/генератора → человеческие слова, смысл сохраняем (П8)
-    (re.compile(r"\bret_z_?\d*\s*=?\s*[\d.]+", re.I), "сильное отклонение цены от нормы"),
+    (re.compile(r"\bret_z_?\d*\s*=?\s*", re.I), "отклонение цены от нормы "),
     (re.compile(r"\bSMA\s?\d+(/\d+)?", re.I), "скользящих средних"),
-    (re.compile(r"\bRSI\s*=?\s*[\d.]+", re.I), "индекс перекупленности высокий"),
-    (re.compile(r"\bRSI\b", re.I), "индекс перекупленности"),
+    (re.compile(r"\bRSI\b", re.I), "индикатор перегретости RSI"),
+    (re.compile(r"\blow-?vol\w*", re.I), "с низкими колебаниями"),
+    (re.compile(r"\bedge\b", re.I), "преимущество"),
     (re.compile(r"равновзвешенн\w*", re.I), "с равными весами"),
 ]
 
@@ -1299,7 +1300,7 @@ def _clean_llm(s, n=170):
     for rx, repl in _DEJARGON:
         out = rx.sub(repl, out)
     out = " ".join(out.split())          # схлопываем пробелы после вырезаний
-    return _trunc_words(out, n) if out.strip() else None
+    return _trunc_clause(out, n) if out.strip() else None   # по фразе, не по слову (итерация-2)
 
 
 # Хвост-атрибуция агрегатора новостей: «… - Jordan News | Latest News from Jo», «… | Reuters».
@@ -2127,6 +2128,8 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
                          and not any(m in _my_raw for m in _down_m)))
     defend = bool(money or (_ev_pct is not None and _ev_pct > 0)) and not sign_conflict
     наблюдение = {"рост": "возможный рост", "снижение": "возможное снижение"}.get(ставка, "возможное движение")
+    if sign_conflict:
+        наблюдение = "направление под вопросом"
     if defend:
         head = (f"Идея дня — {дата}. {label}: ставка на {ставка}." if дата
                 else f"Идея дня. {label}: ставка на {ставка}.")
@@ -2231,11 +2234,17 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
                      ("положительное; решение по деньгам — в отдельной карточке" if money else
                       ("положительное, но связь ценами не подтверждена — в деньги не пускаю" if defend
                        else "положительное, но защищать идею не готов — наблюдение с проверкой к дате")))
-            L.append(f"Потенциал. Ход около {abs(ход) * 100:.1f}% {dir_word}{остаток}, {шанс}, срок "
+            _has_full = isinstance(full, (int, float)) and bool(full)
+            _lbl = "Ход" if _has_full else "Неотыгранный остаток"
+            _dir = dir_word if not sign_conflict else f"{dir_word} по расчёту (направление спорно)"
+            _tail_full = "" if _has_full else " Полный ход механизма в протоколе не посчитан — честно."
+            L.append(f"Потенциал. {_lbl} около {abs(ход) * 100:.1f}% {_dir}{остаток}, {шанс}, срок "
                      f"{_horizon_words(гор)} → матожидание около {ev_pct:+.1f}% (если выигрыш и проигрыш "
-                     f"одного размера): {вывод}.")
+                     f"одного размера): {вывод}.{_tail_full}")
         else:
-            L.append(f"Потенциал. Ход около {abs(ход) * 100:.1f}% {dir_word}{остаток}, срок "
+            _has_full = isinstance(full, (int, float)) and bool(full)
+            _lbl = "Ход" if _has_full else "Неотыгранный остаток"
+            L.append(f"Потенциал. {_lbl} около {abs(ход) * 100:.1f}% {dir_word}{остаток}, срок "
                      f"{_horizon_words(гор)}; {шанс}.")
     else:
         L.append(f"Потенциал. Величина хода не посчитана — честно: здесь данных нет; {шанс}.")

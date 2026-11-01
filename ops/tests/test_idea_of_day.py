@@ -18,7 +18,8 @@ KW = dict(base_rate=BASE, money_base=MBASE, money_recent=0)
 
 
 def _entry(asset, order, frac, edge=0.071, full=None, chain="c1", node="узел цепочки", direction="лонг"):
-    return {"актив": asset, "score": 0.3, "edge": edge, "полный_ход": full if full is not None else edge,
+    # итерация-2 испытателя: дефолт полный_ход=None — как в боевых протоколах до фикса event_first:1117
+    return {"актив": asset, "score": 0.3, "edge": edge, "полный_ход": full,
             "направление": direction, "ярусы": ["C"], "лаг_дней": 0, "горизонт_дней": 5,
             "вероятность": 0.467, "надёжность_r2": 0.02, "цепочка": chain, "порядок": order,
             "чокпоинт": False, "отыгранность_узла": frac,
@@ -246,3 +247,33 @@ def test_chain_gap_is_honest():
     text, _m, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
     assert viol == []
     assert "до выдачи не дошёл — в цепочке пропуск" in text
+
+
+def test_no_full_move_prints_honest_remainder_label():
+    """полный_ход отсутствует (боевые протоколы до фикса event_first) → «Неотыгранный остаток», не «Ход»."""
+    top = [_entry("NVDA.US", 4, 0.0)]            # full=None по умолчанию
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), **KW)
+    assert viol == []
+    assert "Неотыгранный остаток около 7.1%" in text and "Ход около 7.1%" not in text
+    assert "Полный ход механизма в протоколе не посчитан" in text
+
+
+def test_sign_conflict_headline_neutral():
+    """При пойманном конфликте знака заголовок не утверждает направление."""
+    top = [_entry("NVDA.US", 4, 0.0, node="обвал оценок — давление на поставщиков")]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top), base_rate={"hit": 0.6, "n": 100},
+                                                 money_base=MBASE, money_recent=0)
+    assert viol == []
+    assert "направление под вопросом" in text.splitlines()[0]
+    assert "направление спорно" in text
+
+
+def test_rsi_value_preserved_not_inverted():
+    """П8: «RSI 35» в цитате судьи не заменяется выдуманной оценкой — число сохраняется."""
+    court = {"NVDA.US": {"оценка": 2.8, "band": "средняя", "критерии": {},
+                         "кто_против": "Продавцы на тренде.",
+                         "почему_возможность": "достиг перепроданности (RSI 35), ход сохраняется"}}
+    top = [_entry("NVDA.US", 4, 0.0)]
+    text, _m, viol = R.idea_of_day_from_protocol(_proto(top, court=court), **KW)
+    assert viol == []
+    assert "RSI 35" in text and "перекупленности высокий" not in text
