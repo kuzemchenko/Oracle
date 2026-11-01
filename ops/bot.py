@@ -443,7 +443,12 @@ class Bot:
         except ValueError:
             sent.append(latest.name)
             return
-        text, viol = R.format_week_odds(proto)
+        try:                                   # счёт взглядов из журнала (П16: не из файла)
+            import forward_score as FS
+            _scores = FS.view_scores()
+        except Exception:                      # noqa: BLE001 — подача живёт и без счёта
+            _scores = None
+        text, viol = R.format_week_odds(proto, scores=_scores)
         if text is None:
             log("Шансы недели: пуш не ушёл", latest.name, viol[:2])
             sent.append(latest.name)          # битый/пустой протокол не ретраим вечно

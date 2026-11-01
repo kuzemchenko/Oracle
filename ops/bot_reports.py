@@ -2306,7 +2306,31 @@ def idea_of_day_from_protocol(proto, *, name_fn=None, base_rate=None, money_base
 
 
 # ── V5 «Шансы недели» (карта v3; крон включается после ручного прогона испытателя) ────
-def format_week_odds(protocol, *, name_fn=None):
+_MECH_NAMES_CACHE = {}
+
+
+def _view_human(view_id):
+    """mechanism_id/thesis_id → человеческое имя взгляда (владелец не видит тех.id).
+    Механизмы — поле «название» библиотеки; тезисы — T1_потоки_… → «потоки …»."""
+    if not view_id:
+        return ""
+    vid = str(view_id)
+    if not _MECH_NAMES_CACHE:
+        try:
+            import yaml
+            p = pathlib.Path(__file__).resolve().parents[1] / "knowledge" / "mechanisms.yaml"
+            for m in (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("механизмы") or []:
+                if m.get("id") and m.get("название"):
+                    _MECH_NAMES_CACHE[m["id"]] = m["название"]
+        except Exception:                                    # noqa: BLE001 — фолбэк ниже
+            pass
+        _MECH_NAMES_CACHE.setdefault("", "")
+    if vid in _MECH_NAMES_CACHE:
+        return _MECH_NAMES_CACHE[vid]
+    return re.sub(r"^T\d+_", "", vid).replace("_", " ")
+
+
+def format_week_odds(protocol, *, name_fn=None, scores=None):
     """Протокол week_odds → человеческий пуш: вопросы с процентами и счётом взгляда.
     Возвращает (text, viol): нарушения линта → пуш не уходит (fail-closed, как Идея дня)."""
     try:
@@ -2342,7 +2366,16 @@ def format_week_odds(protocol, *, name_fn=None):
             строка += f" Что уже в цене: {в_цене}."
         взгляд = q.get("mechanism_id") or q.get("thesis_id")
         if взгляд:
-            строка += f" (взгляд: {взгляд}; счёт этого взгляда копится с этих вопросов)"
+            имя_в = _view_human(взгляд)
+            key = ("mechanism:" if q.get("mechanism_id") else "thesis:") + str(взгляд)
+            счёт = None
+            if isinstance(scores, dict):
+                try:
+                    from ops import forward_score as FS
+                except ImportError:
+                    import forward_score as FS
+                счёт = FS.score_phrase(scores.get(key))
+            строка += f" (взгляд «{имя_в}»: {счёт or 'счёт взгляда копится с этих вопросов'})"
         L.append(строка)
     L += ["",
           "Счёт честности трека: исходов пока нет — он начинается с этих вопросов, сверка в даты их сроков.",

@@ -90,6 +90,46 @@ def test_priced_in_annotation_sealed_and_rendered(tmp_path):
     assert not viol and "Что уже в цене:" in text
 
 
+def test_forward_score_on_views_and_phrases(tmp_path):
+    """Счёт форварда НА взгляде (П16: только из журнала): агрегация по hash-join,
+    вопрос с тезисом И механизмом кормит оба счёта; фразы честные."""
+    import forward_score as FS
+    preds = tmp_path / "p.jsonl"
+    outs = tmp_path / "o.jsonl"
+    rows = [
+        {"kind": "thesis_event", "hash": "h1", "mechanism_id": "energy_supply_shock",
+         "thesis_id": "T1_потоки_критических_активов"},
+        {"kind": "thesis_event", "hash": "h2", "mechanism_id": "energy_supply_shock"},
+        {"kind": "thesis_event", "hash": "h3", "mechanism_id": "chokepoint_disruption"},
+        {"kind": "cascade_provisional", "hash": "h4", "mechanism_id": "energy_supply_shock"},
+    ]
+    preds.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows), "utf-8")
+    outs.write_text("\n".join([json.dumps({"hash": "h1", "outcome": 1}),
+                               json.dumps({"hash": "h2", "outcome": 0})]), "utf-8")
+    s = FS.view_scores(predictions_path=preds, outcomes_path=outs)
+    assert s["mechanism:energy_supply_shock"] == {"вопросов": 2, "исходов": 2, "попаданий": 1}
+    assert s["thesis:T1_потоки_критических_активов"] == {"вопросов": 1, "исходов": 1, "попаданий": 1}
+    assert s["mechanism:chokepoint_disruption"]["исходов"] == 0
+    assert "чужой трек не подмешан" and "mechanism:energy_supply_shock" in s
+    ph = FS.score_phrase(s["mechanism:energy_supply_shock"])
+    assert "50%" in ph and "1 из 2" in ph and "выборка мала" in ph
+    assert "исходов ещё нет" in FS.score_phrase(s["mechanism:chokepoint_disruption"])
+    assert "копится" in FS.score_phrase(None)
+
+
+def test_week_odds_render_human_view_names(tmp_path):
+    """Подача: владелец видит имя взгляда и счёт, НЕ тех.id механизма."""
+    r = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                         mechs_path=_mechs(tmp_path), out_dir=tmp_path / "wo",
+                         client=StubClient())
+    scores = {"mechanism:energy_supply_shock": {"вопросов": 3, "исходов": 2, "попаданий": 1}}
+    text, viol = R.format_week_odds(r, scores=scores)
+    assert not viol
+    assert "взгляд «шок предложения энергии»" in text
+    assert "сбывался в 50%" in text
+    assert "(взгляд: energy_supply_shock" not in text
+
+
 def _quotes_db(tmp_path, rows):
     import sqlite3
     db = tmp_path / "oracle.db"

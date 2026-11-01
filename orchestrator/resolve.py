@@ -35,6 +35,10 @@ PROVISIONAL_KINDS = ("cascade_provisional",)
 # к §11 не приближается И в провизорный трек выдачи не подмешивается (механический ежедневный поток
 # по библиотеке рёбер — другая популяция, смешение мутит оба табло). Потребитель — forward_promotion.
 EDGE_FORWARD_KINDS = ("edge_forward",)
+# V5 (карта v3, подпись 31.10): «Шансы недели» — четвёртый герметичный трек. §9-вопросы экономиста
+# потоков на горизонте 3–13 недель; свой Brier, к §11 не приближается; счёт форварда копится
+# НА тезисе/механизме (ops/forward_score.py) и печатается владельцу в подаче.
+THESIS_EVENT_KINDS = ("thesis_event",)
 
 
 def track_for_kind(kind):
@@ -188,13 +192,16 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     money_out = [o for o in all_out if o.get("kind") in MONEY_EDGE_KINDS]   # F0#6 алоулист
     prov_out = [o for o in all_out if o.get("kind") in PROVISIONAL_KINDS]
     ef_out = [o for o in all_out if o.get("kind") in EDGE_FORWARD_KINDS]    # B4: третий трек
+    te_out = [o for o in all_out if o.get("kind") in THESIS_EVENT_KINDS]    # V5: четвёртый трек
     m_probs, m_outs = _bins(money_out)
     p_probs, p_outs = _bins(prov_out)
     e_probs, e_outs = _bins(ef_out)
+    t_probs, t_outs = _bins(te_out)
     brier = BR.brier_score(m_probs, m_outs) if m_probs else None
     band = BR.calibration_band_pp(m_probs, m_outs) if m_probs else None
     prov_brier = BR.brier_score(p_probs, p_outs) if p_probs else None
     ef_brier = BR.brier_score(e_probs, e_outs) if e_probs else None
+    te_brier = BR.brier_score(t_probs, t_outs) if t_probs else None
 
     # F2#22: гейт и KILL — из config (единый источник), не хардкод 270; KILL проверяется КОДОМ (Инв#6).
     gate_n = L.paper_to_money_gate()
@@ -221,5 +228,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
                              "brier": (None if prov_brier is None else round(prov_brier, 4))},
         "edge_forward_трек": {"исходов": len(ef_out),                          # B4 §R4.5: фарм-поток рёбер,
                               "brier": (None if ef_brier is None else round(ef_brier, 4))},  # НЕ в §11
+        "thesis_event_трек": {"исходов": len(te_out),                          # V5 карты v3: «Шансы недели»,
+                              "brier": (None if te_brier is None else round(te_brier, 4))},  # НЕ в §11
         "spec_ref": "§10.10, §16, §11 ворота/KILL; B3c герметичность треков; скилл calibrate п.5",
     }
