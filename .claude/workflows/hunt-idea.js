@@ -1,7 +1,7 @@
 export const meta = {
   name: 'hunt-idea',
   description: 'Охота за идеей дня v3: разведка по зонам с планкой → шлагбаум кодом → суд-проверка (чинит, а не казнит) → починка → круги до защищаемой идеи → текст владельцу',
-  whenToUse: 'Ежедневно (облачный охотник) или вручную: «найди идею дня». args: {today:"YYYY-MM-DD", rotation_domain?:string, rounds?:number, max_court?:number, out_dir?:string, work_dir?:string}. Пишет reports/ideas/idea_<дата>_<ТИКЕР>.{md,push.txt,card.json} и дописывает hunt_log.jsonl; коммит делает вызывающая сессия.',
+  whenToUse: 'Ежедневно (облачный охотник) или вручную: «найди идею дня». args: {today:"YYYY-MM-DD", rotation_domain?:string, rounds?:number, max_court?:number, out_dir?:string, work_dir?:string, seed_files?:[пути карточек — суд без повторной разведки]}. Пишет reports/ideas/idea_<дата>_<ТИКЕР>.{md,push.txt,card.json} и дописывает hunt_log.jsonl; коммит делает вызывающая сессия.',
   phases: [
     { title: 'Разведка', detail: 'разведчики по зонам A–G с планкой knowledge/idea_bar.yaml; каждый сам гоняет шлагбаум ops/idea_gate.py' },
     { title: 'Суд', detail: 'три линзы-проверки: факты, «в цене ли звено — числом», Баффет; убить можно только с доказательством' },
@@ -173,7 +173,14 @@ for (let round = 1; round <= ROUNDS && !ship.length; round++) {
       ['G', `другой домен вне библиотеки, НЕ «${ROT}»: выбери сам из (люкс и потребитель, Япония/Индия, страхование и перестраховка, агро-технологии, телеком и спутники, оборонка вне США) — 1–2 датированных катализатора`],
     ]
   }
-  const scouts = (await scoutRound(zones, round, extra)).filter(Boolean)
+  // посев (args.seed_files): суд над уже найденными карточками без повторной разведки — для
+  // продолжения охоты в свежем ходе, когда прошлый ход выбрал общий бюджет поиска
+  const seeded = (round === 1 && Array.isArray(A.seed_files) && A.seed_files.length)
+    ? (await parallel(A.seed_files.map((f, i) => () => agent(
+        `${COMMON}\n\nПрочитай файл ${f} и верни его содержимое как карточку РОВНО по схеме, ничего не меняя и не добавляя; gate_file = "${f}". Поиск не нужен.`,
+        { label: `посев:${i}`, phase: 'Разведка', schema: CARD })))).filter(Boolean)
+    : null
+  const scouts = seeded ? [{ zone: 'посев', cards: seeded, dropped: [] }] : (await scoutRound(zones, round, extra)).filter(Boolean)
   const cards = []
   for (const s of scouts) for (const c of (s.cards || [])) {
     const t = String(c.ticker || '').toUpperCase()
