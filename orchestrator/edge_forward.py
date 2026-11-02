@@ -99,17 +99,25 @@ def candidate_edges(path=CANDIDATES):
         if key in seen:
             continue
         seen.add(key)
-        edges.append({"from": up, "to": down, "lag": key[2], "origin": "world_enum"})
+        # origin из записи (world_enum | thesis — V6 рёбра из тезисов владельца);
+        # для сортировки едины: не-library идут после библиотечных при кэпе
+        edges.append({"from": up, "to": down, "lag": key[2],
+                      "origin": r.get("origin") or "world_enum"})
     return edges
 
 
-def edge_library(path=SENS, candidates_path=CANDIDATES):
+_DEFAULT_CANDIDATES = object()   # сентинел: дефолт резолвится В МОМЕНТ ВЫЗОВА (тестируемость)
+
+
+def edge_library(path=SENS, candidates_path=_DEFAULT_CANDIDATES):
     """Направленные рёбра библиотеки: (from, to, lag) из sensitivities + chain_sensitivities,
     дедуп по тройке. Порядок детерминирован (сортировка) — прогон воспроизводим.
 
     Э4(ж): рёбра-кандидаты «перебора мира» (candidates_path, origin=world_enum) участвуют в
     ежедневном форвард-тесте НАРАВНЕ с библиотечными; дедуп против библиотеки (библиотека
     первична). candidates_path=None — только библиотека (для дедупа в самом world_enum)."""
+    if candidates_path is _DEFAULT_CANDIDATES:
+        candidates_path = CANDIDATES
     doc = yaml.safe_load(open(path, encoding="utf-8")) or {}
     entries = list(doc.get("sensitivities") or []) + list(doc.get("chain_sensitivities") or [])
     seen, edges = set(), []
@@ -182,7 +190,7 @@ def _edges_on_cooldown(predictions_path, now_iso):
 
 
 def run_edge_forward(*, write=True, seal=True, con=None, now_dt=None,
-                     sens_path=SENS, candidates_path=CANDIDATES, db=None, predictions_path=None,
+                     sens_path=SENS, candidates_path=_DEFAULT_CANDIDATES, db=None, predictions_path=None,
                      noise_floor_frac=NOISE_FLOOR_SIGMA_FRAC, max_seals=MAX_SEALS_PER_RUN):
     """Один суточный проход по библиотеке рёбер. Возвращает протокол; seal=False — сухой прогон
     (журнал прогнозов НЕ трогается), write=False — и протокол на диск не пишется.

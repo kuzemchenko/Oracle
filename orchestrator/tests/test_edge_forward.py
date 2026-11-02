@@ -82,7 +82,7 @@ def test_edge_library_dedup_direction_selfloop(tmp_path):
         {"источник": "C.US", "узел": "C.US", "lag": 0},      # само-звено — артефакт, не связь
         {"источник": None, "узел": "D.US", "lag": 0},        # битая запись
     ])
-    lib = EFW.edge_library(p)
+    lib = EFW.edge_library(p, candidates_path=None)   # боевой реестр заглушен (V6)
     # Э4(ж): у рёбер появился провенанс origin (library | world_enum) — решение владельца 13.07 №7
     assert lib == [{"from": "A.US", "to": "B.US", "lag": 0, "origin": "library"},
                    {"from": "A.US", "to": "B.US", "lag": 30, "origin": "library"},
@@ -265,7 +265,7 @@ def test_seal_flag_off_never_touches_journal(tmp_path, monkeypatch):
     called = []
     monkeypatch.setattr(EFW.SEAL, "seal", lambda *a, **k: called.append(1))
     r = EFW.run_edge_forward(write=False, seal=False, con=con, now_dt=NOW,
-                             sens_path=sens, predictions_path=preds)
+                             sens_path=sens, candidates_path=None, predictions_path=preds)
     assert not called and not preds.exists()
     assert r["итоги"]["запечатано"] == 1                       # dry: посчитано «к печати», не в журнал
     assert r["рёбра"][-1]["статус"] == "к_печати (dry)"
