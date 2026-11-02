@@ -2020,9 +2020,23 @@ def _honest_zero(дата, why=None):
 
 
 _SIGN_DOWN_M = ("давлени", "под вопрос", "страда", "падени", "обвал", "снижен", "сокращ",
-                "убыт", "ущерб", "дешеве", "теря", "слабе", "обруш", "просад")
-_SIGN_UP_M = ("рост", "выигр", "бенефициар", "усилива", "дорожа", "прибав",
+                "убыт", "ущерб", "дешеве", "теря", "потер", "слабе", "обруш", "просад")
+_SIGN_UP_M = ("рост", "выигр", "бенефициар", "усилива", "дорожа", "подорожа", "прибав",
               "укрепл", "наращива", "взлет", "взлёт")
+
+
+def _marker_hit(text_l, toks, markers):
+    """Перепроверка №2 02.11 (high): маркеры-слова матчатся ПРЕФИКСОМ токена («рост» не
+    ловится внутри «просто», ложный up-маркер и маскировал реальные конфликты, и браковал
+    честные лиды); маркеры-фразы (с пробелом) — подстрокой. Та же механика, что в
+    mechanism_match._obs_sign того же дня."""
+    for m in markers:
+        if " " in m:
+            if m in text_l:
+                return True
+        elif any(tok.startswith(m) for tok in toks):
+            return True
+    return False
 
 
 def _node_sign_conflict(node_text, dir_word):
@@ -2030,10 +2044,11 @@ def _node_sign_conflict(node_text, dir_word):
     Конфликт — только строгий: маркеры одной стороны БЕЗ маркеров другой («ставка на рост»
     под звеном «давление на поставщиков»). Единый словарь для гарда лида и рендера."""
     t = str(node_text or "").lower()
+    toks = re.findall(r"[а-яё]+", t)
     if dir_word == "вверх":
-        return any(m in t for m in _SIGN_DOWN_M) and not any(m in t for m in _SIGN_UP_M)
+        return _marker_hit(t, toks, _SIGN_DOWN_M) and not _marker_hit(t, toks, _SIGN_UP_M)
     if dir_word == "вниз":
-        return any(m in t for m in _SIGN_UP_M) and not any(m in t for m in _SIGN_DOWN_M)
+        return _marker_hit(t, toks, _SIGN_UP_M) and not _marker_hit(t, toks, _SIGN_DOWN_M)
     return False
 
 
@@ -2164,9 +2179,11 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
     # а не от полного хода механизма: уже реализованную рынком часть с сегодняшнего входа
     # не заработать (у лида с отыгранностью до 0.8 завышение доходило до кратного).
     # Полный ход остаётся для направления и строки «Ход … из них не отыграно …».
-    _ev_move = edge if isinstance(edge, (int, float)) and edge else ход
+    # Перепроверка №2 02.11: edge == 0.0 — ЛЕГИТИМНОЕ «всё отыграно» (матожидание 0),
+    # falsy-фолбэк на полный ход завышал бы EV ровно в худшем случае.
+    _ev_move = edge if isinstance(edge, (int, float)) else ход
     _ev_pct = ((2 * _p_used - 1) * abs(_ev_move) * 100
-               if _p_used is not None and isinstance(_ev_move, (int, float)) and _ev_move else None)
+               if _p_used is not None and isinstance(_ev_move, (int, float)) else None)
     # Знак-гард (испытатель №1): СЫРОЙ текст моего звена против направления расчёта —
     # «ставка на рост» под звеном «давление на поставщиков» не защищается.
     links = _chain_links(protocol, b.get("цепочка")) if b.get("цепочка") else []

@@ -114,6 +114,29 @@ def test_sign_flip_rejected():
     assert story is None and "числа не из входа" in why
 
 
+def test_verbal_quantities_not_from_source_rejected():
+    """Перепроверка №2 02.11: числа ПРОПИСЬЮ обходили цифровой гард — «в девяти случаях
+    из десяти» без опоры во входе теперь брак."""
+    bad = GOOD.replace("с шансом около 48%", "— сбывается в девяти случаях из десяти")
+    story, why = SE.rewrite(SRC, client=StubClient(bad))
+    assert story is None and "количественные слова" in why
+
+
+def test_minus_in_words_matches_signed_source():
+    src = SRC.replace("Ход около 3.2% вверх", "Матожидание −0.4%")
+    good = GOOD.replace("ход около 3.2% вверх с шансом около 48%",
+                        "итог минус 0.4% при шансе около 48%")
+    story, why = SE.rewrite(src, client=StubClient(good))
+    assert why is None, why
+
+
+def test_hyphen_range_not_sign():
+    src = SRC.replace("срок около недели", "срок 3-5 недель")
+    good = GOOD.replace("горизонт — около недели", "горизонт — около 5 недель")
+    story, why = SE.rewrite(src, client=StubClient(good))
+    assert why is None, why
+
+
 def _bot_tick_with_story(monkeypatch, rewrite_fn, tmp_path):
     from test_bot_v2_loop import _bot
     import bot as BOT

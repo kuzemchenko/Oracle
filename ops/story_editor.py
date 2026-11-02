@@ -64,7 +64,20 @@ def _norm_num(tok):
 
 
 def _nums(text):
-    return {_norm_num(t) for t in _NUM_RE.findall(str(text or ""))}
+    t = str(text or "")
+    # Перепроверка №2 02.11: «минус 0.4» / «плюс 0.4» прописью → знаковый токен (иначе
+    # честный словесный знак бракуется, а молчаливый переворот — нет)
+    t = re.sub(r"\bминус\s+(?=\d)", "−", t)
+    t = re.sub(r"\bплюс\s+(?=\d)", "+", t)
+    out = set()
+    for m in _NUM_RE.finditer(t):
+        tok = m.group(0)
+        # дефис после буквы/цифры — разделитель диапазона/кода («3-5», «Q4-23»,
+        # «2026-11-10»), не знак минус (как в mechanism_match._obs_sign)
+        if tok[0] in "+-−" and m.start() > 0 and t[m.start() - 1].isalnum():
+            tok = tok[1:]
+        out.add(_norm_num(tok))
+    return out
 
 
 def _tickers(text):
@@ -88,6 +101,11 @@ def verify(story, source):
     extra_t = _tickers(s) - _tickers(source)
     if extra_t:
         viol.append("тикеры не из входа (П8): " + ", ".join(sorted(extra_t)[:5]))
+    # Перепроверка №2 02.11: числа ПРОПИСЬЮ («в девяти случаях из десяти», «втрое больше»)
+    # обходили цифровой гард — количественные слова рассказа обязаны быть и во входе
+    extra_q = PL.quantity_markers(s) - PL.quantity_markers(source)
+    if extra_q:
+        viol.append("количественные слова не из входа (П8): " + ", ".join(sorted(extra_q)[:4]))
     if FRAME not in s:
         viol.append("потеряна рамка «исследовательский инструмент»")
     if len(s) > MAX_LEN:

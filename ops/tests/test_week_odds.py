@@ -281,11 +281,17 @@ def test_sealable_and_anchor_guards(tmp_path):
     r = WO.run_week_odds(sealable_fn=lambda a: a == "USO.US", **kw)
     assert r["принято"] == 1 and r["вопросы"][0]["asset"] == "USO.US"
     assert any("нет источника цены" in b["причина"] for b in r["брак"])
-    # last_close_fn: порог 80 при цене 100 — в полосе; при цене 500 — вырожденный; None — нет якоря
-    r2 = WO.run_week_odds(last_close_fn=lambda a: 100.0 if a == "USO.US" else 25.0, **kw)
-    assert r2["принято"] == 2                     # оба порога в полосе 0.5×..2× своей цены
-    r2b = WO.run_week_odds(last_close_fn=lambda a: 100.0, **kw)
-    assert r2b["принято"] == 1                    # FRO (порог 30) при цене 100 — вне полосы
+    # last_close_fn: порог 80 при цене 70 — в полосе И на дальней стороне; при 500 —
+    # вырожденный; None — нет якоря
+    r2 = WO.run_week_odds(last_close_fn=lambda a: 70.0 if a == "USO.US" else 25.0, **kw)
+    assert r2["принято"] == 2                     # оба порога в полосе и на дальней стороне
+    r2b = WO.run_week_odds(last_close_fn=lambda a: 70.0, **kw)
+    assert r2b["принято"] == 1                    # FRO (порог 30) при цене 70 — вне полосы
+    # Перепроверка №2 02.11: above с порогом НИЖЕ цены — почти гарантированный YES,
+    # трек мерил бы тривиальность порога, а не взгляд → брак
+    r2c = WO.run_week_odds(last_close_fn=lambda a: 100.0 if a == "USO.US" else 25.0, **kw)
+    assert any("уже-истинной" in b["причина"] for b in r2c["брак"])
+    assert all(q["asset"] != "USO.US" for q in r2c["вопросы"])
     r3 = WO.run_week_odds(last_close_fn=lambda a: 500.0, **kw)
     assert r3["принято"] == 0 and all("не заякорен" in b["причина"] for b in r3["брак"][:2])
     r4 = WO.run_week_odds(last_close_fn=lambda a: None, **kw)

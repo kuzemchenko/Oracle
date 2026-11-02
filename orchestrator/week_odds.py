@@ -174,6 +174,14 @@ def validate_candidate(c, now=None, *, sealable_fn=None, last_close_fn=None):
         if not (0.5 * px <= threshold <= 2.0 * px):
             return None, (f"порог {threshold} не заякорен к цене (~{px:.2f}): "
                           f"вне полосы 0.5×..2× — вырожденный вопрос (§10)")
+        # Перепроверка №2 02.11: порог на УЖЕ-истинной стороне цены (above с порогом ≤ цены,
+        # below с порогом ≥ цены) — почти гарантированный YES за горизонт: трек мерил бы
+        # тривиальность порога, а не взгляд, и дул бы сбываемость «взгляда» владельцу.
+        # Вопрос «удержится» формулируется зеркально — движением к дальней стороне.
+        if (direction == "above" and threshold <= px) or \
+                (direction == "below" and threshold >= px):
+            return None, (f"порог {threshold} на уже-истинной стороне цены (~{px:.2f}) для "
+                          f"{direction} — тривиальный вопрос, трек мерил бы не взгляд (§10)")
     return spec, None
 
 

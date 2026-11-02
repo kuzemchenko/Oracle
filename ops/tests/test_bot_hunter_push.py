@@ -31,13 +31,16 @@ def _pres_on():
     return {"hunter_push": True}
 
 
-def _setup(tmp_path, monkeypatch, files):
+def _setup(tmp_path, monkeypatch, files, no_md=()):
     monkeypatch.setattr(BOT, "ROOT", tmp_path)
     monkeypatch.setattr(BOT.R, "load_presentation", _pres_on)
     d = tmp_path / "reports" / "ideas"
     d.mkdir(parents=True)
     for name, text in files:
         (d / name).write_text(text, encoding="utf-8")
+        if name not in no_md:                        # П8: исследование с источниками рядом
+            (d / name.replace(".push.txt", ".md")).write_text("# источники: URL+даты",
+                                                              encoding="utf-8")
     b = _bot()
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
@@ -94,6 +97,22 @@ def test_hunter_network_failure_keeps_delivered_marks(tmp_path, monkeypatch):
     b._tick_hunter_ideas()                       # «сеть починилась» — но наш стаб всё ещё падает
     assert calls["n"] == 3, "ретрай только недоставленного файла B (A не дублируется)"
     assert len(notes) == 1, "заметка о том же битом файле не спамится в дозор"
+
+
+def test_hunter_requires_research_md(tmp_path, monkeypatch):
+    """Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом — брак."""
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-04_X.push.txt", GOOD)],
+                      no_md=("idea_2026-11-04_X.push.txt",))
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and notes and "источник" in notes[0]
+
+
+def test_odds_wordforms_blocked():
+    """Перепроверка №2 02.11: обходы запрета прописью закрыты; величины хода — живут."""
+    for bad in ("Выплата один к четырём.", "Сбывается в девяти случаях из десяти.",
+                "Вероятно, продлят паузу.", "Срыв в трети случаев.", "Шансы невелики."):
+        assert PL.odds_markers(bad), bad
+    assert not PL.odds_markers("Бумага прибавила половину и стоит вдвое ниже пика.")
 
 
 def test_battle_mp_file_passes_hunter_lint():

@@ -84,6 +84,35 @@ def test_obs_sign_reads_numeric_notation():
     assert MM._obs_sign("всё просто: котировки около 100") is None   # «рост» не внутри «просто»
 
 
+def test_obs_sign_battle_snapshot_not_inverted():
+    """Перепроверка №2 02.11 (блокер): пробельные тысячи, даты в скобках, нечисловые
+    стрелки и рассогласованные единицы давали УВЕРЕННО перевёрнутый знак."""
+    assert MM._obs_sign("магний ~$2000/т → $10 000–14 000/т (5–7x) за ~2 месяца") == "вверх"
+    assert MM._obs_sign(
+        "Rheinmetall €96.8 (23.02.2022) → ~€968 к февралю 2025 — ~10x за 3 года") == "вверх"
+    assert MM._obs_sign(
+        "сахар — максимум почти за 13 лет (FAO); лаг объявление→пик ~3–4 месяца") is None
+    assert MM._obs_sign("никель $12 000→$17 тыс.") is None     # единицы врозь — не сравниваем
+    assert MM._obs_sign(
+        "спот Китай→USWC $15 551 (18.04) → $9177 (16.06), −41% за 2 месяца") == "вниз"
+
+
+def test_obs_sign_library_no_multiplier_inversion():
+    """Регрессионная сеть по ЖИВОЙ библиотеке: прецедент с множителем роста (Nx / в N раз)
+    без слов падения не может классифицироваться «вниз» — класс перевёрнутых знаков."""
+    for m in IDX:
+        for p in m["precedents"]:
+            obs = str(p.get("observed") or "")
+            if not re.search(r"\d", obs):
+                continue
+            s = MM._obs_sign(obs)
+            assert s in (None, "вверх", "вниз")
+            low = obs.lower()
+            if (s == "вниз" and re.search(r"\d\s*[x×]|в\s+\d+\s+раз", low)
+                    and not re.search(r"упал|рухнул|обвал|минус|−|сниж|вниз", low)):
+                raise AssertionError(f"перевёрнутый знак: {obs[:90]}")
+
+
 def test_sign_guard_fail_closed():
     """При известном направлении печатается ТОЛЬКО подтверждённый согласованный прецедент:
     противонаправленный → None; знак не распарсен → None (не подкладываем неизвестное)."""

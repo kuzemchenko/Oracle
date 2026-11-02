@@ -118,6 +118,46 @@ _OBS_UP = ("рост", "вырос", "подорожа", "взлет", "взлё
 _OBS_DOWN = ("обвал", "рухнул", "падени", "снизил", "сжал", "дешев", "упал", "упад",
              "просел", "сполз", "вниз", "минус")
 _PLAIN_NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
+# Перепроверка №2 02.11 (БЛОКЕР): наивное «последнее число слева vs первое справа» давало
+# УВЕРЕННО ПЕРЕВЁРНУТЫЙ знак на живой библиотеке — пробельные тысячи («$10 000» → токены
+# 10 и 000), дата в скобках слева от стрелки («(23.02.2022)» → операнд 2022), стрелка между
+# словами («лаг объявление→пик»), рассогласованные единицы («$12 000→$17 тыс.»).
+# Теперь: санитизация (скобки/даты вон, тысячи склеены) + операнды ТОЛЬКО вплотную к стрелке
+# (между числом и стрелкой — лишь валюта/«/ед»/тильды) + бареные годы не операнды + единица
+# «тыс/млн» на одной стороне → отказ. Любое сомнение → знак не утверждаем (fail-closed).
+_PAREN_RE = re.compile(r"\([^)]*\)")
+_DATE_TOK_RE = re.compile(r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\b")
+_THOUSANDS_RE = re.compile(r"(?<=\d)[   ](?=\d{3}\b)")
+_BETWEEN_OK_RE = re.compile(r"^[\s~≈$€£%]*(?:/[a-zа-яё]{1,4}\.?)?[\s~≈$€£%]*$")
+_UNIT_AFTER_RE = re.compile(r"^\s*(?:тыс|млн|млрд|k)\b", re.IGNORECASE)
+_YEAR_RE = re.compile(r"(?:19|20)\d\d")
+
+
+def _arrow_sign(t):
+    """Знак из сравнений «X → Y». Возвращает (вверх, вниз) — булевы вклады."""
+    t = _THOUSANDS_RE.sub("", _DATE_TOK_RE.sub(" ", _PAREN_RE.sub(" ", t)))
+    up = down = False
+    for m in re.finditer(r"→|->", t):
+        left, right = t[max(0, m.start() - 18):m.start()], t[m.end():m.end() + 18]
+        lm = list(_PLAIN_NUM_RE.finditer(left))
+        rm = list(_PLAIN_NUM_RE.finditer(right))
+        if not lm or not rm:
+            continue
+        lo, ro = lm[-1], rm[0]
+        if not (_BETWEEN_OK_RE.match(left[lo.end():]) and _BETWEEN_OK_RE.match(right[:ro.start()])):
+            continue                               # между числом и стрелкой — чужие слова
+        xs, ys = lo.group(0), ro.group(0)
+        if any(_YEAR_RE.fullmatch(v) and not s.rstrip().endswith(("$", "€", "£"))
+               for v, s in ((xs, left[:lo.start()]), (ys, right[:ro.start()]))):
+            continue                               # барёный год — дата, не цена
+        if _UNIT_AFTER_RE.match(right[ro.end():]):
+            continue                               # «$17 тыс.» против «$12000» — единицы врозь
+        x, y = float(xs.replace(",", ".")), float(ys.replace(",", "."))
+        if y > x:
+            up = True
+        elif y < x:
+            down = True
+    return up, down
 
 
 def _obs_sign(observed):
@@ -136,16 +176,8 @@ def _obs_sign(observed):
             up = True
         else:
             down = True
-    # сравнение «X → Y» («$3 → ~$12/б»): последняя цифра слева против первой справа
-    parts = re.split(r"→|->", t)
-    for a, b in zip(parts, parts[1:]):
-        ma, mb = _PLAIN_NUM_RE.findall(a), _PLAIN_NUM_RE.findall(b)
-        if ma and mb:
-            x, y = float(ma[-1].replace(",", ".")), float(mb[0].replace(",", "."))
-            if y > x:
-                up = True
-            elif y < x:
-                down = True
+    au, ad = _arrow_sign(t)
+    up, down = up or au, down or ad
     if up and not down:
         return "вверх"
     if down and not up:

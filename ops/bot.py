@@ -478,6 +478,13 @@ class Bot:
                 text = p.read_text(encoding="utf-8").strip()
             except OSError:
                 continue
+            # Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом
+            # (*.md тем же именем) — брак: датированные факты обязаны иметь основание в репо.
+            if not p.with_name(p.name[:-len(".push.txt")] + ".md").exists():
+                _mark(p.name)
+                self._notice_dozor("Идея охотника " + p.name + " без файла исследования с "
+                                   "источниками (*.md рядом, П8) — в Telegram не ушла.")
+                continue
             viol = PL.lint_hunter_idea(text)
             if viol:
                 _mark(p.name)                          # не ретраим вечно; чинит охотник/машинист
