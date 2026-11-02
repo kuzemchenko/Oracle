@@ -359,24 +359,36 @@ class Bot:
             self.tg.answer_callback(cb_id)
             self._cmd_more_ideas(chat)
             return
-        if code not in ("q", "m") or not lead:
+        _motives = {"m1": "не понял", "m2": "не верю", "m3": "поздно"}
+        if code not in ("q", "m", "p", *_motives) or not lead:
             self.tg.answer_callback(cb_id)
             return
         already = lid.get("action")
         if already:
             self.tg.answer_callback(cb_id, f"Уже {S.action_ru(already)}.")
             return
-        action = "deep_dive" if code == "q" else "skip"
+        action = {"q": "deep_dive", "p": "paper"}.get(code, "skip")
         S.append_decision(run_id=run_id, asset=lead, direction=None, score=None,
                           action=action, issued_at=issued_at, chat_id=self.chat_id)
+        if code in _motives:                         # причина отказа — отдельной строкой (§12)
+            S.append_motive(run_id=run_id, asset=lead, action="skip",
+                            motive=_motives[code], chat_id=self.chat_id)
         lid["action"] = action
         self.state["last_idea_day"] = lid
         if msg.get("message_id"):      # кнопки сняли — решение одно на идею дня
             self.tg.edit_reply_markup(chat, msg["message_id"], {"inline_keyboard": []})
         if action == "skip":
             self.tg.answer_callback(cb_id, "Понял: мимо.")
-            self.tg.send_message(chat, "Записал «мимо» — это тоже сигнал, учитываю в отборе. "
+            why = _motives.get(code)
+            self.tg.send_message(chat, "Записал «мимо»" + (f" — {why}" if why else "") +
+                                       ". Это сигнал для отбора и подачи: учитываю. "
                                        "«Что ещё было» покажет остальные идеи дня.")
+            self.save()
+            return
+        if action == "paper":
+            self.tg.answer_callback(cb_id, "Записал на бумагу.")
+            self.tg.send_message(chat, "Записал «беру на бумагу»: это учебная сделка без денег. "
+                                       "В дату сверки пришлю итог прогноза — сбылось или нет.")
             self.save()
             return
         # Качаем: очередь прокачки V3 + немедленный состязательный разбор (готовый контур).
@@ -445,6 +457,19 @@ class Bot:
             self.tg.send_message(chat, "Пакет предложений разобран, спасибо. Подписанное "
                                        "машинист внесёт через git с ревью и тестами.")
         self.save()
+
+    @staticmethod
+    def _idea_kb(rid):
+        """Кнопки под идеей дня (разбор 02.11, метрика полезности «отклик»): действие и ПРИЧИНА
+        отказа — «не понял» лечится подачей, «не верю» — судом, «поздно» — отбором по цене."""
+        return {"inline_keyboard": [
+            [{"text": "🔍 Качаем 2 дня", "callback_data": f"v:q:{rid}"},
+             {"text": "📝 Беру на бумагу", "callback_data": f"v:p:{rid}"},
+             {"text": "📋 Что ещё было", "callback_data": f"v:w:{rid}"}],
+            [{"text": "Мимо: не понял", "callback_data": f"v:m1:{rid}"},
+             {"text": "Мимо: не верю", "callback_data": f"v:m2:{rid}"},
+             {"text": "Мимо: поздно", "callback_data": f"v:m3:{rid}"}],
+        ]}
 
     def _tick_hunter_ideas(self):
         """Доставка идей ОХОТНИКА (облачная охота → reports/ideas/*.push.txt → git pull →
@@ -545,11 +570,7 @@ class Bot:
                 body = ["Обновлённая версия записки — заменяет прошлую.", ""] + body
             out = "\n".join(body)
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
-            kb = {"inline_keyboard": [[
-                {"text": "🔍 Качаем 2 дня", "callback_data": f"v:q:{rid}"},
-                {"text": "📋 Что ещё было", "callback_data": f"v:w:{rid}"},
-                {"text": "👎 Мимо", "callback_data": f"v:m:{rid}"},
-            ]]}
+            kb = self._idea_kb(rid)
             if self._send_card(out, kb) is None:
                 return                                  # сеть — ретрай; доставленные уже отмечены
             self.state["last_idea_day"] = {"run_id": rid, "lead": asset, "idx": {},
@@ -557,6 +578,49 @@ class Bot:
                                            "source": "hunter"}
             _mark(key)
             log("идея охотника доставлена:", p.name)
+
+    def _tick_hunter_followups(self):
+        """Охота v3: (1) ТЕНИ — кандидаты, отвергнутые судом охотника (idea_<дата>_*.shadow.json),
+        печатаются в трек hunter_killed БЕЗ показа владельцу: «вето надо заработать» — через 20+
+        сверенных видно, отличает ли суд плохое от хорошего; (2) ИТОГИ — когда резолвер сверил
+        идею охотника, владелец получает «сбылось / не сбылось» и счёт метода (обещание пуша)."""
+        if not R.load_presentation().get("hunter_push"):
+            return
+        try:
+            from ops import hunter_seal as HS
+        except ImportError:
+            import hunter_seal as HS
+        import json as _json
+        d = ROOT / "reports" / "ideas"
+        done = set(self.state.get("hunter_shadow") or [])
+        if d.exists():
+            for p in sorted(d.glob("idea_*.shadow.json")):
+                if p.name in done:
+                    continue
+                try:
+                    rows = _json.loads(p.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    rows = []
+                rows = rows if isinstance(rows, list) else [rows]
+                for card in rows:
+                    if isinstance(card, dict):
+                        HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
+                done.add(p.name)
+                self.state["hunter_shadow"] = sorted(done)
+                self.save()
+        sent = set(self.state.get("hunter_outcomes_sent") or [])
+        fresh = [o for o in HS._read_jsonl(HS.OUTC)
+                 if o.get("kind") == HS.KIND and o.get("hash") and o.get("outcome") in (0, 1)
+                 and o["hash"] not in sent]
+        if not fresh:
+            return
+        score = HS.method_score()
+        for o in fresh:
+            if self.tg.send_message(self.chat_id, HS.outcome_message(o, score)) is None:
+                return                                   # сеть — ретрай следующим тиком
+            sent.add(o["hash"])
+            self.state["hunter_outcomes_sent"] = sorted(sent)
+            self.save()
 
     def _tick_proposal_batch(self, now=None):
         """Раз в неделю (воскресенье, после 10:00 UTC — суббота занята темами) — карточка
@@ -1280,6 +1344,10 @@ class Bot:
         except Exception as e:                                   # noqa: BLE001
             log("tick hunter ошибка", repr(e))
         try:
+            self._tick_hunter_followups()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick hunter followups ошибка", repr(e))
+        try:
             self._tick_week_odds()
         except Exception as e:                                   # noqa: BLE001
             log("tick week_odds ошибка", repr(e))
@@ -1496,11 +1564,7 @@ class Bot:
                         # дневной лид и ОБЯЗАН нести кнопки, иначе включение story_editor молча убьёт
                         # петлю §12/deep_dive (ровно «мёртвую петлю владельца», которую чинил V2).
                         if _artifact.startswith("Идея дня") and (self.state.get("last_idea_day") or {}).get("lead"):
-                            kb_lead = {"inline_keyboard": [[
-                                {"text": "🔍 Качаем 2 дня", "callback_data": f"v:q:{run_id}"},
-                                {"text": "📋 Что ещё было", "callback_data": f"v:w:{run_id}"},
-                                {"text": "👎 Мимо", "callback_data": f"v:m:{run_id}"},
-                            ]]}
+                            kb_lead = self._idea_kb(run_id)
                         if self._send_card(card, kb_lead) is None:
                             log("сбой отправки дневного артефакта — ретрай в следующий tick", run_id)
                             continue

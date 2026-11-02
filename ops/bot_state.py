@@ -28,9 +28,10 @@ DECISIONS_PATH = ROOT / "journal" / "decisions_user.jsonl"
 # §12: «медленные» идеи — пауза ≥ суток до решения. Зашито в код, не в обещания.
 PRECOMMIT_HOURS = 24
 
-ACTIONS = ("accept", "reject", "defer", "deep_dive", "skip")   # V2: качаем/мимо у Идеи дня
+ACTIONS = ("accept", "reject", "defer", "deep_dive", "skip",   # V2: качаем/мимо у Идеи дня
+           "paper")                                              # 02.11: «беру на бумагу» (без денег)
 _ACTION_RU = {"accept": "ПРИНЯЛ", "reject": "ОТКЛОНИЛ", "defer": "ОТЛОЖИЛ",
-              "deep_dive": "КАЧАЕМ", "skip": "МИМО"}
+              "deep_dive": "КАЧАЕМ", "skip": "МИМО", "paper": "НА БУМАГУ"}
 
 
 # ── время ────────────────────────────────────────────────────────────────────────

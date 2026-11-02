@@ -42,6 +42,7 @@ MIN_FACTS, MIN_DOMAINS = 3, 2
 MIN_ASYM = 1.5
 P_MIN, P_MAX = 0.05, 0.95
 MAX_PRICE_AGE_DAYS = 10
+MIN_PRICE = 5.0                              # Ж1 разбора 02.11: копеечные бумаги — не идея дня
 DIR_MAP = {"вверх": "above", "вниз": "below"}
 REQUIRED = ("ticker", "name", "direction", "catalyst", "thesis", "facts", "precedent",
             "move_since_trigger_pct", "upside_pct", "downside_pct", "who_sells",
@@ -176,6 +177,8 @@ def check(card, today=None):
     if px is None or px <= 0 or pxd is None:
         fails.append("§9: нет свежей цены закрытия с датой — порог не заякорить (§10)")
     else:
+        if px < MIN_PRICE:
+            fails.append(f"цена {px} < ${MIN_PRICE:g}: копеечная бумага не годится в идею дня")
         age = (today - pxd).days
         if age > MAX_PRICE_AGE_DAYS:
             fails.append(f"§9: цена закрытия устарела ({age} дн > {MAX_PRICE_AGE_DAYS})")

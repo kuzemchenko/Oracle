@@ -109,3 +109,9 @@ def test_method_score_and_footer_no_probability(tmp_path):
     assert "MP закроется выше 45 к 15 декабря" in joined and "сбылось 1 из 1" in joined
     assert "0.4" not in joined and "вероятн" not in joined and "шанс" not in joined
     assert "уже записан" in " ".join(HS.footer(None, "уже запечатано", sc))
+
+
+def test_penny_stock_rejected():
+    c = _c(spec9={**CARD["spec9"], "last_close": 3.2, "threshold": 4.0})
+    r = G.check(c, today=TODAY)
+    assert not r["pass"] and any("копеечная" in f for f in r["fails"])

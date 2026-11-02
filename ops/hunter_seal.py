@@ -21,6 +21,11 @@ sys.path.insert(0, str(ROOT))
 
 KIND = "hunter_idea"
 TRACK = "hunter_idea"
+# «Вето надо заработать» (разбор 02.11): кандидаты, отвергнутые судом охотника, печатаются ТЕНЬЮ
+# в свой трек — владельцу не показываются; через 20+ сверенных видно, отличает ли суд плохое от
+# хорошего (в прошлый раз разбитые судом сбывались в 52.6% — как все).
+SHADOW_KIND = "hunter_killed"
+MAX_SEAL_LAG_DAYS = 3        # П16: карточку старше 3 дней не печатаем — это было бы задним числом
 DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
 PRED = ROOT / "journal" / "predictions.jsonl"
 OUTC = ROOT / "journal" / "outcomes.jsonl"
@@ -33,7 +38,7 @@ def card_path_for(push_path):
     return p.with_name(p.name[:-len(".push.txt")] + ".card.json")
 
 
-def spec_from_card(card, idea_file=None):
+def spec_from_card(card, idea_file=None, kind=KIND):
     """Карточка охотника → прогноз для mathlib.sealing.seal (или ValueError с причиной)."""
     s = (card or {}).get("spec9") or {}
     try:
@@ -45,7 +50,7 @@ def spec_from_card(card, idea_file=None):
     datetime.date.fromisoformat(rb)                    # ValueError при битой дате
     asset = str(s.get("asset") or card.get("ticker") or "").upper()
     return {
-        "kind": KIND, "track": TRACK,
+        "kind": kind, "track": kind,
         "asset": asset, "direction": str(s.get("direction") or "").lower(),
         "threshold": thr, "resolve_by": rb + "T20:00:00+00:00",
         "price_source": s.get("price_source") or f"EODHD close {asset}",
@@ -57,11 +62,27 @@ def spec_from_card(card, idea_file=None):
     }
 
 
-def seal_card(card, *, idea_file=None, predictions_path=None, sealable_fn=None):
-    """→ (record|None, причина|None). Дубль ставки → (None, 'уже запечатано') — не ошибка."""
-    from mathlib import sealing as SEAL
+def hunt_date_from_name(name):
+    """idea_<YYYY-MM-DD>_<ТИКЕР>.* → date | None."""
     try:
-        spec = spec_from_card(card, idea_file=idea_file)
+        return datetime.date.fromisoformat(str(name)[len("idea_"):len("idea_") + 10])
+    except ValueError:
+        return None
+
+
+def seal_card(card, *, idea_file=None, predictions_path=None, sealable_fn=None, kind=KIND,
+              today=None):
+    """→ (record|None, причина|None). Дубль ставки → (None, 'уже запечатано') — не ошибка.
+    П16: карточка старше MAX_SEAL_LAG_DAYS от даты охоты (из имени файла) не печатается —
+    за это время цена уже ушла, печать была бы задним числом."""
+    from mathlib import sealing as SEAL
+    hd = hunt_date_from_name(idea_file) if idea_file else None
+    today = today or datetime.datetime.now(datetime.timezone.utc).date()
+    if hd is not None and (today - hd).days > MAX_SEAL_LAG_DAYS:
+        return None, (f"карточка от {hd} старше {MAX_SEAL_LAG_DAYS} дней — печать задним числом "
+                      "запрещена (П16)")
+    try:
+        spec = spec_from_card(card, idea_file=idea_file, kind=kind)
     except ValueError as e:
         return None, f"спека не разрешима: {e}"
     if sealable_fn is None:
@@ -94,9 +115,9 @@ def _read_jsonl(path):
     return out
 
 
-def method_score(predictions_path=None, outcomes_path=None):
+def method_score(predictions_path=None, outcomes_path=None, kind=KIND):
     """Счёт МЕТОДА охотника из журналов (П16: только из журнала, join по hash)."""
-    preds = [p for p in _read_jsonl(predictions_path or PRED) if p.get("kind") == KIND]
+    preds = [p for p in _read_jsonl(predictions_path or PRED) if p.get("kind") == kind]
     outs = {o.get("hash"): o for o in _read_jsonl(outcomes_path or OUTC)
             if o.get("hash") and o.get("outcome") in (0, 1)}
     n_out = [outs[p["hash"]] for p in preds if p.get("hash") in outs]
@@ -115,9 +136,9 @@ def footer(rec, why, score):
     if rec:
         side = "выше" if rec["direction"] == "above" else "ниже"
         base = rec["asset"].split(".")[0]
-        lines.append(f"Записал проверяемый прогноз в журнал: {base} закроется {side} "
-                     f"{rec['threshold']:g} к {_human_date(rec['resolve_by'])} — сверю по цене "
-                     "закрытия, запись не правится задним числом.")
+        lines.append(f"Прогноз запечатан в журнал: {base} закроется {side} {rec['threshold']:g} "
+                     f"к {_human_date(rec['resolve_by'])}. В этот день сверю по цене закрытия и "
+                     "пришлю итог сюда — да или нет; запись задним числом не правится.")
     elif why == "уже запечатано":
         lines.append("Проверяемый прогноз по этой идее уже записан в журнал раньше — сверю в срок.")
     elif why:
@@ -130,3 +151,18 @@ def footer(rec, why, score):
         lines.append(f"Счёт метода охотника: сбылось {k} из {n} сверенных"
                      + (" — выборка мала, доверять рано." if n < 10 else "."))
     return lines
+
+
+def outcome_message(outcome, score):
+    """Итог сверки идеи охотника → сообщение владельцу (обратная связь «сбылось/нет»)."""
+    base = str(outcome.get("asset") or "?").split(".")[0]
+    side = "выше" if outcome.get("direction") == "above" else "ниже"
+    obs = outcome.get("observed_value")
+    ok = int(outcome.get("outcome")) == 1
+    when = _human_date(outcome.get("resolve_by")) if outcome.get("resolve_by") else "дату сверки"
+    obs_txt = f"{float(obs):g}" if isinstance(obs, (int, float)) else "нет данных"
+    n, k = score["исходов"], score["попаданий"]
+    return (f"Итог идеи: ставил, что {base} закроется {side} {float(outcome.get('threshold')):g} "
+            f"к {when}. Закрытие — {obs_txt}: {'сбылось' if ok else 'не сбылось'}.\n"
+            f"Счёт метода охотника: сбылось {k} из {n} сверенных"
+            + (" — выборка мала, доверять рано." if n < 10 else "."))

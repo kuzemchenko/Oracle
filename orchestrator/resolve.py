@@ -42,6 +42,7 @@ THESIS_EVENT_KINDS = ("thesis_event",)
 # Архитектура охоты 02.11: идеи облачного охотника (печать на сервере ops/hunter_seal.py) — пятый
 # герметичный трек. Свой Brier и «счёт метода» в подаче; к §11 не приближается.
 HUNTER_KINDS = ("hunter_idea",)
+HUNTER_KILLED_KINDS = ("hunter_killed",)   # тени отвергнутых судом охотника — проверка права вето
 
 
 def track_for_kind(kind):
@@ -197,6 +198,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     ef_out = [o for o in all_out if o.get("kind") in EDGE_FORWARD_KINDS]    # B4: третий трек
     te_out = [o for o in all_out if o.get("kind") in THESIS_EVENT_KINDS]    # V5: четвёртый трек
     hu_out = [o for o in all_out if o.get("kind") in HUNTER_KINDS]          # охота 02.11: пятый
+    hk_out = [o for o in all_out if o.get("kind") in HUNTER_KILLED_KINDS]   # тени: шестой
     m_probs, m_outs = _bins(money_out)
     p_probs, p_outs = _bins(prov_out)
     e_probs, e_outs = _bins(ef_out)
@@ -237,6 +239,9 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         "thesis_event_трек": {"исходов": len(te_out),                          # V5 карты v3: «Шансы недели»,
                               "brier": (None if te_brier is None else round(te_brier, 4))},  # НЕ в §11
         "hunter_трек": {"исходов": len(hu_out),                                # охота 02.11, НЕ в §11
-                        "brier": (None if hu_brier is None else round(hu_brier, 4))},
+                        "brier": (None if hu_brier is None else round(hu_brier, 4)),
+                        "сбылось": sum(int(o["outcome"]) for o in hu_out if o.get("outcome") in (0, 1))},
+        "hunter_тени_трек": {"исходов": len(hk_out),                           # вето суда охотника
+                             "сбылось": sum(int(o["outcome"]) for o in hk_out if o.get("outcome") in (0, 1))},
         "spec_ref": "§10.10, §16, §11 ворота/KILL; B3c герметичность треков; скилл calibrate п.5",
     }

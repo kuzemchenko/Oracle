@@ -168,17 +168,19 @@ def test_hunter_push_carries_buttons_footer_and_seals(tmp_path, monkeypatch):
     monkeypatch.setattr(HS, "OUTC", tmp_path / "out.jsonl")
     import orchestrator.universe_resolver as U
     monkeypatch.setattr(U, "is_sealable", lambda a, **k: True)
-    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
-    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+    import datetime as _dt
+    day = _dt.datetime.now(_dt.timezone.utc).date().isoformat()   # печать задним числом запрещена
+    b, notes = _setup(tmp_path, monkeypatch, [(f"idea_{day}_MP.push.txt", GOOD)])
+    (tmp_path / "reports" / "ideas" / f"idea_{day}_MP.card.json").write_text(
         _json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
     b._tick_hunter_ideas()
     assert not notes, notes
     _c, text, kb = b.tg.sent[-1]
-    assert "Записал проверяемый прогноз в журнал: MP закроется выше 45" in text
+    assert "Прогноз запечатан в журнал: MP закроется выше 45" in text
     assert "Счёт метода охотника" in text
     assert text.rstrip().endswith("не инвестиционная рекомендация.")   # рамка — последней
     datas = [btn["callback_data"] for row in kb["inline_keyboard"] for btn in row]
-    assert "v:q:h_2026-11-02_MP" in datas
+    assert f"v:q:h_{day}_MP" in datas
     lid = b.state["last_idea_day"]
     assert lid["lead"] == "MP.US" and lid["source"] == "hunter"
     rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
@@ -229,3 +231,72 @@ def test_server_observation_not_pushed_as_lead_but_idea_is(tmp_path, monkeypatch
         assert proto["run_id"] in b.state["digest_sent"]
         if not expect_push:
             assert not sent, "наблюдение не должно уходить и фолбэком (Топ-3/Разбор дня)"
+
+
+def test_buttons_paper_and_skip_reason_write_decisions(tmp_path, monkeypatch):
+    """Разбор 02.11 (метрика «отклик»): «Беру на бумагу» → action=paper; «Мимо: не верю» →
+    skip + отдельная строка мотива; повторное нажатие — дедуп."""
+    import json as _json
+    import bot_state as S
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    for code, action in (("p", "paper"), ("m2", "skip")):
+        b = _bot()
+        b.state["last_idea_day"] = {"run_id": "h_x", "lead": "MP.US", "idx": {},
+                                    "issued_at": "2026-11-02T11:00:00+00:00", "source": "hunter"}
+        b._on_callback({"id": "c", "data": f"v:{code}:h_x",
+                        "message": {"message_id": 5, "chat": {"id": 555}}})
+    rows = [_json.loads(x) for x in (tmp_path / "decisions_user.jsonl").read_text("utf-8").splitlines()]
+    assert [r.get("action") for r in rows if r["type"] == "decision"] == ["paper", "skip"]
+    assert any(r["type"] == "motive" and r["motive"] == "не верю" for r in rows)
+    kb = BOT.Bot._idea_kb("h_x")
+    labels = [btn["text"] for row in kb["inline_keyboard"] for btn in row]
+    assert "Мимо: не понял" in labels and "📝 Беру на бумагу" in labels
+    assert all(len(btn["callback_data"].encode()) <= 64 for row in kb["inline_keyboard"] for btn in row)
+
+
+def test_shadows_sealed_silently_and_outcome_pushed(tmp_path, monkeypatch):
+    """Тени отвергнутых печатаются в hunter_killed без пуша; сверенная идея охотника →
+    сообщение «сбылось/не сбылось» один раз."""
+    import json as _json
+    from ops import hunter_seal as HS
+    sys.path.insert(0, str(ROOT / "ops" / "tests"))
+    from test_idea_gate import CARD
+    pred, outc = tmp_path / "pred.jsonl", tmp_path / "out.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    monkeypatch.setattr(HS, "OUTC", outc)
+    import orchestrator.universe_resolver as U
+    monkeypatch.setattr(U, "is_sealable", lambda a, **k: True)
+    import datetime as _dt
+    day = _dt.datetime.now(_dt.timezone.utc).date().isoformat()
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    (tmp_path / "reports" / "ideas" / f"idea_{day}_killed.shadow.json").write_text(
+        _json.dumps([CARD], ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_followups()
+    rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
+    assert len(rows) == 1 and rows[0]["kind"] == "hunter_killed" and not b.tg.sent
+    b._tick_hunter_followups()
+    assert len(pred.read_text("utf-8").splitlines()) == 1          # тень печатается один раз
+    rec, _ = HS.seal_card(CARD, idea_file=f"idea_{day}_MP.push.txt", predictions_path=pred,
+                          sealable_fn=lambda a: True)
+    outc.write_text(_json.dumps({"hash": rec["hash"], "kind": "hunter_idea", "asset": "MP.US",
+                                 "direction": "above", "threshold": 45.0, "outcome": 1,
+                                 "observed_value": 47.2, "resolve_by": "2026-12-15"}) + "\n",
+                    encoding="utf-8")
+    b._tick_hunter_followups()
+    b._tick_hunter_followups()
+    msgs = [t for _c, t, _k in b.tg.sent]
+    assert len(msgs) == 1 and "MP закроется выше 45" in msgs[0] and "сбылось" in msgs[0]
+
+
+def test_stale_card_not_sealed_retroactively(tmp_path):
+    """П16: карточка охоты старше 3 дней не печатается — это было бы задним числом."""
+    import datetime as _dt
+    from ops import hunter_seal as HS
+    sys.path.insert(0, str(ROOT / "ops" / "tests"))
+    from test_idea_gate import CARD
+    rec, why = HS.seal_card(CARD, idea_file="idea_2026-10-20_MP.push.txt",
+                            predictions_path=tmp_path / "p.jsonl", sealable_fn=lambda a: True,
+                            today=_dt.date(2026, 11, 2))
+    assert rec is None and "задним числом" in why
