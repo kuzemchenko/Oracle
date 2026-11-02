@@ -258,9 +258,70 @@ def test_bot_pushes_only_behind_flag(tmp_path, monkeypatch):
     monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": False})
     b._tick_week_odds()
     assert b.tg.sent == []
-    # флаг включён → один пуш, повтор — дедуп
+    # флаг включён → один пуш, повтор — дедуп. Ре-гейт 02.11: тик пропускает
+    # mock/без печатей — дорисуем протоколу «боевой» вид прямо в файле
+    import json as _json
+    f = sorted((tmp_path / "journal" / "week_odds").glob("wo_*.json"))[-1]
+    proto = _json.loads(f.read_text("utf-8"))
+    proto["mode"], proto["запечатано"] = "live", len(proto.get("вопросы") or [])
+    f.write_text(_json.dumps(proto, ensure_ascii=False), "utf-8")
     monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": True})
     b._tick_week_odds()
     assert len(b.tg.sent) == 1 and "Шансы недели" in b.tg.sent[0]
     b._tick_week_odds()
     assert len(b.tg.sent) == 1
+
+
+def test_sealable_and_anchor_guards(tmp_path):
+    """Ре-гейт V0 02.11: (§9) тикер без источника цены — брак; (§10) порог без якоря к цене
+    или вне полосы 0.5×..2× — брак; с котировкой и разумным порогом — печатается."""
+    kw = dict(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+              mechs_path=_mechs(tmp_path), out_dir=tmp_path / "wo", client=StubClient())
+    # sealable_fn: USO есть, FRO нет → FRO бракуется с причиной §9
+    r = WO.run_week_odds(sealable_fn=lambda a: a == "USO.US", **kw)
+    assert r["принято"] == 1 and r["вопросы"][0]["asset"] == "USO.US"
+    assert any("нет источника цены" in b["причина"] for b in r["брак"])
+    # last_close_fn: порог 80 при цене 100 — в полосе; при цене 500 — вырожденный; None — нет якоря
+    r2 = WO.run_week_odds(last_close_fn=lambda a: 100.0 if a == "USO.US" else 25.0, **kw)
+    assert r2["принято"] == 2                     # оба порога в полосе 0.5×..2× своей цены
+    r2b = WO.run_week_odds(last_close_fn=lambda a: 100.0, **kw)
+    assert r2b["принято"] == 1                    # FRO (порог 30) при цене 100 — вне полосы
+    r3 = WO.run_week_odds(last_close_fn=lambda a: 500.0, **kw)
+    assert r3["принято"] == 0 and all("не заякорен" in b["причина"] for b in r3["брак"][:2])
+    r4 = WO.run_week_odds(last_close_fn=lambda a: None, **kw)
+    assert r4["принято"] == 0 and any("нет котировки для якоря" in b["причина"] for b in r4["брак"])
+
+
+def test_tick_skips_unsealed_and_notices_lint_fail(tmp_path, monkeypatch):
+    """Ре-гейт V0 02.11 (П8): mock/несекретный протокол владельцу не уходит; провал линта —
+    заметка в дозор, не молчание."""
+    import json as _json
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    sys.path.insert(0, str(ROOT / "ops" / "tests"))
+    from test_bot_v2_loop import _bot
+    b = _bot()
+    notes = []
+    monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    monkeypatch.setattr(R, "load_presentation", lambda path=None: {"week_odds_push": True})
+    d = tmp_path / "journal" / "week_odds"
+    d.mkdir(parents=True)
+    (d / "wo_1.json").write_text(_json.dumps({"mode": "mock", "запечатано": 0, "вопросы": [
+        {"вопрос": "x", "asset": "USO.US", "probability": 0.4}]}, ensure_ascii=False), "utf-8")
+    b._tick_week_odds()
+    assert not b.tg.sent and "wo_1.json" in b.state["week_odds_sent"]
+    # запечатанный, но битый по подаче (нет вопросов → format вернёт None с причиной)
+    (d / "wo_2.json").write_text(_json.dumps({"mode": "live", "запечатано": 2,
+                                              "вопросы": []}, ensure_ascii=False), "utf-8")
+    b._tick_week_odds()
+    assert not b.tg.sent and notes and "не прошли проверку подачи" in notes[0]
+
+
+def test_format_unknown_ticker_does_not_kill_issue(tmp_path):
+    """Незнакомый тикер → пометка «компанию не опознал», выпуск жив и линт-чист."""
+    r = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                         mechs_path=_mechs(tmp_path), out_dir=tmp_path / "wo",
+                         client=StubClient())
+    import unittest.mock as um
+    with um.patch.object(R, "_asset_human", lambda t: (t, "")):
+        text, viol = R.format_week_odds(r)
+    assert viol == [] and text.count("компанию не опознал") >= 2

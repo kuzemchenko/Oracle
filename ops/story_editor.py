@@ -96,8 +96,19 @@ def rewrite(source_text, *, client=None, mode="auto", run_id=None):
         if client is None:
             from orchestrator.openrouter import make_client
             client = make_client(mode=mode, run_id=run_id or "story_editor")
-        resp = client.complete(ROLE, system, src, agent_id="story_editor",
-                               output_kind="story_rewrite")
+        # Ре-гейт V0 02.11 (БЛОКЕР Инв#5/§24): live-вызов редактора — только через бюджетный
+        # контур (пред-проверка + суб-потолок story_editor + стоп-на-лету).
+        from orchestrator import run_budget as RB
+        if getattr(client, "mode", None) == "live":
+            decision = RB.precheck("story_editor")
+            if not decision.get("allowed"):
+                return None, f"бюджет §24: {decision.get('причина') or decision}"
+            client.cost_guard = RB.RunBudgetGuard("story_editor", decision["cap_usd"])
+        try:
+            resp = client.complete(ROLE, system, src, agent_id="story_editor",
+                                   output_kind="story_rewrite")
+        except RB.RunBudgetExceeded as e:        # BaseException — отдельная ветка (Инв#5)
+            return None, f"ОСТАНОВ бюджета §24: {e.spent_usd:.4f} при потолке {e.cap_usd}"
         story = (resp.get("text") if isinstance(resp, dict) else resp) or ""
     except Exception as e:                                   # noqa: BLE001 — подача не падает
         return None, f"редактор недоступен: {type(e).__name__}: {e}"

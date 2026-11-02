@@ -524,6 +524,12 @@ class Bot:
         except ValueError:
             sent.append(latest.name)
             return
+        # Ре-гейт V0 02.11 (П8): сухой/mock протокол владельцу НЕ уходит — шаблон говорит
+        # «каждый вопрос запечатан», а печати в таких прогонах нет. Пропуск с пометкой.
+        if proto.get("mode") == "mock" or not proto.get("запечатано"):
+            sent.append(latest.name)
+            log("Шансы недели: протокол без печатей (mode/запечатано) — пуш пропущен", latest.name)
+            return
         try:                                   # счёт взглядов из журнала (П16: не из файла)
             import forward_score as FS
             _scores = FS.view_scores()
@@ -531,7 +537,11 @@ class Bot:
             _scores = None
         text, viol = R.format_week_odds(proto, scores=_scores)
         if text is None:
+            # Ре-гейт V0 02.11: молчание — нарушение правила этапа; заметка в дозор как у V0
             log("Шансы недели: пуш не ушёл", latest.name, viol[:2])
+            self._notice_dozor("«Шансы недели» (" + latest.name + ") не прошли проверку подачи ("
+                               + "; ".join(str(v) for v in (viol or [])[:2]) + ") — пуш не ушёл, "
+                               "а вопросы уже запечатаны. Нужен разбор машинистом.")
             sent.append(latest.name)          # битый/пустой протокол не ретраим вечно
             return
         if self._send_card(text, None) is None:
@@ -1315,11 +1325,20 @@ class Bot:
                             if pres.get("story_editor"):
                                 try:
                                     import story_editor as SE
-                                    story, why = SE.rewrite(id_text, run_id=run_id)
+                                    # Ре-гейт V0 02.11: кэш по run_id — сетевой ретрай отправки
+                                    # НЕ прожигает второй LLM-вызов (и отказ не переспрашивается)
+                                    _sc = self.state.get("story_cache") or {}
+                                    if _sc.get("run_id") == run_id:
+                                        story, why = _sc.get("text"), _sc.get("fail")
+                                    else:
+                                        story, why = SE.rewrite(id_text, run_id=run_id)
+                                        self.state["story_cache"] = {"run_id": run_id,
+                                                                     "text": story, "fail": why}
+                                        self.save()
                                     if story:
                                         card = story
                                         _artifact = "Идея дня (рассказ)"
-                                    else:
+                                    elif _sc.get("run_id") != run_id:
                                         self._notice_dozor(
                                             "Рассказчик подачи сегодня не прошёл проверку "
                                             f"({why}) — ушёл строгий формат. Это защита от "

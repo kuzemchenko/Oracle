@@ -1114,9 +1114,13 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # V0 stage-review (блокер №1): полный расчётный ход механизма — для направления/величины в подаче;
         # edge (неотыгранный остаток) у переотыгранного узла меняет знак и НЕ есть прогноз механизма.
         return {"актив": s["symbol"], "score": s["score"], "edge": edge, "направление": напр,
-                "полный_ход": n.get("edge_total", n.get("amplitude_total")),   # итерация-2 испытателя (блокер):
-                # единственное из 6 мест чтения было БЕЗ фолбэка → полный_ход=None во всех боевых
-                # протоколах, гард edge-vs-full мёртв, «ход» в подаче был остатком
+                # Ре-гейт V0 02.11 (честная поправка записи 01.11): прежний «фикс» dict.get(k, default)
+                # был МЁРТВЫМ кодом — node_to_facts ВСЕГДА кладёт ключ edge_total (значением может быть
+                # None, тогда default не читается). Рабочий фолбэк — по ЗНАЧЕНИЮ; если и amplitude_total
+                # нет в фактах — None честный (корень тогда upstream, в сборке каскада, проверять по
+                # протоколу 02.11+).
+                "полный_ход": (n.get("edge_total") if n.get("edge_total") is not None
+                               else n.get("amplitude_total")),
                 "ярусы": n.get("tiers"), "лаг_дней": n.get("lag_days"),
                 "горизонт_дней": n.get("horizon_days"), "вероятность": n.get("probability"),
                 "надёжность_r2": n.get("reliability"), "изоляция_r2": n.get("r2"),

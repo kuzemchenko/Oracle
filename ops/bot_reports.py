@@ -2156,8 +2156,13 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
     # та же честность без пяти приговоров подряд.
     _p_used = (mbase.get("hit") if money and isinstance(mbase, dict)
                else (base.get("hit") if isinstance(base, dict) else None))
-    _ev_pct = ((2 * _p_used - 1) * abs(ход) * 100
-               if _p_used is not None and isinstance(ход, (int, float)) and ход else None)
+    # Ре-гейт V0 02.11 (блокер честности): матожидание — от НЕОТЫГРАННОГО ОСТАТКА (edge),
+    # а не от полного хода механизма: уже реализованную рынком часть с сегодняшнего входа
+    # не заработать (у лида с отыгранностью до 0.8 завышение доходило до кратного).
+    # Полный ход остаётся для направления и строки «Ход … из них не отыграно …».
+    _ev_move = edge if isinstance(edge, (int, float)) and edge else ход
+    _ev_pct = ((2 * _p_used - 1) * abs(_ev_move) * 100
+               if _p_used is not None and isinstance(_ev_move, (int, float)) and _ev_move else None)
     # Знак-гард (испытатель №1): СЫРОЙ текст моего звена против направления расчёта —
     # «ставка на рост» под звеном «давление на поставщиков» не защищается.
     links = _chain_links(protocol, b.get("цепочка")) if b.get("цепочка") else []
@@ -2275,7 +2280,7 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
         _idea_txt = " ".join([str(ev_txt or "")] + [
             str(((e.get("узлы_каскада") or [{}])[0]).get("узел") or "") for e in links])
         _mm = MM.match(_idea_txt)
-        _ln = MM.similar_case_line(_mm[0]) if _mm else None
+        _ln = MM.similar_case_line(_mm[0], direction=dir_word) if _mm else None
         if _ln:
             L.append("")
             L.append(_ln)
@@ -2424,9 +2429,16 @@ def format_week_odds(protocol, *, name_fn=None, scores=None):
         asset = q.get("asset") or ""
         имя = _asset_human(asset)[0]
         текст = str(q.get("вопрос") or "").strip().rstrip("?.")
-        # тикер в тексте вопроса → имя с тикером (линт: тикер без имени — брак)
+        # Ре-гейт V0 02.11: незнакомый тикер (имя==тикер) не валит ВЕСЬ выпуск из-за линта —
+        # честная пометка «компанию не опознал» рядом с тикером (как у Идеи дня), пуш живёт.
+        _unknown = (имя == asset)
         _base = (asset.split(".")[0] if asset else "")
-        if asset and asset in текст and имя not in текст:
+        if _unknown and asset:
+            if asset in текст:
+                текст = текст.replace(asset, f"{asset} — компанию не опознал —")
+            else:
+                текст = f"{текст} [{asset} — компанию не опознал]"
+        elif asset and asset in текст and имя not in текст:
             текст = текст.replace(asset, f"{имя} ({asset})")
         elif asset and asset not in текст and not (
                 _base and re.search(rf"\b{re.escape(_base)}\b", текст)):

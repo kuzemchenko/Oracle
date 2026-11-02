@@ -107,13 +107,42 @@ def _trunc_phrase(text, limit):
     return cut.rsplit(" ", 1)[0].rstrip(".;, ")
 
 
-def similar_case_line(mech):
+_OBS_UP = ("↑", "рост", "вырос", "подорожа", "взлет", "прибав", "удвои", "кратно")
+_OBS_DOWN = ("↓", "обвал", "рухнул", "падени", "снизил", "сжал", "дешев", "упал")
+
+
+def _obs_sign(observed):
+    t = str(observed or "").lower()
+    up = any(m in t for m in _OBS_UP)
+    down = any(m in t for m in _OBS_DOWN)
+    if up and not down:
+        return "вверх"
+    if down and not up:
+        return "вниз"
+    return None                                   # смешанный/неопределённый — знак не утверждаем
+
+
+def similar_case_line(mech, direction=None):
     """Механизм → строка «Похожий случай…» для пуша: прецедент С ЧИСЛОМ + контрпример.
-    Все числа — внутри «…» (цитаты, линт их не считает). Нет пригодного прецедента → None."""
-    prec = next((p for p in mech["precedents"]
-                 if re.search(r"\d", str(p.get("observed") or ""))), None)
-    if not prec:
+    Все числа — внутри «…» (цитаты, линт их не считает). Нет пригодного прецедента → None.
+
+    Ре-гейт V0 02.11 (знак-гард): при известном направлении идеи противонаправленный
+    прецедент НЕ подкладывается как аргумент — ищем согласованный по знаку; согласованных
+    нет и все определённые прецеденты против → строки честно нет (fail-closed)."""
+    numeric = [p for p in mech["precedents"]
+               if re.search(r"\d", str(p.get("observed") or ""))]
+    if not numeric:
         return None
+    prec = None
+    if direction in ("вверх", "вниз"):
+        prec = next((p for p in numeric if _obs_sign(p.get("observed")) == direction), None)
+        if prec is None:
+            signs = {_obs_sign(p.get("observed")) for p in numeric}
+            if None not in signs:                 # все определённые — против направления идеи
+                return None
+            prec = next(p for p in numeric if _obs_sign(p.get("observed")) is None)
+    if prec is None:
+        prec = numeric[0]
     случай = _trunc_phrase(f"{prec.get('year')}: {prec.get('event')} — {prec.get('observed')}", 180)
     line = (f"Похожий случай (механизм «{mech['название']}»). «{случай}»")
     counter = _trunc_phrase(mech.get("counterexamples"), 150)

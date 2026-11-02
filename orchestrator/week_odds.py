@@ -107,7 +107,7 @@ def parse_candidates(text):
     return arr if isinstance(arr, list) else []
 
 
-def validate_candidate(c, now=None):
+def validate_candidate(c, now=None, *, sealable_fn=None, last_close_fn=None):
     """Детерминированная §9-проверка кандидата. Возвращает (spec|None, причина_брака|None)."""
     now = now or _now()
     if not isinstance(c, dict):
@@ -158,6 +158,21 @@ def validate_candidate(c, now=None):
     problems = SEAL.validate_resolvable(spec)
     if problems:
         return None, "; ".join(problems)
+    # Ре-гейт V0 02.11 (БЛОКЕР §9/П16): форма тикера ≠ источник цены. Галлюцинированный
+    # LLM-тикер правильной формы печатался бы навечно pending — трек и счёт взглядов молча
+    # голодали бы. sealable_fn (universe_resolver.is_sealable на сервере) обязателен в live.
+    if sealable_fn is not None and not sealable_fn(asset):
+        return None, f"нет источника цены/истории для {asset} (§9) — не печатаем"
+    # Ре-гейт V0 02.11 (БЛОКЕР П8/§10): порог экономиста обязан быть заякорен к текущей
+    # цене — иначе трек меряет ошибку ценового якоря LLM, а не взгляд. Без котировки —
+    # честный брак (вопрос не печатается), вырожденный порог (вне 0.5×..2× цены) — брак.
+    if last_close_fn is not None:
+        px = last_close_fn(asset)
+        if px is None or px <= 0:
+            return None, f"нет котировки для якоря порога {asset} (П8) — не печатаем"
+        if not (0.5 * px <= threshold <= 2.0 * px):
+            return None, (f"порог {threshold} не заякорен к цене (~{px:.2f}): "
+                          f"вне полосы 0.5×..2× — вырожденный вопрос (§10)")
     return spec, None
 
 
@@ -237,11 +252,39 @@ def annotate_priced_in(spec, amplitudes, move_fn):
     return spec
 
 
+def _last_close_from_db(db_path=None):
+    """last_close_fn для якоря порога (§10): последний close из storage/oracle.db quotes,
+    не старше 2 недель. Нет БД/символа/протухло → None (валидация честно бракует)."""
+    db = pathlib.Path(db_path or ROOT / "storage" / "oracle.db")
+
+    def last_close(asset):
+        if not asset or not db.exists():
+            return None
+        try:
+            con = sqlite3.connect(str(db), timeout=10)
+            row = con.execute(
+                "SELECT date, COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+                "AND COALESCE(adjusted_close, close) IS NOT NULL ORDER BY date DESC LIMIT 1",
+                (asset,)).fetchone()
+            con.close()
+        except sqlite3.Error:
+            return None
+        if not row or not row[1]:
+            return None
+        stale = (datetime.datetime.now(datetime.timezone.utc).date()
+                 - datetime.timedelta(weeks=2)).isoformat()
+        return float(row[1]) if str(row[0]) >= stale else None
+
+    return last_close
+
+
 def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_path=None,
-                  predictions_path=None, out_dir=None, client=None, move_fn=None):
+                  predictions_path=None, out_dir=None, client=None, move_fn=None,
+                  sealable_fn=None, last_close_fn=None):
     """Полный прогон: тезисы+механизмы → экономист → валидация → [«что уже в цене»] →
     [печать] → протокол. move_fn(asset)→реализованный ход % — серверный источник цен;
-    в облаке None → аннотации честно нет."""
+    в облаке None → аннотации честно нет. sealable_fn/last_close_fn — гарды §9/§10
+    (ре-гейт V0 02.11): CLI на сервере подставляет их сам."""
     now = now or _now()
     run_id = "wo_" + now.strftime("%Y%m%dT%H%M%SZ")
     theses = load_theses(theses_path)
@@ -253,20 +296,43 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
         итог["ОТКАЗ"] = "нет ни тезисов, ни механизмов — генерировать не из чего (П8)"
         return _write_protocol(итог, out_dir)
     cl = client or make_client(mode=mode, run_id=run_id)
+    # Ре-гейт V0 02.11 (БЛОКЕР Инв#5/§24): live-вызов экономиста — ТОЛЬКО через бюджетный
+    # контур: пред-проверка месячного потолка + суб-потолок week_odds + стоп-на-лету.
+    if getattr(cl, "mode", None) == "live":
+        from orchestrator import run_budget as RB
+        decision = RB.precheck("week_odds")
+        if not decision.get("allowed"):
+            итог["ОТКАЗ"] = f"бюджет §24: {decision.get('причина') or decision}"
+            итог["ОТКАЗ_бюджет"] = decision
+            return _write_protocol(итог, out_dir)
+        cl.cost_guard = RB.RunBudgetGuard("week_odds", decision["cap_usd"])
     system = PROMPT.read_text(encoding="utf-8")
     user = build_user_prompt(theses, mechs, now)
+    from orchestrator import run_budget as RB
     try:
         resp = cl.complete(ROLE, system, user, agent_id="v5_flow_economist",
                            output_kind="week_odds_questions")
+    except RB.RunBudgetExceeded as e:            # BaseException — отдельная ветка (прецедент challenge)
+        итог["ОТКАЗ"] = (f"ОСТАНОВ бюджета §24 на лету: потрачено {e.spent_usd:.4f} "
+                         f"при потолке {e.cap_usd} (режим {e.mode})")
+        return _write_protocol(итог, out_dir)
     except Exception as e:                                   # noqa: BLE001 — честный отказ
         итог["ОТКАЗ"] = f"экономист недоступен: {type(e).__name__}: {e}"
         return _write_protocol(итог, out_dir)
+    # live-гарды §9/§10 по умолчанию (не передали — подставляем серверные; mock их не трогает)
+    if getattr(cl, "mode", None) == "live":
+        if sealable_fn is None:
+            from orchestrator import universe_resolver as U
+            sealable_fn = U.is_sealable
+        if last_close_fn is None:
+            last_close_fn = _last_close_from_db()
     cands = parse_candidates(resp.get("text") if isinstance(resp, dict) else resp)
     итог["кандидатов"] = len(cands)
     _amps = _amplitudes(mechs_path) if move_fn is not None else {}
     seen_local = set()
     for c in cands[:MAX_QUESTIONS * 2]:
-        spec, why = validate_candidate(c, now)
+        spec, why = validate_candidate(c, now, sealable_fn=sealable_fn,
+                                       last_close_fn=last_close_fn)
         if spec is None:
             итог["брак"].append({"кандидат": c if isinstance(c, dict) else str(c)[:120], "причина": why})
             continue
