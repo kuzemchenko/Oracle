@@ -232,7 +232,11 @@ def quantity_markers(text, include_quotes=False):
     return out
 
 
-HUNTER_MAX_NUMBERS_TOTAL = 12   # числа ВКЛЮЧАЯ цитаты: прецеденты с датами живут, число-спам — нет
+HUNTER_MAX_NUMBERS_TOTAL = 14   # числа ВКЛЮЧАЯ цитаты: прецеденты с датами живут, число-спам — нет
+# Ревью 02.11: шаблон идеи с планом действий (вход, цель, стоп, потенциал, риск, $ на $500) не
+# помещается в ≤4 числа «Идеи дня» — требования взаимоисключали друг друга. Для охотника: ≤8 вне
+# кавычек, ≤14 всего (даты не считаются).
+HUNTER_MAX_NUMBERS_OUTSIDE = 8
 
 
 def lint_hunter_idea(text):
@@ -240,7 +244,10 @@ def lint_hunter_idea(text):
     «не рекомендация» проверяется КОДОМ + запрет вероятностных слов — ВКЛЮЧАЯ цитаты
     (перепроверка №3: кавычки охотника — его же текст, не лазейка) + кэп чисел по полному
     тексту. Непустой список = пуш НЕ уходит, заметка в дозор."""
-    viol = lint_idea_of_day(text)
+    viol = [v for v in lint_idea_of_day(text) if not v.startswith("чисел вне цитат")]
+    nums = count_numbers(text)
+    if len(nums) > HUNTER_MAX_NUMBERS_OUTSIDE:
+        viol.append(f"чисел вне цитат {len(nums)} > {HUNTER_MAX_NUMBERS_OUTSIDE}: {', '.join(nums[:10])}")
     if RESEARCH_FRAME not in str(text or ""):
         viol.append("нет рамки «исследовательский инструмент» (§16 — проверяется кодом)")
     bad = sorted(odds_markers(text, include_quotes=True))

@@ -34,15 +34,38 @@ def _pres_on():
     return {"hunter_push": True}
 
 
-def _setup(tmp_path, monkeypatch, files, no_md=()):
+def _setup(tmp_path, monkeypatch, files, no_md=(), no_card=(), verdict="PASS"):
+    """Ревью 02.11: новая идея обязана иметь §9-карточку и пройти серверный шлагбаум и суд
+    разных семейств — заготовка кладёт карточку к каждому файлу и ставит заглушку суда."""
+    import json as _json
+    import datetime as _dt
+    from ops import hunter_seal as HS, hunter_court as HC
+    import orchestrator.universe_resolver as U
+    from test_idea_gate import CARD
     monkeypatch.setattr(BOT, "ROOT", tmp_path)
     monkeypatch.setattr(BOT.R, "load_presentation", _pres_on)
+    monkeypatch.setattr(HS, "MAX_SEAL_LAG_DAYS", 10 ** 6)        # имена тестов датированы жёстко
+    monkeypatch.setattr(HS, "_server_last_close", lambda a, con=None: (None, None))
+    monkeypatch.setattr(U, "is_sealable", lambda a, **k: True)
+    import idea_gate as G
+    from ops import idea_gate as G2
+    _today = _dt.date(2026, 11, 2)
+    for mod in (G, G2):                                        # шлагбаум считает от даты карточки
+        _orig = mod.check
+        monkeypatch.setattr(mod, "check", lambda c, today=None, _o=_orig: _o(c, today=_today))
+    calls = []
+    monkeypatch.setattr(HC, "judge_card", lambda card, **k: (calls.append(card) or (
+        {"verdict": verdict, "objection": "проверить спрос", "evidence": "«x»"} if verdict else None),
+        None if verdict else "нет ключа"))
     d = tmp_path / "reports" / "ideas"
     d.mkdir(parents=True)
     for name, text in files:
         (d / name).write_text(text, encoding="utf-8")
         if name not in no_md:                        # П8: исследование с источниками рядом
             (d / name.replace(".push.txt", ".md")).write_text(MD, encoding="utf-8")
+        if name not in no_card:
+            (d / name.replace(".push.txt", ".card.json")).write_text(
+                _json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
     b = _bot()
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
@@ -143,7 +166,7 @@ def test_odds_inside_quotes_blocked_for_hunter():
     """Перепроверка №3: кавычки охотника — его же текст, «Суд сказал: «шанс 65%»» не лазейка."""
     bad = GOOD.replace("Ждать.", "Ждать. Суд сказал: «шанс 65%, четыре к одному».")
     assert any("вероятностные" in v for v in PL.lint_hunter_idea(bad))
-    spam = GOOD.replace("Ждать.", "Ждать. «1 2 3 4 5 6 7 8 9 10 11 12 13 14»." )
+    spam = GOOD.replace("Ждать.", "Ждать. «" + " ".join(str(i) for i in range(1, 21)) + "».")
     assert any("число-спам" in v for v in PL.lint_hunter_idea(spam))
 
 
@@ -300,3 +323,94 @@ def test_stale_card_not_sealed_retroactively(tmp_path):
                             predictions_path=tmp_path / "p.jsonl", sealable_fn=lambda a: True,
                             today=_dt.date(2026, 11, 2))
     assert rec is None and "задним числом" in why
+
+
+def test_court_fatal_blocks_and_shadows(tmp_path, monkeypatch):
+    """П10 (ревью 02.11): суд разных семейств FATAL → идея не уходит, пишется тенью, дозор."""
+    import json as _json
+    from ops import hunter_seal as HS
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict="FATAL")
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and any("отверг суд разных семейств" in n for n in notes)
+    rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
+    assert rows and rows[0]["kind"] == "hunter_killed"
+
+
+def test_court_unavailable_fail_closed_retry_hourly(tmp_path, monkeypatch):
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict=None)
+    b._tick_hunter_ideas()
+    b._tick_hunter_ideas()
+    assert not b.tg.sent
+    assert sum("суд разных семейств сейчас недоступен" in n for n in notes) == 1
+
+
+def test_court_fix_adds_second_check_line(tmp_path, monkeypatch):
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict="FIX")
+    b._tick_hunter_ideas()
+    text = b.tg.sent[-1][1]
+    assert "Вторая проверка (модели других разработчиков, вслепую)" in text and "проверить спрос" in text
+    assert text.rstrip().endswith("не инвестиционная рекомендация.")
+
+
+def test_new_idea_without_card_or_failing_server_gate_not_sent(tmp_path, monkeypatch):
+    import json as _json
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_A.push.txt", GOOD),
+                                              ("idea_2026-11-02_B.push.txt", GOOD.replace("проверочная", "вторая"))],
+                      no_card=("idea_2026-11-02_A.push.txt",))
+    from test_idea_gate import CARD
+    bad = {**CARD, "upside_pct": 1}                             # асимметрия провалена
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_B.card.json").write_text(
+        _json.dumps(bad, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert not b.tg.sent
+    assert any("без §9-карточки" in n for n in notes) and any("серверный шлагбаум" in n for n in notes)
+
+
+def test_more_ideas_under_hunter_uses_server_top3(tmp_path, monkeypatch):
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    b.state["last_idea_day"] = {"run_id": "h_2026-11-02_MP", "lead": "MP.US", "source": "hunter"}
+    b.state["last_top3"] = {"run_id": "ef_srv", "idx": {}}
+    asked = []
+    monkeypatch.setattr(BOT.R, "load_protocol", lambda rid: asked.append(rid) or None)
+    b._cmd_more_ideas(555)
+    assert asked == ["ef_srv"]
+
+
+def test_watchdog_one_honest_message_when_no_idea_by_13(tmp_path, monkeypatch):
+    import datetime as _dt
+    b, notes = _setup(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    mon13 = _dt.datetime(2026, 11, 2, 13, 5, tzinfo=_dt.timezone.utc)
+    b._tick_idea_day_watchdog(mon13)
+    b._tick_idea_day_watchdog(mon13)
+    msgs = [t for _c, t, _k in b.tg.sent]
+    assert len(msgs) == 1 and "задерживается" in msgs[0] and notes
+    b2, _n2 = _bot(), None
+    b2.state["idea_day_delivered"] = "2026-11-02"
+    b2._tick_idea_day_watchdog(mon13)
+    assert not b2.tg.sent
+
+
+def test_honest_zero_is_not_an_idea_genre():
+    import bot_reports as R
+    proto = {"run_id": "ef_z", "ts": "2026-11-03T09:00:00+00:00", "граф_отбор": {"топ_k": []}}
+    text, meta, _v = R.idea_of_day_from_protocol(proto)
+    if text and "Сегодня стоящего нет" in text:
+        assert meta["genre"] == "наблюдение"
+
+
+def test_quiet_restart_on_new_code_only_if_compiles(tmp_path, monkeypatch):
+    """Ревью 02.11: ежечасный pull приносит код — бот тихо перезапускается, но только если
+    новый код компилируется (иначе цикл падений); битый код → заметка в дозор."""
+    b, notes = _setup(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(BOT, "_code_signature", lambda: (2, 2.0))
+    monkeypatch.setattr(BOT, "_code_files", lambda: [])
+    assert b._maybe_restart_on_new_code((1, 1.0)) is True and b.state["quiet_restart"] is True
+    assert b._maybe_restart_on_new_code((2, 2.0)) is False          # подпись та же — работаем
+    broken = tmp_path / "broken.py"
+    broken.write_text("def x(:\n", encoding="utf-8")
+    monkeypatch.setattr(BOT, "_code_files", lambda: [broken])
+    b.state.pop("quiet_restart", None)
+    assert b._maybe_restart_on_new_code((1, 1.0)) is False and notes and "не компилируется" in notes[-1]

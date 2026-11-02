@@ -2217,7 +2217,9 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
             _my_raw = str((( _e.get("узлы_каскада") or [{}])[0].get("узел") or "")).lower()
             break
     sign_conflict = _node_sign_conflict(_my_raw, dir_word)   # единый словарь с гардом лида
-    defend = bool(money or (_ev_pct is not None and _ev_pct > 0)) and not sign_conflict
+    # ревью 02.11: денежный суд без запаса хода (EV ≤ 0) — не защищаемая идея, а «наблюдение»
+    # (иначе шапка «защищаю» и в теле «запаса нет» — самоопровержение)
+    defend = ((_ev_pct > 0) if _ev_pct is not None else bool(money)) and not sign_conflict
     наблюдение = {"рост": "возможный рост", "снижение": "возможное снижение"}.get(ставка, "возможное движение")
     if sign_conflict:
         наблюдение = "направление под вопросом"
@@ -2432,7 +2434,9 @@ def idea_of_day_from_protocol(proto, *, name_fn=None, base_rate=None, money_base
         idx = {"1": lead[0].get("актив"), **{str(int(k) + 1): v for k, v in idx.items() if int(k) < 3}}
     meta = {"run_id": proto.get("run_id"), "idx": idx, "lead": (lead[0].get("актив") if lead else None),
             # архитектура 02.11: жанр нужен боту — «наблюдение» (защищать нечего) не уходит лидом
-            "genre": ("идея" if str(text or "").startswith("Идея дня") else "наблюдение")}
+            # ревью 02.11: честный пустой день («Сегодня стоящего нет») — не идея, лидом не уходит
+            "genre": ("наблюдение" if ("Сегодня стоящего нет" in str(text or "")
+                                       or not str(text or "").startswith("Идея дня")) else "идея")}
     viol = PL.lint_idea_of_day(text)
     if viol:
         return None, meta, viol

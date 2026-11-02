@@ -387,8 +387,10 @@ class Bot:
             return
         if action == "paper":
             self.tg.answer_callback(cb_id, "Записал на бумагу.")
-            self.tg.send_message(chat, "Записал «беру на бумагу»: это учебная сделка без денег. "
-                                       "В дату сверки пришлю итог прогноза — сбылось или нет.")
+            promise = ("В дату сверки пришлю итог прогноза — сбылось или нет."
+                       if lid.get("source") == "hunter" and lid.get("sealed")
+                       else "Итог этой идеи увидишь в недельном разборе (/review-week).")
+            self.tg.send_message(chat, "Записал «беру на бумагу»: это учебная сделка без денег. " + promise)
             self.save()
             return
         # Качаем: очередь прокачки V3 + немедленный состязательный разбор (готовый контур).
@@ -494,8 +496,10 @@ class Bot:
             import presentation_lint as PL
         try:
             from ops import hunter_seal as HS
+            from ops import hunter_court as HC
         except ImportError:
             import hunter_seal as HS
+            import hunter_court as HC
         d = ROOT / "reports" / "ideas"
         if not d.exists():
             return
@@ -540,23 +544,58 @@ class Bot:
                 self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
                                    + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
                 continue
-            # печать §9 ДО доставки (П16); результат кэшируется — ретрай сети не перепечатывает
+            # Ревью архитектуры v3 (02.11): порядок для НОВОЙ идеи — шлагбаум КОДОМ на сервере
+            # (серверная дата и цена) → суд РАЗНЫХ семейств (П10) → печать §9 (П16) → доставка.
+            # Исправление уже доставленной записки (обновлённая версия) идёт без суда и без новой
+            # ставки — она правит то, что уже у владельца. Результаты кэшируются по ключу версии.
+            update = _delivered_before(p.name)
             asset = None
             if key not in footers:
-                rec, why = None, "проверяемый прогноз к этой записке не приложен"
                 cp = HS.card_path_for(p)
+                card = None
                 if cp.exists():
                     try:
                         card = _json.loads(cp.read_text(encoding="utf-8"))
                         asset = str((card.get("spec9") or {}).get("asset")
                                     or card.get("ticker") or "").upper() or None
-                        rec, why = HS.seal_card(card, idea_file=p.name)
                     except (OSError, ValueError) as e:
-                        rec, why = None, f"карточка прогноза не читается ({type(e).__name__})"
-                    if rec is None and why not in ("уже запечатано",):
+                        card = None
+                        log("карточка охотника не читается", p.name, repr(e))
+                if card is None and not update:
+                    _mark(key + ":nocard")
+                    self._notice_dozor("Идея охотника " + p.name + " без §9-карточки (*.card.json) — "
+                                       "без проверяемого прогноза новая идея не уходит.")
+                    continue
+                extra = []
+                if card is not None and not update:
+                    ok, gfails, card = HS.server_check(card, idea_file=p.name)
+                    if not ok:
+                        _mark(key + ":bad")
+                        self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
+                                           + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
+                        continue
+                    verdict = self._hunter_court(key, card)
+                    if verdict is None:
+                        continue                            # суд недоступен — ждём, непроверенное не шлём
+                    if verdict.get("verdict") == "FATAL":
+                        HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
+                        _mark(key + ":bad")
+                        self._notice_dozor("Идею охотника " + p.name + " отверг суд разных семейств ("
+                                           + str(verdict.get("objection") or "")[:160] + ") — в Telegram "
+                                           "не ушла, записана тенью для проверки права вето.")
+                        continue
+                    if verdict.get("verdict") == "FIX":
+                        line = HC.second_check_line(verdict)
+                        if line:
+                            extra.append(line)
+                rec, why = None, "проверяемый прогноз к этой записке не приложен"
+                if card is not None:
+                    rec, why = HS.seal_card(card, idea_file=p.name)
+                    if rec is None and why != "уже запечатано":
                         self._notice_dozor("Идея охотника " + p.name + ": прогноз не запечатан ("
                                            + str(why) + ") — пуш ушёл без записи в счёт.")
-                footers[key] = {"lines": HS.footer(rec, why, HS.method_score()), "asset": asset}
+                footers[key] = {"lines": extra + HS.footer(rec, why, HS.method_score()), "asset": asset,
+                                "sealed": bool(rec) or why == "уже запечатано"}
                 self.save()
             foot = footers[key]
             # без карточки тикер берём из имени файла idea_<дата>_<ТИКЕР>.push.txt
@@ -566,7 +605,7 @@ class Bot:
             frame_i = max((i for i, ln in enumerate(lines) if PL.RESEARCH_FRAME in ln),
                           default=len(lines))
             body = lines[:frame_i] + [""] + list(foot["lines"]) + lines[frame_i:]
-            if _delivered_before(p.name):
+            if update:
                 body = ["Обновлённая версия записки — заменяет прошлую.", ""] + body
             out = "\n".join(body)
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
@@ -575,9 +614,40 @@ class Bot:
                 return                                  # сеть — ретрай; доставленные уже отмечены
             self.state["last_idea_day"] = {"run_id": rid, "lead": asset, "idx": {},
                                            "issued_at": S.now_utc().isoformat(timespec="seconds"),
-                                           "source": "hunter"}
+                                           "source": "hunter", "sealed": bool(foot.get("sealed"))}
+            self.state["idea_day_delivered"] = S.now_utc().date().isoformat()
             _mark(key)
             log("идея охотника доставлена:", p.name)
+
+    def _hunter_court(self, key, card):
+        """Суд разных семейств (П10) с кэшем по версии идеи и паузой ретрая 60 мин при
+        недоступности (fail-closed: непроверенное не шлём; заметка в дозор — один раз)."""
+        try:
+            from ops import hunter_court as HC
+        except ImportError:
+            import hunter_court as HC
+        cache = self.state.setdefault("hunter_court", {})
+        got = cache.get(key) or {}
+        if got.get("v"):
+            return got["v"]
+        now = S.now_utc()
+        last = got.get("tried_at")
+        if last:
+            try:
+                import datetime as _dt
+                if (now - _dt.datetime.fromisoformat(last)).total_seconds() < 3600:
+                    return None
+            except ValueError:
+                pass
+        v, why = HC.judge_card(card, run_id="hunter_court")
+        cache[key] = {"v": v, "why": why, "tried_at": now.isoformat(timespec="seconds"),
+                      "noted": got.get("noted")}
+        if v is None and not got.get("noted"):
+            cache[key]["noted"] = True
+            self._notice_dozor("Идея охотника готова, но суд разных семейств сейчас недоступен ("
+                               + str(why)[:160] + ") — непроверенное не отправляю, повторю через час.")
+        self.save()
+        return v
 
     def _tick_hunter_followups(self):
         """Охота v3: (1) ТЕНИ — кандидаты, отвергнутые судом охотника (idea_<дата>_*.shadow.json),
@@ -621,6 +691,29 @@ class Bot:
             sent.add(o["hash"])
             self.state["hunter_outcomes_sent"] = sorted(sent)
             self.save()
+
+    def _tick_idea_day_watchdog(self, now=None):
+        """Ревью 02.11 (тихий день): утреннее «наблюдение» сервера глушится в пользу идеи охотника —
+        если к 13:00 UTC идея дня так и не доставлена, владелец получает ОДНО честное сообщение
+        (без «помойки»), что идея задерживается и почему, а дозор — заметку."""
+        if R.load_presentation().get("server_observation_push", True):
+            return
+        now = now or S.now_utc()
+        today = now.date().isoformat()
+        if now.hour < 13 or self.state.get("idea_day_delivered") == today \
+                or self.state.get("idea_day_watchdog") == today:
+            return
+        if now.isoweekday() > 5:                 # выходные: охотник работает, но молчание не аварийно
+            return
+        msg = ("Идея дня сегодня задерживается: охотник её ещё не доставил (поиск, проверка или "
+               "суд разных моделей не закончены). Пришлю, как только пройдёт проверку; «что ещё было» "
+               "покажет, что видит утренний конвейер.")
+        if self.tg.send_message(self.chat_id, msg) is None:
+            return
+        self.state["idea_day_watchdog"] = today
+        self._notice_dozor("Сторож: к 13:00 UTC идея дня не доставлена — проверить охотника "
+                           "(облачный прогон, коммит, git pull, шлагбаум/суд на сервере).")
+        self.save()
 
     def _tick_proposal_batch(self, now=None):
         """Раз в неделю (воскресенье, после 10:00 UTC — суббота занята темами) — карточка
@@ -741,6 +834,10 @@ class Bot:
     def _cmd_more_ideas(self, chat):
         """Остальные идеи дня = «Топ-3» того же прогона, из готового суда, через линт стиль-контракта."""
         lid = self.state.get("last_idea_day") or self.state.get("last_top3")
+        # ревью 02.11: под идеей охотника run_id «h_…» — это не прогон конвейера; «что ещё было» =
+        # Топ-3 последнего серверного прогона (last_top3), иначе — честно «подборки нет»
+        if lid and str(lid.get("run_id") or "").startswith("h_"):
+            lid = self.state.get("last_top3")
         if not lid or not lid.get("run_id"):
             self.tg.send_message(chat, "Сегодняшней подборки у меня нет — скажи «найди идеи», сделаю прогон.")
             return
@@ -1348,6 +1445,10 @@ class Bot:
         except Exception as e:                                   # noqa: BLE001
             log("tick hunter followups ошибка", repr(e))
         try:
+            self._tick_idea_day_watchdog(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick watchdog ошибка", repr(e))
+        try:
             self._tick_week_odds()
         except Exception as e:                                   # noqa: BLE001
             log("tick week_odds ошибка", repr(e))
@@ -1368,9 +1469,21 @@ class Bot:
             except ValueError:
                 self.state["alerts_seen"] = i + 1     # битую строку не перечитываем вечно
                 continue
-            msg = (f"🚨 Боевой прогон «{rec.get('label')}» упал (код {rec.get('exit')}, "
-                   f"{rec.get('ts')}). Протокола нет — идей сегодня из него не будет. "
-                   f"Хвост ошибки: journal/cron.log; повторить можно командой /run-funnel.")
+            if rec.get("label") == "git_pull":
+                # ежечасная протяжка: повторный сбой в те же сутки — одним алертом, не 24-мя
+                day = str(rec.get("ts") or "")[:10]
+                if self.state.get("git_pull_alert_day") == day:
+                    self.state["alerts_seen"] = i + 1
+                    continue
+                self.state["git_pull_alert_day"] = day
+                msg = (f"🚨 Сервер не смог забрать обновления с GitHub (код {rec.get('exit')}, "
+                       f"{rec.get('ts')}): идеи охотника и правки кода до сервера не доходят. "
+                       "Причина — в journal/cron.log; частая — расхождение веток или облачный "
+                       "коммит в journal/ (безопасная протяжка его не пускает). Нужен ручной разбор.")
+            else:
+                msg = (f"🚨 Боевой прогон «{rec.get('label')}» упал (код {rec.get('exit')}, "
+                       f"{rec.get('ts')}). Протокола нет — идей сегодня из него не будет. "
+                       f"Хвост ошибки: journal/cron.log; повторить можно командой /run-funnel.")
             if self.tg.send_message(self.chat_id, msg) is None:
                 break                                  # не дошло — ретрай со следующего tick
             self.state["alerts_seen"] = i + 1
@@ -1569,6 +1682,8 @@ class Bot:
                             log("сбой отправки дневного артефакта — ретрай в следующий tick", run_id)
                             continue
                         self.state["digest_sent"].append(run_id)
+                        if _artifact.startswith("Идея дня"):     # защищаемая идея закрывает день
+                            self.state["idea_day_delivered"] = S.now_utc().date().isoformat()
                 # §11 fail-closed: money-каскады, ПЕРЕЖИВШИЕ слепой суд («УСТОЯЛА», без вето §6),
                 # доходят до пользователя ОТДЕЛЬНОЙ §8-actionable карточкой с кнопками §12. Дайджест —
                 # обзорный поток, карточка — решение по конкретной идее: РАЗНЫЕ форматы одной идеи,
@@ -1695,10 +1810,14 @@ class Bot:
     def run_forever(self):
         log("старт. chat_id", self.chat_id, "BUDGET_HOUR", BUDGET_HOUR)
         self.initialize_baseline()
-        if self.chat_id:
+        quiet = bool(self.state.pop("quiet_restart", False))
+        if quiet:
+            self.save()
+        if self.chat_id and not quiet:
             self.tg.send_message(self.chat_id, "🤖 «Оракул» на связи. Буду присылать идеи простым "
                                                "языком и отвечать на вопросы. Нажми /help, чтобы понять, "
                                                "что я умею.")
+        code_sig, next_check = _code_signature(), time.time() + 60
         while True:
             try:
                 ups = self.tg.get_updates(self.state.get("update_offset", 0))
@@ -1707,9 +1826,57 @@ class Bot:
                 if ups:
                     self.save()
                 self.tick()
+                if time.time() >= next_check:
+                    next_check = time.time() + 60
+                    if self._maybe_restart_on_new_code(code_sig):
+                        return
             except Exception as e:                               # noqa: BLE001
                 log("петля ошибка", repr(e))
                 time.sleep(3)
+
+    def _maybe_restart_on_new_code(self, code_sig):
+        """Ревью 02.11: ежечасный git pull приносит новый код, а процесс бота живёт на старом —
+        он доставил бы идею охотника без печати. Код изменился и компилируется → тихий выход
+        (systemd Restart=always поднимет через 5 с без приветствия); не компилируется → не
+        перезапускаемся, заметка в дозор (иначе цикл падений)."""
+        sig = _code_signature()
+        if sig == code_sig:
+            return False
+        bad = []
+        for f in _code_files():
+            try:                                     # синтаксис без записи .pyc (ничего не пишем)
+                compile(f.read_text(encoding="utf-8"), str(f), "exec")
+            except (SyntaxError, ValueError, OSError) as e:
+                bad.append(f"{f.name}: {str(e)[:80]}")
+        if bad:
+            if self.state.get("bad_code_sig") != sig:
+                self.state["bad_code_sig"] = sig
+                self._notice_dozor("Сервер забрал новый код, но он не компилируется (" + "; ".join(bad[:2])
+                                   + ") — бот остаётся на прежнем коде до починки.")
+                self.save()
+            return False
+        log("код обновился — тихий перезапуск ради новой версии")
+        self.state["quiet_restart"] = True
+        self.save()
+        return True
+
+
+def _code_files():
+    out = []
+    for sub in ("ops", "orchestrator", "mathlib", "data", "agents"):
+        d = ROOT / sub
+        if d.exists():
+            out += [f for f in d.rglob("*.py") if "tests" not in f.parts and "__pycache__" not in f.parts]
+    return out
+
+
+def _code_signature():
+    """Подпись кода бота: (число .py, сумма mtime) — дёшево и меняется при любом pull кода."""
+    files = _code_files()
+    try:
+        return (len(files), round(sum(f.stat().st_mtime for f in files), 3))
+    except OSError:
+        return None
 
 
 # ── точка входа ──────────────────────────────────────────────────────────────────────
@@ -1756,7 +1923,7 @@ def main(argv=None):
         token = os.environ.get("TELEGRAM_BOT_TOKEN")
     bot = Bot(Telegram(token), chat)
     bot.run_forever()
-    return 0
+    return 0                       # выход ради нового кода — systemd (Restart=always) поднимет
 
 
 if __name__ == "__main__":

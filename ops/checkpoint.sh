@@ -24,7 +24,7 @@ fi
 
 # Архитектура 02.11: облако (охотник) коммитит в master днём — сначала подтягиваем, чтобы
 # журнальный коммит лёг поверх свежего origin (иначе ветки расходятся и встаёт ежечасный pull).
-git pull -q --ff-only origin master || echo "[checkpoint] pull --ff-only не прошёл — продолжаю"
+ops/safe_pull.sh || echo "[checkpoint] безопасная протяжка не прошла — продолжаю"
 
 git add -A -- journal reports ops/reports || exit 5
 if git diff --cached --quiet; then
@@ -39,7 +39,11 @@ fi
 if ! git push -q origin master; then
   # гонка с облачным коммитом между pull и push: пересаживаем ЛОКАЛЬНЫЕ коммиты (журналы/
   # отчёты сервера; облако journal/ не пишет — П16) поверх origin и пробуем ещё раз
-  if git pull -q --rebase origin master && git push -q origin master; then
+  git fetch -q origin master
+  if [ -n "$(git diff --name-only HEAD...origin/master -- journal/ | head -1)" ]; then
+    echo "[checkpoint] входящие облачные коммиты трогают journal/ — пересадку не делаю (П16)"; exit 7
+  fi
+  if git pull -q --rebase --autostash origin master && git push -q origin master; then
     echo "[checkpoint] push прошёл после пересадки поверх облачных коммитов"
   else
     git rebase --abort 2>/dev/null

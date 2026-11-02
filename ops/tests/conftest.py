@@ -23,4 +23,13 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         mod = importlib.import_module(name)
         monkeypatch.setattr(mod, "PRED", tmp_path / "guard_predictions.jsonl")
         monkeypatch.setattr(mod, "OUTC", tmp_path / "guard_outcomes.jsonl")
+    # ревью 02.11: состояние бота и журнал решений владельца — тоже во временную папку
+    # (bot_state.json исключён из git, поэтому порча была невидима; на сервере — живое состояние)
+    for name in ("ops.bot_state", "bot_state"):
+        try:
+            st = importlib.import_module(name)
+        except ImportError:
+            continue
+        monkeypatch.setattr(st, "STATE_PATH", tmp_path / "guard_bot_state.json")
+        monkeypatch.setattr(st, "DECISIONS_PATH", tmp_path / "guard_decisions.jsonl")
     yield

@@ -104,32 +104,48 @@ function rankKey(c) {
   return asym
 }
 
+async function runLenses(c, round, tag) {
+  // Личность линзы — из КОДА (порядок LENSES), а не из подписи модели: ревью 02.11 показало
+  // «рыночная линза v2: …», «Баффет», «facts (факт-чекер П8)» — сводка по свободной строке
+  // давала false всем или игнорировала FATAL. Пропавший голос — один повтор, затем «нет голоса».
+  const ask = (k, role, n) => agent(
+    `${COMMON}\n\n${role}\n\n${COURT_RULES}\n\nКАРТОЧКА:\n${brief(c)}`,
+    { label: `суд:${k}:${c.ticker}:к${round}${tag}${n ? ':повтор' : ''}`, phase: tag ? 'Починка' : 'Суд', schema: VERDICT })
+  const votes = await parallel(LENSES.map(([k, role]) => () => ask(k, role, 0).then(v => v || ask(k, role, 1))))
+  return LENSES.map(([k], idx) => votes[idx] ? { ...votes[idx], lens: k } : { lens: k, verdict: 'NOVOTE', criterion: 'линза не ответила', evidence: '', objection: '', score_1_10: 0 })
+}
+
 async function courtAndRepair(cards, round) {
   return pipeline(cards,
-    (c, _o, i) => parallel(LENSES.map(([k, role]) => () => agent(
-      `${COMMON}\n\n${role}\n\n${COURT_RULES}\n\nКАРТОЧКА:\n${brief(c)}`,
-      { label: `суд:${k}:${c.ticker}:к${round}`, phase: 'Суд', schema: VERDICT }))).then(vs => ({ card: c, votes: vs.filter(Boolean) })),
-    async (r, _o, i) => {
+    (c) => runLenses(c, round, '').then(votes => ({ card: c, votes })),
+    async (r) => {
       const fatal = r.votes.filter(v => v.verdict === 'FATAL')
-      const fixes = r.votes.filter(v => v.verdict === 'FIX')
+      const fixes = r.votes.filter(v => v.verdict === 'FIX' || v.verdict === 'NOVOTE')
       if (fatal.length || !fixes.length) return r
       const rep = await agent(
         `${COMMON}\n\nТы чинишь карточку по запросам суда (не спорь с судом — исполни): \n${fixes.map(v => `• ${v.lens}: ${v.fix_request || v.criterion}`).join('\n')}\n\nКАРТОЧКА:\n${brief(r.card)}\n\nНайди недостающее живым поиском, поправь карточку (инструмент/порог/срок/вход можно менять, факты — только найденные), запиши в ${WORK}/r${round}_fix_<тикер>.json и прогони \`python3 ops/idea_gate.py <файл> --today ${TODAY}\` до pass=true. Не чинится — верни исходную карточку без изменений, gate_file прежний.`,
         { label: `починка:${r.card.ticker}:к${round}`, phase: 'Починка', schema: CARD })
       if (!rep) return r
-      const re = await parallel(fixes.map(v => () => agent(
-        `${COMMON}\n\n${(LENSES.find(l => l[0] === v.lens) || LENSES[0])[1]}\n\n${COURT_RULES}\n\nКарточку починили по твоему запросу «${v.fix_request || v.criterion}». Проверь заново.\n\nКАРТОЧКА:\n${brief(rep)}`,
-        { label: `перепроверка:${v.lens}:${rep.ticker}:к${round}`, phase: 'Починка', schema: VERDICT })))
-      const kept = r.votes.filter(v => v.verdict !== 'FIX')
-      return { card: rep, votes: kept.concat(re.filter(Boolean)), repaired: true }
+      // после починки — ВСЕ линзы заново и без наводки: инструмент/порог могли смениться,
+      // старые PASS к новой карточке не относятся
+      const votes = await runLenses(rep, round, ':после-починки')
+      return { card: rep, votes, repaired: true }
     },
   )
 }
 
+function byLens(r) { return Object.fromEntries(r.votes.map(v => [v.lens, v.verdict])) }
+// строго защищаемая: все три линзы PASS
 function shippable(r) {
   if (!r || !r.card) return false
-  const by = Object.fromEntries(r.votes.map(v => [v.lens, v.verdict]))
-  return by.facts === 'PASS' && by.priced !== 'FATAL' && by.buffett !== 'FATAL'
+  const by = byLens(r)
+  return by.facts === 'PASS' && by.priced === 'PASS' && by.buffett === 'PASS'
+}
+// «идея в проверке»: факты подтверждены, ни одного FATAL, но остался неснятый FIX — честно в тексте
+function checkable(r) {
+  if (!r || !r.card) return false
+  const by = byLens(r)
+  return by.facts === 'PASS' && !r.votes.some(v => v.verdict === 'FATAL' || v.verdict === 'NOVOTE')
 }
 
 const judged = []
@@ -166,7 +182,7 @@ for (let round = 1; round <= ROUNDS && !ship.length; round++) {
   const res = (await courtAndRepair(ranked.slice(0, MAX_COURT), round)).filter(Boolean)
   judged.push(...res)
   ship = judged.filter(shippable)
-  log(`круг ${round}: защищаемых ${ship.length} из ${res.length} судимых`)
+  log(`круг ${round}: защищаемых ${ship.length}, «в проверке» ${judged.filter(checkable).length - ship.length}, судимых ${res.length}`)
 }
 
 phase('Выбор')
@@ -182,12 +198,15 @@ const SEL = {
 let pool = ship
 let genre = 'идея'
 if (!pool.length) {
-  // все круги без чистого прохода: берём кандидатов без FATAL (только FIX) — жанр «идея в проверке»,
-  // с тем, что ещё не досчитано, — честно в тексте; провал фактов (facts≠PASS) не отправляем никогда
-  pool = judged.filter(r => r.votes.every(v => v.verdict !== 'FATAL') && (r.votes.find(v => v.lens === 'facts') || {}).verdict === 'PASS')
+  // все круги без строгого прохода: кандидаты с подтверждёнными фактами и без FATAL, но с неснятым
+  // FIX — жанр «идея в проверке»: что именно ещё не досчитано, пишется в тексте прямо
+  pool = judged.filter(checkable)
   genre = 'идея в проверке'
 }
+const KILLED = judged.filter(r => r.votes.some(v => v.verdict === 'FATAL')).map(r => r.card)
 if (!pool.length) {
+  // день без идеи всё равно пишет тени (вето надо заработать) и журнал охоты
+  await agent(`${COMMON}\n\nЗапиши ${OUT}/idea_${TODAY}_killed.shadow.json — JSON-список ровно этих карточек (как есть): ${JSON.stringify(KILLED).slice(0, 60000)}\nИ допиши (append) в ${OUT}/hunt_log.jsonl по строке на каждого судимого: {"дата":"${TODAY}","инструмент","механизм","вердикт":"отвергнута"|"не доведена","причина","пересмотреть_если"}. СУДИМЫЕ: ${JSON.stringify(judged.map(r => ({ ticker: r.card.ticker, mechanism: r.card.mechanism_id, votes: r.votes.map(v => `${v.lens}:${v.verdict}:${(v.evidence || v.fix_request || '').slice(0, 160)}`) }))).slice(0, 40000)}`, { label: 'тени-и-журнал', phase: 'Текст' })
   return { status: 'нет защищаемой идеи после всех кругов', rounds: ROUNDS, judged: judged.map(r => ({ ticker: r.card.ticker, votes: r.votes.map(v => `${v.lens}:${v.verdict}:${(v.evidence || '').slice(0, 160)}`) })) }
 }
 const sel = await agent(`${COMMON}\n\nТы выбираешь ОДНУ идею дня из защищаемых (и запасную). Критерии планки (soft): асимметрия (потенциал/риск), свежесть (малая доля прецедентного хода пройдена), простота цепочки (меньше звеньев), убедительность «кто продаёт и почему», близость катализатора, оценки линз.\n\nКАНДИДАТЫ:\n${JSON.stringify(pool.map(r => ({ card: r.card, votes: r.votes })), null, 1).slice(0, 80000)}`, { label: 'выбор', phase: 'Выбор', schema: SEL })
@@ -212,7 +231,7 @@ const wr = await agent(`${COMMON}
 Ты автор подачи. Жанр: «${genre}» (в заголовке пуша — «Идея дня», а если вход по условию с датой — «Идея с триггером»; слово «наблюдение» в заголовке запрещено). Запиши ЧЕТЫРЕ файла:
 1) ${stem}.md — исследование: питч, вся карточка, КАЖДЫЙ факт с URL и датой (раздел «Источники»), прецедент и контрпример с URL, табло суда (линза → вердикт → улика/запрос → возражение и ответ), что починено, §9-спека, запасная идея (${backup ? backup.card.ticker : 'нет'}) одной строкой.
 2) ${stem}.card.json — карточка лидера (JSON ровно по полям карточки, включая spec9), прогони \`python3 ops/idea_gate.py ${stem}.card.json --today ${TODAY}\` — обязан pass=true.
-3) ${stem}.push.txt — текст владельцу в Telegram СТРОГО по шаблону push_template из knowledge/idea_bar.yaml (и списку banned_in_push): одна идея, которую ты ЗАЩИЩАЕШЬ; главное возражение суда — вместе с ответом, не приговором; никаких вероятностей, шансов, коэффициентов ни цифрами, ни словами; ≤4 чисел вне кавычек «…» (даты не считаются); тикер один раз, без «.US», рядом имя и роль компании; дни недели сверь с календарём (${TODAY} — укажи сам, какой это день); последняя строка дословно «Это исследовательский инструмент, не инвестиционная рекомендация.» Строку о печати прогноза и счёт метода НЕ пиши — их допишет код бота.
+3) ${stem}.push.txt — текст владельцу в Telegram СТРОГО по шаблону push_template из knowledge/idea_bar.yaml (и списку banned_in_push): одна идея, которую ты ЗАЩИЩАЕШЬ; главное возражение суда — вместе с ответом, не приговором; никаких вероятностей, шансов, коэффициентов ни цифрами, ни словами; ≤8 чисел вне кавычек «…» и ≤14 во всём тексте (даты не считаются) — хватает на вход/цель/стоп/потенциал/риск; если жанр «идея в проверке» — в абзаце «Главный риск — и мой ответ» прямо назови, что ещё не досчитано (неснятые запросы суда) и что я сделаю до какой даты, ответ на возражение НЕ выдумывай; тикер один раз, без «.US», рядом имя и роль компании; дни недели сверь с календарём (${TODAY} — укажи сам, какой это день); последняя строка дословно «Это исследовательский инструмент, не инвестиционная рекомендация.» Строку о печати прогноза и счёт метода НЕ пиши — их допишет код бота.
 Проверь пуш кодом: \`python3 -c "import sys; sys.path[:0]=['.','ops']; import presentation_lint as P; print(P.lint_hunter_idea(open('${stem}.push.txt',encoding='utf-8').read()))"\` — обязан вывести []. Иначе правь и повторяй.
 4) ${OUT}/idea_${TODAY}_killed.shadow.json — JSON-СПИСОК карточек кандидатов, отвергнутых судом с FATAL, у которых есть полная §9-спека (asset/direction/threshold/resolve_by/probability/last_close/last_close_date) — их сервер тихо запечатает ТЕНЬЮ, чтобы суд со временем доказал своё право убивать; пустой список, если таких нет. Карточки бери из ВСЕХ СУДИМЫХ ниже как есть, ничего не выдумывай.
 Пуш — не больше 250 слов.

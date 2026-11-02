@@ -118,28 +118,26 @@ def check(card, today=None):
     if not str(prec.get("url") or "").startswith("http"):
         fails.append("прецедент без URL (П8)")
     move = _num(card["move_since_trigger_pct"])
+    ranges = PI.parse_amplitude(amp)
+    far = max((max(abs(r["низ"]), abs(r["верх"])) for r in ranges), default=0.0)
+    comp["амплитуда_дальний_край_пп"] = far
     if move is None:
         fails.append("ход с даты повода не числом — без него «не отыграно» не доказать")
-    else:
-        pf = PI.played_fraction(move, amp)
+    elif not ranges:
+        fails.append("амплитуда прецедента не распознана числом")
+    elif direction in DIR_MAP:
+        # Ревью 02.11: доля «в цене» считается ПО НАПРАВЛЕНИЮ ИДЕИ — ход бумаги в сторону идеи против
+        # модуля прецедентной амплитуды. Раньше знак прецедента (переменная механизма может идти
+        # против бумаги) переворачивал проверку: отыгранная бумага проходила, свежая бракуется.
+        r0 = ranges[0]
+        lo, hi = sorted((abs(r0["низ"]), abs(r0["верх"])))
+        in_dir = move if direction == "вверх" else -move
+        pf = PI.played_fraction(in_dir, f"+{lo:g}–{hi:g}%" if lo != hi else f"+{hi:g}%")
         comp["что_в_цене"] = pf
         if "ОТКАЗ" in pf:
-            fails.append("амплитуда прецедента не распознана числом: " + pf["ОТКАЗ"])
+            fails.append("доля отыгранности не посчитана: " + pf["ОТКАЗ"])
         elif pf.get("вердикт") in (PI.В_ЦЕНЕ, PI.ПЕРЕЛЁТ):
             fails.append(f"звено уже отыграно числом: {pf['вердикт']} ({pf.get('строка')})")
-        else:
-            ranges = PI.parse_amplitude(amp)
-            far = max((max(abs(r["низ"]), abs(r["верх"])) for r in ranges), default=0)
-            sign_amp = None
-            if ranges:
-                r0 = ranges[0]
-                fe = r0["низ"] if abs(r0["низ"]) >= abs(r0["верх"]) else r0["верх"]
-                sign_amp = "вверх" if fe > 0 else "вниз" if fe < 0 else None
-            if (sign_amp and direction in DIR_MAP and sign_amp != direction
-                    and not str(ranges[0]["вид"]).endswith("±")):
-                warns.append(f"знак прецедента ({sign_amp}) против идеи ({direction}) — "
-                             "в тексте объяснить, почему актив идёт против переменной механизма")
-            comp["амплитуда_дальний_край_пп"] = far
 
     # 6. асимметрия
     up, dn = _num(card["upside_pct"]), _num(card["downside_pct"])
@@ -149,6 +147,8 @@ def check(card, today=None):
         comp["асимметрия"] = round(up / dn, 2)
         if up / dn < MIN_ASYM:
             fails.append(f"асимметрия {up / dn:.2f} < {MIN_ASYM} (потенциал {up}% / риск {dn}%)")
+        if far and up > far * 1.05:
+            fails.append(f"потенциал {up}% больше прецедентного хода {far:g}% — питч без основы")
 
     # 8. §9-спека
     spec = card["spec9"] if isinstance(card["spec9"], dict) else {}
@@ -188,6 +188,12 @@ def check(card, today=None):
             sd = str(spec.get("direction") or "").lower()
             if (sd == "above" and thr <= px) or (sd == "below" and thr >= px):
                 fails.append(f"§9: порог {thr} на уже-истинной стороне цены {px} — тривиальный вопрос")
+            elif up is not None and up > 0:
+                # цель прогноза — в пределах заявленного потенциала (иначе питч +40%, а печать — другое)
+                thr_move = (thr / px - 1) * 100 if sd == "above" else (1 - thr / px) * 100
+                comp["ход_до_порога_пп"] = round(thr_move, 2)
+                if thr_move > up * 1.05:
+                    fails.append(f"§9: порог требует хода {thr_move:.1f}% — больше заявленного потенциала {up}%")
 
     # 7. стоп-условия
     kills = card["kill_conditions"] if isinstance(card["kill_conditions"], list) else []

@@ -85,22 +85,32 @@ def test_cli_exit_codes(tmp_path):
     assert G.main([str(p), "--today", "2026-11-02"]) == 1
 
 
+NAME = f"idea_{datetime.datetime.now(datetime.timezone.utc).date()}_MP.push.txt"
+
+
 def test_seal_card_separate_track_and_dedup(tmp_path):
     pred = tmp_path / "predictions.jsonl"
-    rec, why = HS.seal_card(CARD, idea_file="idea_x.push.txt", predictions_path=pred,
+    rec, why = HS.seal_card(CARD, idea_file=NAME, predictions_path=pred,
                             sealable_fn=lambda a: True)
     assert why is None and rec["kind"] == "hunter_idea" and rec["track"] == "hunter_idea"
     assert rec["resolve_by"].startswith("2026-12-15") and rec["threshold"] == 45.0
-    rec2, why2 = HS.seal_card(CARD, predictions_path=pred, sealable_fn=lambda a: True)
+    rec2, why2 = HS.seal_card(CARD, idea_file=NAME, predictions_path=pred, sealable_fn=lambda a: True)
     assert rec2 is None and why2 == "уже запечатано"
-    rec3, why3 = HS.seal_card(CARD, predictions_path=tmp_path / "p2.jsonl",
+    # «обновлённая версия» той же идеи с другим порогом — не вторая ставка (ревью 02.11)
+    moved = _c(spec9={**CARD["spec9"], "threshold": 47.0})
+    rec2b, why2b = HS.seal_card(moved, idea_file=NAME, predictions_path=pred, sealable_fn=lambda a: True)
+    assert rec2b is None and why2b == "уже запечатано"
+    rec3, why3 = HS.seal_card(CARD, idea_file=NAME, predictions_path=tmp_path / "p2.jsonl",
                               sealable_fn=lambda a: False)
     assert rec3 is None and "нет истории цен" in why3
+    rec4, why4 = HS.seal_card(CARD, idea_file="idea_без_даты.push.txt",
+                              predictions_path=tmp_path / "p3.jsonl", sealable_fn=lambda a: True)
+    assert rec4 is None and "нет даты" in why4                 # лаг-гард fail-closed
 
 
 def test_method_score_and_footer_no_probability(tmp_path):
     pred, outc = tmp_path / "p.jsonl", tmp_path / "o.jsonl"
-    rec, _ = HS.seal_card(CARD, predictions_path=pred, sealable_fn=lambda a: True)
+    rec, _ = HS.seal_card(CARD, idea_file=NAME, predictions_path=pred, sealable_fn=lambda a: True)
     outc.write_text(json.dumps({"hash": rec["hash"], "outcome": 1}) + "\n", encoding="utf-8")
     sc = HS.method_score(predictions_path=pred, outcomes_path=outc)
     assert sc == {"идей": 1, "исходов": 1, "попаданий": 1}
@@ -115,3 +125,33 @@ def test_penny_stock_rejected():
     c = _c(spec9={**CARD["spec9"], "last_close": 3.2, "threshold": 4.0})
     r = G.check(c, today=TODAY)
     assert not r["pass"] and any("копеечная" in f for f in r["fails"])
+
+
+def test_priced_in_by_idea_direction_and_potential_caps():
+    """Ревью 02.11: «в цене» — по направлению ИДЕИ (переменная механизма может идти против бумаги);
+    потенциал не больше прецедентного хода; цель прогноза в пределах потенциала."""
+    # идея «вниз», прецедент описан положительной амплитудой переменной, бумага уже −55%
+    down_played = _c(direction="вниз", move_since_trigger_pct=-55.0,
+                     spec9={**CARD["spec9"], "direction": "below", "threshold": 35.0})
+    r = G.check(down_played, today=TODAY)
+    assert any("уже отыграно" in f for f in r["fails"]), r["fails"]
+    # та же идея, бумага пока −4% — не отыграно
+    down_fresh = _c(direction="вниз", move_since_trigger_pct=-4.0, upside_pct=20, downside_pct=8,
+                    spec9={**CARD["spec9"], "direction": "below", "threshold": 35.0})
+    assert G.check(down_fresh, today=TODAY)["pass"], G.check(down_fresh, today=TODAY)["fails"]
+    r2 = G.check(_c(upside_pct=90, downside_pct=10), today=TODAY)
+    assert any("больше прецедентного хода" in f for f in r2["fails"])
+    r3 = G.check(_c(spec9={**CARD["spec9"], "threshold": 60.0}), today=TODAY)
+    assert any("больше заявленного потенциала" in f for f in r3["fails"])
+
+
+def test_server_check_uses_server_price_and_rejects_undated():
+    ok, fails, c2 = HS.server_check(CARD, idea_file=f"idea_{TODAY}_MP.push.txt", today=TODAY,
+                                    last_close_fn=lambda a: (46.0, "2026-10-31"))
+    assert not ok and any("уже-истинной" in f for f in fails)   # серверная цена выше порога 45
+    assert c2["spec9"]["last_close"] == 46.0
+    ok2, fails2, _ = HS.server_check(CARD, idea_file="idea_MP.push.txt", today=TODAY)
+    assert not ok2 and "нет даты" in fails2[0]
+    ok3, _f3, _ = HS.server_check(CARD, idea_file=f"idea_{TODAY}_MP.push.txt", today=TODAY,
+                                  last_close_fn=lambda a: (None, None))
+    assert ok3                                                   # нет котировок → цена карточки
