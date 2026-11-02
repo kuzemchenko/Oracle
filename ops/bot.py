@@ -443,6 +443,38 @@ class Bot:
                                        "машинист внесёт через git с ревью и тестами.")
         self.save()
 
+    def _tick_hunter_ideas(self):
+        """Доставка идей ОХОТНИКА (облачная охота → reports/ideas/*.push.txt → git pull →
+        этот тик → Telegram). Вопрос владельца 02.11: «идея MP так и не попала в Telegram» —
+        моста не было, это он. Fail-closed линт; дедуп по имени файла; битый текст → дозор."""
+        try:
+            from ops import presentation_lint as PL
+        except ImportError:
+            import presentation_lint as PL
+        d = ROOT / "reports" / "ideas"
+        if not d.exists():
+            return
+        seen = set(self.state.get("hunter_pushed") or [])
+        for p in sorted(d.glob("idea_*.push.txt")):
+            if p.name in seen:
+                continue
+            try:
+                text = p.read_text(encoding="utf-8").strip()
+            except OSError:
+                continue
+            viol = PL.lint_idea_of_day(text)
+            if viol:
+                seen.add(p.name)                       # не ретраим вечно; чинит охотник/машинист
+                self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
+                                   + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
+                continue
+            if self._send_card(text, None) is None:
+                return                                  # сеть — ретрай следующим tick'ом
+            seen.add(p.name)
+            log("идея охотника доставлена:", p.name)
+        self.state["hunter_pushed"] = sorted(seen)
+        self.save()
+
     def _tick_proposal_batch(self, now=None):
         """Раз в неделю (воскресенье, после 10:00 UTC — суббота занята темами) — карточка
         предложений петли §25 (V2). Дедуп по ISO-неделе; пустая очередь — карточки нет."""
@@ -1145,6 +1177,10 @@ class Bot:
             self._tick_proposal_batch(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick proposals ошибка", repr(e))
+        try:
+            self._tick_hunter_ideas()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick hunter ошибка", repr(e))
         try:
             self._tick_week_odds()
         except Exception as e:                                   # noqa: BLE001

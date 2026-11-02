@@ -101,6 +101,11 @@ MAILTO=""
 # только на сервере. Скрипт ops/checkpoint.sh: git add ТОЛЬКО journal/ reports/ ops/reports/,
 # код не трогает, пуш всего master. 22:00 — после сверки 21:00 и дозора 21:15. Падение → алерт в бота.
 0 22 * * *   cd /home/oracle/oracle && ops/cron_alert.sh checkpoint /home/oracle/oracle/ops/checkpoint.sh >> journal/cron.log 2>&1
+
+# Доставка идей облачного охотника (reports/ideas/*.push.txt) и прочих облачных правок данных:
+# ежедневная протяжка из GitHub (--ff-only: без слияний; код подхватится при следующем рестарте,
+# данные — сразу; бот доставит новые идеи тиком _tick_hunter_ideas).
+5 12 * * *   cd /home/oracle/oracle && git pull --ff-only >> journal/cron.log 2>&1
 # V5 «Шансы недели» (пятница 08:10 UTC). ВКЛЮЧИТЬ после ручного прогона испытателя и «ок»
 # владельца (правило внедрения 01.11, ops/roadmap_state.yaml) + week_odds_push: true в presentation.yaml:
 # 10 8 * * 5 /home/oracle/oracle/ops/cron_alert.sh week_odds /home/oracle/oracle/.venv/bin/python /home/oracle/oracle/orchestrator/week_odds.py --mode auto --seal
