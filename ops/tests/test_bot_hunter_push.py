@@ -115,17 +115,25 @@ def test_hunter_network_failure_keeps_delivered_marks(tmp_path, monkeypatch):
 
 
 def test_hunter_requires_research_md(tmp_path, monkeypatch):
-    """Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом — брак."""
+    """Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом — брак.
+    Перепроверка №4: брак не вечный — появился .md → идея доставляется; дозор не спамится."""
     b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-04_X.push.txt", GOOD)],
                       no_md=("idea_2026-11-04_X.push.txt",))
     b._tick_hunter_ideas()
     assert not b.tg.sent and notes and "источник" in notes[0]
+    b._tick_hunter_ideas()
+    assert len(notes) == 1                       # повтор без .md — заметка одна
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-04_X.md").write_text(
+        "# источники: URL+даты", encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
 
 
 def test_odds_wordforms_blocked():
     """Перепроверка №2 02.11: обходы запрета прописью закрыты; величины хода — живут."""
     for bad in ("Выплата один к четырём.", "Сбывается в девяти случаях из десяти.",
-                "Вероятно, продлят паузу.", "Срыв в трети случаев.", "Шансы невелики."):
+                "Вероятно, продлят паузу.", "Срыв в трети случаев.", "Шансы невелики.",
+                "Сбывается в 65% случаев.", "Выплата 4 к 1.", "В девяти случаях из 10."):
         assert PL.odds_markers(bad), bad
     assert not PL.odds_markers("Бумага прибавила половину и стоит вдвое ниже пика.")
 

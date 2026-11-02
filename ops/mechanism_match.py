@@ -117,14 +117,24 @@ _OBS_UP = ("рост", "вырос", "подорожа", "взлет", "взлё
            "рекорд", "подскоч", "вверх", "плюс", "удорожа")
 _OBS_DOWN = ("обвал", "рухнул", "пада", "падени", "снизил", "сжал", "дешев", "упал", "упад",
              "просел", "сполз", "вниз", "минус")
-_NEG_TOKS = {"не", "ни", "нет"}
+_NEG_PRE = {"не", "ни"}
+_CLAUSE_RE = re.compile(r"[.;!?…]|—")
 
 
-def _word_hit(toks, markers):
-    """Маркер = префикс токена; «не»/«ни» прямо перед токеном снимает маркер (перепроверка №3:
-    «ставки НЕ выросли» читалось «вверх» и печаталось доводом «за»)."""
-    for i, tok in enumerate(toks):
-        if any(tok.startswith(w) for w in markers) and (i == 0 or toks[i - 1] not in _NEG_TOKS):
+def _word_hit(text_l, markers):
+    """Маркер = префикс токена, В ПРЕДЕЛАХ КЛАУЗЫ: «не/ни» перед словом или «нет» сразу после —
+    снимают маркер (перепроверка №3: «ставки НЕ выросли» читалось «вверх»); граница
+    предложения рвёт связь (перепроверка №4: в «Роста нет. Упали цены» прежнее «нет» гасило
+    чужое «упали» и давало переворот)."""
+    for clause in _CLAUSE_RE.split(text_l):
+        toks = re.findall(r"[а-яё]+", clause)
+        for i, tok in enumerate(toks):
+            if not any(tok.startswith(w) for w in markers):
+                continue
+            if i > 0 and toks[i - 1] in _NEG_PRE:
+                continue
+            if i + 1 < len(toks) and toks[i + 1] == "нет":
+                continue
             return True
     return False
 _PLAIN_NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
@@ -143,18 +153,32 @@ _UNIT_AFTER_RE = re.compile(r"^\s*(?:тыс|млн|млрд|k)\b", re.IGNORECASE
 _YEAR_RE = re.compile(r"(?:19|20)\d\d")
 
 
-_COMMA_THOUS_RE = re.compile(r"(?<=\d),(?=\d{3}\b)")   # «1,500» — англ. тысячи, не десятичная
+_OPERAND_RE = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def _interps(tok):
+    """Возможные ЧИСЛОВЫЕ прочтения операнда. Запятая неоднозначна (перепроверка №4:
+    глобальная склейка «X,YYY» читала русскую десятичную «0,875» как 875 и давала уверенный
+    переворот): возвращаем ВСЕ прочтения, знак утверждается только если все комбинации
+    согласны — иначе честный отказ (fail-closed)."""
+    if "," not in tok:
+        return {float(tok)} if tok.count(".") <= 1 else set()
+    out = set()
+    if re.fullmatch(r"\d{1,3}(?:,\d{3})+", tok):
+        out.add(float(tok.replace(",", "")))           # англ. тысячи: 1,500 → 1500
+    if tok.count(",") == 1 and "." not in tok:
+        out.add(float(tok.replace(",", ".")))          # рус. десятичная: 1,25 → 1.25
+    return out
 
 
 def _arrow_sign(t):
     """Знак из сравнений «X → Y». Возвращает (вверх, вниз) — булевы вклады."""
     t = _THOUSANDS_RE.sub("", _DATE_TOK_RE.sub(" ", _PAREN_RE.sub(" ", t)))
-    t = _COMMA_THOUS_RE.sub("", t)                     # перепроверка №3: «$1,500 → $900» ≠ вверх
     up = down = False
     for m in re.finditer(r"→|->", t):
         left, right = t[max(0, m.start() - 18):m.start()], t[m.end():m.end() + 18]
-        lm = list(_PLAIN_NUM_RE.finditer(left))
-        rm = list(_PLAIN_NUM_RE.finditer(right))
+        lm = list(_OPERAND_RE.finditer(left))
+        rm = list(_OPERAND_RE.finditer(right))
         if not lm or not rm:
             continue
         lo, ro = lm[-1], rm[0]
@@ -166,11 +190,11 @@ def _arrow_sign(t):
             continue                               # барёный год — дата, не цена
         if _UNIT_AFTER_RE.match(right[ro.end():]):
             continue                               # «$17 тыс.» против «$12000» — единицы врозь
-        x, y = float(xs.replace(",", ".")), float(ys.replace(",", "."))
-        if y > x:
+        signs = {(y > x) - (y < x) for x in _interps(xs) for y in _interps(ys)}
+        if signs == {1}:
             up = True
-        elif y < x:
-            down = True
+        elif signs == {-1}:
+            down = True                            # смешанные прочтения → знак не утверждаем
     return up, down
 
 
@@ -178,9 +202,8 @@ def _obs_sign(observed):
     t = str(observed or "").lower()
     up = "↑" in t
     down = "↓" in t
-    toks = re.findall(r"[а-яё]+", t)
-    up = up or _word_hit(toks, _OBS_UP)
-    down = down or _word_hit(toks, _OBS_DOWN)
+    up = up or _word_hit(t, _OBS_UP)
+    down = down or _word_hit(t, _OBS_DOWN)
     # знак при числе: «+164%» → вверх, «−~40%» → вниз; дефис-диапазон «3-5» не знак
     for m in re.finditer(r"[+\-−]\s*[~≈]?\s*\d", t):
         prev = t[m.start() - 1] if m.start() > 0 else " "

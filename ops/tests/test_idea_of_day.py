@@ -125,6 +125,20 @@ def test_money_survived_lead_is_consistent_with_section11_card():
     assert "денежные — лучше монетки" in text and "пропускал идеи — редко" in text
 
 
+def test_money_lead_counter_edge_prints_honest_zero_ev():
+    """Перепроверка №4 (регрессия): money-путь обходит гард лида — перевёрнутый остаток
+    не печатается положительным матожиданием и ложным «ещё не отыграно»."""
+    top = [_entry("NVDA.US", 4, 0.9, edge=-0.02, full=0.05)]
+    money = {"NVDA.US": {"исход": "УСТОЯЛА", "балл": 3.4, "порог": 3.0}}
+    text, _m, viol = R.idea_of_day_from_protocol(
+        _proto(top, court={}, money=money), base_rate=BASE,
+        money_base={"hit": 0.6, "n": 40}, money_recent=1)
+    assert viol == []
+    assert "ещё не отыграно" not in text
+    assert "свежего запаса нет" in text
+    assert "+0.0%" in text                       # EV честно ноль, не |остаток|
+
+
 def test_foreign_text_is_cleaned_before_lint():
     """Регрессия №3: эмодзи/стрелки в чужом тексте (узел картографа, заголовок, судья) не валят пуш."""
     e = _entry("NVDA.US", 4, 0.0, node="Поставщики ↔ заказчики 📉 давление")

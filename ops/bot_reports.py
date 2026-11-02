@@ -2033,24 +2033,24 @@ _SIGN_DOWN_M = ("давлени", "под вопрос", "страда", "пад
                 "слабе", "ослаб", "обруш", "просад")
 _SIGN_UP_M = ("рост", "прирост", "вырос", "выигр", "бенефициар", "усилива", "дорожа",
               "подорожа", "прибав", "укрепл", "наращива", "взлет", "взлёт")
-_NEG_TOKS = {"не", "ни", "нет"}
 
 
 def _marker_hit(text_l, toks, markers):
     """Перепроверка №2 02.11 (high): маркеры-слова матчатся ПРЕФИКСОМ токена («рост» не
-    ловится внутри «просто», ложный up-маркер и маскировал реальные конфликты, и браковал
-    честные лиды); маркеры-фразы (с пробелом) — подстрокой. «не»/«ни» прямо перед словом
-    снимает маркер («спрос не растёт» — не довод «вверх»). Та же механика, что в
-    mechanism_match._obs_sign."""
-    for m in markers:
-        if " " in m:
-            if m in text_l:
-                return True
-        else:
-            for i, tok in enumerate(toks):
-                if tok.startswith(m) and (i == 0 or toks[i - 1] not in _NEG_TOKS):
-                    return True
-    return False
+    ловится внутри «просто»); маркеры-фразы (с пробелом) — подстрокой. Перепроверка №4:
+    словесная часть — ЕДИНОЙ механикой mechanism_match._word_hit (отрицание «не/ни»/
+    постфиксное «нет» в пределах клаузы), чтобы два знак-гарда не расходились."""
+    phrases = [m for m in markers if " " in m]
+    if any(p in text_l for p in phrases):
+        return True
+    words = tuple(m for m in markers if " " not in m)
+    if not words:
+        return False
+    try:
+        from ops import mechanism_match as _MM
+    except ImportError:
+        import mechanism_match as _MM
+    return _MM._word_hit(text_l, words)
 
 
 def _node_sign_conflict(node_text, dir_word):
@@ -2196,6 +2196,12 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
     # Перепроверка №2 02.11: edge == 0.0 — ЛЕГИТИМНОЕ «всё отыграно» (матожидание 0),
     # falsy-фолбэк на полный ход завышал бы EV ровно в худшем случае.
     _ev_move = edge if isinstance(edge, (int, float)) else ход
+    # Перепроверка №4 (регрессия, money-поверхность обходит _lead_ok по дизайну): остаток
+    # ПРОТИВ полного хода = переотыграно — в сторону ставки с сегодняшнего входа заработать
+    # нечего; abs() терял знак и печатал перевёрнутый остаток ПОЛОЖИТЕЛЬНЫМ матожиданием.
+    if (isinstance(edge, (int, float)) and isinstance(ход, (int, float)) and ход
+            and edge * ход < 0):
+        _ev_move = 0.0
     _ev_pct = ((2 * _p_used - 1) * abs(_ev_move) * 100
                if _p_used is not None and isinstance(_ev_move, (int, float)) else None)
     # Знак-гард (испытатель №1): СЫРОЙ текст моего звена против направления расчёта —
@@ -2315,7 +2321,13 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
         _idea_txt = " ".join([str(ev_txt or "")] + [
             str(((e.get("узлы_каскада") or [{}])[0]).get("узел") or "") for e in links])
         _mm = MM.match(_idea_txt)
-        _ln = MM.similar_case_line(_mm[0], direction=dir_word) if _mm else None
+        # Перепроверка №4: прецеденты описывают ПЕРЕМЕННУЮ МЕХАНИЗМА; у инверсии (2-й
+        # порядок, B1) знак актива противоположен знаку механизма — сравнивать надо с
+        # направлением механизма, иначе корректный прецедент давится, а перевёрнутый прошёл бы.
+        _mm_dir = dir_word
+        if b.get("инверсия") and dir_word in ("вверх", "вниз"):
+            _mm_dir = "вниз" if dir_word == "вверх" else "вверх"
+        _ln = MM.similar_case_line(_mm[0], direction=_mm_dir) if _mm else None
         if _ln:
             L.append("")
             L.append(_ln)
@@ -2337,9 +2349,14 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
     else:
         шанс = "шанс не измерен — сверенных исходов этого трека пока нет"
     if isinstance(ход, (int, float)) and ход:
-        остаток = (f", из них ещё не отыграно около {abs(edge) * 100:.1f}%"
-                   if isinstance(edge, (int, float)) and edge and isinstance(full, (int, float)) and full
-                   and abs(edge) < abs(full) else "")
+        # Перепроверка №4: «ещё не отыграно» — только когда остаток В СТОРОНУ хода; остаток
+        # против хода = рынок прошёл больше расчётного, «не отыграно» было бы переворотом.
+        остаток = ""
+        if isinstance(edge, (int, float)) and edge and isinstance(full, (int, float)) and full:
+            if edge * full > 0 and abs(edge) < abs(full):
+                остаток = f", из них ещё не отыграно около {abs(edge) * 100:.1f}%"
+            elif edge * full < 0:
+                остаток = ", причём рынок уже прошёл больше расчётного хода — свежего запаса нет"
         p_used, ev_pct = _p_used, _ev_pct
         if p_used is not None:
             вывод = (("сегодня это наблюдение, не ставка — проверяю механизм и сверю к дате" if not defend

@@ -65,8 +65,12 @@ def _unexplained_terms(text):
     for term in STOPLIST:
         if term.isascii() and term.isalpha():
             m = re.search(r"\b" + re.escape(term) + r"\b", low)
-        else:
+        elif " " in term:
             m = re.search(re.escape(term), low)
+        else:
+            # Перепроверка №4: однословный кириллический термин — только отдельным словом,
+            # не частью дефисного имени («порт Лонг-Бич» — не позиция «лонг»)
+            m = re.search(r"(?<![а-яё-])" + re.escape(term) + r"(?![а-яё-])", low)
         if not m:
             continue
         # окно расшифровки = от термина до конца ТЕКУЩЕЙ фразы (. ! ? или перевод строки)
@@ -189,6 +193,10 @@ _ODDS_RES = (
     re.compile(r"\bслуча[а-яё]*\s+из\s+"),
     re.compile(r"\b(?:в|во)\s+(?:трети|четверти|половине)\s+случа"),
     re.compile(r"\bв\s+каждом\s+[а-яё]+\s+случае\b"),
+    # перепроверка №4: цифровые формы шансов — «в 65% случаев», «4 к 1», «случаев из 10»
+    re.compile(r"\bв\s+\d+(?:[.,]\d+)?\s*%\s*случа"),
+    re.compile(r"\b\d+\s+к\s+\d+\b"),
+    re.compile(r"случа[а-яё]*\s+из\s+\d"),
 )
 
 
