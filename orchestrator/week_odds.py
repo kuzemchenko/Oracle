@@ -14,7 +14,8 @@
     владелец увидит «этот взгляд пока сбывался в X%»).
   • Протокол прогона: journal/week_odds/wo_<ts>.json (не запечатанный журнал — сводка).
 
-Бюджет: один LLM-вызов за прогон, пишется в costs.jsonl (LiveClient). Mock-режим без сети.
+Бюджет: один LLM-вызов за прогон, пишется в costs.jsonl (LiveClient). Mock-клиент этого
+output_kind не знает → честный ОТКАЗ без печатей (прогоны — только live или со стабом в тестах).
 Боевой крон — ПОСЛЕ ручного прогона испытателя и «ок» владельца (правило внедрения 01.11).
 """
 import json
@@ -296,13 +297,16 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
         итог["ОТКАЗ"] = "нет ни тезисов, ни механизмов — генерировать не из чего (П8)"
         return _write_protocol(итог, out_dir)
     cl = client or make_client(mode=mode, run_id=run_id)
+    # Ре-гейт №2 02.11: в протокол — ФАКТИЧЕСКИЙ режим клиента (auto без ключа = mock), а не
+    # аргумент CLI; гард бота «mock-протокол не пушим» иначе мёртв для боевого `--mode auto`.
+    итог["mode"] = getattr(cl, "mode", mode)
     # Ре-гейт V0 02.11 (БЛОКЕР Инв#5/§24): live-вызов экономиста — ТОЛЬКО через бюджетный
     # контур: пред-проверка месячного потолка + суб-потолок week_odds + стоп-на-лету.
     if getattr(cl, "mode", None) == "live":
         from orchestrator import run_budget as RB
         decision = RB.precheck("week_odds")
         if not decision.get("allowed"):
-            итог["ОТКАЗ"] = f"бюджет §24: {decision.get('причина') or decision}"
+            итог["ОТКАЗ"] = f"бюджет §24: {decision.get('reason') or decision}"
             итог["ОТКАЗ_бюджет"] = decision
             return _write_protocol(итог, out_dir)
         cl.cost_guard = RB.RunBudgetGuard("week_odds", decision["cap_usd"])

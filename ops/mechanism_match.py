@@ -107,14 +107,45 @@ def _trunc_phrase(text, limit):
     return cut.rsplit(" ", 1)[0].rstrip(".;, ")
 
 
-_OBS_UP = ("↑", "рост", "вырос", "подорожа", "взлет", "прибав", "удвои", "кратно")
-_OBS_DOWN = ("↓", "обвал", "рухнул", "падени", "снизил", "сжал", "дешев", "упал")
+# Ре-гейт №2 02.11 (high): прежний разбор знал ТОЛЬКО русские глаголы подстрокой — 95 из 126
+# числовых прецедентов библиотеки («+164%», «−~40%», «$3 → $12») давали «знак неизвестен», и
+# противонаправленный прецедент печатался доводом «за». Теперь: (1) словесные маркеры матчатся
+# ПРЕФИКСОМ токена («рост» не ловится внутри «просто»/«прирост»); (2) «кратно» убран —
+# двунаправленный усилитель («упал кратно»); (3) знак читается и из ЧИСЛОВОЙ нотации:
+# «+X%»/«−X%» и сравнение «X → Y».
+_OBS_UP = ("рост", "вырос", "подорожа", "взлет", "взлёт", "прибав", "удвои", "утрои",
+           "рекорд", "подскоч", "вверх", "плюс", "удорожа")
+_OBS_DOWN = ("обвал", "рухнул", "падени", "снизил", "сжал", "дешев", "упал", "упад",
+             "просел", "сполз", "вниз", "минус")
+_PLAIN_NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
 
 
 def _obs_sign(observed):
     t = str(observed or "").lower()
-    up = any(m in t for m in _OBS_UP)
-    down = any(m in t for m in _OBS_DOWN)
+    up = "↑" in t
+    down = "↓" in t
+    toks = re.findall(r"[а-яё]+", t)
+    up = up or any(tok.startswith(w) for tok in toks for w in _OBS_UP)
+    down = down or any(tok.startswith(w) for tok in toks for w in _OBS_DOWN)
+    # знак при числе: «+164%» → вверх, «−~40%» → вниз; дефис-диапазон «3-5» не знак
+    for m in re.finditer(r"[+\-−]\s*[~≈]?\s*\d", t):
+        prev = t[m.start() - 1] if m.start() > 0 else " "
+        if m.group(0)[0] in "-−" and prev.isalnum():
+            continue
+        if m.group(0)[0] == "+":
+            up = True
+        else:
+            down = True
+    # сравнение «X → Y» («$3 → ~$12/б»): последняя цифра слева против первой справа
+    parts = re.split(r"→|->", t)
+    for a, b in zip(parts, parts[1:]):
+        ma, mb = _PLAIN_NUM_RE.findall(a), _PLAIN_NUM_RE.findall(b)
+        if ma and mb:
+            x, y = float(ma[-1].replace(",", ".")), float(mb[0].replace(",", "."))
+            if y > x:
+                up = True
+            elif y < x:
+                down = True
     if up and not down:
         return "вверх"
     if down and not up:
@@ -126,22 +157,20 @@ def similar_case_line(mech, direction=None):
     """Механизм → строка «Похожий случай…» для пуша: прецедент С ЧИСЛОМ + контрпример.
     Все числа — внутри «…» (цитаты, линт их не считает). Нет пригодного прецедента → None.
 
-    Ре-гейт V0 02.11 (знак-гард): при известном направлении идеи противонаправленный
-    прецедент НЕ подкладывается как аргумент — ищем согласованный по знаку; согласованных
-    нет и все определённые прецеденты против → строки честно нет (fail-closed)."""
+    Ре-гейт №2 02.11 (знак-гард, ужесточение): при известном направлении идеи печатается
+    ТОЛЬКО прецедент, чей знак ПОДТВЕРЖДЁН и совпадает. Прежний фолбэк «знак неизвестен —
+    сойдёт» подкладывал под идею «вниз» явно восходящие прецеденты, которые слабый
+    классификатор не прочёл (1973: нефть $3→$12 под идеей «вниз»). Неподтверждённый знак =
+    строки честно нет (П8: отсутствие довода лучше довода-переворота)."""
     numeric = [p for p in mech["precedents"]
                if re.search(r"\d", str(p.get("observed") or ""))]
     if not numeric:
         return None
-    prec = None
     if direction in ("вверх", "вниз"):
         prec = next((p for p in numeric if _obs_sign(p.get("observed")) == direction), None)
         if prec is None:
-            signs = {_obs_sign(p.get("observed")) for p in numeric}
-            if None not in signs:                 # все определённые — против направления идеи
-                return None
-            prec = next(p for p in numeric if _obs_sign(p.get("observed")) is None)
-    if prec is None:
+            return None
+    else:
         prec = numeric[0]
     случай = _trunc_phrase(f"{prec.get('year')}: {prec.get('event')} — {prec.get('observed')}", 180)
     line = (f"Похожий случай (механизм «{mech['название']}»). «{случай}»")

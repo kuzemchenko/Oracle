@@ -83,15 +83,83 @@ def test_client_failure_is_soft():
     assert story is None and "редактор недоступен" in why
 
 
-def test_bot_uses_story_behind_flag(monkeypatch, tmp_path):
-    """Флаг включён: рассказ прошёл → уходит рассказ; отказ → строгий формат + заметка в дозор."""
+def test_bare_hallucinated_ticker_rejected():
+    """Ре-гейт №2 02.11: промпт v2 велит писать тикер ГОЛЫМ — гард обязан ловить и голую
+    форму, иначе он вакуумный (ловил только .US, которого по промпту не бывает)."""
+    bad = GOOD.replace("возможный рост.", "возможный рост, а ещё выиграет XOM.")
+    story, why = SE.rewrite(SRC, client=StubClient(bad))
+    assert story is None and "тикеры не из входа" in why and "XOM" in why
+
+
+def test_bare_ticker_of_source_paper_accepted():
+    src = SRC.replace("Cheniere (СПГ) (LNG.US)", "Nvidia (NVDA.US)")
+    good = (GOOD.replace("Cheniere (СПГ) (LNG.US)", "Nvidia (NVDA.US)")
+            .replace("скажи «что ещё было»", "скажи «разбери NVDA»"))
+    story, why = SE.rewrite(src, client=StubClient(good))
+    assert why is None, why
+
+
+def test_non_us_suffix_ticker_rejected():
+    bad = GOOD.replace("возможный рост.", "возможный рост, как и S&P 500 (GSPC.INDX).")
+    story, why = SE.rewrite(SRC, client=StubClient(bad))
+    assert story is None and "тикеры не из входа" in why
+
+
+def test_sign_flip_rejected():
+    """Знак — часть числа: «−0.4» во входе ≠ «0.4» в рассказе (переворот матожидания)."""
+    src = SRC.replace("Ход около 3.2% вверх", "Матожидание около −0.4%")
+    bad = GOOD.replace("ход около 3.2% вверх с шансом около 48%",
+                       "выигрыш около 0.4% с шансом около 48%")
+    story, why = SE.rewrite(src, client=StubClient(bad))
+    assert story is None and "числа не из входа" in why
+
+
+def _bot_tick_with_story(monkeypatch, rewrite_fn, tmp_path):
     from test_bot_v2_loop import _bot
     import bot as BOT
+    import bot_state as S
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    proto = {"run_id": "ef_s", "ts": "2026-11-02T09:00:00+00:00", "mode": "live"}
+    monkeypatch.setattr(BOT.R, "load_presentation",
+                        lambda: {"send_mock_to_telegram": False, "idea_day_lead": True,
+                                 "top3_lead": False, "daily_case_lead": False,
+                                 "story_editor": True, "hunter_push": False,
+                                 "mode": "short", "still_unclear": set()})
+    monkeypatch.setattr(BOT.R, "new_runs", lambda pushed: [proto])
+    monkeypatch.setattr(BOT.R, "idea_of_day_from_protocol",
+                        lambda p, **kw: ("Идея дня — строгий текст.",
+                                         {"idx": {"1": "LNG.US"}, "lead": "LNG.US"}, []))
+    monkeypatch.setattr(BOT.R, "money_ideas_from_protocol", lambda p: [])
+    monkeypatch.setattr(BOT.W, "ingest_protocol", lambda p, existing_ids=None: [])
+    monkeypatch.setattr(SE, "rewrite", rewrite_fn)
     b = _bot()
-    sent_notices = []
-    monkeypatch.setattr(b, "_notice_dozor", lambda t: sent_notices.append(t))
-    monkeypatch.setattr(SE, "rewrite", lambda text, **k: (None, "числа не из входа (П8): 99"))
-    # прямой вызов ветки рассказчика невозможен без полного прогона — проверяем контракт модуля:
-    # bot импортирует story_editor по имени и живёт при отказе (ветка покрыта try/except)
-    story, why = SE.rewrite("x")
-    assert story is None and "99" in why
+    notes = []
+    monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    b._tick_reports()
+    return b, notes
+
+
+def test_bot_story_push_keeps_v2_buttons(monkeypatch, tmp_path):
+    """Ре-гейт №2 02.11 (регрессия high): рассказ — тот же дневной лид и уходит С КНОПКАМИ
+    [Качаем 2 дня][Что ещё было][Мимо]; иначе включение флага молча убивает петлю §12."""
+    calls = []
+    b, _ = _bot_tick_with_story(
+        monkeypatch, lambda text, **k: calls.append(1) or ("Рассказ для владельца.", None),
+        tmp_path)
+    assert b.tg.sent, "пуш не ушёл"
+    _, text, kb = b.tg.sent[-1]
+    assert "Рассказ" in text and calls == [1]
+    labels = [btn["text"] for row in (kb or {}).get("inline_keyboard", []) for btn in row]
+    assert any("Качаем" in x for x in labels) and any("Мимо" in x for x in labels)
+
+
+def test_bot_story_refusal_falls_back_to_strict_with_dozor(monkeypatch, tmp_path):
+    b, notes = _bot_tick_with_story(
+        monkeypatch, lambda text, **k: (None, "числа не из входа (П8): 99"), tmp_path)
+    _, text, kb = b.tg.sent[-1]
+    assert "строгий текст" in text                      # фолбэк: подача не теряется
+    assert notes and "99" in notes[0]                   # заметка в дозор
+    labels = [btn["text"] for row in (kb or {}).get("inline_keyboard", []) for btn in row]
+    assert any("Качаем" in x for x in labels)           # кнопки и у строгого формата

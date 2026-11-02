@@ -585,7 +585,10 @@ def load_presentation(path=None):
             "week_odds_push": bool(cfg.get("week_odds_push", False)),
             # 02.11 (вердикт владельца «ничего не понимаю»): редактор-рассказчик «Идеи дня».
             # Дефолт False — включается после ручного прогона испытателя и «ок» (правило внедрения).
-            "story_editor": bool(cfg.get("story_editor", False))}
+            "story_editor": bool(cfg.get("story_editor", False)),
+            # Мост идей охотника (облако → reports/ideas/*.push.txt → git pull → бот).
+            # Дефолт False (правило внедрения); в бою контент гейтится lint_hunter_idea КОДОМ.
+            "hunter_push": bool(cfg.get("hunter_push", False))}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -603,7 +606,8 @@ def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
            "top3_lead": cur["top3_lead"],
            "idea_day_lead": cur["idea_day_lead"],
            "week_odds_push": cur["week_odds_push"],
-           "story_editor": cur["story_editor"]}
+           "story_editor": cur["story_editor"],
+           "hunter_push": cur["hunter_push"]}
     p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
                  "Меняется командой /format или руками.\n"
                  + yaml.safe_dump(obj, allow_unicode=True, sort_keys=False), encoding="utf-8")
@@ -2433,13 +2437,16 @@ def format_week_odds(protocol, *, name_fn=None, scores=None):
         # честная пометка «компанию не опознал» рядом с тикером (как у Идеи дня), пуш живёт.
         _unknown = (имя == asset)
         _base = (asset.split(".")[0] if asset else "")
+        # Ре-гейт №2 02.11: замена тикера ТОЛЬКО по границе слова — подстрочный replace
+        # мог искорёжить чужой тикер-надстроку в том же вопросе (asset='A.US' внутри 'NVDA.US')
+        _pat = re.compile(rf"(?<![A-Z0-9.]){re.escape(asset)}(?![A-Z0-9])") if asset else None
         if _unknown and asset:
-            if asset in текст:
-                текст = текст.replace(asset, f"{asset} — компанию не опознал —")
+            if _pat.search(текст):
+                текст = _pat.sub(lambda _m: f"{asset} — компанию не опознал —", текст)
             else:
                 текст = f"{текст} [{asset} — компанию не опознал]"
-        elif asset and asset in текст and имя not in текст:
-            текст = текст.replace(asset, f"{имя} ({asset})")
+        elif asset and _pat.search(текст) and имя not in текст:
+            текст = _pat.sub(lambda _m: f"{имя} ({asset})", текст)
         elif asset and asset not in текст and not (
                 _base and re.search(rf"\b{re.escape(_base)}\b", текст)):
             # базовый тикер уже назван в вопросе («фонд USO») → скобку-дубль не городим

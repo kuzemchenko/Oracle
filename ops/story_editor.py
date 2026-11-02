@@ -35,19 +35,32 @@ ROLE = "story_editor"
 PROMPT = ROOT / "agents" / "prompts" / "story_editor.md"
 MAX_LEN = 3500
 
-_NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
-_TICKER_RE = re.compile(r"\b[A-Z][A-Z0-9]{0,5}\.US\b")
+# Ре-гейт №2 02.11: (1) знак — часть числа («−0.4» ≠ «0.4»: переворот знака матожидания —
+# выдуманное число); (2) тикеры ловятся И в голой форме — промпт v2 велит писать тикер БЕЗ
+# «.US», прежний регексп только суффиксной формы делал гард вакуумным; суффиксы — полный
+# список контракта подачи (US|INDX|LSE|TO), не только .US.
+_NUM_RE = re.compile(r"[+\-−]?\d+(?:[.,]\d+)?")
+_TICKER_SUF_RE = re.compile(r"\b([A-Z][A-Z0-9]{0,5})\.(?:US|INDX|LSE|TO)\b")
+_BARE_TICKER_RE = re.compile(r"\b[A-Z]{2,6}\b")
+# латинские капс-слова, которые в наших текстах НЕ тикеры (не браковать честный рассказ)
+_NOT_TICKERS = {"AI", "CEO", "CPI", "ETF", "EV", "GDP", "IPO", "IT", "LNG", "OPEC",
+                "PMI", "RSI", "US", "USA"}
 FRAME = "не инвестиционная рекомендация"
 
 
 def _norm_num(tok):
-    t = tok.replace(",", ".")
+    t = tok.replace("−", "-").replace(",", ".")
+    sign = ""
+    if t and t[0] in "+-":
+        sign, t = ("" if t[0] == "+" else "-"), t[1:]
     t = t.lstrip("0") or "0"
     if t.startswith("."):
         t = "0" + t
     if "." in t:
         t = t.rstrip("0").rstrip(".") or "0"
-    return t
+    if t == "0":
+        sign = ""
+    return sign + t
 
 
 def _nums(text):
@@ -55,7 +68,8 @@ def _nums(text):
 
 
 def _tickers(text):
-    return set(_TICKER_RE.findall(str(text or "")))
+    s = str(text or "")
+    return set(_TICKER_SUF_RE.findall(s)) | (set(_BARE_TICKER_RE.findall(s)) - _NOT_TICKERS)
 
 
 def verify(story, source):
@@ -102,7 +116,7 @@ def rewrite(source_text, *, client=None, mode="auto", run_id=None):
         if getattr(client, "mode", None) == "live":
             decision = RB.precheck("story_editor")
             if not decision.get("allowed"):
-                return None, f"бюджет §24: {decision.get('причина') or decision}"
+                return None, f"бюджет §24: {decision.get('reason') or decision}"
             client.cost_guard = RB.RunBudgetGuard("story_editor", decision["cap_usd"])
         try:
             resp = client.complete(ROLE, system, src, agent_id="story_editor",

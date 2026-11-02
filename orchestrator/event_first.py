@@ -1114,13 +1114,13 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # V0 stage-review (блокер №1): полный расчётный ход механизма — для направления/величины в подаче;
         # edge (неотыгранный остаток) у переотыгранного узла меняет знак и НЕ есть прогноз механизма.
         return {"актив": s["symbol"], "score": s["score"], "edge": edge, "направление": напр,
-                # Ре-гейт V0 02.11 (честная поправка записи 01.11): прежний «фикс» dict.get(k, default)
-                # был МЁРТВЫМ кодом — node_to_facts ВСЕГДА кладёт ключ edge_total (значением может быть
-                # None, тогда default не читается). Рабочий фолбэк — по ЗНАЧЕНИЮ; если и amplitude_total
-                # нет в фактах — None честный (корень тогда upstream, в сборке каскада, проверять по
-                # протоколу 02.11+).
-                "полный_ход": (n.get("edge_total") if n.get("edge_total") is not None
-                               else n.get("amplitude_total")),
+                # Ре-гейт №2 02.11 (вторая честная поправка): И «фикс» 01.11 (dict.get default — ключ
+                # всегда есть), И «фолбэк по значению» 02.11 (ключа amplitude_total в facts-контракте
+                # НЕ БЫВАЕТ — graph_build.node_to_facts кладёт сырой amplitude_total ПОД ИМЕНЕМ
+                # edge_total) были поведенческими no-op. Канон: полный_ход = facts["edge_total"] =
+                # сырой amplitude_total узла. None здесь честный и означает дыру UPSTREAM
+                # (compose_chain: amp_total) — её ищут по боевому протоколу 02.11+, не фолбэком.
+                "полный_ход": n.get("edge_total"),
                 "ярусы": n.get("tiers"), "лаг_дней": n.get("lag_days"),
                 "горизонт_дней": n.get("horizon_days"), "вероятность": n.get("probability"),
                 "надёжность_r2": n.get("reliability"), "изоляция_r2": n.get("r2"),

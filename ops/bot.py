@@ -446,7 +446,17 @@ class Bot:
     def _tick_hunter_ideas(self):
         """Доставка идей ОХОТНИКА (облачная охота → reports/ideas/*.push.txt → git pull →
         этот тик → Telegram). Вопрос владельца 02.11: «идея MP так и не попала в Telegram» —
-        моста не было, это он. Fail-closed линт; дедуп по имени файла; битый текст → дозор."""
+        моста не было, это он.
+
+        Ре-гейт №2 02.11 (блокер П8/П16/Инв#6): гейт = lint_hunter_idea — правила «Идеи дня»
+        ПЛЮС рамка «не рекомендация» проверяется КОДОМ ПЛЮС запрет вероятностных слов
+        (шанс/вероятность/матожидание/«к одному») даже прописью: вероятность владельцу
+        печатается только из детерминированного расчёта по запечатанному треку, у охотника
+        печати §9 пока нет — его идея обязана быть наблюдением без шансов. Флаг hunter_push
+        в presentation.yaml. Отметки state пишутся ПО-СОБЫТИЙНО: сбой сети на позднем файле
+        не теряет уже доставленные (иначе дубль-пуши и спам дозора)."""
+        if not R.load_presentation().get("hunter_push"):
+            return
         try:
             from ops import presentation_lint as PL
         except ImportError:
@@ -455,6 +465,12 @@ class Bot:
         if not d.exists():
             return
         seen = set(self.state.get("hunter_pushed") or [])
+
+        def _mark(name):
+            seen.add(name)
+            self.state["hunter_pushed"] = sorted(seen)
+            self.save()
+
         for p in sorted(d.glob("idea_*.push.txt")):
             if p.name in seen:
                 continue
@@ -462,18 +478,16 @@ class Bot:
                 text = p.read_text(encoding="utf-8").strip()
             except OSError:
                 continue
-            viol = PL.lint_idea_of_day(text)
+            viol = PL.lint_hunter_idea(text)
             if viol:
-                seen.add(p.name)                       # не ретраим вечно; чинит охотник/машинист
+                _mark(p.name)                          # не ретраим вечно; чинит охотник/машинист
                 self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
                                    + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
                 continue
             if self._send_card(text, None) is None:
-                return                                  # сеть — ретрай следующим tick'ом
-            seen.add(p.name)
+                return                                  # сеть — ретрай; доставленные уже отмечены
+            _mark(p.name)
             log("идея охотника доставлена:", p.name)
-        self.state["hunter_pushed"] = sorted(seen)
-        self.save()
 
     def _tick_proposal_batch(self, now=None):
         """Раз в неделю (воскресенье, после 10:00 UTC — суббота занята темами) — карточка
@@ -529,6 +543,11 @@ class Bot:
         if proto.get("mode") == "mock" or not proto.get("запечатано"):
             sent.append(latest.name)
             log("Шансы недели: протокол без печатей (mode/запечатано) — пуш пропущен", latest.name)
+            # Ре-гейт №2 02.11: тик работает только при включённом боевом флаге — пропуск здесь
+            # всегда аномалия (крон потерял --seal / прогон скатился в mock), молчать нельзя.
+            self._notice_dozor("«Шансы недели» (" + latest.name + "): протокол без печатей "
+                               "(mode=" + str(proto.get("mode")) + ", запечатано="
+                               + str(proto.get("запечатано")) + ") — пуш пропущен. Проверить крон/ключ.")
             return
         try:                                   # счёт взглядов из журнала (П16: не из файла)
             import forward_score as FS
@@ -1390,7 +1409,10 @@ class Bot:
                         # V2: у «Идеи дня» — кнопки действия (клавиатура на последней части);
                         # впервые у ежедневного пуша есть отклик в один клик (§12-петля).
                         kb_lead = None
-                        if _artifact == "Идея дня" and (self.state.get("last_idea_day") or {}).get("lead"):
+                        # Ре-гейт №2 02.11 (регрессия high): рассказ («Идея дня (рассказ)») — тот же
+                        # дневной лид и ОБЯЗАН нести кнопки, иначе включение story_editor молча убьёт
+                        # петлю §12/deep_dive (ровно «мёртвую петлю владельца», которую чинил V2).
+                        if _artifact.startswith("Идея дня") and (self.state.get("last_idea_day") or {}).get("lead"):
                             kb_lead = {"inline_keyboard": [[
                                 {"text": "🔍 Качаем 2 дня", "callback_data": f"v:q:{run_id}"},
                                 {"text": "📋 Что ещё было", "callback_data": f"v:w:{run_id}"},

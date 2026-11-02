@@ -309,11 +309,13 @@ def test_tick_skips_unsealed_and_notices_lint_fail(tmp_path, monkeypatch):
         {"вопрос": "x", "asset": "USO.US", "probability": 0.4}]}, ensure_ascii=False), "utf-8")
     b._tick_week_odds()
     assert not b.tg.sent and "wo_1.json" in b.state["week_odds_sent"]
+    # ре-гейт №2 02.11: пропуск при включённом боевом флаге — всегда аномалия, дозор не молчит
+    assert notes and "без печатей" in notes[0]
     # запечатанный, но битый по подаче (нет вопросов → format вернёт None с причиной)
     (d / "wo_2.json").write_text(_json.dumps({"mode": "live", "запечатано": 2,
                                               "вопросы": []}, ensure_ascii=False), "utf-8")
     b._tick_week_odds()
-    assert not b.tg.sent and notes and "не прошли проверку подачи" in notes[0]
+    assert not b.tg.sent and any("не прошли проверку подачи" in n for n in notes)
 
 
 def test_format_unknown_ticker_does_not_kill_issue(tmp_path):

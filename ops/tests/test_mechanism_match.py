@@ -72,6 +72,31 @@ def test_idea_of_day_without_match_has_no_line():
     assert PL.lint_idea_of_day(text) == [], PL.lint_idea_of_day(text)
 
 
+def test_obs_sign_reads_numeric_notation():
+    """Ре-гейт №2 02.11: знак читается и из числовой нотации библиотеки (75% прецедентов),
+    словесные маркеры — префиксом токена, «кратно» больше не тянет вверх."""
+    assert MM._obs_sign("фрахт +164% за 3 недели") == "вверх"
+    assert MM._obs_sign("цены −~40% от максимума") == "вниз"
+    assert MM._obs_sign("нефть ~$3 → ~$12/б ступенями") == "вверх"
+    assert MM._obs_sign("спред $12 → $4") == "вниз"
+    assert MM._obs_sign("диапазон 3-5% без направления") is None
+    assert MM._obs_sign("упал кратно, с 10 до 2") == "вниз"
+    assert MM._obs_sign("всё просто: котировки около 100") is None   # «рост» не внутри «просто»
+
+
+def test_sign_guard_fail_closed():
+    """При известном направлении печатается ТОЛЬКО подтверждённый согласованный прецедент:
+    противонаправленный → None; знак не распарсен → None (не подкладываем неизвестное)."""
+    up_mech = {"название": "м", "counterexamples": "", "precedents": [
+        {"year": 1973, "event": "эмбарго", "observed": "нефть $3 → $12 за месяцы"}]}
+    assert MM.similar_case_line(up_mech, direction="вниз") is None
+    assert "1973" in MM.similar_case_line(up_mech, direction="вверх")
+    vague = {"название": "м", "counterexamples": "", "precedents": [
+        {"year": 2020, "event": "э", "observed": "хаос на 7 рынках — знак неясен"}]}
+    assert MM.similar_case_line(vague, direction="вниз") is None
+    assert MM.similar_case_line(vague) is not None        # без направления — печатаем как раньше
+
+
 def test_jargon_stoplist_first_use_and_quotes():
     """Испытатель №1: стоп-лист жаргона — «чокпоинт» без расшифровки = брак; с расшифровкой
     в той же фразе — чисто; внутри цитаты «…» (чужой текст) — не требуем."""
