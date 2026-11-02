@@ -186,3 +186,10 @@ def test_bot_story_refusal_falls_back_to_strict_with_dozor(monkeypatch, tmp_path
     assert notes and "99" in notes[0]                   # заметка в дозор
     labels = [btn["text"] for row in (kb or {}).get("inline_keyboard", []) for btn in row]
     assert any("Качаем" in x for x in labels)           # кнопки и у строгого формата
+
+def test_verbal_quantities_inside_quotes_rejected():
+    """Перепроверка №5: кавычки рассказчика — его же текст; «в девяти случаях из десяти»
+    внутри «…» без опоры во входе — брак (иначе обход П8/Инв#6)."""
+    bad = GOOD.replace("с шансом около 48%", "с шансом около 48% («сбывается в девяти случаях из десяти»)")
+    story, why = SE.rewrite(SRC, client=StubClient(bad))
+    assert story is None and "количественные слова" in why

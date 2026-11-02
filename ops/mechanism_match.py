@@ -88,7 +88,8 @@ def match(idea_text, index=None, min_overlap=MIN_OVERLAP):
     best, best_score = None, 0
     for m in (index if index is not None else load_index()):
         score = len(toks & m["bag"])
-        if score > best_score or (score == best_score and best and m["id"] < best["id"]):
+        if score > best_score or (score == best_score and best
+                                  and str(m["id"] or "") < str(best["id"] or "")):
             best, best_score = m, score
     if best is None or best_score < min_overlap:
         return None
@@ -223,26 +224,23 @@ def _obs_sign(observed):
 
 
 def similar_case_line(mech, direction=None):
-    """Механизм → строка «Похожий случай…» для пуша: прецедент С ЧИСЛОМ + контрпример.
-    Все числа — внутри «…» (цитаты, линт их не считает). Нет пригодного прецедента → None.
+    """Механизм → строка для пуша: КАК МЕХАНИЗМ СРАБАТЫВАЛ РАНЬШЕ (прецедент с числом) +
+    контрпример. Все числа — внутри «…» (цитаты, линт их не считает). Нет пригодного → None.
 
-    Ре-гейт №2 02.11 (знак-гард, ужесточение): при известном направлении идеи печатается
-    ТОЛЬКО прецедент, чей знак ПОДТВЕРЖДЁН и совпадает. Прежний фолбэк «знак неизвестен —
-    сойдёт» подкладывал под идею «вниз» явно восходящие прецеденты, которые слабый
-    классификатор не прочёл (1973: нефть $3→$12 под идеей «вниз»). Неподтверждённый знак =
-    строки честно нет (П8: отсутствие довода лучше довода-переворота)."""
+    Архитектурное решение 02.11 (пять кругов перепроверки находили новые дыры в угадывании
+    знака по свободному тексту прецедента — регексп «вверх/вниз» по «$3 → $12», «НЕ выросли»,
+    «1,25 → 0,875»…): строка больше НЕ утверждает, что прецедент — довод за направление
+    бумаги. Прецедент описывает ПЕРЕМЕННУЮ механизма (цену нефти, фрахт), а не бумагу идеи;
+    куда при этом идёт бумага — говорит цепочка идеи. Поэтому рамка «как механизм срабатывал»
+    и без фильтра по направлению: нечего угадывать — нечему переворачиваться.
+    Параметр direction оставлен для совместимости вызовов и не используется."""
     numeric = [p for p in mech["precedents"]
                if re.search(r"\d", str(p.get("observed") or ""))]
     if not numeric:
         return None
-    if direction in ("вверх", "вниз"):
-        prec = next((p for p in numeric if _obs_sign(p.get("observed")) == direction), None)
-        if prec is None:
-            return None
-    else:
-        prec = numeric[0]
+    prec = numeric[0]
     случай = _trunc_phrase(f"{prec.get('year')}: {prec.get('event')} — {prec.get('observed')}", 180)
-    line = (f"Похожий случай (механизм «{mech['название']}»). «{случай}»")
+    line = (f"Как этот механизм — «{mech['название']}» — срабатывал раньше: «{случай}»")
     counter = _trunc_phrase(mech.get("counterexamples"), 150)
     if counter:
         line += f" Но бывало иначе: «{counter}»."

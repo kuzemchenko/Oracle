@@ -22,6 +22,10 @@ if ! git diff --cached --quiet; then
   echo "[checkpoint] в индексе чужие изменения — пропуск"; exit 4
 fi
 
+# Архитектура 02.11: облако (охотник) коммитит в master днём — сначала подтягиваем, чтобы
+# журнальный коммит лёг поверх свежего origin (иначе ветки расходятся и встаёт ежечасный pull).
+git pull -q --ff-only origin master || echo "[checkpoint] pull --ff-only не прошёл — продолжаю"
+
 git add -A -- journal reports ops/reports || exit 5
 if git diff --cached --quiet; then
   echo "[checkpoint] $(date -u +%F): нечего коммитить"
@@ -33,6 +37,13 @@ fi
 # Пуш всего master. Расхождение с origin (кто-то запушил мимо сервера) НЕ сливаем автоматически —
 # это ручной разбор; падение пуша = алерт.
 if ! git push -q origin master; then
-  echo "[checkpoint] push НЕ прошёл (расхождение с origin? SSH-ключ?) — нужен ручной разбор"; exit 7
+  # гонка с облачным коммитом между pull и push: пересаживаем ЛОКАЛЬНЫЕ коммиты (журналы/
+  # отчёты сервера; облако journal/ не пишет — П16) поверх origin и пробуем ещё раз
+  if git pull -q --rebase origin master && git push -q origin master; then
+    echo "[checkpoint] push прошёл после пересадки поверх облачных коммитов"
+  else
+    git rebase --abort 2>/dev/null
+    echo "[checkpoint] push НЕ прошёл (расхождение с origin? SSH-ключ?) — нужен ручной разбор"; exit 7
+  fi
 fi
 echo "[checkpoint] $(date -u +%FT%TZ) ok $(git rev-parse --short HEAD)"

@@ -23,6 +23,9 @@ GOOD = ("Наблюдение с триггером — проверочная �
         "Что делать. Ждать. Решение за тобой.\n"
         "Это исследовательский инструмент, не инвестиционная рекомендация.")
 
+MD = ("# Исследование\n\nИсточники: https://www.reuters.com/a (2026-10-30), "
+      "https://finance.yahoo.com/b (2026-10-31) — каждый несущий факт с датой.\n" * 3)
+
 ODDS = GOOD.replace("Ждать.", "Ждать. Выплата примерно четыре к одному, "
                                "а шанс срыва — около трети.")
 
@@ -39,8 +42,7 @@ def _setup(tmp_path, monkeypatch, files, no_md=()):
     for name, text in files:
         (d / name).write_text(text, encoding="utf-8")
         if name not in no_md:                        # П8: исследование с источниками рядом
-            (d / name.replace(".push.txt", ".md")).write_text("# источники: URL+даты",
-                                                              encoding="utf-8")
+            (d / name.replace(".push.txt", ".md")).write_text(MD, encoding="utf-8")
     b = _bot()
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
@@ -123,8 +125,7 @@ def test_hunter_requires_research_md(tmp_path, monkeypatch):
     assert not b.tg.sent and notes and "источник" in notes[0]
     b._tick_hunter_ideas()
     assert len(notes) == 1                       # повтор без .md — заметка одна
-    (tmp_path / "reports" / "ideas" / "idea_2026-11-04_X.md").write_text(
-        "# источники: URL+даты", encoding="utf-8")
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-04_X.md").write_text(MD, encoding="utf-8")
     b._tick_hunter_ideas()
     assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
 
@@ -152,3 +153,79 @@ def test_battle_mp_file_passes_hunter_lint():
     p = ROOT / "reports" / "ideas" / "idea_2026-11-01_MP.push.txt"
     viol = PL.lint_hunter_idea(p.read_text(encoding="utf-8"))
     assert viol == [], viol
+
+
+def test_hunter_push_carries_buttons_footer_and_seals(tmp_path, monkeypatch):
+    """Архитектура 02.11: идея охотника — главная идея дня. Перед доставкой карточка §9
+    печатается (трек hunter_idea), в пуш КОДОМ дописывается строка о печати и счёт метода,
+    под пушем — кнопки V2; «Качаем» работает по этой идее."""
+    import json as _json
+    from ops import hunter_seal as HS                 # ТО ЖЕ имя модуля, что импортирует бот
+    sys.path.insert(0, str(ROOT / "ops" / "tests"))
+    from test_idea_gate import CARD
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    monkeypatch.setattr(HS, "OUTC", tmp_path / "out.jsonl")
+    import orchestrator.universe_resolver as U
+    monkeypatch.setattr(U, "is_sealable", lambda a, **k: True)
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert not notes, notes
+    _c, text, kb = b.tg.sent[-1]
+    assert "Записал проверяемый прогноз в журнал: MP закроется выше 45" in text
+    assert "Счёт метода охотника" in text
+    assert text.rstrip().endswith("не инвестиционная рекомендация.")   # рамка — последней
+    datas = [btn["callback_data"] for row in kb["inline_keyboard"] for btn in row]
+    assert "v:q:h_2026-11-02_MP" in datas
+    lid = b.state["last_idea_day"]
+    assert lid["lead"] == "MP.US" and lid["source"] == "hunter"
+    rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
+    assert len(rows) == 1 and rows[0]["kind"] == "hunter_idea"
+
+
+def test_hunter_changed_after_delivery_goes_once_as_update(tmp_path, monkeypatch):
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
+    b.state["hunter_pushed"] = ["idea_2026-11-01_MP.push.txt"]          # легаси: доставлена старая
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1 and b.tg.sent[0][1].startswith("Обновлённая версия записки")
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1                                          # обновление — один раз
+
+
+def test_empty_md_is_not_a_source(tmp_path, monkeypatch):
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-06_E.push.txt", GOOD)],
+                      no_md=("idea_2026-11-06_E.push.txt",))
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-06_E.md").write_text("", encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and notes
+
+
+def test_server_observation_not_pushed_as_lead_but_idea_is(tmp_path, monkeypatch):
+    """Архитектура 02.11: утренняя «Наблюдение дня» (защищать нечего) главным пушем не уходит,
+    прогон помечен обработанным; защищаемая «Идея дня» от сервера уходит как раньше."""
+    import bot_state as S
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    pres = {"send_mock_to_telegram": False, "idea_day_lead": True, "top3_lead": True,
+            "daily_case_lead": True, "server_observation_push": False,
+            "mode": "short", "still_unclear": set()}
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: pres)
+    monkeypatch.setattr(BOT.R, "money_ideas_from_protocol", lambda p: [])
+    monkeypatch.setattr(BOT.W, "ingest_protocol", lambda p, existing_ids=None: [])
+    for genre, head, expect_push in (("наблюдение", "Наблюдение дня — текст.", False),
+                                     ("идея", "Идея дня — текст.", True)):
+        proto = {"run_id": f"ef_{genre}", "ts": "2026-11-03T09:00:00+00:00", "mode": "live"}
+        monkeypatch.setattr(BOT.R, "new_runs", lambda pushed, _p=proto: [_p] if _p["run_id"] not in pushed else [])
+        monkeypatch.setattr(BOT.R, "idea_of_day_from_protocol",
+                            lambda p, _h=head, _g=genre, **kw: (_h, {"idx": {"1": "LNG.US"},
+                                                                     "lead": "LNG.US", "genre": _g}, []))
+        b = _bot()
+        b._tick_reports()
+        sent = [t for _c, t, _k in b.tg.sent]
+        assert (any(head in t for t in sent)) is expect_push, (genre, sent)
+        assert proto["run_id"] in b.state["digest_sent"]
+        if not expect_push:
+            assert not sent, "наблюдение не должно уходить и фолбэком (Топ-3/Разбор дня)"

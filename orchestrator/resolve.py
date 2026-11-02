@@ -39,6 +39,9 @@ EDGE_FORWARD_KINDS = ("edge_forward",)
 # потоков на горизонте 3–13 недель; свой Brier, к §11 не приближается; счёт форварда копится
 # НА тезисе/механизме (ops/forward_score.py) и печатается владельцу в подаче.
 THESIS_EVENT_KINDS = ("thesis_event",)
+# Архитектура охоты 02.11: идеи облачного охотника (печать на сервере ops/hunter_seal.py) — пятый
+# герметичный трек. Свой Brier и «счёт метода» в подаче; к §11 не приближается.
+HUNTER_KINDS = ("hunter_idea",)
 
 
 def track_for_kind(kind):
@@ -193,10 +196,13 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     prov_out = [o for o in all_out if o.get("kind") in PROVISIONAL_KINDS]
     ef_out = [o for o in all_out if o.get("kind") in EDGE_FORWARD_KINDS]    # B4: третий трек
     te_out = [o for o in all_out if o.get("kind") in THESIS_EVENT_KINDS]    # V5: четвёртый трек
+    hu_out = [o for o in all_out if o.get("kind") in HUNTER_KINDS]          # охота 02.11: пятый
     m_probs, m_outs = _bins(money_out)
     p_probs, p_outs = _bins(prov_out)
     e_probs, e_outs = _bins(ef_out)
     t_probs, t_outs = _bins(te_out)
+    h_probs, h_outs = _bins(hu_out)
+    hu_brier = BR.brier_score(h_probs, h_outs) if h_probs else None
     brier = BR.brier_score(m_probs, m_outs) if m_probs else None
     band = BR.calibration_band_pp(m_probs, m_outs) if m_probs else None
     prov_brier = BR.brier_score(p_probs, p_outs) if p_probs else None
@@ -230,5 +236,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
                               "brier": (None if ef_brier is None else round(ef_brier, 4))},  # НЕ в §11
         "thesis_event_трек": {"исходов": len(te_out),                          # V5 карты v3: «Шансы недели»,
                               "brier": (None if te_brier is None else round(te_brier, 4))},  # НЕ в §11
+        "hunter_трек": {"исходов": len(hu_out),                                # охота 02.11, НЕ в §11
+                        "brier": (None if hu_brier is None else round(hu_brier, 4))},
         "spec_ref": "§10.10, §16, §11 ворота/KILL; B3c герметичность треков; скилл calibrate п.5",
     }

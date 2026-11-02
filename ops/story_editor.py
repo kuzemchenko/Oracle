@@ -103,7 +103,8 @@ def verify(story, source):
         viol.append("тикеры не из входа (П8): " + ", ".join(sorted(extra_t)[:5]))
     # Перепроверка №2 02.11: числа ПРОПИСЬЮ («в девяти случаях из десяти», «втрое больше»)
     # обходили цифровой гард — количественные слова рассказа обязаны быть и во входе
-    extra_q = PL.quantity_markers(s) - PL.quantity_markers(source)
+    extra_q = (PL.quantity_markers(s, include_quotes=True)
+               - PL.quantity_markers(source, include_quotes=True))
     if extra_q:
         viol.append("количественные слова не из входа (П8): " + ", ".join(sorted(extra_q)[:4]))
     if FRAME not in s:

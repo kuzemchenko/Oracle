@@ -432,6 +432,9 @@ class Bot:
         if row is None:
             self.tg.answer_callback(cb_id, "Это предложение уже разобрано или карточка устарела.")
             return
+        if code not in ("y", "n"):                 # неизвестная кнопка — не пишем в append-only журнал
+            self.tg.answer_callback(cb_id)
+            return
         decision = "signed" if code == "y" else "rejected"
         PR.record_decision(key, decision, row, self.chat_id)
         pend.pop(key, None)
@@ -445,63 +448,113 @@ class Bot:
 
     def _tick_hunter_ideas(self):
         """Доставка идей ОХОТНИКА (облачная охота → reports/ideas/*.push.txt → git pull →
-        этот тик → Telegram). Вопрос владельца 02.11: «идея MP так и не попала в Telegram» —
-        моста не было, это он.
+        этот тик → Telegram). Вопрос владельца 02.11: «идея MP так и не попала в Telegram».
 
-        Ре-гейт №2 02.11 (блокер П8/П16/Инв#6): гейт = lint_hunter_idea — правила «Идеи дня»
-        ПЛЮС рамка «не рекомендация» проверяется КОДОМ ПЛЮС запрет вероятностных слов
-        (шанс/вероятность/матожидание/«к одному») даже прописью: вероятность владельцу
-        печатается только из детерминированного расчёта по запечатанному треку, у охотника
-        печати §9 пока нет — его идея обязана быть наблюдением без шансов. Флаг hunter_push
-        в presentation.yaml. Отметки state пишутся ПО-СОБЫТИЙНО: сбой сети на позднем файле
-        не теряет уже доставленные (иначе дубль-пуши и спам дозора).
+        Гейт = lint_hunter_idea (правила «Идеи дня» + рамка «не рекомендация» КОДОМ + запрет
+        вероятностных слов в любой форме). Флаг hunter_push в presentation.yaml.
 
-        Перепроверка №3 02.11: дедуп по имени+хешу СОДЕРЖИМОГО — забракованный и починенный
-        на месте файл доставляется (раньше брак хоронил файл навечно); правка текста = одна
-        повторная доставка исправленной версии."""
+        Архитектура охоты 02.11 (вердикт «дал идею — сам убил»): идея охотника — ГЛАВНАЯ идея
+        дня. Перед доставкой бот (сервер, П16) печатает её §9-карточку *.card.json в журнал
+        отдельным треком hunter_idea (ops/hunter_seal.py) и дописывает КОДОМ строку о печати и
+        «счёт метода»; под пушем — кнопки [Качаем 2 дня][Что ещё было][Мимо] (петля §12).
+
+        Отметки state по-событийно (сбой сети не дублирует пуши). Ключ = имя+хеш содержимого:
+        доставленная версия не повторяется; изменённый после доставки файл уходит ОДИН раз с
+        пометкой «обновлённая версия»; брак/нет-источников помечаются суффиксом и не вечны."""
         if not R.load_presentation().get("hunter_push"):
             return
         try:
             from ops import presentation_lint as PL
         except ImportError:
             import presentation_lint as PL
+        try:
+            from ops import hunter_seal as HS
+        except ImportError:
+            import hunter_seal as HS
         d = ROOT / "reports" / "ideas"
         if not d.exists():
             return
         seen = set(self.state.get("hunter_pushed") or [])
+        footers = self.state.setdefault("hunter_footer", {})
 
         def _mark(name):
             seen.add(name)
             self.state["hunter_pushed"] = sorted(seen)
             self.save()
 
+        def _delivered_before(name):
+            # легаси-отметка «просто имя» (код до хеш-дедупа) = доставленная версия
+            return name in seen or any(k.startswith(name + "@") and ":" not in k.split("@", 1)[1]
+                                       for k in seen)
+
         import hashlib
+        import json as _json
         for p in sorted(d.glob("idea_*.push.txt")):
             try:
                 text = p.read_text(encoding="utf-8").strip()
             except OSError:
                 continue
             key = p.name + "@" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
-            if key in seen or p.name in seen:          # p.name — легаси-отметки до хеш-дедупа
+            if key in seen or key + ":bad" in seen:
                 continue
-            # Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом
-            # (*.md тем же именем) — брак. Перепроверка №4: отметка ОТДЕЛЬНЫМ ключом
-            # (:nomd) — появление .md не меняет хеш пуша, а идея не должна хорониться
-            # навечно; заметка в дозор при этом не спамится.
-            if not p.with_name(p.name[:-len(".push.txt")] + ".md").exists():
+            # П8: рядом обязано лежать исследование с источниками (*.md с URL, не пустышка)
+            md = p.with_name(p.name[:-len(".push.txt")] + ".md")
+            try:
+                md_text = md.read_text(encoding="utf-8")
+            except OSError:
+                md_text = ""
+            if len(md_text) < 200 or "http" not in md_text:
                 if key + ":nomd" not in seen:
                     _mark(key + ":nomd")
                     self._notice_dozor("Идея охотника " + p.name + " без файла исследования с "
-                                       "источниками (*.md рядом, П8) — в Telegram не ушла.")
+                                       "источниками (*.md с URL рядом, П8) — в Telegram не ушла.")
                 continue
             viol = PL.lint_hunter_idea(text)
             if viol:
-                _mark(key)                             # эта ВЕРСИЯ не ретраится; починка = новый хеш
+                _mark(key + ":bad")                    # эта версия не ретраится; починка = новый хеш
                 self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
                                    + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
                 continue
-            if self._send_card(text, None) is None:
+            # печать §9 ДО доставки (П16); результат кэшируется — ретрай сети не перепечатывает
+            asset = None
+            if key not in footers:
+                rec, why = None, "проверяемый прогноз к этой записке не приложен"
+                cp = HS.card_path_for(p)
+                if cp.exists():
+                    try:
+                        card = _json.loads(cp.read_text(encoding="utf-8"))
+                        asset = str((card.get("spec9") or {}).get("asset")
+                                    or card.get("ticker") or "").upper() or None
+                        rec, why = HS.seal_card(card, idea_file=p.name)
+                    except (OSError, ValueError) as e:
+                        rec, why = None, f"карточка прогноза не читается ({type(e).__name__})"
+                    if rec is None and why not in ("уже запечатано",):
+                        self._notice_dozor("Идея охотника " + p.name + ": прогноз не запечатан ("
+                                           + str(why) + ") — пуш ушёл без записи в счёт.")
+                footers[key] = {"lines": HS.footer(rec, why, HS.method_score()), "asset": asset}
+                self.save()
+            foot = footers[key]
+            # без карточки тикер берём из имени файла idea_<дата>_<ТИКЕР>.push.txt
+            _stem_parts = p.name[len("idea_"):-len(".push.txt")].split("_")
+            asset = foot.get("asset") or ((_stem_parts[1] + ".US") if len(_stem_parts) > 1 else None)
+            lines = text.split("\n")
+            frame_i = max((i for i, ln in enumerate(lines) if PL.RESEARCH_FRAME in ln),
+                          default=len(lines))
+            body = lines[:frame_i] + [""] + list(foot["lines"]) + lines[frame_i:]
+            if _delivered_before(p.name):
+                body = ["Обновлённая версия записки — заменяет прошлую.", ""] + body
+            out = "\n".join(body)
+            rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
+            kb = {"inline_keyboard": [[
+                {"text": "🔍 Качаем 2 дня", "callback_data": f"v:q:{rid}"},
+                {"text": "📋 Что ещё было", "callback_data": f"v:w:{rid}"},
+                {"text": "👎 Мимо", "callback_data": f"v:m:{rid}"},
+            ]]}
+            if self._send_card(out, kb) is None:
                 return                                  # сеть — ретрай; доставленные уже отмечены
+            self.state["last_idea_day"] = {"run_id": rid, "lead": asset, "idx": {},
+                                           "issued_at": S.now_utc().isoformat(timespec="seconds"),
+                                           "source": "hunter"}
             _mark(key)
             log("идея охотника доставлена:", p.name)
 
@@ -1339,10 +1392,24 @@ class Bot:
                     # + заметка в дозор (stage-review V0 №3: иначе один чужой глиф снимал бы утро).
                     # Остальные идеи — по запросу «что ещё было» (→ Топ-3 того же прогона).
                     lint_blocked = False
-                    self.state["last_idea_day"] = None
+                    obs_suppressed = False
+                    # идея охотника (кнопки) не стирается серверным прогоном — её сменит только
+                    # следующая защищаемая идея
+                    if (self.state.get("last_idea_day") or {}).get("source") != "hunter":
+                        self.state["last_idea_day"] = None
                     if pres.get("idea_day_lead"):
                         id_text, id_meta, id_viol = R.idea_of_day_from_protocol(proto)
-                        if id_text is None:
+                        # Архитектура 02.11 (вердикт владельца «даёшь идею — и тут же убиваешь»):
+                        # жанр «наблюдение» (защищать нечего) главным пушем НЕ уходит — идея дня
+                        # приходит от охотника; конвейер доступен по «что ещё было».
+                        if (id_text is not None and not pres.get("server_observation_push", True)
+                                and (id_meta or {}).get("genre") == "наблюдение"):
+                            self.state["last_top3"] = {"run_id": run_id,
+                                                       "idx": (id_meta or {}).get("idx") or {}}
+                            obs_suppressed = True
+                            log("Идея дня в жанре «наблюдение» — главным пушем не шлю (идея дня "
+                                "— от охотника)", run_id)
+                        elif id_text is None:
                             # stage-review V0 (регрессия №3): без фолбэка один чужой глиф снимал бы
                             # утренний пуш целиком. Фолбэк — Топ-3 (тоже через линт) + заметка в дозор.
                             log("Идея дня НЕ прошла линт подачи — фолбэк на Топ-3 (V0)", run_id, id_viol)
@@ -1390,7 +1457,7 @@ class Bot:
                             self.state["last_case"] = None
                     if lint_blocked:
                         self.state["last_idea_day"] = {"run_id": run_id, "idx": {}}
-                    if card is None and not lint_blocked and pres.get("top3_lead"):
+                    if card is None and not (lint_blocked or obs_suppressed) and pres.get("top3_lead"):
                         t3_text, t3_meta, t3_viol = R.top3_from_protocol(proto)
                         if t3_text is None:
                             log("Топ-3 не прошёл стиль-контракт — фолбэк на Разбор дня", run_id, t3_viol)
@@ -1402,7 +1469,7 @@ class Bot:
                             self.state["last_top3"] = {"run_id": run_id,
                                                        "idx": (t3_meta or {}).get("idx") or {}}
                             self.state["last_case"] = None
-                    if card is None and not lint_blocked and pres.get("daily_case_lead"):
+                    if card is None and not (lint_blocked or obs_suppressed) and pres.get("daily_case_lead"):
                         case_text, _case, _viol = R.daily_case_from_protocol(proto)
                         if case_text is None:                # линтер завалил шаблон → не шлём сломанное
                             log("Разбор дня не прошёл стиль-контракт — фолбэк на дайджест", run_id, _viol)
@@ -1416,10 +1483,10 @@ class Bot:
                                 "run_id": run_id, "asset": (_case or {}).get("актив"),
                                 "status": (_case or {}).get("статус"),
                                 "варианты": q.get("варианты") or []}
-                    if card is None and not lint_blocked:    # флаги выключены ИЛИ линтер завалил → дайджест
+                    if card is None and not (lint_blocked or obs_suppressed):    # флаги выключены ИЛИ линтер завалил → дайджест
                         card = R.format_research_digest(proto)
-                    if lint_blocked:
-                        self.state["digest_sent"].append(run_id)   # V0: пуша нет, заметка ушла; не ретраим
+                    if lint_blocked or obs_suppressed:
+                        self.state["digest_sent"].append(run_id)   # V0: пуша нет (заметка/охотник); не ретраим
                     else:
                         # длиннее лимита Telegram (4096) → шлём частями.
                         # V2: у «Идеи дня» — кнопки действия (клавиатура на последней части);

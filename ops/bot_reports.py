@@ -588,7 +588,10 @@ def load_presentation(path=None):
             "story_editor": bool(cfg.get("story_editor", False)),
             # Мост идей охотника (облако → reports/ideas/*.push.txt → git pull → бот).
             # Дефолт False (правило внедрения); в бою контент гейтится lint_hunter_idea КОДОМ.
-            "hunter_push": bool(cfg.get("hunter_push", False))}
+            "hunter_push": bool(cfg.get("hunter_push", False)),
+            # Архитектура 02.11: «наблюдение» серверного конвейера (защищать нечего) главным
+            # пушем не уходит — идея дня от охотника. Дефолт True = прежнее поведение.
+            "server_observation_push": bool(cfg.get("server_observation_push", True))}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -607,7 +610,8 @@ def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
            "idea_day_lead": cur["idea_day_lead"],
            "week_odds_push": cur["week_odds_push"],
            "story_editor": cur["story_editor"],
-           "hunter_push": cur["hunter_push"]}
+           "hunter_push": cur["hunter_push"],
+           "server_observation_push": cur["server_observation_push"]}
     p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
                  "Меняется командой /format или руками.\n"
                  + yaml.safe_dump(obj, allow_unicode=True, sort_keys=False), encoding="utf-8")
@@ -2321,13 +2325,9 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
         _idea_txt = " ".join([str(ev_txt or "")] + [
             str(((e.get("узлы_каскада") or [{}])[0]).get("узел") or "") for e in links])
         _mm = MM.match(_idea_txt)
-        # Перепроверка №4: прецеденты описывают ПЕРЕМЕННУЮ МЕХАНИЗМА; у инверсии (2-й
-        # порядок, B1) знак актива противоположен знаку механизма — сравнивать надо с
-        # направлением механизма, иначе корректный прецедент давится, а перевёрнутый прошёл бы.
-        _mm_dir = dir_word
-        if b.get("инверсия") and dir_word in ("вверх", "вниз"):
-            _mm_dir = "вниз" if dir_word == "вверх" else "вверх"
-        _ln = MM.similar_case_line(_mm[0], direction=_mm_dir) if _mm else None
+        # 02.11: прецедент иллюстрирует МЕХАНИЗМ («как срабатывал раньше»), направление бумаги
+        # не угадывается по тексту прецедента (см. mechanism_match.similar_case_line)
+        _ln = MM.similar_case_line(_mm[0]) if _mm else None
         if _ln:
             L.append("")
             L.append(_ln)
@@ -2359,8 +2359,10 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
                 остаток = ", причём рынок уже прошёл больше расчётного хода — свежего запаса нет"
         p_used, ev_pct = _p_used, _ev_pct
         if p_used is not None:
-            вывод = (("сегодня это наблюдение, не ставка — проверяю механизм и сверю к дате" if not defend
-                      else "на деньги не тянет, показываю как исследовательскую идею") if ev_pct <= 0 else
+            вывод = (("денежный суд её пропустил, но свежего запаса хода в расчёте нет — карточку "
+                       "смотри с этим в уме" if money else
+                      ("сегодня это наблюдение, не ставка — проверяю механизм и сверю к дате" if not defend
+                       else "на деньги не тянет, показываю как исследовательскую идею")) if ev_pct <= 0 else
                      ("положительное; решение по деньгам — в отдельной карточке" if money else
                       ("положительное, но связь ценами не подтверждена — в деньги не пускаю" if defend
                        else "положительное, но защищать идею не готов — наблюдение с проверкой к дате")))
@@ -2428,7 +2430,9 @@ def idea_of_day_from_protocol(proto, *, name_fn=None, base_rate=None, money_base
     idx = {str(i): b.get("актив") for i, (b, _c) in enumerate(top, 1) if b.get("актив")}
     if lead is not None and lead[0].get("актив") and lead[0].get("актив") not in idx.values():
         idx = {"1": lead[0].get("актив"), **{str(int(k) + 1): v for k, v in idx.items() if int(k) < 3}}
-    meta = {"run_id": proto.get("run_id"), "idx": idx, "lead": (lead[0].get("актив") if lead else None)}
+    meta = {"run_id": proto.get("run_id"), "idx": idx, "lead": (lead[0].get("актив") if lead else None),
+            # архитектура 02.11: жанр нужен боту — «наблюдение» (защищать нечего) не уходит лидом
+            "genre": ("идея" if str(text or "").startswith("Идея дня") else "наблюдение")}
     viol = PL.lint_idea_of_day(text)
     if viol:
         return None, meta, viol

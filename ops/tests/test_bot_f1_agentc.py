@@ -131,7 +131,11 @@ def test_ef_demoted_money_idea_no_card(paths):
     _write(paths["logs"], _ef_proto(outcome="РАЗБИТА"))
     bot = _fresh_bot()
     bot._tick_reports()
-    assert any(("Идеи дня" in s[1] or "Идея дня" in s[1] or "Наблюдение дня" in s[1] or "Разбор дня" in s[1]) for s in bot.tg.sent)   # V0+подпись 01.11: «Идея/Наблюдение дня»
+    # дневной артефакт обработан: ушёл, ЛИБО намеренно не ушёл как «наблюдение» (архитектура
+    # 02.11: идея дня — от охотника) — тест денежного пути от жанра подачи не зависит
+    assert bot.state["digest_sent"] or any(
+        ("Идеи дня" in s[1] or "Идея дня" in s[1] or "Наблюдение дня" in s[1] or "Разбор дня" in s[1])
+        for s in bot.tg.sent)
     assert not any("Идея дня:" in s[1] for s in bot.tg.sent)   # карточки-ставки нет
     assert bot.state["pending"] == {}
 

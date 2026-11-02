@@ -68,9 +68,10 @@ def _unexplained_terms(text):
         elif " " in term:
             m = re.search(re.escape(term), low)
         else:
-            # Перепроверка №4: однословный кириллический термин — только отдельным словом,
-            # не частью дефисного имени («порт Лонг-Бич» — не позиция «лонг»)
-            m = re.search(r"(?<![а-яё-])" + re.escape(term) + r"(?![а-яё-])", low)
+            # Перепроверка №4: однословный кириллический термин — не часть дефисного имени
+            # («порт Лонг-Бич» — не позиция «лонг»). Перепроверка №5 (регрессия): словоформы
+            # ловятся («каскадов», «ярусе») — термин = НАЧАЛО слова, хвост окончания допустим.
+            m = re.search(r"(?<![а-яё-])" + re.escape(term) + r"[а-яё]*(?![а-яё-])", low)
         if not m:
             continue
         # окно расшифровки = от термина до конца ТЕКУЩЕЙ фразы (. ! ? или перевод строки)
@@ -219,12 +220,13 @@ _QTY_STEMS = ("вдвое", "втрое", "вчетверо", "впятеро", 
 _QTY_EXACT = {"треть", "трети", "четверть", "половина", "половину", "половины"}
 
 
-def quantity_markers(text):
+def quantity_markers(text, include_quotes=False):
     """Количественные слова (вероятностные + кратные + доли точными формами — порядковые
-    «третий/третья» не ловим). Для гарда рассказчика: подмножество входа, П8."""
-    t = _strip_quotes(str(text or "")).lower()
+    «третий/третья» не ловим). Для гарда рассказчика: подмножество входа, П8.
+    include_quotes=True — и внутри «…» (перепроверка №5: кавычки рассказчика — его же текст)."""
+    t = (str(text or "") if include_quotes else _strip_quotes(str(text or ""))).lower()
     toks = set(re.findall(r"[а-яё]+", t))
-    out = odds_markers(text)
+    out = odds_markers(text, include_quotes=include_quotes)
     out |= {s for s in _QTY_STEMS if any(tok.startswith(s) for tok in toks)}
     out |= _QTY_EXACT & toks
     return out

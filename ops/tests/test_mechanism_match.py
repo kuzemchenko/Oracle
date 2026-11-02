@@ -49,7 +49,7 @@ def test_match_plausible_on_battle_library():
 def test_similar_case_line_keeps_digits_quoted():
     m = MM.match("перебои поставок газа, танкерный фрахт, экспортёр СПГ", IDX)
     line = MM.similar_case_line(m[0])
-    assert line.startswith("Похожий случай")
+    assert line.startswith("Как этот механизм")
     assert "«" in line and "»" in line
     bare = re.sub(r"«[^»]*»", "", line)       # вне кавычек чисел быть не должно
     assert not re.search(r"\d", bare), bare
@@ -61,14 +61,14 @@ def test_idea_of_day_carries_similar_case_and_passes_lint():
     top = [_entry("LNG.US", 2, 0.2, node=node)]
     court = {"LNG.US": COURT["NVDA.US"]}
     text = R.format_idea_of_day(_proto(top, court=court), **KW)
-    assert "Похожий случай" in text
+    assert "Как этот механизм" in text
     assert PL.lint_idea_of_day(text) == [], PL.lint_idea_of_day(text)
 
 
 def test_idea_of_day_without_match_has_no_line():
     top = [_entry("NVDA.US", 2, 0.2, node="узел цепочки")]
     text = R.format_idea_of_day(_proto(top), **KW)
-    assert "Похожий случай" not in text      # слабый матч → строки честно нет
+    assert "Как этот механизм" not in text   # слабый матч → строки честно нет
     assert PL.lint_idea_of_day(text) == [], PL.lint_idea_of_day(text)
 
 
@@ -141,18 +141,19 @@ def test_lead_sign_guard_prefix_stems_and_negation():
     assert R._node_sign_conflict("механизм просто работает дальше", "вниз") is False
 
 
-def test_sign_guard_fail_closed():
-    """При известном направлении печатается ТОЛЬКО подтверждённый согласованный прецедент:
-    противонаправленный → None; знак не распарсен → None (не подкладываем неизвестное)."""
-    up_mech = {"название": "м", "counterexamples": "", "precedents": [
+def test_similar_case_illustrates_mechanism_no_direction_claim():
+    """Архитектурное решение 02.11: строка прецедента — «как механизм срабатывал раньше»,
+    БЕЗ угадывания направления по тексту (пять кругов перепроверки находили новые дыры в
+    регекспе знака). Направление идеи на строку не влияет; строка не выдаёт прецедент за
+    довод «за» направление бумаги."""
+    mech = {"название": "м", "counterexamples": "", "precedents": [
         {"year": 1973, "event": "эмбарго", "observed": "нефть $3 → $12 за месяцы"}]}
-    assert MM.similar_case_line(up_mech, direction="вниз") is None
-    assert "1973" in MM.similar_case_line(up_mech, direction="вверх")
-    vague = {"название": "м", "counterexamples": "", "precedents": [
-        {"year": 2020, "event": "э", "observed": "хаос на 7 рынках — знак неясен"}]}
-    assert MM.similar_case_line(vague, direction="вниз") is None
-    assert MM.similar_case_line(vague) is not None        # без направления — печатаем как раньше
-
+    up = MM.similar_case_line(mech, direction="вверх")
+    down = MM.similar_case_line(mech, direction="вниз")
+    assert up == down == MM.similar_case_line(mech)
+    assert up.startswith("Как этот механизм") and "1973" in up and "Похожий случай" not in up
+    assert MM.similar_case_line({"название": "м", "precedents": [
+        {"year": 2020, "event": "э", "observed": "без чисел"}]}) is None
 
 def test_jargon_stoplist_first_use_and_quotes():
     """Испытатель №1: стоп-лист жаргона — «чокпоинт» без расшифровки = брак; с расшифровкой
@@ -172,3 +173,12 @@ def test_jargon_stoplist_first_use_and_quotes():
     bad2 = PL.lint_for_user("Что это значит для тебя. Встаём в лонг."
                             "\nЧто делать. Ничего.")
     assert any("лонг" in v for v in bad2)
+
+
+def test_jargon_word_forms_caught_hyphen_names_not():
+    """Перепроверка №5 (регрессия): словоформы терминов ловятся, дефисные имена — нет."""
+    for t, needle in (("Цепочка каскадов растёт.", "каскад"), ("Узел на третьем ярусе.", "ярус")):
+        v = PL.lint_for_user("Что это значит для тебя. " + t + "\nЧто делать. Ничего.")
+        assert any(needle in x for x in v), (t, v)
+    ok = PL.lint_for_user("Что это значит для тебя. Порт Лонг-Бич встал.\nЧто делать. Ничего.")
+    assert not any("лонг" in x for x in ok)
