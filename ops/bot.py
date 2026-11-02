@@ -1273,6 +1273,23 @@ class Bot:
                         else:
                             card = id_text
                             _artifact = "Идея дня"
+                            # 02.11 (вердикт владельца «ничего не понимаю»): редактор-рассказчик.
+                            # За флагом (правило внедрения); отказ/нарушение гардов → строгий
+                            # формат уходит как есть + заметка в дозор (пуш не теряется).
+                            if pres.get("story_editor"):
+                                try:
+                                    import story_editor as SE
+                                    story, why = SE.rewrite(id_text, run_id=run_id)
+                                    if story:
+                                        card = story
+                                        _artifact = "Идея дня (рассказ)"
+                                    else:
+                                        self._notice_dozor(
+                                            "Рассказчик подачи сегодня не прошёл проверку "
+                                            f"({why}) — ушёл строгий формат. Это защита от "
+                                            "выдуманных чисел, не поломка.")
+                                except Exception as e:       # noqa: BLE001
+                                    log("story_editor ошибка", repr(e))
                             self.state["last_idea_day"] = {"run_id": run_id,
                                                            "idx": (id_meta or {}).get("idx") or {},
                                                            "lead": (id_meta or {}).get("lead"),

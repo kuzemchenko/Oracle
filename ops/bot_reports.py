@@ -582,7 +582,10 @@ def load_presentation(path=None):
             # V5 (карта v3): пуш «Шансов недели». Дефолт False (ПРАВИЛО ВНЕДРЕНИЯ 01.11) —
             # включается ТОЛЬКО после ручного прогона испытателя и «ок» владельца.
             # Баг аудита 01.11: ключ раньше не пробрасывался — флаг было невозможно включить.
-            "week_odds_push": bool(cfg.get("week_odds_push", False))}
+            "week_odds_push": bool(cfg.get("week_odds_push", False)),
+            # 02.11 (вердикт владельца «ничего не понимаю»): редактор-рассказчик «Идеи дня».
+            # Дефолт False — включается после ручного прогона испытателя и «ок» (правило внедрения).
+            "story_editor": bool(cfg.get("story_editor", False))}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -599,7 +602,8 @@ def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
            "daily_case_lead": cur["daily_case_lead"],
            "top3_lead": cur["top3_lead"],
            "idea_day_lead": cur["idea_day_lead"],
-           "week_odds_push": cur["week_odds_push"]}
+           "week_odds_push": cur["week_odds_push"],
+           "story_editor": cur["story_editor"]}
     p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
                  "Меняется командой /format или руками.\n"
                  + yaml.safe_dump(obj, allow_unicode=True, sort_keys=False), encoding="utf-8")
