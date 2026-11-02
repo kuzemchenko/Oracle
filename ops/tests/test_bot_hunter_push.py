@@ -18,7 +18,7 @@ import bot as BOT                    # noqa: E402
 import presentation_lint as PL       # noqa: E402
 from test_bot_v2_loop import _bot    # noqa: E402
 
-GOOD = ("Наблюдение с триггером — проверочная идея.\n\n"
+GOOD = ("Идея дня — проверочная идея. MP Materials (MP) — добытчик редкоземов: ставлю на рост.\n\n"
         "Что это значит для тебя. Ничего делать не нужно.\n\n"
         "Что делать. Ждать. Решение за тобой.\n"
         "Это исследовательский инструмент, не инвестиционная рекомендация.")
@@ -45,7 +45,7 @@ def _setup(tmp_path, monkeypatch, files, no_md=(), no_card=(), verdict="PASS"):
     monkeypatch.setattr(BOT, "ROOT", tmp_path)
     monkeypatch.setattr(BOT.R, "load_presentation", _pres_on)
     monkeypatch.setattr(HS, "MAX_SEAL_LAG_DAYS", 10 ** 6)        # имена тестов датированы жёстко
-    monkeypatch.setattr(HS, "_server_last_close", lambda a, con=None: (None, None))
+    monkeypatch.setattr(HS, "_server_last_close", lambda a, con=None: (39.57, "2026-10-30"))
     monkeypatch.setattr(U, "is_sealable", lambda a, **k: True)
     import idea_gate as G
     from ops import idea_gate as G2
@@ -118,11 +118,17 @@ def test_hunter_flag_off_sends_nothing(tmp_path, monkeypatch):
 def test_hunter_network_failure_keeps_delivered_marks(tmp_path, monkeypatch):
     """Сбой сети на ВТОРОМ файле: первый уже доставлен и ОТМЕЧЕН (нет дубля на ретрае),
     второй не отмечен (ретрай следующим тиком); заметка о lint-браке не дублируется."""
+    import json as _json
+    from test_idea_gate import CARD
     b, notes = _setup(tmp_path, monkeypatch, [
         ("idea_2026-11-01_A.push.txt", GOOD),
         ("idea_2026-11-02_BAD.push.txt", "Жаргон: каскад"),
-        ("idea_2026-11-03_B.push.txt", GOOD.replace("проверочная", "вторая")),
+        ("idea_2026-11-03_B.push.txt", GOOD.replace("проверочная", "вторая")
+         .replace("MP Materials (MP) — добытчик редкоземов", "CF Industries (CF) — производитель удобрений")),
     ])
+    cf = {**CARD, "ticker": "CF.US", "name": "CF Industries", "spec9": {**CARD["spec9"], "asset": "CF.US"}}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-03_B.card.json").write_text(
+        _json.dumps(cf, ensure_ascii=False), encoding="utf-8")
     calls = {"n": 0}
 
     def flaky(text, kb):
@@ -211,12 +217,20 @@ def test_hunter_push_carries_buttons_footer_and_seals(tmp_path, monkeypatch):
 
 
 def test_hunter_changed_after_delivery_goes_once_as_update(tmp_path, monkeypatch):
+    """Перепроверка 02.11: «обновлённая версия» — только для версии, доставленной НОВЫМ кодом
+    (явный список hunter_delivered); без суда и без второй ставки. Легаси-отметка «просто имя»
+    (старый код так помечал и доставку, и брак) — файл не пересылается вовсе."""
     b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
-    b.state["hunter_pushed"] = ["idea_2026-11-01_MP.push.txt"]          # легаси: доставлена старая
+    b.state["hunter_delivered"] = ["idea_2026-11-01_MP.push.txt@0000000000"]   # доставлена прежняя версия
     b._tick_hunter_ideas()
     assert len(b.tg.sent) == 1 and b.tg.sent[0][1].startswith("Обновлённая версия записки")
+    assert "новой ставки не делаю" in b.tg.sent[0][1]
     b._tick_hunter_ideas()
     assert len(b.tg.sent) == 1                                          # обновление — один раз
+    b2, _n2 = _setup(tmp_path / "legacy", monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
+    b2.state["hunter_pushed"] = ["idea_2026-11-01_MP.push.txt"]
+    b2._tick_hunter_ideas()
+    assert not b2.tg.sent
 
 
 def test_empty_md_is_not_a_source(tmp_path, monkeypatch):
@@ -294,13 +308,15 @@ def test_shadows_sealed_silently_and_outcome_pushed(tmp_path, monkeypatch):
     import datetime as _dt
     day = _dt.datetime.now(_dt.timezone.utc).date().isoformat()
     b, _notes = _setup(tmp_path, monkeypatch, [])
+    other = {**CARD, "ticker": "CF.US", "spec9": {**CARD["spec9"], "asset": "CF.US"}}
     (tmp_path / "reports" / "ideas" / f"idea_{day}_killed.shadow.json").write_text(
-        _json.dumps([CARD], ensure_ascii=False), encoding="utf-8")
+        _json.dumps([CARD, other], ensure_ascii=False), encoding="utf-8")
     b._tick_hunter_followups()
     rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
-    assert len(rows) == 1 and rows[0]["kind"] == "hunter_killed" and not b.tg.sent
+    assert len(rows) == 2 and {r["asset"] for r in rows} == {"MP.US", "CF.US"}   # ВСЕ тени
+    assert all(r["kind"] == "hunter_killed" for r in rows) and not b.tg.sent
     b._tick_hunter_followups()
-    assert len(pred.read_text("utf-8").splitlines()) == 1          # тень печатается один раз
+    assert len(pred.read_text("utf-8").splitlines()) == 2          # тень печатается один раз
     rec, _ = HS.seal_card(CARD, idea_file=f"idea_{day}_MP.push.txt", predictions_path=pred,
                           sealable_fn=lambda a: True)
     outc.write_text(_json.dumps({"hash": rec["hash"], "kind": "hunter_idea", "asset": "MP.US",
@@ -414,3 +430,27 @@ def test_quiet_restart_on_new_code_only_if_compiles(tmp_path, monkeypatch):
     monkeypatch.setattr(BOT, "_code_files", lambda: [broken])
     b.state.pop("quiet_restart", None)
     assert b._maybe_restart_on_new_code((1, 1.0)) is False and notes and "не компилируется" in notes[-1]
+
+
+def test_nocard_noted_once_and_unsealable_new_idea_not_sent(tmp_path, monkeypatch):
+    """Перепроверка 02.11: «нет карточки» — одна заметка, не спам каждым тиком; новая идея, которую
+    не удалось запечатать, не уходит (печать до доставки, П16)."""
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_A.push.txt", GOOD)],
+                      no_card=("idea_2026-11-02_A.push.txt",))
+    for _ in range(5):
+        b._tick_hunter_ideas()
+    assert len(notes) == 1 and not b.tg.sent
+    import orchestrator.universe_resolver as U
+    b2, notes2 = _setup(tmp_path / "u", monkeypatch, [("idea_2026-11-02_B.push.txt", GOOD)])
+    monkeypatch.setattr(U, "is_sealable", lambda a, **k: False)
+    b2._tick_hunter_ideas()
+    assert not b2.tg.sent and any("не запечатан" in n for n in notes2)
+
+
+def test_second_check_line_is_linted():
+    """Сырой текст судьи другого семейства идёт после линта пуша — линтуется сам."""
+    from ops import hunter_court as HC
+    assert HC.second_check_line({"objection": "шанс провала около 70%, вероятно"}) == HC.GENERIC_LINE
+    assert HC.second_check_line({"objection": "см. wf_abcdef12 и 1 2 3 4"}) == HC.GENERIC_LINE
+    ok = HC.second_check_line({"objection": "спрос на магниты может не подтвердиться отчётом"})
+    assert "спрос на магниты" in ok

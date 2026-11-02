@@ -10,9 +10,12 @@
 set -u
 cd /home/oracle/oracle || exit 1
 git fetch -q origin master || exit 2
-incoming=$(git diff --name-only HEAD...origin/master -- journal/ | head -5)
+# Защищены ТОЛЬКО append-only журналы честности (П16) и протоколы прогонов; journal/proposals/
+# (подписи владельца, которые коммитят облачные сессии) и прочее — пропускаются (перепроверка 02.11).
+PROTECTED='^journal/(predictions\.jsonl|outcomes\.jsonl|decisions_user\.jsonl|costs\.jsonl|holdout_access\.log|.*\.anchor\.json$|funnel_logs/|edge_forward_logs/|week_odds/|replay_logs/)'
+incoming=$(git diff --name-only HEAD...origin/master -- journal/ | grep -E "$PROTECTED" | head -5)
 if [ -n "$incoming" ]; then
-  echo "[safe_pull] $(date -u +%FT%TZ) ОТКАЗ: входящие коммиты трогают journal/: $incoming"; exit 9
+  echo "[safe_pull] $(date -u +%FT%TZ) ОТКАЗ: входящие коммиты трогают журналы честности: $incoming"; exit 9
 fi
 git merge -q --ff-only origin/master || exit 3
 echo "[safe_pull] $(date -u +%FT%TZ) ok $(git rev-parse --short HEAD)"

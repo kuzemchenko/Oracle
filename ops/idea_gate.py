@@ -119,7 +119,9 @@ def check(card, today=None):
         fails.append("прецедент без URL (П8)")
     move = _num(card["move_since_trigger_pct"])
     ranges = PI.parse_amplitude(amp)
-    far = max((max(abs(r["низ"]), abs(r["верх"])) for r in ranges), default=0.0)
+    # потолок потенциала — дальний край ПЕРВОГО диапазона прецедента (тот же, что для «в цене»),
+    # а не максимум любого процента в строке (перепроверка 02.11)
+    far = max(abs(ranges[0]["низ"]), abs(ranges[0]["верх"])) if ranges else 0.0
     comp["амплитуда_дальний_край_пп"] = far
     if move is None:
         fails.append("ход с даты повода не числом — без него «не отыграно» не доказать")
@@ -194,6 +196,9 @@ def check(card, today=None):
                 comp["ход_до_порога_пп"] = round(thr_move, 2)
                 if thr_move > up * 1.05:
                     fails.append(f"§9: порог требует хода {thr_move:.1f}% — больше заявленного потенциала {up}%")
+                elif thr_move < max(0.25 * up, 2.0):
+                    fails.append(f"§9: порог всего в {thr_move:.1f}% от цены — вопрос «закроется ли выше "
+                                 f"сегодняшнего» не проверяет обещанный ход {up}%")
 
     # 7. стоп-условия
     kills = card["kill_conditions"] if isinstance(card["kill_conditions"], list) else []

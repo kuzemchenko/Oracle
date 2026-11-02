@@ -503,18 +503,14 @@ class Bot:
         d = ROOT / "reports" / "ideas"
         if not d.exists():
             return
-        seen = set(self.state.get("hunter_pushed") or [])
+        seen = set(self.state.get("hunter_pushed") or [])          # все отметки (брак/нет-md/…)
+        delivered = set(self.state.get("hunter_delivered") or [])  # ТОЛЬКО доставленные версии
         footers = self.state.setdefault("hunter_footer", {})
 
         def _mark(name):
             seen.add(name)
             self.state["hunter_pushed"] = sorted(seen)
             self.save()
-
-        def _delivered_before(name):
-            # легаси-отметка «просто имя» (код до хеш-дедупа) = доставленная версия
-            return name in seen or any(k.startswith(name + "@") and ":" not in k.split("@", 1)[1]
-                                       for k in seen)
 
         import hashlib
         import json as _json
@@ -524,8 +520,13 @@ class Bot:
             except OSError:
                 continue
             key = p.name + "@" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
-            if key in seen or key + ":bad" in seen:
+            # Ревью 02.11 (перепроверка): легаси-отметка «просто имя» (код до хеш-дедупа помечал так
+            # и доставку, и брак — неразличимо) = файл уже обработан старым кодом: НЕ пересылаем
+            # (иначе непроверенная судом записка ушла бы «обновлённой версией»).
+            if p.name in seen or any(key + suf in seen for suf in ("", ":bad")):
                 continue
+            # «Обновлённая версия» — только для файла, доставленного НОВЫМ кодом (явный список)
+            update = any(k.startswith(p.name + "@") for k in delivered)
             # П8: рядом обязано лежать исследование с источниками (*.md с URL, не пустышка)
             md = p.with_name(p.name[:-len(".push.txt")] + ".md")
             try:
@@ -533,7 +534,7 @@ class Bot:
             except OSError:
                 md_text = ""
             if len(md_text) < 200 or "http" not in md_text:
-                if key + ":nomd" not in seen:
+                if key + ":nomd" not in seen:          # заметка одна; появится .md — идея пойдёт
                     _mark(key + ":nomd")
                     self._notice_dozor("Идея охотника " + p.name + " без файла исследования с "
                                        "источниками (*.md с URL рядом, П8) — в Telegram не ушла.")
@@ -544,15 +545,12 @@ class Bot:
                 self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
                                    + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
                 continue
-            # Ревью архитектуры v3 (02.11): порядок для НОВОЙ идеи — шлагбаум КОДОМ на сервере
-            # (серверная дата и цена) → суд РАЗНЫХ семейств (П10) → печать §9 (П16) → доставка.
-            # Исправление уже доставленной записки (обновлённая версия) идёт без суда и без новой
-            # ставки — она правит то, что уже у владельца. Результаты кэшируются по ключу версии.
-            update = _delivered_before(p.name)
-            asset = None
+            # НОВАЯ идея: §9-карточка → шлагбаум КОДОМ на сервере (серверная дата и цена) → суд РАЗНЫХ
+            # семейств (П10) → печать §9 (П16, обязательна) → доставка. ИСПРАВЛЕНИЕ уже доставленной
+            # идеи: без суда и без новой ставки (печать одна на идею). Всё кэшируется по ключу версии.
             if key not in footers:
+                card, asset = None, None
                 cp = HS.card_path_for(p)
-                card = None
                 if cp.exists():
                     try:
                         card = _json.loads(cp.read_text(encoding="utf-8"))
@@ -561,41 +559,56 @@ class Bot:
                     except (OSError, ValueError) as e:
                         card = None
                         log("карточка охотника не читается", p.name, repr(e))
-                if card is None and not update:
-                    _mark(key + ":nocard")
-                    self._notice_dozor("Идея охотника " + p.name + " без §9-карточки (*.card.json) — "
-                                       "без проверяемого прогноза новая идея не уходит.")
-                    continue
                 extra = []
-                if card is not None and not update:
-                    ok, gfails, card = HS.server_check(card, idea_file=p.name)
-                    if not ok:
-                        _mark(key + ":bad")
-                        self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
-                                           + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
-                        continue
-                    verdict = self._hunter_court(key, card)
-                    if verdict is None:
-                        continue                            # суд недоступен — ждём, непроверенное не шлём
-                    if verdict.get("verdict") == "FATAL":
+                # И новая идея, И исправление уже доставленной проходят карточку → согласованность
+                # пуша с карточкой → серверный шлагбаум → суд разных семейств (перепроверка 02.11:
+                # исправление шло мимо суда). Печатается только НОВАЯ идея — одна ставка на идею.
+                if card is None:
+                    if key + ":nocard" not in seen:        # заметка одна; появится карточка — пойдёт
+                        _mark(key + ":nocard")
+                        self._notice_dozor("Идея охотника " + p.name + " без §9-карточки (*.card.json) — "
+                                           "без проверяемого прогноза идея не уходит.")
+                    continue
+                mismatch = HS.push_card_mismatch(text, card)
+                if mismatch:
+                    _mark(key + ":bad")
+                    self._notice_dozor("Идея охотника " + p.name + ": текст пуша не согласован с §9-карточкой ("
+                                       + mismatch + ") — в Telegram не ушла.")
+                    continue
+                ok, gfails, card = HS.server_check(card, idea_file=p.name)
+                if not ok:
+                    _mark(key + ":bad")
+                    self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
+                                       + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
+                    continue
+                ckey = p.name + "#" + hashlib.sha1(_json.dumps(card, sort_keys=True, ensure_ascii=False)
+                                                   .encode("utf-8")).hexdigest()[:10]
+                verdict = self._hunter_court(ckey, card)    # кэш по СОДЕРЖИМОМУ карточки, не по тексту
+                if verdict is None:
+                    continue                            # суд недоступен — ждём, непроверенное не шлём
+                if verdict.get("verdict") == "FATAL":
+                    if not update:
                         HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
-                        _mark(key + ":bad")
-                        self._notice_dozor("Идею охотника " + p.name + " отверг суд разных семейств ("
-                                           + str(verdict.get("objection") or "")[:160] + ") — в Telegram "
-                                           "не ушла, записана тенью для проверки права вето.")
-                        continue
-                    if verdict.get("verdict") == "FIX":
-                        line = HC.second_check_line(verdict)
-                        if line:
-                            extra.append(line)
-                rec, why = None, "проверяемый прогноз к этой записке не приложен"
-                if card is not None:
+                    _mark(key + ":bad")
+                    self._notice_dozor("Идею охотника " + p.name + " отверг суд разных семейств ("
+                                       + str(verdict.get("objection") or "")[:160] + ") — в Telegram "
+                                       "не ушла" + ("" if update else ", записана тенью для проверки права вето") + ".")
+                    continue
+                if verdict.get("verdict") == "FIX":
+                    extra.append(HC.second_check_line(verdict) or "")
+                if update:
+                    rec, why = None, ("уже запечатано" if HS.idea_sealed(p.name) else
+                                      "это исправление уже отправленной записки — новой ставки не делаю")
+                else:
                     rec, why = HS.seal_card(card, idea_file=p.name)
                     if rec is None and why != "уже запечатано":
+                        # П16: новая идея без печати не уходит (порядок «печать до доставки»)
+                        _mark(key + ":bad")
                         self._notice_dozor("Идея охотника " + p.name + ": прогноз не запечатан ("
-                                           + str(why) + ") — пуш ушёл без записи в счёт.")
-                footers[key] = {"lines": extra + HS.footer(rec, why, HS.method_score()), "asset": asset,
-                                "sealed": bool(rec) or why == "уже запечатано"}
+                                           + str(why) + ") — без записи в счёт идея не уходит.")
+                        continue
+                footers[key] = {"lines": [x for x in extra if x] + HS.footer(rec, why, HS.method_score()),
+                                "asset": asset, "sealed": bool(rec) or why == "уже запечатано"}
                 self.save()
             foot = footers[key]
             # без карточки тикер берём из имени файла idea_<дата>_<ТИКЕР>.push.txt
@@ -616,6 +629,8 @@ class Bot:
                                            "issued_at": S.now_utc().isoformat(timespec="seconds"),
                                            "source": "hunter", "sealed": bool(foot.get("sealed"))}
             self.state["idea_day_delivered"] = S.now_utc().date().isoformat()
+            delivered.add(key)
+            self.state["hunter_delivered"] = sorted(delivered)
             _mark(key)
             log("идея охотника доставлена:", p.name)
 
@@ -674,7 +689,12 @@ class Bot:
                 rows = rows if isinstance(rows, list) else [rows]
                 for card in rows:
                     if isinstance(card, dict):
-                        HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
+                        # перепроверка 02.11: печать «одна на идею» по стему теряла все тени, кроме
+                        # первой — у каждой тени свой стем (имя файла + тикер)
+                        tk = str(card.get("ticker") or (card.get("spec9") or {}).get("asset") or "?")
+                        ok, _f, card2 = HS.server_check(card, idea_file=p.name)   # тени — тем же шлагбаумом
+                        if ok:
+                            HS.seal_card(card2, idea_file=f"{p.name}#{tk}", kind=HS.SHADOW_KIND)
                 done.add(p.name)
                 self.state["hunter_shadow"] = sorted(done)
                 self.save()
@@ -1842,12 +1862,27 @@ class Bot:
         sig = _code_signature()
         if sig == code_sig:
             return False
+        if self._job_busy():                         # не рвём «Качаем», /run-funnel, /debate на лету
+            return False
         bad = []
         for f in _code_files():
             try:                                     # синтаксис без записи .pyc (ничего не пишем)
                 compile(f.read_text(encoding="utf-8"), str(f), "exec")
             except (SyntaxError, ValueError, OSError) as e:
                 bad.append(f"{f.name}: {str(e)[:80]}")
+        if not bad:
+            # compile() не ловит ошибки импорта — пробный запуск самопроверки в отдельном процессе
+            import subprocess
+            try:
+                here = pathlib.Path(__file__).resolve()
+                r = subprocess.run([sys.executable, str(here), "--check"],
+                                   capture_output=True, text=True, timeout=60, cwd=str(here.parents[1]))
+                if r.returncode not in (0, 1):
+                    bad.append("самопроверка: " + (r.stderr or r.stdout)[-120:])
+                elif "Traceback" in (r.stderr or ""):
+                    bad.append("самопроверка: " + r.stderr[-120:])
+            except Exception as e:                   # noqa: BLE001
+                bad.append(f"самопроверка не запустилась: {type(e).__name__}")
         if bad:
             if self.state.get("bad_code_sig") != sig:
                 self.state["bad_code_sig"] = sig

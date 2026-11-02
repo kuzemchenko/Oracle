@@ -2217,9 +2217,15 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
             _my_raw = str((( _e.get("узлы_каскада") or [{}])[0].get("узел") or "")).lower()
             break
     sign_conflict = _node_sign_conflict(_my_raw, dir_word)   # единый словарь с гардом лида
-    # ревью 02.11: денежный суд без запаса хода (EV ≤ 0) — не защищаемая идея, а «наблюдение»
-    # (иначе шапка «защищаю» и в теле «запаса нет» — самоопровержение)
-    defend = ((_ev_pct > 0) if _ev_pct is not None else bool(money)) and not sign_conflict
+    # Перепроверка 02.11: денежный лид, прошедший слепой суд, — защищаемая идея при EV ≥ 0 (подпись
+    # варианта А), КРОМЕ переотыгранного (остаток против хода — свежего запаса нет); при базе
+    # денежного трека ровно 0.5 строгое «> 0» гасило бы каждый денежный лид. Не-денежный — EV > 0.
+    _overplayed = (isinstance(edge, (int, float)) and isinstance(ход, (int, float)) and ход
+                   and edge * ход < 0)
+    if money:
+        defend = (not _overplayed) and (_ev_pct is None or _ev_pct >= 0) and not sign_conflict
+    else:
+        defend = (_ev_pct is not None and _ev_pct > 0) and not sign_conflict
     наблюдение = {"рост": "возможный рост", "снижение": "возможное снижение"}.get(ставка, "возможное движение")
     if sign_conflict:
         наблюдение = "направление под вопросом"
@@ -2361,8 +2367,10 @@ def format_idea_of_day(protocol, *, name_fn=None, base_rate=None, money_base=Non
                 остаток = ", причём рынок уже прошёл больше расчётного хода — свежего запаса нет"
         p_used, ev_pct = _p_used, _ev_pct
         if p_used is not None:
-            вывод = (("денежный суд её пропустил, но свежего запаса хода в расчёте нет — карточку "
-                       "смотри с этим в уме" if money else
+            вывод = ((("денежный суд её пропустил, но рынок уже прошёл расчётный ход — свежего запаса "
+                        "нет, карточку смотри с этим в уме") if (money and _overplayed) else
+                      ("денежный суд её пропустил; по счёту денежного трека шанс пока как у монетки — "
+                       "решение в отдельной карточке") if money else
                       ("сегодня это наблюдение, не ставка — проверяю механизм и сверю к дате" if not defend
                        else "на деньги не тянет, показываю как исследовательскую идею")) if ev_pct <= 0 else
                      ("положительное; решение по деньгам — в отдельной карточке" if money else

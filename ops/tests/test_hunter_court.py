@@ -59,3 +59,18 @@ def test_second_check_line_no_verdict_words():
     line = HC.second_check_line({"objection": "спрос может не подтвердиться."})
     assert "Вторая проверка" in line and "FATAL" not in line and "FIX" not in line
     assert HC.second_check_line({"objection": ""}) is None
+
+
+def test_fatal_kept_only_with_verbatim_evidence_and_point_1_4():
+    import json as _json
+    quote = CARD["thesis"][:30]
+    good = Stub('{"verdict":"FIX","objection":"x"}',
+                _json.dumps({"verdict": "FATAL", "point": 1, "evidence": quote, "objection": "ложная связь"},
+                            ensure_ascii=False))
+    v, _ = HC.judge_card(CARD, client=good)
+    assert v["verdict"] == "FATAL"
+    fake = Stub('{"verdict":"FIX","objection":"x"}',
+                '{"verdict":"FATAL","point":1,"evidence":"цитаты нет в карточке","objection":"y"}')
+    assert HC.judge_card(CARD, client=fake)[0]["verdict"] == "FIX"
+    two = Stub('{"verdict":"PASS","objection":"a"} и ещё {"verdict":"FATAL"}', '{"verdict":"PASS","objection":"b"} хвост {x}')
+    assert HC.judge_card(CARD, client=two)[0]["verdict"] == "PASS"      # первый объект, не жадный захват

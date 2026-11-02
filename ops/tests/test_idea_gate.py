@@ -152,6 +152,6 @@ def test_server_check_uses_server_price_and_rejects_undated():
     assert c2["spec9"]["last_close"] == 46.0
     ok2, fails2, _ = HS.server_check(CARD, idea_file="idea_MP.push.txt", today=TODAY)
     assert not ok2 and "нет даты" in fails2[0]
-    ok3, _f3, _ = HS.server_check(CARD, idea_file=f"idea_{TODAY}_MP.push.txt", today=TODAY,
-                                  last_close_fn=lambda a: (None, None))
-    assert ok3                                                   # нет котировок → цена карточки
+    ok3, f3, _ = HS.server_check(CARD, idea_file=f"idea_{TODAY}_MP.push.txt", today=TODAY,
+                                 last_close_fn=lambda a: (None, None))
+    assert not ok3 and "нет серверной цены" in f3[0]             # цена со слов LLM — не основание

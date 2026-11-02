@@ -42,20 +42,31 @@ def _defense(card):
             f"Что опровергнет: {json.dumps(card.get('kill_conditions'), ensure_ascii=False)}")
 
 
-def parse_verdict(text):
-    """Первый JSON-объект ответа → нормализованный вердикт или None (П8: мусор не голос)."""
-    m = re.search(r"\{.*\}", str(text or ""), re.S)
-    if not m:
+def parse_verdict(text, card_text=None):
+    """ПЕРВЫЙ JSON-объект ответа → нормализованный вердикт или None (П8: мусор не голос).
+    FATAL засчитывается, только если пункт рубрики 1–4 и улика ДОСЛОВНО есть в карточке
+    (перепроверка 02.11: «казнь» кодом не сверялась) — иначе это FIX."""
+    t = str(text or "")
+    i = t.find("{")
+    if i < 0:
         return None
     try:
-        v = json.loads(m.group(0))
+        v, _end = json.JSONDecoder().raw_decode(t[i:])
     except ValueError:
+        return None
+    if not isinstance(v, dict):
         return None
     verdict = str(v.get("verdict") or "").strip().upper()
     if verdict not in VERDICTS:
         return None
-    if verdict == "FATAL" and not str(v.get("evidence") or "").strip():
-        verdict = "FIX"                    # FATAL без улики — не казнь, а запрос (правила суда)
+    ev = str(v.get("evidence") or "").strip().strip("«»\"' ")
+    try:
+        point = int(v.get("point") or 0)
+    except (TypeError, ValueError):
+        point = 0
+    if verdict == "FATAL" and (not ev or point not in (1, 2, 3, 4)
+                               or (card_text is not None and ev not in card_text)):
+        verdict = "FIX"                    # FATAL без проверяемой улики — не казнь, а запрос
     return {"verdict": verdict, "point": v.get("point"), "evidence": str(v.get("evidence") or ""),
             "objection": str(v.get("objection") or ""), "answer": str(v.get("answer") or "")}
 
@@ -84,7 +95,7 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
                                    agent_id="hunter_critic", output_kind="hunter_court",
                                    exclude_family={GENERATOR_FAMILY})
             crit_txt = crit.get("text") if isinstance(crit, dict) else str(crit or "")
-            crit_v = parse_verdict(crit_txt)
+            crit_v = parse_verdict(crit_txt, card_txt)
             if crit_v is None:
                 return None, "критик дал невалидный ответ — суд не состоялся (П10)"
             excl = {GENERATOR_FAMILY}
@@ -105,7 +116,7 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
                                  output_kind="hunter_court", exclude_family=excl)
         except RB.RunBudgetExceeded as e:                  # BaseException — отдельная ветка (Инв#5)
             return None, f"ОСТАНОВ бюджета §24: {e.spent_usd:.4f} при потолке {e.cap_usd}"
-        jv = parse_verdict(jr.get("text") if isinstance(jr, dict) else jr)
+        jv = parse_verdict(jr.get("text") if isinstance(jr, dict) else jr, card_txt)
         if jv is None:
             return None, "судья дал невалидный ответ — суд не состоялся (П10)"
         jv["critic"] = crit_v
@@ -116,11 +127,26 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
         return None, f"суд недоступен: {type(e).__name__}: {str(e)[:120]}"
 
 
+GENERIC_LINE = ("Вторая проверка (модели других разработчиков, вслепую) нашла сомнение, которое "
+                "я ещё досчитываю, — подробности по кнопке «Качаем 2 дня».")
+
+
 def second_check_line(v):
-    """FIX → строка в пуш (до рамки): сомнение второй проверки простыми словами, без вердикта-приговора."""
+    """FIX → строка в пуш (до рамки): сомнение второй проверки простыми словами, без приговора.
+    Перепроверка 02.11: это СЫРОЙ текст модели другого семейства, а он вставляется после линта
+    пуша — поэтому линтуется САМ: вероятности/шансы (в т.ч. в кавычках), тех.id, жаргон, больше
+    2 чисел → вместо него нейтральная строка без содержимого (П8/Инв#6)."""
     obj = (v or {}).get("objection") or ""
     if not obj:
         return None
-    obj = re.sub(r"\s+", " ", obj).strip().rstrip(".")
+    obj = re.sub(r"\s+", " ", obj).strip().rstrip(".")[:220]
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    nums = re.findall(r"\d+(?:[.,]\d+)?", obj)
+    if (PL.odds_markers(obj, include_quotes=True) or PL._TECH_ID_RE.search(obj) or len(nums) > 2
+            or PL._unexplained_terms(obj) or "«" in obj or "»" in obj):
+        return GENERIC_LINE
     return (f"Вторая проверка (модели других разработчиков, вслепую): главное сомнение — «{obj}». "
             "Проверю его к ближайшей дате из «Что меня опровергнет».")

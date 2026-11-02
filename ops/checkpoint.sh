@@ -40,7 +40,7 @@ if ! git push -q origin master; then
   # гонка с облачным коммитом между pull и push: пересаживаем ЛОКАЛЬНЫЕ коммиты (журналы/
   # отчёты сервера; облако journal/ не пишет — П16) поверх origin и пробуем ещё раз
   git fetch -q origin master
-  if [ -n "$(git diff --name-only HEAD...origin/master -- journal/ | head -1)" ]; then
+  if [ -n "$(git diff --name-only HEAD...origin/master -- journal/ | grep -E '^journal/(predictions\.jsonl|outcomes\.jsonl|decisions_user\.jsonl|costs\.jsonl|.*\.anchor\.json$|funnel_logs/|edge_forward_logs/|week_odds/)' | head -1)" ]; then
     echo "[checkpoint] входящие облачные коммиты трогают journal/ — пересадку не делаю (П16)"; exit 7
   fi
   if git pull -q --rebase --autostash origin master && git push -q origin master; then

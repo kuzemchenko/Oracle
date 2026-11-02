@@ -63,6 +63,25 @@ def spec_from_card(card, idea_file=None, kind=KIND):
     }
 
 
+BATTLE_PRED = ROOT / "journal" / "predictions.jsonl"
+
+
+def _battle_write_allowed(target):
+    """П16, инцидент 02.11 (дважды): тест и агент-проверяющий в облаке дописали печать в
+    journal/predictions.jsonl ОБЛАЧНОЙ копии (вызов с путём по умолчанию). Печать в БОЕВОЙ журнал
+    разрешена только на сервере (/home/oracle/…) или при явном ORACLE_ALLOW_JOURNAL=1; любой
+    другой путь (временный в тестах) — свободно."""
+    import os
+    try:
+        is_battle = target.resolve() == BATTLE_PRED.resolve()
+    except OSError:
+        is_battle = False
+    if not is_battle:
+        return True
+    return (str(ROOT.resolve()).startswith("/home/oracle/")
+            or os.environ.get("ORACLE_ALLOW_JOURNAL") == "1")
+
+
 def _idea_stem(name):
     """idea_<дата>_<ТИКЕР>[.push.txt|.card.json|.shadow.json] → idea_<дата>_<ТИКЕР>."""
     n = str(name or "")
@@ -70,6 +89,31 @@ def _idea_stem(name):
         if n.endswith(suf):
             return n[:-len(suf)]
     return n
+
+
+def push_card_mismatch(text, card):
+    """Текст пуша и §9-карточка говорят об одном? (перепроверка 02.11: суд и шлагбаум проверяли
+    карточку, а владелец получал push.txt — согласованность кодом не сверялась). → причина | None."""
+    t = str(text or "")
+    base = str((card or {}).get("ticker") or "").upper().split(".")[0]
+    if base and not re.search(rf"(?<![A-Z]){re.escape(base)}(?![A-Z])", t):
+        return f"в тексте нет тикера {base} из карточки"
+    d = str((card or {}).get("direction") or "").lower()
+    low = t.lower()
+    up = any(w in low for w in ("рост", "покупаю", "вверх"))
+    down = any(w in low for w in ("снижен", "падени", "ставлю на падение", "вниз"))
+    if d == "вверх" and down and not up:
+        return "карточка «вверх», а текст — про снижение"
+    if d == "вниз" and up and not down:
+        return "карточка «вниз», а текст — про рост"
+    return None
+
+
+def idea_sealed(idea_file, predictions_path=None, kind=KIND):
+    """Есть ли уже печать по этой идее (по стему имени файла)."""
+    stem = _idea_stem(idea_file)
+    return any(r.get("kind") == kind and _idea_stem(r.get("idea_file")) == stem
+               for r in _read_jsonl(predictions_path or PRED))
 
 
 def _server_last_close(asset, con=None):
@@ -122,9 +166,12 @@ def server_check(card, *, idea_file, today=None, last_close_fn=None):
     if s is not None:
         asset = str(s.get("asset") or c2.get("ticker") or "").upper()
         px, pxd = (last_close_fn or _server_last_close)(asset)
-        if px is not None:
-            s["last_close"], s["last_close_date"] = px, pxd
-            s["цена_источник"] = "серверные котировки EODHD"
+        if px is None:
+            # перепроверка 02.11: без серверной цены якорь/сторону/свежесть проверить нечем —
+            # цена со слов LLM не основание для печати (Инв#6), fail-closed
+            return False, [f"нет серверной цены закрытия {asset} — якорь порога не проверить"], c2
+        s["last_close"], s["last_close_date"] = px, pxd
+        s["цена_источник"] = "серверные котировки EODHD"
     res = G.check(c2, today=today)
     return res["pass"], res["fails"], c2
 
@@ -143,6 +190,9 @@ def seal_card(card, *, idea_file=None, predictions_path=None, sealable_fn=None, 
     П16: карточка старше MAX_SEAL_LAG_DAYS от даты охоты (из имени файла) не печатается —
     за это время цена уже ушла, печать была бы задним числом."""
     from mathlib import sealing as SEAL
+    target = pathlib.Path(predictions_path or PRED)
+    if not _battle_write_allowed(target):
+        return None, "печать в боевой журнал разрешена только на сервере"
     hd = hunt_date_from_name(idea_file) if idea_file else None
     today = today or datetime.datetime.now(datetime.timezone.utc).date()
     if hd is None:                                  # ревью 02.11: без даты лаг-гард был fail-open
@@ -151,9 +201,15 @@ def seal_card(card, *, idea_file=None, predictions_path=None, sealable_fn=None, 
         return None, (f"карточка от {hd} старше {MAX_SEAL_LAG_DAYS} дней — печать задним числом "
                       "запрещена")
     stem = _idea_stem(idea_file)
-    if any(r.get("kind") == kind and _idea_stem(r.get("idea_file")) == stem
-           for r in _read_jsonl(predictions_path or PRED)):
+    recs = _read_jsonl(predictions_path or PRED)
+    if any(r.get("kind") == kind and _idea_stem(r.get("idea_file")) == stem for r in recs):
         return None, "уже запечатано"               # одна печать на идею (и при «обновлённой версии»)
+    asset = str(((card or {}).get("spec9") or {}).get("asset") or (card or {}).get("ticker") or "").upper()
+    open_same = [r for r in recs if r.get("kind") == kind and str(r.get("asset") or "").upper() == asset
+                 and str(r.get("resolve_by") or "")[:10] >= today.isoformat()]
+    if open_same:                                   # коррелированные исходы не считаем независимыми
+        return None, (f"по этой бумаге уже идёт прогноз до {str(open_same[-1].get('resolve_by'))[:10]}"
+                      " — второй до сверки первого не открываю")
     try:
         spec = spec_from_card(card, idea_file=idea_file, kind=kind)
     except ValueError as e:
