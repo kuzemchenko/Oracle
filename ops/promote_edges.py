@@ -133,7 +133,28 @@ def collect_rows(predictions_path=None, outcomes_path=None):
     return rows, stats
 
 
-def evaluate(predictions_path=None, outcomes_path=None, min_outcomes=FP.MIN_OUTCOMES):
+def conditional_estimate(up, down, *, estimator=None):
+    """Д3 → наблюдение B4 (карта v3, V6): условная (event-study) оценка переноса ребра —
+    ДИАГНОСТИКА рядом с форвард-счётом, НЕ вход в §10-гейт промоушена и не канон §11
+    (Инв#4 не трогаем; промоушен по-прежнему только по запечатанным форвард-исходам).
+    Fail-soft: нет данных/упало → честное «не измерено», отчёт живёт."""
+    try:
+        if estimator is None:
+            from mathlib.calibration import conditional as CND
+            estimator = CND.estimate_pair_symbols
+        e = estimator(up, down) or {}
+        return {"status": e.get("status"), "tier": e.get("tier"),
+                "wf_established": e.get("wf_established"),
+                "n_episodes": e.get("n_episodes"),
+                "gain_conditional": e.get("gain_conditional"),
+                "lag_selected": e.get("lag_selected"),
+                "провенанс": e.get("провенанс")}
+    except Exception as ex:                                # noqa: BLE001 — наблюдение не роняет отчёт
+        return {"status": "не измерено", "провенанс": f"Д3 упал: {type(ex).__name__}: {ex}"}
+
+
+def evaluate(predictions_path=None, outcomes_path=None, min_outcomes=FP.MIN_OUTCOMES,
+             conditional_estimator=None, with_conditional=True):
     rows, stats = collect_rows(predictions_path, outcomes_path)
     decisions = FP.promote_all(rows, min_outcomes=min_outcomes)
     # обогащаем from/to/lag (для записи ребра) из первой строки каждого ключа
@@ -143,6 +164,9 @@ def evaluate(predictions_path=None, outcomes_path=None, min_outcomes=FP.MIN_OUTC
     promotions = {}
     for k, d in decisions.items():
         promotions[k] = {**meta.get(k, {}), **d}
+        if with_conditional and meta.get(k):
+            promotions[k]["условная_оценка_Д3"] = conditional_estimate(
+                meta[k]["from"], meta[k]["to"], estimator=conditional_estimator)
     n_promote = sum(1 for d in promotions.values() if d.get("promote"))
     return {"stats": stats, "n_edges": len(promotions), "n_promote": n_promote,
             "promotions": promotions}
@@ -159,14 +183,23 @@ def write_report(result):
              f"многозвенных пропущено: {s['многозвенных_пропущено']} · "
              f"pending: {s['ещё_pending']}_", "",
              "Промоушен применяется ТОЛЬКО `ops/promote_edges.py --apply` (рукой владельца, §25).", "",
-             "| ребро | lag | N | hit-rate | Brier | p-value | → ярус A? | надёжн. | причина |",
-             "|---|---|---|---|---|---|---|---|---|"]
+             "| ребро | lag | N | hit-rate | Brier | p-value | → ярус A? | надёжн. | Д3 условно | причина |",
+             "|---|---|---|---|---|---|---|---|---|---|"]
     for k, d in sorted(result["promotions"].items(),
                        key=lambda kv: (not kv[1].get("promote"), -(kv[1].get("n") or 0))):
         mark = "✅ ДА" if d.get("promote") else "—"
+        c = d.get("условная_оценка_Д3") or {}
+        # Д3 — диагностика РЯДОМ с форвард-счётом (V6 «Д3 в наблюдение B4»), в гейт не входит
+        if c.get("wf_established"):
+            d3 = (f"gain={c.get('gain_conditional')} lag={c.get('lag_selected')} "
+                  f"эп.{c.get('n_episodes')}")
+        elif c:
+            d3 = c.get("status") or "не измерено"
+        else:
+            d3 = "—"
         lines.append(f"| {d.get('from')}→{d.get('to')} | {d.get('lag')} | {d.get('n')} "
                      f"| {d.get('hit_rate')} | {d.get('brier')} | {d.get('p_value')} | {mark} "
-                     f"| {d.get('reliability')} | {(d.get('причина') or '')[:60]} |")
+                     f"| {d.get('reliability')} | {d3} | {(d.get('причина') or '')[:60]} |")
     (REPORTS / "REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

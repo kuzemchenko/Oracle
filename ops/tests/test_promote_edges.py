@@ -150,3 +150,31 @@ def test_episode_dedup_per_edge_isolated(tmp_path):
     _write(pp, preds); _write(op, outs)
     rows, stats = PE.collect_rows(str(pp), str(op))
     assert len(rows) == 2 and stats["дубль_эпизода_шока"] == 0
+
+
+def test_conditional_d3_attached_and_rendered(tmp_path):
+    """V6 «Д3 в наблюдение B4»: условная оценка — рядом с форвард-счётом (диагностика),
+    в §10-гейт НЕ входит; отчёт печатает колонку; падение оценщика не роняет отчёт."""
+    pp, op = _make_journals(tmp_path, 28, 30)
+    stub = lambda up, down: {"status": "установлено", "tier": "A", "wf_established": True,  # noqa: E731
+                             "n_episodes": 14, "gain_conditional": 0.62, "lag_selected": 2,
+                             "провенанс": "стаб"}
+    res = PE.evaluate(pp, op, conditional_estimator=stub)
+    k = next(iter(res["promotions"]))
+    c = res["promotions"][k]["условная_оценка_Д3"]
+    assert c["wf_established"] is True and c["gain_conditional"] == 0.62
+    # гейт промоушена не зависит от Д3: тот же вердикт, что и без оценки
+    res2 = PE.evaluate(pp, op, with_conditional=False)
+    assert res["promotions"][k]["promote"] == res2["promotions"][k]["promote"]
+    assert "условная_оценка_Д3" not in res2["promotions"][k]
+    # рендер отчёта (в tmp): колонка Д3 на месте
+    import unittest.mock as um
+    with um.patch.object(PE, "REPORTS", tmp_path / "rep"):
+        PE.write_report(res)
+        md = (tmp_path / "rep" / "REPORT.md").read_text("utf-8")    
+    assert "Д3 условно" in md and "gain=0.62 lag=2" in md
+    # падающий оценщик → честное «не измерено», evaluate не падает
+    boom = lambda up, down: (_ for _ in ()).throw(RuntimeError("нет БД"))  # noqa: E731
+    res3 = PE.evaluate(pp, op, conditional_estimator=boom)
+    c3 = res3["promotions"][k]["условная_оценка_Д3"]
+    assert c3["status"] == "не измерено" and "Д3 упал" in c3["провенанс"]
