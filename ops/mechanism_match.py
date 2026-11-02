@@ -115,8 +115,18 @@ def _trunc_phrase(text, limit):
 # «+X%»/«−X%» и сравнение «X → Y».
 _OBS_UP = ("рост", "вырос", "подорожа", "взлет", "взлёт", "прибав", "удвои", "утрои",
            "рекорд", "подскоч", "вверх", "плюс", "удорожа")
-_OBS_DOWN = ("обвал", "рухнул", "падени", "снизил", "сжал", "дешев", "упал", "упад",
+_OBS_DOWN = ("обвал", "рухнул", "пада", "падени", "снизил", "сжал", "дешев", "упал", "упад",
              "просел", "сполз", "вниз", "минус")
+_NEG_TOKS = {"не", "ни", "нет"}
+
+
+def _word_hit(toks, markers):
+    """Маркер = префикс токена; «не»/«ни» прямо перед токеном снимает маркер (перепроверка №3:
+    «ставки НЕ выросли» читалось «вверх» и печаталось доводом «за»)."""
+    for i, tok in enumerate(toks):
+        if any(tok.startswith(w) for w in markers) and (i == 0 or toks[i - 1] not in _NEG_TOKS):
+            return True
+    return False
 _PLAIN_NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
 # Перепроверка №2 02.11 (БЛОКЕР): наивное «последнее число слева vs первое справа» давало
 # УВЕРЕННО ПЕРЕВЁРНУТЫЙ знак на живой библиотеке — пробельные тысячи («$10 000» → токены
@@ -133,9 +143,13 @@ _UNIT_AFTER_RE = re.compile(r"^\s*(?:тыс|млн|млрд|k)\b", re.IGNORECASE
 _YEAR_RE = re.compile(r"(?:19|20)\d\d")
 
 
+_COMMA_THOUS_RE = re.compile(r"(?<=\d),(?=\d{3}\b)")   # «1,500» — англ. тысячи, не десятичная
+
+
 def _arrow_sign(t):
     """Знак из сравнений «X → Y». Возвращает (вверх, вниз) — булевы вклады."""
     t = _THOUSANDS_RE.sub("", _DATE_TOK_RE.sub(" ", _PAREN_RE.sub(" ", t)))
+    t = _COMMA_THOUS_RE.sub("", t)                     # перепроверка №3: «$1,500 → $900» ≠ вверх
     up = down = False
     for m in re.finditer(r"→|->", t):
         left, right = t[max(0, m.start() - 18):m.start()], t[m.end():m.end() + 18]
@@ -165,8 +179,8 @@ def _obs_sign(observed):
     up = "↑" in t
     down = "↓" in t
     toks = re.findall(r"[а-яё]+", t)
-    up = up or any(tok.startswith(w) for tok in toks for w in _OBS_UP)
-    down = down or any(tok.startswith(w) for tok in toks for w in _OBS_DOWN)
+    up = up or _word_hit(toks, _OBS_UP)
+    down = down or _word_hit(toks, _OBS_DOWN)
     # знак при числе: «+164%» → вверх, «−~40%» → вниз; дефис-диапазон «3-5» не знак
     for m in re.finditer(r"[+\-−]\s*[~≈]?\s*\d", t):
         prev = t[m.start() - 1] if m.start() > 0 else " "

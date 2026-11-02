@@ -61,11 +61,26 @@ def test_hunter_push_delivers_once_and_lints(tmp_path, monkeypatch):
         "вероятностные слова без расчёта/печати §9 не должны уходить (Инв#6/П16)"
     assert any("BAD" in n for n in notes) and any("ODDS" in n for n in notes)
     n = len(b.tg.sent)
-    b._tick_hunter_ideas()                       # повтор — дедуп
+    b._tick_hunter_ideas()                       # повтор — дедуп (по имени+хешу содержимого)
     assert len(b.tg.sent) == n
-    assert sorted(b.state["hunter_pushed"]) == ["idea_2026-11-01_MP.push.txt",
-                                                "idea_2026-11-02_BAD.push.txt",
-                                                "idea_2026-11-03_ODDS.push.txt"]
+    assert sorted(k.split("@")[0] for k in b.state["hunter_pushed"]) == [
+        "idea_2026-11-01_MP.push.txt", "idea_2026-11-02_BAD.push.txt",
+        "idea_2026-11-03_ODDS.push.txt"]
+
+
+def test_hunter_fixed_file_redelivered(tmp_path, monkeypatch):
+    """Перепроверка №3: брак не хоронит файл навечно — починенная версия (новый хеш)
+    доставляется; доставленная версия повторно не уходит."""
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-05_F.push.txt", "Жаргон: каскад")])
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and notes
+    f = tmp_path / "reports" / "ideas" / "idea_2026-11-05_F.push.txt"
+    f.write_text(GOOD, encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
+    n = len(b.tg.sent)
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == n
 
 
 def test_hunter_flag_off_sends_nothing(tmp_path, monkeypatch):
@@ -91,8 +106,8 @@ def test_hunter_network_failure_keeps_delivered_marks(tmp_path, monkeypatch):
 
     monkeypatch.setattr(b, "_send_card", flaky)
     b._tick_hunter_ideas()
-    assert b.state["hunter_pushed"] == ["idea_2026-11-01_A.push.txt",
-                                        "idea_2026-11-02_BAD.push.txt"]
+    assert sorted(k.split("@")[0] for k in b.state["hunter_pushed"]) == [
+        "idea_2026-11-01_A.push.txt", "idea_2026-11-02_BAD.push.txt"]
     assert len(notes) == 1
     b._tick_hunter_ideas()                       # «сеть починилась» — но наш стаб всё ещё падает
     assert calls["n"] == 3, "ретрай только недоставленного файла B (A не дублируется)"
@@ -113,6 +128,14 @@ def test_odds_wordforms_blocked():
                 "Вероятно, продлят паузу.", "Срыв в трети случаев.", "Шансы невелики."):
         assert PL.odds_markers(bad), bad
     assert not PL.odds_markers("Бумага прибавила половину и стоит вдвое ниже пика.")
+
+
+def test_odds_inside_quotes_blocked_for_hunter():
+    """Перепроверка №3: кавычки охотника — его же текст, «Суд сказал: «шанс 65%»» не лазейка."""
+    bad = GOOD.replace("Ждать.", "Ждать. Суд сказал: «шанс 65%, четыре к одному».")
+    assert any("вероятностные" in v for v in PL.lint_hunter_idea(bad))
+    spam = GOOD.replace("Ждать.", "Ждать. «1 2 3 4 5 6 7 8 9 10 11 12 13 14»." )
+    assert any("число-спам" in v for v in PL.lint_hunter_idea(spam))
 
 
 def test_battle_mp_file_passes_hunter_lint():

@@ -193,6 +193,18 @@ def test_top3_has_no_strength_score_and_shows_base(monkeypatch):
     assert "сбывались примерно в 48% случаев" in text and "Суд оценил как средняя" in text
 
 
+def test_top3_court_jargon_goes_quoted_and_passes_lint(monkeypatch):
+    """Перепроверка №3 (регрессия STOPLIST): жаргон СУДА («лонг», «edge», «чокпоинт») — чужие
+    слова, идут цитатой «…» и не валят Топ-3 в тихий фолбэк."""
+    monkeypatch.setattr(R, "track_base_rate", lambda *a, **k: BASE)
+    court = {"NVDA.US": {"оценка": 2.8, "band": "средняя", "критерии": {},
+                         "кто_против": "Шорт против нас: edge не подтверждён.",
+                         "почему_возможность": "Лонг первого порядка, чокпоинт перегружен."}}
+    text, _meta, viol = R.top3_from_protocol(_proto([_entry("NVDA.US", 4, 0.0)], court=court))
+    assert text is not None and viol == [], viol
+    assert "«Лонг первого порядка" in text          # чужие слова — в кавычках
+
+
 def test_track_base_rate_reads_outcomes_kind(tmp_path):
     p = tmp_path / "o.jsonl"
     p.write_text('{"kind":"cascade_provisional","outcome":1}\n{"kind":"cascade_provisional","outcome":0}\n'

@@ -192,9 +192,12 @@ _ODDS_RES = (
 )
 
 
-def odds_markers(text):
-    """Вероятностные утверждения словами, вне цитат «…». → множество сработавших маркеров."""
-    t = _strip_quotes(str(text or "")).lower()
+def odds_markers(text, include_quotes=False):
+    """Вероятностные утверждения словами. → множество сработавших маркеров.
+    include_quotes=True — проверяется И содержимое цитат «…» (перепроверка №3: на канале
+    охотника кавычки — текст того же LLM-автора, «Суд сказал: «шанс 65%»» не лазейка)."""
+    t = str(text or "") if include_quotes else _strip_quotes(str(text or ""))
+    t = t.lower()
     toks = set(re.findall(r"[а-яё]+", t))
     out = {s for s in _ODDS_STEMS if any(tok.startswith(s) for tok in toks)}
     for r in _ODDS_RES:
@@ -219,16 +222,24 @@ def quantity_markers(text):
     return out
 
 
+HUNTER_MAX_NUMBERS_TOTAL = 12   # числа ВКЛЮЧАЯ цитаты: прецеденты с датами живут, число-спам — нет
+
+
 def lint_hunter_idea(text):
     """Блокирующий линт идей ОХОТНИКА (облако → git → бот): правила «Идеи дня» + рамка
-    «не рекомендация» проверяется КОДОМ + запрет вероятностных слов вне цитат.
-    Непустой список = пуш НЕ уходит, заметка в дозор."""
+    «не рекомендация» проверяется КОДОМ + запрет вероятностных слов — ВКЛЮЧАЯ цитаты
+    (перепроверка №3: кавычки охотника — его же текст, не лазейка) + кэп чисел по полному
+    тексту. Непустой список = пуш НЕ уходит, заметка в дозор."""
     viol = lint_idea_of_day(text)
     if RESEARCH_FRAME not in str(text or ""):
         viol.append("нет рамки «исследовательский инструмент» (§16 — проверяется кодом)")
-    bad = sorted(odds_markers(text))
+    bad = sorted(odds_markers(text, include_quotes=True))
     if bad:
         viol.append("вероятностные слова без расчёта и печати §9 (Инв#6/П16): " + ", ".join(bad))
+    all_nums = [m.group(0).strip() for m in _NUM_RE.finditer(_DATE_RE.sub(" ", str(text or "")))]
+    if len(all_nums) > HUNTER_MAX_NUMBERS_TOTAL:
+        viol.append(f"чисел по полному тексту (с цитатами) {len(all_nums)} > "
+                    f"{HUNTER_MAX_NUMBERS_TOTAL} — число-спам в кавычках не лазейка")
     return viol
 
 

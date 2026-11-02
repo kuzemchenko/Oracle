@@ -454,7 +454,11 @@ class Bot:
         печатается только из детерминированного расчёта по запечатанному треку, у охотника
         печати §9 пока нет — его идея обязана быть наблюдением без шансов. Флаг hunter_push
         в presentation.yaml. Отметки state пишутся ПО-СОБЫТИЙНО: сбой сети на позднем файле
-        не теряет уже доставленные (иначе дубль-пуши и спам дозора)."""
+        не теряет уже доставленные (иначе дубль-пуши и спам дозора).
+
+        Перепроверка №3 02.11: дедуп по имени+хешу СОДЕРЖИМОГО — забракованный и починенный
+        на месте файл доставляется (раньше брак хоронил файл навечно); правка текста = одна
+        повторная доставка исправленной версии."""
         if not R.load_presentation().get("hunter_push"):
             return
         try:
@@ -471,29 +475,31 @@ class Bot:
             self.state["hunter_pushed"] = sorted(seen)
             self.save()
 
+        import hashlib
         for p in sorted(d.glob("idea_*.push.txt")):
-            if p.name in seen:
-                continue
             try:
                 text = p.read_text(encoding="utf-8").strip()
             except OSError:
                 continue
+            key = p.name + "@" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
+            if key in seen or p.name in seen:          # p.name — легаси-отметки до хеш-дедупа
+                continue
             # Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом
             # (*.md тем же именем) — брак: датированные факты обязаны иметь основание в репо.
             if not p.with_name(p.name[:-len(".push.txt")] + ".md").exists():
-                _mark(p.name)
+                _mark(key)
                 self._notice_dozor("Идея охотника " + p.name + " без файла исследования с "
                                    "источниками (*.md рядом, П8) — в Telegram не ушла.")
                 continue
             viol = PL.lint_hunter_idea(text)
             if viol:
-                _mark(p.name)                          # не ретраим вечно; чинит охотник/машинист
+                _mark(key)                             # эта ВЕРСИЯ не ретраится; починка = новый хеш
                 self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
                                    + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
                 continue
             if self._send_card(text, None) is None:
                 return                                  # сеть — ретрай; доставленные уже отмечены
-            _mark(p.name)
+            _mark(key)
             log("идея охотника доставлена:", p.name)
 
     def _tick_proposal_batch(self, now=None):
