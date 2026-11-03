@@ -66,4 +66,4 @@ def test_owner_configs_guarded():
     assert r.stdout.split() == ["config/limits.yaml", "config/weights.yaml", "config/rubric.yaml",
                                 "config/thresholds.yaml", "ops/journal_guard.sh"]     # №6: и охранные скрипты
     assert "--no-renames" in guard.read_text()
-    assert "exit 10" in (ROOT / "ops" / "safe_pull.sh").read_text()
+    assert "refuse 10" in (ROOT / "ops" / "safe_pull.sh").read_text()   # поведение — test_safe_pull_sandbox

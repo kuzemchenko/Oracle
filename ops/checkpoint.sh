@@ -11,8 +11,25 @@
 #
 # ЗАПУСК: от пользователя oracle (git-записи только от него), через ops/cron_alert.sh —
 # ненулевой выход пишется в journal/alerts.jsonl и уходит владельцу в бота.
+# Аудит 03.11 (P0, охранный пакет): flock — общий с ops/safe_pull.sh (протяжку внутри не блокирует:
+# ORACLE_GIT_LOCKED); при заморозке master (облако меняет настройки владельца / журналы / ветки
+# разошлись) журналы всё равно уезжают в GitHub — в боковую ветку server-journal (только сервер её
+# пишет; облако читает оттуда журналы, пока master заморожен). ORACLE_DIR — каталог (песочница тестов).
 set -u
-cd /home/oracle/oracle || exit 1
+cd "${ORACLE_DIR:-/home/oracle/oracle}" || exit 1
+if [ -z "${ORACLE_GIT_LOCKED:-}" ]; then
+  exec 9>"$(git rev-parse --git-dir)/oracle_git.lock"
+  flock -w 900 9 || { echo "[checkpoint] git занят другой операцией больше 15 минут"; exit 8; }
+  export ORACLE_GIT_LOCKED=1
+fi
+side_push() {
+  if git push -q -f origin HEAD:refs/heads/server-journal; then
+    echo "[checkpoint] журналы ушли в боковую ветку server-journal (master заморожен: $1)"
+  else
+    # ре-гейт №2 03.11: код 13 — «не ушли никуда»; бот не скажет «сохранены в запасной ветке»
+    echo "[checkpoint] и боковая ветка server-journal не ушла (SSH-ключ? сеть?)"; exit 13
+  fi
+}
 
 if [ -f .git/MERGE_HEAD ] || [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
   echo "[checkpoint] репозиторий в середине merge/rebase — пропуск"; exit 3
@@ -42,10 +59,13 @@ if ! git push -q origin master; then
   git fetch -q origin master
   . ops/journal_guard.sh || exit 1                 # то же правило, что у safe_pull (перепроверка №2)
   if [ -n "$(incoming_owner_config_changes HEAD...origin/master)" ]; then
-    echo "[checkpoint] входящие облачные коммиты меняют лимиты/веса/рубрику/пороги — пересадку не делаю (нужно «ок» владельца)"; exit 7
+    echo "[checkpoint] входящие облачные коммиты меняют лимиты/веса/рубрику/пороги — пересадку не делаю (нужно «ок» владельца)"
+    side_push "настройки владельца"; exit 7
   fi
   if [ -n "$(incoming_journal_changes HEAD...origin/master)" ]; then
-    echo "[checkpoint] входящие облачные коммиты трогают journal/ — пересадку не делаю (П16)"; exit 7
+    echo "[checkpoint] входящие облачные коммиты трогают journal/ — пересадку не делаю (П16)"
+    # ре-гейт 03.11: отдельный код — бот на 9 советует НЕ протягивать вручную (на 7 — протянуть)
+    side_push "облако тронуло journal/"; exit 9
   fi
   # перепроверка №4 (TOCTOU): пересаживаем на ТОТ снимок origin/master, который только что проверили,
   # без второго fetch внутри pull
@@ -53,7 +73,8 @@ if ! git push -q origin master; then
     echo "[checkpoint] push прошёл после пересадки поверх облачных коммитов"
   else
     git rebase --abort 2>/dev/null
-    echo "[checkpoint] push НЕ прошёл (расхождение с origin? SSH-ключ?) — нужен ручной разбор"; exit 7
+    echo "[checkpoint] push НЕ прошёл (расхождение с origin? SSH-ключ?) — нужен ручной разбор"
+    side_push "пересадка не удалась"; exit 7
   fi
 fi
 echo "[checkpoint] $(date -u +%FT%TZ) ok $(git rev-parse --short HEAD)"
