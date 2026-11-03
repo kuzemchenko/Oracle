@@ -43,7 +43,10 @@ def _series_bank(n=5200):
             pend[i] = 0.06 if math.log(oil[i - 3] / oil[i - 4]) > 0 else -0.06
         tnk.append(tnk[-1] * math.exp(rt + pend.pop(i, 0.0)))
         rndm.append(rndm[-1] * math.exp(rnd.gauss(0, 0.01)))
-    bank = {"OIL": (ds, oil), "TNK": (ds, tnk), "RND": (ds, rndm), "OLDOIL": (ds, oil)}
+    spy = [100.0]
+    for i in range(1, n):
+        spy.append(spy[-1] * math.exp(rnd.gauss(0, 0.008)))
+    bank = {"OIL": (ds, oil), "TNK": (ds, tnk), "RND": (ds, rndm), "OLDOIL": (ds, oil), "SPY": (ds, spy)}
     return lambda s: bank.get(s)
 
 
@@ -112,6 +115,7 @@ def test_test_pairs_scores_and_conflicts():
     r = {(x["from"], x["to"]): x for x in res}
     assert r[("OIL", "TNK")]["вердикт"] == "подтверждена" and r[("OIL", "TNK")]["q"] <= HE.Q_FDR
     assert r[("OIL", "TNK")]["шоки_источника"] == "вверх"
+    assert r[("OIL", "TNK")]["сверх_рынка"]["вердикт"] == "подтверждена"    # не общий рынок, а своя волна
     res2 = HE.test_pairs([ep, ep2], series_fn=_series_bank(), server={"OIL", "TNK", "RND"})
     c = [x for x in res2 if (x["from"], x["to"]) == ("OIL", "TNK")][0]
     assert c["вердикт"] == "конфликт знаков" and c["эпизоды"] == ["2019_test", "2020_other"]

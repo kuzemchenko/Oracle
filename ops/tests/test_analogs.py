@@ -43,3 +43,12 @@ def test_render_shows_code_moves_roles_and_counter_case():
     assert "история пары USO→AXS (шоки вверх): намёк — пошло следом 9 из 20" in txt
     assert "провальный аналог: 2019" in txt
     assert "Похожих эпизодов" in AN.render([])
+
+
+def test_history_prices_norm_keeps_exchange_suffixes():
+    from ops.history_prices import norm
+    assert norm("BRK.B") == "BRK-B" and norm("fro.us") == "FRO"
+    assert [norm(x) for x in ("0293.HK", "9501.T", "RWE.DE", "BP.L", "CJT.TO", "AALI.JK")] == \
+        ["0293.HK", "9501.T", "RWE.DE", "BP.L", "CJT.TO", "AALI.JK"]
+    assert norm("CL=F") == "CL=F" and norm("^GSPC") == "^GSPC" and norm("FRED:dexchus") == "FRED:DEXCHUS"
+    assert norm("нет") is None

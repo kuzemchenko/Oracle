@@ -35,8 +35,11 @@ def norm(sym):
     s = s.upper()
     if s.endswith(".US"):
         s = s[:-3]
-    if "=" not in s and not s.startswith("^"):
-        s = s.replace(".", "-")
+    # класс акций США (BRK.B, BF.B, HEI.A) → Yahoo пишет через дефис; биржевые суффиксы (0293.HK, 9501.T,
+    # RWE.DE, BP.L, CJT.TO, AALI.JK) остаются с точкой — иначе Yahoo отвечает «нет данных» (скептик 03.11)
+    head, dot, tail = s.rpartition(".")
+    if dot and "=" not in s and not s.startswith("^") and tail in ("A", "B", "C") and head.isalpha():
+        s = head + "-" + tail
     return s
 
 
