@@ -83,7 +83,7 @@ def test_weekly_пишет_отчёт_и_заметку(tmp_path, monkeypatch):
     assert md and "Авторазбор §25" in md[0].read_text(encoding="utf-8")
     notice = json.loads(notices.read_text(encoding="utf-8").splitlines()[0])
     assert "пятничный разбор" in notice["text"].lower() and "до точки б1" in notice["text"].lower()   # аудит 03.11: сводка про продукт
-    assert "монетки" in notice["text"]                      # расшифровка для обывателя
+    assert "постоянного прогноза" in notice["text"]          # расшифровка: сравнение с базой трека (ре-гейт №2)
 
 
 def test_watch_дедуп_состояний(tmp_path, monkeypatch):

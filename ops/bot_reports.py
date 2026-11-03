@@ -597,6 +597,8 @@ def load_presentation(path=None):
             "server_observation_push": bool(cfg.get("server_observation_push", True)),
             # аудит 03.11 (ре-гейт): задачи, которые бот запускает сам (ops/bot.py SCHEDULED_JOBS) —
             # без проброса здесь флаги молча терялись и ни одна задача не стартовала
+            # 03.11 (решение владельца): охота ТОЛЬКО по запросу — ежедневного сторожа «идея не готова» нет
+            "daily_hunt": bool(cfg.get("daily_hunt", False)),
             **{k: bool(cfg.get(k, False)) for k in JOB_FLAGS}}
 
 
@@ -618,6 +620,7 @@ def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
            "story_editor": cur["story_editor"],
            "hunter_push": cur["hunter_push"],
            "server_observation_push": cur["server_observation_push"],
+           "daily_hunt": cur["daily_hunt"],
            **{k: cur[k] for k in JOB_FLAGS}}
     p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
                  "Меняется командой /format или руками.\n"
@@ -2483,6 +2486,11 @@ def _view_human(view_id):
     return re.sub(r"^T\d+_", "", vid).replace("_", " ")
 
 
+def _shorten(t, n):
+    t = " ".join(str(t or "").split())
+    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0].rstrip(",;:—-") + "…"
+
+
 def track_score_line(track):
     """Строка счёта трека из журнала (point_b.track_skill) — без зашитых констант (аудит 03.11)."""
     t = track or {}
@@ -2515,7 +2523,8 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
          "проверяемы. Каждый вопрос запечатан и будет сверен с фактом по цене закрытия: так мой "
          "взгляд на мир зарабатывает (или теряет) право на доверие.",
          ""]
-    for q in qs[:8]:
+    lines_q = []
+    for q in qs:
         asset = q.get("asset") or ""
         имя = _asset_human(asset)[0]
         текст = str(q.get("вопрос") or "").strip().rstrip("?.")
@@ -2541,10 +2550,10 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
             текст = f"{текст} [{имя} ({asset})]"
         p = q.get("probability")
         строка = f"— {текст}? — думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) else f"— {текст}?"
-        почему = str(q.get("почему") or "").strip()
+        почему = _shorten(str(q.get("почему") or "").strip(), 170)
         if почему:
             строка += f" Почему: {почему}"
-        в_цене = (q.get("что_уже_в_цене") or {}).get("строка")
+        в_цене = _shorten((q.get("что_уже_в_цене") or {}).get("строка") or "", 110)
         if в_цене:
             строка += f" Что уже в цене: {в_цене}."
         взгляд = q.get("mechanism_id") or q.get("thesis_id")
@@ -2559,17 +2568,31 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
                     import forward_score as FS
                 счёт = FS.score_phrase(scores.get(key))
             строка += f" (взгляд «{имя_в}»: {счёт or 'счёт взгляда копится с этих вопросов'})"
-        L.append(строка)
-    rest = qs[8:]
-    if rest:
-        # ре-гейт 03.11 (П8/П16): запечатано до 12, подробно влезает 8 — остальные называем, чтобы владелец
-        # знал о КАЖДОМ вопросе, который войдёт в счёт
-        names = []
-        for q in rest:
-            a = q.get("asset") or ""
-            nm = _asset_human(a)[0]
-            names.append(f"{nm} ({a})" if nm and nm != a else f"{a} — компанию не опознал")
-        L += ["", f"Ещё {len(rest)} вопрос(а) записаны в счёт и будут сверены так же: " + ", ".join(names) + "."]
+        lines_q.append(строка)
+    # ре-гейт №2 03.11: БЮДЖЕТ ДЛИНЫ — подробно столько вопросов, сколько влезает в лимит подачи;
+    # остальные названы строкой (владелец знает о каждом вопросе, который войдёт в счёт)
+    head, foot = list(L), None
+
+    def _assemble(k):
+        out = head + lines_q[:k]
+        rest = qs[k:]
+        if rest:
+            names = []
+            for q in rest:
+                a = q.get("asset") or ""
+                nm = _asset_human(a)[0]
+                names.append(f"{nm} ({a})" if nm and nm != a else f"{a} — компанию не опознал")
+            out += ["", f"Ещё {len(rest)} вопрос(а) записаны в счёт и будут сверены так же: " + ", ".join(names) + "."]
+        return out
+
+    k = len(lines_q)
+    while True:
+        L = _assemble(k)
+        probe = "\n".join(L + ["", track_score_line(track), "", "Что делать. Ничего: в срок покажу, что сбылось, "
+                                "и счёт каждого взгляда.", "Это исследовательский инструмент, не инвестиционная рекомендация."])
+        if len(probe) <= PL.MAX_LEN - 150 or k <= 1:
+            break
+        k -= 1
     L += ["",
           track_score_line(track),
           "",

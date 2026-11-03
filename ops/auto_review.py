@@ -203,6 +203,7 @@ def compute_review(predictions_path=None, outcomes_path=None, funnel_glob=None,
             "запечатано": len(preds_by.get(track, [])),
             "зреет": sum(1 for p in preds_by.get(track, []) if p.get("hash") not in resolved_h),
             "исходов": len(t_out),
+            "сбылось": sum(1 for o in t_out if o.get("outcome") == 1),
             "brier": _brier(t_out),
             "исходов_7д": len(t_out_7d),
             "brier_7д": _brier(t_out_7d),
@@ -311,8 +312,22 @@ def _product_lines(now=None):
     idea_week = [d for d in m["дни_с_идеей"] if d in weekdays and d not in zero]
     zero_week = [d for d in weekdays if d in zero and d not in idea_week]
     h, t = m["идеи_охотника"], m["событийный_трек"]
-    out = [f"• Идея дня дошла в {len(idea_week)} из {len(weekdays)} будних дней недели"
-           + (f"; ещё {len(zero_week)} — честное «сегодня защищать нечего» с причинами." if zero_week else ".")]
+    try:
+        import yaml as _y
+        daily = bool((_y.safe_load((ROOT / "config" / "presentation.yaml").read_text(encoding="utf-8")) or {}).get("daily_hunt"))
+    except Exception:                                    # noqa: BLE001
+        daily = False
+    if daily:
+        out = [f"• Идея дня дошла в {len(idea_week)} из {len(weekdays)} будних дней недели"
+               + (f"; ещё {len(zero_week)} — честное «сегодня защищать нечего» с причинами." if zero_week else ".")]
+    else:
+        # 03.11 (решение владельца): охота по запросу — считаем запросы недели (заявки claims/<дата>.txt)
+        cdir = ROOT / "reports" / "ideas" / "claims"
+        req = sorted(f.stem for f in cdir.glob("*.txt") if f.stem >= monday.isoformat()) if cdir.is_dir() else []
+        ideas_w = sorted(d for d in m["дни_с_идеей"] if d >= monday.isoformat() and d not in zero)
+        zero_w = sorted(d for d in zero if d >= monday.isoformat())
+        out = [(f"• За неделю ты запросил идею {len(req)} раз(а): пришло идей — {len(ideas_w)}, честных «защищать "
+                f"нечего» — {len(zero_w)}.") if req else "• За неделю запросов «найди идею» не было."]
     if h["исходов"]:
         out.append(f"• Идеи охотника: сверено {h['исходов']}, сбылось {h['сбылось']}"
                    + (f"; от обычной качки цен сбылось бы около {h['база_ожидание']}" if h["база_ожидание"] is not None else "")
@@ -347,12 +362,17 @@ def _summary_notice(r):
     week_n = m["исходов_7д"] + pv["исходов_7д"] + (ef.get("исходов_7д") or 0)
     # ре-гейт 03.11 (П8): оценка — из посчитанного Brier, не зашитой фразой
     b = pv.get("brier")
-    if b is None:
+    n_pv = int(pv.get("исходов") or 0)
+    if b is None or not n_pv:
         verdict = "счёт точности пока не посчитан"
     else:
-        verdict = (f"счёт точности {b} при 0.25 у подбрасывания монетки (меньше — лучше) — "
-                   + ("не лучше монетки, поэтому в идеи дня он не идёт" if float(b) >= 0.245
-                      else "чуть лучше монетки, но до доказанного умения далеко"))
+        # ре-гейт №2 03.11: сравнение с постоянным прогнозом по СВОЕЙ частоте трека q(1−q), а не с 0.25 —
+        # при почти постоянной вероятности абсолютный порог хвалил бы ухудшение
+        q = float(pv.get("сбылось") or 0) / n_pv
+        base = q * (1 - q)
+        verdict = (f"счёт точности {b} при {round(base, 4)} у постоянного прогноза «как обычно» (меньше — "
+                   "лучше) — " + ("не лучше такого прогноза, поэтому в идеи дня он не идёт" if float(b) >= base - 0.005
+                                  else "чуть лучше, но до доказанного умения далеко"))
     text = (
         "Пятничный разбор: что было за неделю\n\n"
         + "\n".join(_product_lines(r.get("_now"))) + "\n\n"

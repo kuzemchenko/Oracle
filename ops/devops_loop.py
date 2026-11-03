@@ -105,7 +105,7 @@ def generate_proposals(metrics, calib):
             "предложение": "решение §11 (закрыть/перезапустить с новой гипотезой edge) — только подпись владельца",
             "эффект": "защита от sunk cost", "требует_подписи": True})
     pv = calib.get("провизорный") or {}
-    n_pv = int(pv.get("исходов") or 0)
+    n_pv = int(pv.get("исходов_с_вероятностью") or pv.get("исходов") or 0)   # та же популяция, что у Brier
     q = (float(pv.get("сбылось") or 0) / n_pv) if n_pv else None
     if n_pv >= GRADUATE_N and pv.get("brier") is not None and q is not None \
             and float(pv["brier"]) <= q * (1 - q) - GRADUATE_MARGIN:

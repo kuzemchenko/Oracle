@@ -505,7 +505,18 @@ def test_watermark_no_carousel_after_50_protocols(tmp_path, monkeypatch):
 
 
 def test_more_than_8_questions_all_named():
-    qs = [{"asset": f"USO.US", "вопрос": f"Нефть закроется выше ${80 + i} к 1 декабря", "probability": 0.4,
-           "почему": "запасы низкие"} for i in range(10)]
-    text, viol = R.format_week_odds({"ts": "2026-11-10T08:10:00+00:00", "вопросы": qs})
-    assert not viol and "Ещё 2 вопрос(а) записаны в счёт" in text
+    """Ре-гейт №2 03.11: бюджет длины — подробно столько, сколько влезает; остальные названы строкой;
+    12 вопросов с длинными «почему» и «в цене» проходят линт (раньше на 6+ подача падала целиком)."""
+    short = [{"asset": "USO.US", "вопрос": f"Нефть закроется выше ${80 + i} к 1 декабря", "probability": 0.4,
+              "почему": "запасы низкие"} for i in range(10)]
+    text, viol = R.format_week_odds({"ts": "2026-11-10T08:10:00+00:00", "вопросы": short})
+    assert not viol and text.count("— думаю, около") == 10 and "Ещё" not in text
+    long_ = [{"asset": "USO.US", "вопрос": f"Нефть (фонд USO) закроется выше ${80 + i} к 1 декабря",
+              "probability": 0.4, "mechanism_id": "energy_supply_shock",
+              "почему": "Запасы на минимуме за пять лет, добыча в США упёрлась в потолок, а спрос зимой растёт — " * 3,
+              "что_уже_в_цене": {"строка": "ход с повода пока меньше трети обычной амплитуды механизма " * 2}}
+             for i in range(12)]
+    text, viol = R.format_week_odds({"ts": "2026-11-10T08:10:00+00:00", "вопросы": long_})
+    assert not viol, viol
+    k = text.count("— думаю, около")
+    assert 1 <= k < 12 and f"Ещё {12 - k} вопрос(а) записаны в счёт" in text

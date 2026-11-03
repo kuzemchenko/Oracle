@@ -415,7 +415,7 @@ def test_more_ideas_under_hunter_uses_server_top3(tmp_path, monkeypatch):
 def test_watchdog_one_honest_message_when_no_idea_by_13(tmp_path, monkeypatch):
     import datetime as _dt
     b, notes = _setup(tmp_path, monkeypatch, [])
-    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False, "daily_hunt": True})
     early = _dt.datetime(2026, 11, 2, 13, 5, tzinfo=_dt.timezone.utc)
     b._tick_idea_day_watchdog(early)                 # перепроверка №3: до штатной доставки — молчим
     assert not b.tg.sent
@@ -879,13 +879,19 @@ def test_update_without_what_changed_is_silent_and_greeting_once(tmp_path, monke
     Исправление без абзаца «Что изменилось.» тихо заменяет прошлую версию; приветствие — один раз."""
     b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
     b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
-    b.state["hunter_lids"] = {"h_2026-11-02_MP": {"run_id": "h_2026-11-02_MP", "catalyst_date": "2026-01-01",
-                                                  "header": "старый заголовок", "sealed": True}}
+    b.state["hunter_lids"] = {"h_2026-11-02_MP": {"run_id": "h_2026-11-02_MP", "sealed": True}}
     b._tick_hunter_ideas()
     assert not b.tg.sent
     assert any(k.startswith("idea_2026-11-02_MP.push.txt@") and k != "idea_2026-11-02_MP.push.txt@0000000000"
                for k in b.state["hunter_delivered"])
-    lid = b.state["hunter_lids"]["h_2026-11-02_MP"]                # ре-гейт 03.11: состояние обновлено
+    # ре-гейт №2 03.11 (П8): сменились дата развилки/заголовок/план — НЕ тихо: уходит обновлением с пометкой
+    b2, _n2 = _setup(tmp_path / "m", monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    b2.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
+    b2.state["hunter_lids"] = {"h_2026-11-02_MP": {"run_id": "h_2026-11-02_MP", "catalyst_date": "2026-01-01",
+                                                   "header": "старый заголовок", "sealed": True}}
+    b2._tick_hunter_ideas()
+    assert b2.tg.sent and "Поменялись дата развилки" in b2.tg.sent[-1][1]
+    lid = b2.state["hunter_lids"]["h_2026-11-02_MP"]
     assert lid["header"] != "старый заголовок" and lid["catalyst_date"] != "2026-01-01"
 
 
@@ -905,7 +911,7 @@ def test_delivery_journal_records_what_reached_owner(tmp_path, monkeypatch):
     monkeypatch.setattr(BOT, "DELIVERIES_PATH", dl)
     b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
     b._tick_hunter_ideas()
-    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False, "daily_hunt": True})
     b.state["idea_day_delivered"] = None
     b._tick_idea_day_watchdog(_dt.datetime(2026, 11, 3, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc))
     day = _dt.datetime(2026, 11, 3, 16, 0, tzinfo=_dt.timezone.utc)
@@ -975,7 +981,7 @@ def test_honest_zero_delivered_even_on_weekend_and_linted(tmp_path, monkeypatch)
     assert "готов защищать, нет" in msg and "Cal-Maine Foods (CALM)" in msg and "Станет идеей, если" in msg
     assert "Проверил кандидатов: 7" in msg
     b2, notes2 = _setup(tmp_path / "x", monkeypatch, [])
-    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False, "daily_hunt": True})
     f2 = tmp_path / "x" / "reports" / "ideas" / "idea_2026-11-09_none.json"
     f2.write_text(_json.dumps({"reasons": ["шанс 60% мал"]}, ensure_ascii=False), encoding="utf-8")
     mon = _dt.datetime(2026, 11, 9, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc)
@@ -1056,7 +1062,7 @@ def test_silent_dozor_not_pushed_and_watchdog_says_why(tmp_path, monkeypatch):
     b._tick_notices()
     sent = [t for _c, t, _k in b.tg.sent]
     assert sent == ["Сервер забрал новый код, но он не компилируется."]
-    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False, "daily_hunt": True})
     day = rows[0]["ts"][:10]
     d = _dt.datetime.fromisoformat(day + "T15:05:00+00:00")
     if d.isoweekday() > 5:
@@ -1104,3 +1110,47 @@ def test_honest_zero_goes_in_the_morning_and_snapshot_exact_date(tmp_path, monke
     assert PS.lookup("MP", "2026-11-01", path=snap)["точно_на_дату"] is False      # воскресенье
     late = PS.lookup("MP", "2026-11-04", path=snap)
     assert late["on_or_before"] is None and late["точно_на_дату"] is False
+
+
+def test_regate2_on_demand_retry_and_one_idea_per_day(tmp_path, monkeypatch):
+    """Ре-гейт №2 03.11: (1) «найди идею» в Telegram — подсказка про охоту по запросу, не старый прогон;
+    (2) режим по запросу — сторож «идея не готова» по часам молчит; (3) сбой Telegram не теряет выпуск
+    «Шансов недели» (знак двигается только после отправки); (4) после запасной лидер той же даты не уходит."""
+    import datetime as _dt
+    import json as _json
+    from test_idea_gate import CARD
+    b, _n = _setup(tmp_path, monkeypatch, [])
+    assert BOT.Bot._intent_hunt("найди идею про медь") and not BOT.Bot._intent_hunt("прогон")
+    ran = []
+    monkeypatch.setattr(b, "_cmd_run_funnel", lambda chat: ran.append(chat))
+    b._on_message({"chat": {"id": b.chat_id}, "text": "найди идею про медь"})
+    assert b.tg.sent and "по твоему запросу" in b.tg.sent[-1][1] and not ran
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    n0 = len(b.tg.sent)
+    b._tick_idea_day_watchdog(_dt.datetime(2026, 11, 4, 16, 0, tzinfo=_dt.timezone.utc))
+    assert len(b.tg.sent) == n0                                    # по запросу — без «не готова»
+    # (3) «Шансы недели»: сбой отправки → повтор
+    d = tmp_path / "journal" / "week_odds"
+    d.mkdir(parents=True)
+    from orchestrator import week_odds as WO
+    from test_week_odds import _theses, _mechs, StubClient, NOW
+    base = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                            mechs_path=_mechs(tmp_path), out_dir=tmp_path / "x", client=StubClient())
+    (d / "wo_20261110T081000Z.json").write_text(_json.dumps({**base, "mode": "live", "запечатано": 2,
+                                                             "печать_запрошена": True}, ensure_ascii=False), "utf-8")
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": True})
+    real = b.tg.send_message
+    monkeypatch.setattr(b.tg, "send_message", lambda *a, **k: None)
+    b._tick_week_odds()
+    monkeypatch.setattr(b.tg, "send_message", real)
+    b._tick_week_odds()
+    assert any("Шансы недели" in t for _c, t, _k in b.tg.sent)
+    # (4) запасная ушла → поздно доделанный лидер той же даты не уходит второй идеей
+    b2, _n2 = _setup(tmp_path / "z", monkeypatch, [])
+    ideas = tmp_path / "z" / "reports" / "ideas"
+    b2.state["hunter_alt_days"] = ["2026-11-01"]
+    (ideas / "idea_2026-11-01_MP.push.txt").write_text(GOOD, encoding="utf-8")
+    (ideas / "idea_2026-11-01_MP.md").write_text(MD, encoding="utf-8")
+    (ideas / "idea_2026-11-01_MP.card.json").write_text(_json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
+    b2._tick_hunter_ideas()
+    assert not b2.tg.sent

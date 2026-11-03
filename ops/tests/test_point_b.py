@@ -32,11 +32,15 @@ def test_measure_counts_from_journals_only(tmp_path):
         {"ts": "2026-11-06T00:01:00+00:00", "kind": "бот жив"}])
     _w(j / "deep_dive.jsonl", [{"run_id": "h_x", "asset": "MP.US", "stage": "day2"}])
     _w(tmp_path / "knowledge" / "edge_candidates.jsonl", [{"origin": "thesis"}, {"origin": "mechanism"}])
+    (tmp_path / "reports" / "ideas" / "claims").mkdir(parents=True)
+    (tmp_path / "reports" / "ideas" / "claims" / "2026-11-05.txt").write_text("запрос", encoding="utf-8")   # закрыт 06.11 нолём
+    (tmp_path / "reports" / "ideas" / "claims" / "2026-11-08.txt").write_text("запрос", encoding="utf-8")   # не закрыт
     (tmp_path / "reports" / "machinist").mkdir(parents=True)
     (tmp_path / "reports" / "machinist" / "friday_2026-11-06.md").write_text("x", encoding="utf-8")
     m = PB.measure("2026-11-08", root=tmp_path)
     c = {x["что"]: x["сейчас"] for x in m["критерии"]}
     assert m["дни_с_идеей"] == ["2026-11-03", "2026-11-04", "2026-11-06"]   # 03.11 — по печати до журнала
+    assert m["запросы"] == {"всего": 2, "закрыто": 1, "незакрытые": ["2026-11-08"]}
     assert c["полный цикл прокачки «Качаем 2 дня» дошёл до паспорта"] == 1
     assert c["событийный трек: запечатано вопросов"] == 1 and c["событийный трек: сверено исходов"] == 1
     assert c["связи новых классов под наблюдением (с происхождением)"] == 2

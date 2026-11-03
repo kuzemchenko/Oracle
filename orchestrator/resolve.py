@@ -234,7 +234,8 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         "KILL_проверка": kill,                                                  # F2#22: детерминир. KILL §11 (калибровка); edge — прокси-диагностика, не §11
         "провизорный_трек": {"исходов": len(prov_out),                         # отдельный Brier, НЕ в §11
                              "brier": (None if prov_brier is None else round(prov_brier, 4)),
-                             "сбылось": int(sum(p_outs)) if p_probs else 0},     # ре-гейт 03.11: база трека
+                             "сбылось": int(sum(p_outs)) if p_probs else 0,      # ре-гейт 03.11: база трека
+                             "исходов_с_вероятностью": len(p_probs)},
         "edge_forward_трек": {"исходов": len(ef_out),                          # B4 §R4.5: фарм-поток рёбер,
                               "brier": (None if ef_brier is None else round(ef_brier, 4))},  # НЕ в §11
         "thesis_event_трек": {"исходов": len(te_out),                          # V5 карты v3: «Шансы недели»,

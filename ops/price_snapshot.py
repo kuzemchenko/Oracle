@@ -90,9 +90,25 @@ def lookup(symbol, on_date=None, path=None):
         # дата повода позже снимка, это просто «ещё нет данных»): охотник берёт trigger_close только при точном
         res["точно_на_дату"] = bool(res["on_or_before"] and res["on_or_before"]["date"] == str(on_date)[:10])
         if str(on_date)[:10] > rows[-1][0]:
-            res["on_or_before"] = None
-            res["точно_на_дату"] = False
-            res["примечание"] = "дата повода позже снимка — закрытия ещё нет; не подставляй прошлое"
+            # ре-гейт №2 03.11: суббота/воскресенье сразу после последнего закрытия — это выходной, а не
+            # «данных ещё нет»: отдаём пятничное закрытие с пометкой
+            try:
+                d0 = datetime.date.fromisoformat(rows[-1][0])
+                d1 = datetime.date.fromisoformat(str(on_date)[:10])
+                gap = [(d0 + datetime.timedelta(days=i)) for i in range(1, (d1 - d0).days + 1)]
+                weekend_only = bool(gap) and all(x.isoweekday() > 5 for x in gap)
+            except ValueError:
+                weekend_only = False
+            if weekend_only:
+                res["on_or_before"] = {"date": rows[-1][0], "close": rows[-1][1]}
+                res["точно_на_дату"] = False
+                res["примечание"] = "дата повода — выходной: это закрытие последнего торгового дня перед ним"
+            else:
+                res["on_or_before"] = None
+                res["точно_на_дату"] = False
+                res["примечание"] = "дата повода позже снимка — закрытия ещё нет; не подставляй прошлое"
+        elif res["on_or_before"] and not res["точно_на_дату"]:
+            res["примечание"] = "дата повода — выходной или праздник: это закрытие последнего торгового дня перед ним"
     return res
 
 

@@ -66,6 +66,23 @@ def idea_days(deliveries, preds, since="2026-11-02", until=None):
     return sorted(d for d in days if datetime.date.fromisoformat(d).isoweekday() <= 5)
 
 
+def requests_closed(root, deliveries):
+    """03.11 (охота по запросу): запрос владельца = заявка reports/ideas/claims/<дата>.txt; закрыт, если в тот
+    же или следующий день ушла идея охотника или честный ноль. → (запросов, закрыто, [незакрытые даты])."""
+    d = pathlib.Path(root) / "reports" / "ideas" / "claims"
+    days = sorted(f.stem for f in d.glob("*.txt")) if d.is_dir() else []
+    got = {str(r.get("ts"))[:10] for r in deliveries if r.get("kind") in IDEA_KINDS}
+    open_ = []
+    for day in days:
+        try:
+            nxt = (datetime.date.fromisoformat(day) + datetime.timedelta(days=1)).isoformat()
+        except ValueError:
+            continue
+        if day not in got and nxt not in got:
+            open_.append(day)
+    return len(days), len(days) - len(open_), open_
+
+
 def _week(iso):
     try:
         y, w, _ = datetime.date.fromisoformat(str(iso)[:10]).isocalendar()
@@ -124,8 +141,11 @@ def measure(today=None, root=None):
     thesis = track_skill("thesis_event", preds, outs)
     hunter = track_skill("hunter_idea", preds, outs)
     alive = sorted({str(r.get("ts"))[:10] for r in deliveries if r.get("kind") == "бот жив"})
+    n_req, n_closed, req_open = requests_closed(root, deliveries)
     crit = [
-        ("Б1", "дни с идеей охотника или честным нолём до 15:00 UTC", len(days), 15),
+        # 03.11: охота по запросу владельца — главный счёт потока: закрытые запросы (определение — на подпись)
+        ("Б1", "твои запросы «найди идею», закрытые идеей или честным «нечего»", n_closed, 10),
+        ("Б1", "дни с идеей охотника или честным нолём до 15:00 UTC (старое определение)", len(days), 15),
         ("Б1", "полный цикл прокачки «Качаем 2 дня» дошёл до паспорта", len(passports), 1),
         ("Б1", "этапы V0–V2 закрыты гейтами", sum(1 for k in ("V0", "V1", "V2") if stages.get(k) == "done"), 3),
         ("Б1", "событийный трек: запечатано вопросов", thesis["печатей"], 1),
@@ -138,6 +158,7 @@ def measure(today=None, root=None):
     ]
     return {"дата": today, "точки": POINTS, "критерии": [
         {"точка": p, "что": what, "сейчас": now, "цель": goal, "выполнено": now >= goal} for p, what, now, goal in crit],
+        "запросы": {"всего": n_req, "закрыто": n_closed, "незакрытые": req_open},
         "дни_с_идеей": days, "дни_честного_ноля": zero_days, "паспорта": [list(x) for x in passports], "этапы": stages,
         "событийный_трек": thesis, "идеи_охотника": hunter, "происхождение_связей": origins,
         "пятницы": fridays, "дни_бот_жив": alive[-10:],
