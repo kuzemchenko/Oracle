@@ -554,9 +554,13 @@ class Bot:
         pend.pop(key, None)
         self.state["themes_pending"] = pend
         self.tg.answer_callback(cb_id, "Взял ✅" if decision == "approved" else "Мимо ❌")
+        if msg.get("message_id"):                  # аудит 03.11: разобранная тема — без кнопок
+            rows = [r for r in ((msg.get("reply_markup") or {}).get("inline_keyboard") or [])
+                    if not any(str(b.get("callback_data", "")).endswith(":" + key) for b in r)]
+            self.tg.edit_reply_markup(chat, msg["message_id"], {"inline_keyboard": rows})
         if not pend:
-            self.tg.send_message(chat, "Пакет тем разобран, спасибо. Одобренные возьму под "
-                                       "наблюдение при ближайшем обновлении библиотеки (с проверкой).")
+            self.tg.send_message(chat, "Пакет тем разобран, спасибо. С ближайшей охоты одобренные темы "
+                                       "идут первыми в зоны поиска идеи дня.")
         self.save()
 
     def _on_proposal_cb(self, cb_id, chat, msg, code, key):
@@ -1281,9 +1285,9 @@ class Bot:
         week = now.strftime("%G-%V")
         if self.state.get("themes_week") == week:
             return
-        if self.state.get("themes_pending"):      # прошлый пакет не разобран — не наслаиваем
-            self.state["themes_week"] = week
-            return
+        # аудит 03.11: неотвеченные темы прошлой недели не блокируют новую карточку — они просто
+        # возвращаются в очередь (решения по ним нет), а старые кнопки гаснут
+        self.state["themes_pending"] = {}
         items = TH.pending_queue()
         if not items:
             self.state["themes_week"] = week

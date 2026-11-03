@@ -232,3 +232,44 @@ def test_skip_reply_promises_only_what_code_does(paths):
     b2._on_callback(_cb("v:m:ef_y"))
     assert "не понял / не верю / поздно" in b2.tg.sent[-1][1]
     assert OF.summary_text([]).startswith("Решений владельца")
+
+
+def test_theme_card_groups_by_instruments_names_and_feeds_hunter(tmp_path):
+    """Аудит 03.11 (P1 №16): одна тема = набор бумаг (а не каждая формулировка); похожие наборы
+    склеиваются, в т.ч. с уже разобранными; имена компаний; одобренные — зоны охотника."""
+    def row(text, inst, pot=0.5, ts="2026-10-01T09:00:00+00:00"):
+        return {"ts": ts, "событие": text, "тектонический_потенциал": pot,
+                "целевой_дальний_узел": {"node": text, "instruments": inst}}
+    prop = tmp_path / "p.jsonl"
+    rows = [row(f"Танкеры {i}", ["FRO.US", "STNG.US"]) for i in range(5)] + \
+        [row("Танкеры шире", ["FRO.US", "INSW.US", "STNG.US"], 0.4),
+         row("Медь — чокпоинт электрификации", ["FCX.US"], 0.6)]
+    prop.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    dec = tmp_path / "d.jsonl"
+    q = TH.pending_queue(prop, dec)
+    assert [r["целевой_дальний_узел"]["instruments"] for _k, r in q] == [["FCX.US"], ["FRO.US", "STNG.US"]]
+    card = TH.format_card(q)
+    assert "Frontline (FRO)" in card and "Всплывала 5 раз" in card and "чокпоинт (узкое место)" in card
+    k_tank = [k for k, r in q if "FRO.US" in r["целевой_дальний_узел"]["instruments"]][0]
+    TH.record_decision(k_tank, "rejected", dict(q)[k_tank], "1", decisions_path=dec)
+    q2 = TH.pending_queue(prop, dec)
+    assert [r["целевой_дальний_узел"]["instruments"] for _k, r in q2] == [["FCX.US"]]   # и «шире» склеилась
+    k_cu = q2[0][0]
+    TH.record_decision(k_cu, "approved", q2[0][1], "1", decisions_path=dec)
+    import owner_feedback as OF
+    th = OF.approved_themes(dec)
+    assert th and th[0]["бумаги"] == ["FCX.US"] and "одобренные владельцем" in OF.summary_text([], th)
+
+
+def test_unanswered_themes_do_not_block_next_saturday_and_buttons_go(paths, monkeypatch, tmp_path):
+    import datetime as _dt
+    b = _bot()
+    b.state["themes_pending"] = {"old": {"событие": "x"}}
+    monkeypatch.setattr(TH, "pending_queue", lambda: [("k1", {"целевой_дальний_узел": {"node": "Тема", "instruments": ["FCX.US"]}})])
+    b._tick_theme_batch(_dt.datetime(2026, 11, 7, 10, 30, tzinfo=_dt.timezone.utc))
+    assert b.tg.sent and "k1" in b.state["themes_pending"] and "old" not in b.state["themes_pending"]
+    monkeypatch.setattr(TH, "record_decision", lambda *a, **k: None)
+    msg = {"message_id": 7, "reply_markup": {"inline_keyboard": [
+        [{"text": "✅ 1", "callback_data": "t:y:k1"}, {"text": "❌ 1", "callback_data": "t:n:k1"}]]}}
+    b._on_theme_cb("cb", "555", msg, "y", "k1")
+    assert b.tg.edits and b.tg.edits[-1][2] == {"inline_keyboard": []}

@@ -57,13 +57,30 @@ def recent(days=30, path=None, today=None):
     return sorted(out, key=lambda x: x["дата"], reverse=True)
 
 
-def summary_text(items):
-    if not items:
-        return "Решений владельца за период нет (кнопок не нажимал или журнал ещё не доехал)."
+THEMES = ROOT / "journal" / "theme_decisions.jsonl"
+
+
+def approved_themes(path=None):
+    """Темы, одобренные владельцем в субботней карточке (последнее решение по ключу) → приоритетные
+    зоны поиска охотника. [{тема, бумаги}]."""
+    last = {}
+    for r in _rows(path or THEMES):
+        if r.get("type") == "theme_decision" and r.get("ключ"):
+            last[r["ключ"]] = r
+    return [{"тема": r.get("узел") or r.get("событие"), "бумаги": r.get("инструменты") or []}
+            for r in last.values() if r.get("решение") == "approved"]
+
+
+def summary_text(items, themes=None):
     lines = []
+    if not items:
+        lines.append("Решений владельца за период нет (кнопок не нажимал или журнал ещё не доехал).")
     for x in items[:20]:
         why = f" — причина: {x['причина']}" if x.get("причина") else ""
         lines.append(f"{x['дата']} {x['бумага']}: {x['решение']}{why}")
+    if themes:
+        lines.append("Темы, одобренные владельцем (искать в них в первую очередь):")
+        lines += [f"- {t['тема']} — бумаги: {', '.join(t['бумаги']) or 'не названы'}" for t in themes[:10]]
     return "\n".join(lines)
 
 
@@ -73,7 +90,9 @@ def main(argv=None):
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     items = recent(a.days)
-    print(json.dumps(items, ensure_ascii=False, indent=1) if a.json else summary_text(items))
+    themes = approved_themes()
+    print(json.dumps({"решения": items, "темы": themes}, ensure_ascii=False, indent=1) if a.json
+          else summary_text(items, themes))
     return 0
 
 
