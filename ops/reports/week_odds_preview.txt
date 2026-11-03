@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/home/oracle/oracle/orchestrator/week_odds.py", line 403, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/oracle/oracle/orchestrator/week_odds.py", line 387, in main
+    r = run_week_odds(mode=a.mode, seal=a.seal, move_fn=make_move_fn())
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oracle/oracle/orchestrator/week_odds.py", line 307, in run_week_odds
+    cl = client or make_client(mode=mode, run_id=run_id)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oracle/oracle/orchestrator/openrouter.py", line 498, in make_client
+    return LiveClient(models, run_id, mode="live")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oracle/oracle/orchestrator/openrouter.py", line 156, in __init__
+    raise RuntimeError("OPENROUTER_API_KEY не задан — LiveClient невозможен (используйте MockClient)")
+RuntimeError: OPENROUTER_API_KEY не задан — LiveClient невозможен (используйте MockClient)

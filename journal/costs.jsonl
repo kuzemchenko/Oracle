@@ -7967,3 +7967,5 @@
 {"ts": "2026-11-03T08:13:35Z", "mode": "live", "agent": "voice_transcriber", "model": "google/gemini-3.5-flash", "prompt_tokens": 544, "completion_tokens": 842, "cost_usd": 0.009087, "ok": true, "run_id": "bot_voice"}
 {"ts": "2026-11-03T08:13:56Z", "mode": "live", "agent": "bot_chat", "model": "anthropic/claude-fable-5", "prompt_tokens": 7247, "completion_tokens": 1108, "cost_usd": 0.12787, "ok": true, "run_id": "bot_chat"}
 {"ts": "2026-11-03T08:30:02Z", "mode": "live", "agent": "hunter_critic", "model": "openai/gpt-5.5", "prompt_tokens": 6863, "completion_tokens": 674, "cost_usd": 0.046471, "ok": true, "run_id": "hunter_court"}
+{"ts": "2026-11-03T08:30:39Z", "mode": "live", "agent": "hunter_critic", "model": "openai/gpt-5.5", "prompt_tokens": 6863, "completion_tokens": 682, "cost_usd": 0.028279, "ok": true, "run_id": "hunter_court"}
+{"ts": "2026-11-03T08:31:10Z", "mode": "live", "agent": "hunter_judge", "model": "google/gemini-3.1-pro-preview", "prompt_tokens": 9908, "completion_tokens": 3415, "cost_usd": 0.060796, "ok": true, "run_id": "hunter_court"}
