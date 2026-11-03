@@ -446,3 +446,15 @@ def test_chance_line_from_code_and_lint_exempt():
     final, probs = HS.prepare_push(body, card)
     assert not probs, probs
     assert "случаях из 100" in final and "если войти по последней цене закрытия" in final
+
+
+def test_preview_flags_entry_far_from_market_like_server():
+    """03.11: DHT прошёл облачный preview, а сервер придержал (рынок 23.86 при входе ≤22.60) —
+    preview обязан ловить то же правило ENTRY_GAP, что server_check."""
+    far = {"direction": "вверх", "entry_limit": 22.6, "spec9": {"last_close": 23.86}}
+    near = {"direction": "вверх", "entry_limit": 23.0, "spec9": {"last_close": 23.86}}
+    down = {"direction": "вниз", "entry_limit": 30.0, "spec9": {"last_close": 27.0}}
+    assert "придержит" in HS.entry_gap_problem(far)
+    assert HS.entry_gap_problem(near) is None
+    assert "придержит" in HS.entry_gap_problem(down)
+    assert HS.entry_gap_problem({"direction": "вверх"}) is None
