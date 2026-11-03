@@ -238,13 +238,19 @@ def _round5(x):
     return int(5 * round(float(x) / 5.0))
 
 
-def _phase_text(verdict):
+def _phase_text(verdict, direction="вверх"):
+    """Фаза «что уже в цене» популярным языком (просьба владельца 03.11: «писать понятно
+    человеку с высшим образованием», без «механизма» и «хода»)."""
     from mathlib import priced_in as PI
-    return {PI.ПРОТИВ: "цена пока шла против механизма — ход, как в похожем случае, ещё не начался",
-            PI.РАНО: "из хода, как в похожем случае, пройдена малая часть",
-            PI.В_ПУТИ: "часть хода, как в похожем случае, уже пройдена",
-            PI.В_ЦЕНЕ: "большая часть хода, как в похожем случае, уже пройдена",
-            PI.ПЕРЕЛЁТ: "ход уже больше, чем был в похожем случае"}.get(verdict, "")
+    move = "рост" if direction == "вверх" else "падение"
+    gen = "роста" if direction == "вверх" else "падения"
+    return {PI.ПРОТИВ: f"пока цена шла в обратную сторону — {move}, как в похожем случае, ещё не начинался"
+                       if move == "рост" else
+                       f"пока цена шла в обратную сторону — {move}, как в похожем случае, ещё не начиналось",
+            PI.РАНО: f"из {gen}, как в похожем случае, пройдена малая часть",
+            PI.В_ПУТИ: f"часть {gen}, как в похожем случае, уже пройдена",
+            PI.В_ЦЕНЕ: f"большая часть {gen}, как в похожем случае, уже пройдена",
+            PI.ПЕРЕЛЁТ: f"цена уже ушла дальше, чем в похожем случае"}.get(verdict, "")
 
 
 def render_with_problems(card, update=False):
@@ -279,7 +285,7 @@ def render_with_problems(card, update=False):
             lo, hi = sorted((abs(ranges[0]["низ"]), abs(ranges[0]["верх"])))
             pf = PI.played_fraction(mv if d == "вверх" else -mv, f"+{lo:g}–{hi:g}%" if lo != hi else f"+{hi:g}%")
             verdict = pf.get("вердикт")
-            phase = _phase_text(verdict)
+            phase = _phase_text(verdict, d)
         if verdict in (PI.В_ЦЕНЕ, PI.ПЕРЕЛЁТ) and not update:
             problems.append(f"звено уже отыграно ({verdict}) — новая идея не уходит")
         out["why"] = f"{WHY_HEAD} {since} бумага {verb} по ценам закрытия" + (f": {phase}." if phase else ".")
@@ -307,10 +313,39 @@ def render_with_problems(card, update=False):
             problems.append("деньги не посчитать кодом: " + ("; ".join(broken) if broken else
                             "выигрыш меньше полутора возможных потерь"))
     else:
-        basis = "при худшем входе из плана" if card.get("entry_limit") else "от последней цены закрытия"
-        out["money"] = (f"{MONEY_HEAD} На пятьсот долларов на бумаге {basis}: прав — около +${_round5(5 * g)} "
+        basis = (("если войти по самой высокой цене из плана" if d == "вверх" else
+                  "если войти по самой низкой цене из плана") if card.get("entry_limit")
+                 else "если войти по последней цене закрытия")
+        out["money"] = (f"{MONEY_HEAD} На пятьсот долларов на бумаге, {basis}: прав — около +${_round5(5 * g)} "
                         f"(+{g:.0f}%), неправ — около −${_round5(5 * l)} (−{l:.0f}%). {sentence}")
+        cs = chance_sentence(card)
+        if cs:
+            out["money"] += " " + cs
     return out, problems
+
+
+def chance_sentence(card):
+    """Решение владельца 03.11 («да, показывай шанс»): шанс цели — ИЗ КОДА (база «случайного взгляда»
+    mathlib/base_odds по σ серверных закрытий, считается при reprice), не со слов модели (Инв#6).
+    Без серверной базы (облачный предпросмотр) — строки нет."""
+    s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+    bp = s9.get("base_probability")
+    try:
+        n = int(round(float(bp) * 100))
+    except (TypeError, ValueError):
+        return None
+    rb = str(s9.get("resolve_by") or "")[:10]
+    try:
+        d = datetime.date.fromisoformat(rb)
+        when = f" к {d.day} {_MONTHS[d.month - 1]}"
+    except ValueError:
+        when = ""
+    if n < 1:
+        n_txt = "меньше чем в 1 случае из 100"
+    else:
+        n_txt = f"примерно в {n} случаях из 100"
+    return (f"Шанс дойти до цели{when}: просто от обычных колебаний цены такое бывает {n_txt} — "
+            "ставка в том, что этот повод даст больше обычного.")
 
 
 def render_numbers(card, update=False):
@@ -366,7 +401,10 @@ def prepare_push(text, card, update=False):
     mm = push_card_mismatch(final, card, require_prices="todo" not in rendered)
     if mm:
         problems.append("текст не согласован с карточкой: " + mm)
-    problems += [str(v) for v in PL.lint_hunter_idea(final)]
+    # строка шанса — из КОДА (решение владельца 03.11): запрет вероятностных слов и счёт чисел
+    # линта стоят против слов МОДЕЛИ, поэтому кодовая строка в линт не идёт
+    cs = chance_sentence(card)
+    problems += [str(v) for v in PL.lint_hunter_idea(final.replace(" " + cs, "") if cs else final)]
     return final, problems
 
 

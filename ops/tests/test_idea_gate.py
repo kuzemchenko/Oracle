@@ -276,7 +276,7 @@ def test_money_paragraphs_written_by_code_from_prices():
     assert "подешевела на 19% по ценам закрытия" in out and "объявления продления перемирия 23 сентября" in out
     assert "+$90 (+18%)" in out and "−$60 (−12%)" in out and "в полтора раза" in out
     assert "подорожала на 5%" not in out and "+31%, риск −2%" not in out
-    assert "ход, как в похожем случае, ещё не начался" in out
+    assert "рост, как в похожем случае, ещё не начинался" in out           # популярный язык (03.11)
     # абзацев нет — вставляются перед «Кто продаёт»
     bare = txt.replace("Почему это ещё не в цене. В похожем случае ход был 31.5%, а бумага подорожала на 5%.\n\n", "")
     out2 = HS.apply_rendered(bare, HS.render_numbers(card))
@@ -430,3 +430,19 @@ def test_targeted_side_entry_update_and_promise_rules(tmp_path):
          "Это исследовательский инструмент, не инвестиционная рекомендация.")
     v = [x for x in PL.lint_hunter_idea(t) if "обещание" in x]
     assert v and "сверю" in v[0] and "пришлю" not in v[0] and "проверю" not in v[0]
+
+
+def test_chance_line_from_code_and_lint_exempt():
+    """Решение владельца 03.11 «да, показывай шанс»: строка шанса — из кода (база шума при reprice),
+    в линт не идёт; без серверной базы строки нет."""
+    card = _c(spec9={**CARD["spec9"], "base_probability": 0.0682})
+    cs = HS.chance_sentence(card)
+    assert cs and "примерно в 7 случаях из 100" in cs and "15 декабря" in cs
+    assert HS.chance_sentence(CARD) is None
+    body = ("Идея дня — 2 ноября. MP Materials (MP) — добытчик: ставлю на рост.\n\n"
+            "Что это значит для тебя. Сегодня ничего.\n\n"
+            "Что делать. Цель $51.44, стоп $35.61, сверка 15 декабря.\n\n"
+            "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    final, probs = HS.prepare_push(body, card)
+    assert not probs, probs
+    assert "случаях из 100" in final and "если войти по последней цене закрытия" in final
