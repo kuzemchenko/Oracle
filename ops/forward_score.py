@@ -15,7 +15,7 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRED = ROOT / "journal" / "predictions.jsonl"
 OUTC = ROOT / "journal" / "outcomes.jsonl"
-KINDS = ("thesis_event",)
+KINDS = ("thesis_event", "hunter_idea")   # аудит 03.11: счёт взгляда (механизма) — и по идеям охотника
 
 
 def _read_jsonl(path):

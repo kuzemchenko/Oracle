@@ -458,3 +458,11 @@ def test_bot_skips_dry_show_silently_and_pushes_latest_sealed(tmp_path, monkeypa
     assert len(b.tg.sent) == 1 and not notes
     assert set(b.state["week_odds_sent"]) == {"wo_20261103T081000Z.json", "wo_20261105T081000Z.json",
                                               "wo_20261105T120000Z.json"}
+
+
+def test_track_score_line_from_journal_not_constant():
+    assert "исходов пока нет" in R.track_score_line(None)
+    t = {"исходов": 12, "сбылось": 5, "база_ожидание": 4.1, "умение": {"verdict": "данных мало"}}
+    line = R.track_score_line(t)
+    assert "сверено 12, сбылось 5" in line and "около 4.1" in line and "данных мало" in line
+    assert "вердикт: лучше шума" in R.track_score_line({**t, "умение": {"verdict": "лучше шума"}})

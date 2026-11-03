@@ -2476,7 +2476,22 @@ def _view_human(view_id):
     return re.sub(r"^T\d+_", "", vid).replace("_", " ")
 
 
-def format_week_odds(protocol, *, name_fn=None, scores=None):
+def track_score_line(track):
+    """Строка счёта трека из журнала (point_b.track_skill) — без зашитых констант (аудит 03.11)."""
+    t = track or {}
+    n = int(t.get("исходов") or 0)
+    if n <= 0:
+        return "Счёт честности трека: исходов пока нет — он начинается с этих вопросов, сверка в даты их сроков."
+    line = f"Счёт честности трека: сверено {n}, сбылось {int(t.get('сбылось') or 0)}"
+    if t.get("база_ожидание") is not None:
+        line += f"; от обычной качки цен сбылось бы около {t['база_ожидание']}"
+    verdict = ((t.get("умение") or {}).get("verdict"))
+    line += (" — данных мало, вывода об умении пока нет." if verdict in (None, "данных мало")
+             else f" — вердикт: {verdict}.")
+    return line
+
+
+def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
     """Протокол week_odds → человеческий пуш: вопросы с процентами и счётом взгляда.
     Возвращает (text, viol): нарушения линта → пуш не уходит (fail-closed, как Идея дня)."""
     try:
@@ -2539,7 +2554,7 @@ def format_week_odds(protocol, *, name_fn=None, scores=None):
             строка += f" (взгляд «{имя_в}»: {счёт or 'счёт взгляда копится с этих вопросов'})"
         L.append(строка)
     L += ["",
-          "Счёт честности трека: исходов пока нет — он начинается с этих вопросов, сверка в даты их сроков.",
+          track_score_line(track),
           "",
           "Что делать. Ничего: в срок покажу, что сбылось, и счёт каждого взгляда. Интересно глубже — "
           "«разбери ТИКЕР» по любой бумаге выше.",

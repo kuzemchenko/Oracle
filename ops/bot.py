@@ -1260,7 +1260,12 @@ class Bot:
             _scores = FS.view_scores()
         except Exception:                      # noqa: BLE001 — подача живёт и без счёта
             _scores = None
-        text, viol = R.format_week_odds(proto, scores=_scores)
+        try:                                   # счёт трека из журнала (аудит 03.11: не константа)
+            import point_b as PB
+            _track = PB.track_skill("thesis_event", PB._jsonl(PB.PRED), PB._jsonl(PB.OUTC))
+        except Exception:                      # noqa: BLE001
+            _track = None
+        text, viol = R.format_week_odds(proto, scores=_scores, track=_track)
         if text is None:
             # Ре-гейт V0 02.11: молчание — нарушение правила этапа; заметка в дозор как у V0
             log("Шансы недели: пуш не ушёл", latest.name, viol[:2])
