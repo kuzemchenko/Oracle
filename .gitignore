@@ -38,3 +38,6 @@ journal/*.anchor.json.tmp
 journal/*.log.[0-9]*
 reports/ideas/_work/
 journal/pull_refused.txt
+
+# аудит 03.11: снимок идей облака при заморозке протяжки (ops/safe_pull.sh) — вне git
+.cache/

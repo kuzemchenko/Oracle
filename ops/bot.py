@@ -61,6 +61,27 @@ def log(*a):
 # ── тонкий Telegram-клиент ──────────────────────────────────────────────────────────
 DELIVERIES_PATH = None      # журнал доставок; None = ROOT/journal/deliveries.jsonl (тесты подменяют)
 
+# Аудит 03.11 (датчики V1): алерт называет причину по коду выхода и готовое действие владельцу
+OWNER_PULL_CMD = ("sudo systemctl stop oracle-bot && cd /home/oracle/oracle && sudo -u oracle git pull "
+                  "--rebase --autostash origin master && crontab -u oracle ops/crontab.txt && "
+                  "sudo systemctl start oracle-bot")
+PULL_CODES = {   # ops/safe_pull.sh
+    "2": ("нет связи с GitHub", "ничего — повторю через час; если так весь день, проверь сеть сервера"),
+    "3": ("ветки сервера и GitHub разошлись", "одна ручная протяжка: " + OWNER_PULL_CMD),
+    "8": ("git был занят другой операцией дольше 15 минут", "ничего — повторю через час"),
+    "9": ("облачный коммит тронул журналы честности — сервер его не пускает (так и задумано)",
+          "не протягивать вручную; напиши мне в сессию — разберу коммит"),
+}
+CHECKPOINT_CODES = {   # ops/checkpoint.sh
+    "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,
+    "4": "в индексе git чужие изменения (ручная работа на сервере) — закончи её или пришли мне git status",
+    "5": "не удалось добавить файлы журналов в git — пришли мне хвост journal/cron.log",
+    "6": "не удалось сделать коммит журналов — пришли мне хвост journal/cron.log",
+    "7": ("главная ветка в GitHub заморожена (облачный коммит ждёт твоего «ок» или ветки разошлись); журналы "
+          "сохранены в запасную ветку server-journal, ничего не потеряно. Одна ручная протяжка: " + OWNER_PULL_CMD),
+    "8": "git был занят другой операцией дольше 15 минут — повторю завтра",
+}
+
 
 class Telegram:
     def __init__(self, token, session=None):
@@ -447,7 +468,7 @@ class Bot:
         f = lid.get("idea_file")
         if f:
             try:
-                card = _json.loads(HS.card_path_for(ROOT / "reports" / "ideas" / f).read_text(encoding="utf-8"))
+                card = _json.loads(HS.card_path_for(self._ideas_dir() / f).read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 card = {}
 
@@ -592,7 +613,7 @@ class Bot:
         except ImportError:
             import hunter_seal as HS
             import hunter_court as HC
-        d = ROOT / "reports" / "ideas"
+        d = self._ideas_dir()
         if not d.exists():
             return
         seen = set(self.state.get("hunter_pushed") or [])          # все отметки (брак/нет-md/…)
@@ -927,7 +948,7 @@ class Bot:
         except ImportError:
             import hunter_seal as HS
         import json as _json
-        d = ROOT / "reports" / "ideas"
+        d = self._ideas_dir()
         done = set(self.state.get("hunter_shadow") or [])
         sretry = self.state.setdefault("hunter_shadow_retry", {})
         import datetime as _dt
@@ -1030,6 +1051,19 @@ class Bot:
             self.state["hunter_lids"] = lids
             self.save()
 
+    def _ideas_dir(self):
+        """Аудит 03.11 (охранный пакет): при отказе протяжки ops/safe_pull.sh кладёт снимок
+        reports/ideas/ из GitHub в .cache/ideas_incoming/ — он новее рабочей копии (эту папку пишет
+        только облако), и бот читает идеи оттуда: «заморозка» кода не останавливает идею дня."""
+        inc = ROOT / ".cache" / "ideas_incoming" / "reports" / "ideas"
+        return inc if inc.is_dir() else ROOT / "reports" / "ideas"
+
+    def _ideas_flow_note(self):
+        """Правда о доставке идей при отказе протяжки: снимок есть — идеи идут, нет — стоят тоже."""
+        if (ROOT / ".cache" / "ideas_incoming" / "reports" / "ideas").is_dir():
+            return "идеи охотника при этом доходят отдельно — снимком из GitHub"
+        return "идеи охотника тоже не доходят, пока протяжка не пройдёт"
+
     def _honest_zero_text(self, day):
         """Честный ноль охотника (reports/ideas/idea_<дата>_none.json): почему сегодня нет идеи, которую
         система готова защищать, и при каком условии ближайший кандидат станет идеей. Текст модели —
@@ -1039,7 +1073,7 @@ class Bot:
             from ops import presentation_lint as PL
         except ImportError:
             import presentation_lint as PL
-        f = ROOT / "reports" / "ideas" / f"idea_{day}_none.json"
+        f = self._ideas_dir() / f"idea_{day}_none.json"
         try:
             rec = _json.loads(f.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -1916,21 +1950,24 @@ class Bot:
                     msg = ("🚨 В GitHub пришёл облачный коммит, который меняет настройки владельца ("
                            + (", ".join(paths[:5]) if paths else "лимиты, веса, рубрику или пороги")
                            + f"; {rec.get('ts')}). Сам сервер такое не применяет — нужно твоё «ок»: посмотри "
-                           "коммит и, если согласен, обнови сервер вручную командой из CLAUDE.md. До этого "
-                           "идеи охотника и правки кода до сервера не доходят.")
+                           "коммит и, если согласен, обнови сервер вручную одной командой:\n" + OWNER_PULL_CMD
+                           + "\nДо этого правки кода до сервера не доходят; " + self._ideas_flow_note() + ".")
                     if self.tg.send_message(self.chat_id, msg) is None:
                         break
                     self.state.setdefault("git_pull_alert_days", {})[str(rec.get("exit"))] = pull_day
                     self.state["alerts_seen"] = i + 1
                     continue
-                msg = (f"🚨 Сервер не смог забрать обновления с GitHub (код {rec.get('exit')}, "
-                       f"{rec.get('ts')}): идеи охотника и правки кода до сервера не доходят. "
-                       "Причина — в journal/cron.log; частая — расхождение веток или облачный "
-                       "коммит в journal/ (безопасная протяжка его не пускает). Нужен ручной разбор.")
+                why, fix = PULL_CODES.get(str(rec.get("exit")), ("причина в journal/cron.log", "пришли мне хвост journal/cron.log"))
+                msg = (f"🚨 Сервер не смог забрать правки кода с GitHub (код {rec.get('exit')}, "
+                       f"{rec.get('ts')}): {why}. {self._ideas_flow_note().capitalize()}. Что сделать: {fix}.")
+            elif rec.get("label") == "checkpoint":
+                why = CHECKPOINT_CODES.get(str(rec.get("exit")), "причина в journal/cron.log")
+                msg = (f"🚨 Вечерний чекпоинт (журналы сервера → GitHub) не прошёл (код {rec.get('exit')}, "
+                       f"{rec.get('ts')}): {why}.")
             else:
-                msg = (f"🚨 Боевой прогон «{rec.get('label')}» упал (код {rec.get('exit')}, "
-                       f"{rec.get('ts')}). Протокола нет — идей сегодня из него не будет. "
-                       f"Хвост ошибки: journal/cron.log; повторить можно командой /run-funnel.")
+                msg = (f"🚨 Задача сервера «{rec.get('label')}» упала (код {rec.get('exit')}, "
+                       f"{rec.get('ts')}). Хвост ошибки — в journal/cron.log; если повторится завтра — "
+                       "пришли мне его.")
             if self.tg.send_message(self.chat_id, msg) is None:
                 break                                  # не дошло — ретрай со следующего tick
             if pull_day:

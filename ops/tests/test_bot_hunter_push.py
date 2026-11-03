@@ -599,7 +599,8 @@ def test_git_pull_alert_dedup_only_after_delivery(tmp_path, monkeypatch):
     assert not (b.state.get("git_pull_alert_days") or {}).get("3")
     monkeypatch.setattr(b.tg, "send_message", real)
     b._tick_alerts()
-    assert any("не смог забрать обновления" in t for _c, t, _k in b.tg.sent)
+    assert any("не смог забрать правки кода" in t and "ветки сервера и GitHub разошлись" in t
+               and "git pull --rebase --autostash" in t for _c, t, _k in b.tg.sent)   # причина и команда
     assert b.state["git_pull_alert_days"]["3"] == "2026-11-03:3"        # дедуп — по дню И коду
 
 
