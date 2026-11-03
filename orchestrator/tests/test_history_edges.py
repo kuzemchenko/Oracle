@@ -129,6 +129,8 @@ def test_eligible_rules():
     ok, why = HE.eligible({**base, "знак_корреляции": -1, "ρ": -0.2})
     assert not ok and "против корреляции" in why
     assert HE.eligible({**base, "знак_корреляции": -1, "ρ": -0.02})[0]     # ρ≈0 — спора нет
+    ok, why = HE.eligible({**base, "ρ": 0.86})
+    assert not ok and "почти одна бумага" in why
     assert HE.eligible({**base, "вердикт": "мало данных", "знак_корреляции": 0})[0]
 
 
