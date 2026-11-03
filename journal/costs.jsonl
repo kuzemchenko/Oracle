@@ -7970,3 +7970,4 @@
 {"ts": "2026-11-03T08:30:39Z", "mode": "live", "agent": "hunter_critic", "model": "openai/gpt-5.5", "prompt_tokens": 6863, "completion_tokens": 682, "cost_usd": 0.028279, "ok": true, "run_id": "hunter_court"}
 {"ts": "2026-11-03T08:31:10Z", "mode": "live", "agent": "hunter_judge", "model": "google/gemini-3.1-pro-preview", "prompt_tokens": 9908, "completion_tokens": 3415, "cost_usd": 0.060796, "ok": true, "run_id": "hunter_court"}
 {"ts": "2026-11-03T08:38:27Z", "mode": "live", "agent": "v5_flow_economist", "model": "openai/gpt-5.5", "prompt_tokens": 7158, "completion_tokens": 3818, "cost_usd": 0.15033, "ok": true, "run_id": "wo_20261103T083729Z"}
+{"ts": "2026-11-03T08:49:48Z", "mode": "live", "agent": "v5_flow_economist", "model": "openai/gpt-5.5", "prompt_tokens": 7158, "completion_tokens": 2679, "cost_usd": 0.085056, "ok": true, "run_id": "wo_20261103T084905Z"}
