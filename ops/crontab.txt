@@ -115,4 +115,4 @@ MAILTO=""
 # 10 8 * * 5 cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh week_odds /home/oracle/oracle/.venv/bin/python orchestrator/week_odds.py --mode live --seal >> journal/cron.log 2>&1
 # V3 «качаем 2 дня» (ежедневно 09:40 UTC — продвижение очереди прокачки после кнопки).
 # ВКЛЮЧИТЬ после ручного прогона испытателя и «ок» владельца (правило внедрения 01.11):
-# 40 9 * * * /home/oracle/oracle/ops/cron_alert.sh deep_dive /home/oracle/oracle/.venv/bin/python /home/oracle/oracle/orchestrator/deep_dive.py --mode auto
+# 40 9 * * * cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh deep_dive /home/oracle/oracle/.venv/bin/python orchestrator/deep_dive.py --mode live >> journal/cron.log 2>&1
