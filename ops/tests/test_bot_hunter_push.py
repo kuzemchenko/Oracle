@@ -20,7 +20,7 @@ from test_bot_v2_loop import _bot    # noqa: E402
 
 GOOD = ("Идея дня — проверочная идея. MP Materials (MP) — добытчик редкоземов: ставлю на рост.\n\n"
         "Что это значит для тебя. Ничего делать не нужно.\n\n"
-        "Что делать. Ждать. Решение за тобой.\n"
+        "Что делать. Ждать. Цель $51.44, стоп $35.61, сверка 15 декабря. Решение за тобой.\n"
         "Это исследовательский инструмент, не инвестиционная рекомендация.")
 
 MD = ("# Исследование\n\nИсточники: https://www.reuters.com/a (2026-10-30), "
@@ -45,14 +45,23 @@ def _setup(tmp_path, monkeypatch, files, no_md=(), no_card=(), verdict="PASS"):
     monkeypatch.setattr(BOT, "ROOT", tmp_path)
     monkeypatch.setattr(BOT.R, "load_presentation", _pres_on)
     monkeypatch.setattr(HS, "MAX_SEAL_LAG_DAYS", 10 ** 6)        # имена тестов датированы жёстко
-    monkeypatch.setattr(HS, "_server_last_close", lambda a, con=None: (39.57, "2026-10-30"))
+    # серверные котировки: свежее закрытие «вчера» (возраст цены сервер меряет по своему дню),
+    # закрытие в день повода — как в карточке, ряд для σ базы шума
+    _last = (_dt.datetime.now(_dt.timezone.utc).date() - _dt.timedelta(days=1)).isoformat()
+    _closes = [39.57 * (1.03 if i % 2 else 0.97) for i in range(60)] + [39.57]
+    prices = {"last_close": 39.57, "last_date": _last, "trigger_close": CARD["trigger_close"],
+              "closes": _closes}
+    monkeypatch.setattr(HS, "_server_prices",
+                        lambda a, td=None, con=None: (dict(prices, trigger_date=td)
+                                                      if prices.get("last_close") else None))
     monkeypatch.setattr(U, "is_sealable", lambda a, **k: True)
     import idea_gate as G
     from ops import idea_gate as G2
     _today = _dt.date(2026, 11, 2)
     for mod in (G, G2):                                        # шлагбаум считает от даты карточки
         _orig = mod.check
-        monkeypatch.setattr(mod, "check", lambda c, today=None, _o=_orig: _o(c, today=_today))
+        monkeypatch.setattr(mod, "check", lambda c, today=None, horizon_from=None, _o=_orig:
+                            _o(c, today=_today, horizon_from=None))
     calls = []
     monkeypatch.setattr(HC, "judge_card", lambda card, **k: (calls.append(card) or (
         {"verdict": verdict, "objection": "проверить спрос", "evidence": "«x»"} if verdict else None),
@@ -69,6 +78,7 @@ def _setup(tmp_path, monkeypatch, files, no_md=(), no_card=(), verdict="PASS"):
     b = _bot()
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    b._test_prices = prices                                     # тест может «уронить» котировки
     return b, notes
 
 
@@ -210,7 +220,7 @@ def test_hunter_push_carries_buttons_footer_and_seals(tmp_path, monkeypatch):
     b._tick_hunter_ideas()
     assert not notes, notes
     _c, text, kb = b.tg.sent[-1]
-    assert "Прогноз запечатан в журнал: MP закроется выше 45" in text
+    assert "Записал в журнал проверку: закроется ли MP выше 45" in text
     assert "Счёт метода охотника" in text
     assert text.rstrip().endswith("не инвестиционная рекомендация.")   # рамка — последней
     datas = [btn["callback_data"] for row in kb["inline_keyboard"] for btn in row]
@@ -331,7 +341,7 @@ def test_shadows_sealed_silently_and_outcome_pushed(tmp_path, monkeypatch):
     b._tick_hunter_followups()
     b._tick_hunter_followups()
     msgs = [t for _c, t, _k in b.tg.sent]
-    assert len(msgs) == 1 and "MP закроется выше 45" in msgs[0] and "сбылось" in msgs[0]
+    assert len(msgs) == 1 and "закроется ли MP выше 45" in msgs[0] and "сбылось" in msgs[0]
 
 
 def test_stale_card_not_sealed_retroactively(tmp_path):
@@ -381,7 +391,7 @@ def test_new_idea_without_card_or_failing_server_gate_not_sent(tmp_path, monkeyp
                                               ("idea_2026-11-02_B.push.txt", GOOD.replace("проверочная", "вторая"))],
                       no_card=("idea_2026-11-02_A.push.txt",))
     from test_idea_gate import CARD
-    bad = {**CARD, "upside_pct": 1}                             # асимметрия провалена
+    bad = {**CARD, "catalyst": {"what": "x", "date": "2027-06-01"}}   # катализатор вне окна
     (tmp_path / "reports" / "ideas" / "idea_2026-11-02_B.card.json").write_text(
         _json.dumps(bad, ensure_ascii=False), encoding="utf-8")
     b._tick_hunter_ideas()
@@ -407,7 +417,8 @@ def test_watchdog_one_honest_message_when_no_idea_by_13(tmp_path, monkeypatch):
     b._tick_idea_day_watchdog(mon13)
     b._tick_idea_day_watchdog(mon13)
     msgs = [t for _c, t, _k in b.tg.sent]
-    assert len(msgs) == 1 and "задерживается" in msgs[0] and notes
+    assert len(msgs) == 1 and "пока не готова" in msgs[0] and notes
+    assert "пришлю, как только пройдёт" not in msgs[0]          # без невыполнимых обещаний
     b2, _n2 = _bot(), None
     b2.state["idea_day_delivered"] = "2026-11-02"
     b2._tick_idea_day_watchdog(mon13)
@@ -470,3 +481,122 @@ def test_update_of_delivered_idea_skips_seal_window_but_not_court(tmp_path, monk
     monkeypatch.setattr(HS, "server_check", lambda *a, **k: (_ for _ in ()).throw(AssertionError("не нужен")))
     b._tick_hunter_ideas()
     assert b.tg.sent and b.tg.sent[0][1].startswith("Обновлённая версия записки")
+
+
+def test_transient_price_failure_retries_instead_of_burying(tmp_path, monkeypatch):
+    """Перепроверка №2: временный сбой котировок (БД занята, EODHD не ответил) не хоронит идею
+    навсегда — повтор через час, одна заметка; котировки вернулись — идея уходит."""
+    import datetime as _dt
+    import bot_state as S
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    b._test_prices["last_close"] = None
+    b._tick_hunter_ideas()
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and len(notes) == 1 and "ждёт серверных котировок" in notes[0]
+    assert not any(k.endswith(":bad") for k in b.state.get("hunter_pushed") or [])
+    b._test_prices["last_close"] = 39.57
+    b._tick_hunter_ideas()
+    assert not b.tg.sent                                         # час ещё не прошёл
+    later = S.now_utc() + _dt.timedelta(minutes=61)
+    monkeypatch.setattr(S, "now_utc", lambda: later)
+    b._tick_hunter_ideas()
+    assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
+
+
+def test_flipped_header_not_sent(tmp_path, monkeypatch):
+    flipped = GOOD.replace("ставлю на рост", "ставлю на снижение")
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", flipped)])
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and any("заголовок" in n for n in notes)
+
+
+def test_update_changing_sealed_bet_blocked(tmp_path, monkeypatch):
+    """Исправление доставленной идеи с другим порогом — не уходит (в журнале другая ставка)."""
+    import json as _json
+    from ops import hunter_seal as HS
+    from test_idea_gate import CARD
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    HS.seal_card(CARD, idea_file="idea_2026-11-02_MP.push.txt", predictions_path=pred,
+                 sealable_fn=lambda a: True, today=__import__("datetime").date(2026, 11, 2))
+    b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
+    moved = {**CARD, "spec9": {**CARD["spec9"], "threshold": 47.0}}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(moved, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and any("меняет порог" in n for n in notes)
+
+
+def test_buttons_of_each_hunter_idea_live_and_kachaem_shows_objection(tmp_path, monkeypatch):
+    """Перепроверка №2: у каждой идеи охотника свои кнопки (вторая идея не убивает кнопки первой);
+    «Качаем» показывает сомнение второй проверки, которое обещала строка «вторая проверка»."""
+    import bot_state as S
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    from test_idea_gate import CARD
+    import json as _json
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD),
+                                               ("idea_2026-11-02_CF.push.txt", GOOD.replace(
+                                                   "MP Materials (MP) — добытчик редкоземов",
+                                                   "CF Industries (CF) — производитель удобрений"))],
+                       verdict="FIX")
+    cf = {**CARD, "ticker": "CF.US", "name": "CF Industries", "spec9": {**CARD["spec9"], "asset": "CF.US"}}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_CF.card.json").write_text(
+        _json.dumps(cf, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(b, "_cmd_check_idea", lambda chat, lead: None)
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 2
+    assert b.state["last_idea_day"]["run_id"] == "h_2026-11-02_CF"
+    n = len(b.tg.sent)
+    b._on_callback({"id": "c", "data": "v:q:h_2026-11-01_MP",
+                    "message": {"message_id": 5, "chat": {"id": 555}}})
+    after = [t for _c, t, _k in b.tg.sent[n:]]
+    assert not any("устарела" in t for t in after)
+    assert any("Сомнение второй проверки" in t and "проверить спрос" in t for t in after)
+    assert b.state["hunter_lids"]["h_2026-11-01_MP"]["action"] == "deep_dive"
+    assert not b.state["last_idea_day"].get("action")            # текущая идея дня не тронута
+
+
+def test_shadow_transient_failure_retried(tmp_path, monkeypatch):
+    import json as _json
+    import datetime as _dt
+    import bot_state as S
+    from ops import hunter_seal as HS
+    from test_idea_gate import CARD
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    monkeypatch.setattr(HS, "OUTC", tmp_path / "out.jsonl")
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_killed.shadow.json").write_text(
+        _json.dumps([CARD], ensure_ascii=False), encoding="utf-8")
+    b._test_prices["last_close"] = None
+    b._tick_hunter_followups()
+    assert not pred.exists() and "idea_2026-11-02_killed.shadow.json" not in (b.state.get("hunter_shadow") or [])
+    b._test_prices["last_close"] = 39.57
+    later = S.now_utc() + _dt.timedelta(minutes=61)
+    monkeypatch.setattr(S, "now_utc", lambda: later)
+    b._tick_hunter_followups()
+    rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
+    assert len(rows) == 1 and rows[0]["kind"] == "hunter_killed"
+
+
+def test_git_pull_alert_dedup_only_after_delivery(tmp_path, monkeypatch):
+    import json as _json
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    j = tmp_path / "journal"
+    j.mkdir(exist_ok=True)
+    (j / "alerts.jsonl").write_text(_json.dumps({"label": "git_pull", "exit": 3,
+                                                 "ts": "2026-11-03T10:05:00Z"}) + "\n", encoding="utf-8")
+    real = b.tg.send_message
+    monkeypatch.setattr(b.tg, "send_message", lambda *a, **k: None)
+    b._tick_alerts()
+    assert not b.state.get("git_pull_alert_day")
+    monkeypatch.setattr(b.tg, "send_message", real)
+    b._tick_alerts()
+    assert any("не смог забрать обновления" in t for _c, t, _k in b.tg.sent)
+    assert b.state.get("git_pull_alert_day") == "2026-11-03"
+
+
+def test_selfcheck_imports_hunter_modules(capsys):
+    assert BOT.selfcheck() == 0
+    assert "модули охоты: OK" in capsys.readouterr().out

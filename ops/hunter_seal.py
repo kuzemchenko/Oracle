@@ -59,6 +59,17 @@ def spec_from_card(card, idea_file=None, kind=KIND):
         "вероятность_источник": "охотник (LLM, сырая, не калибрована — владельцу не показывается)",
         "mechanism_id": card.get("mechanism_id"), "zone": card.get("zone"),
         "idea_file": idea_file,
+        # перепроверка №2 (03.11): в записи — серверный якорь порога и цены идеи (чем мерили),
+        # и БАЗА «случайного взгляда» (шанс того же закрытия от одной качки цены, кодом) — по ней
+        # счёт метода отличает умение от шума
+        "якорь_цена": s.get("last_close"), "якорь_дата": s.get("last_close_date"),
+        "якорь_источник": s.get("цена_источник") or "карточка",
+        "цена_повода": card.get("trigger_close"), "дата_повода": card.get("trigger_date"),
+        "цель": card.get("target_price"), "стоп": card.get("stop_price"),
+        "вход_не_хуже": card.get("entry_limit"),
+        "вероятность_база": s.get("base_probability"),
+        "катализатор_дата": (card.get("catalyst") or {}).get("date")
+                            if isinstance(card.get("catalyst"), dict) else None,
         "spec_ref": "архитектура охоты 02.11; §9 разрешимость; П16 форвард-онли",
     }
 
@@ -91,21 +102,103 @@ def _idea_stem(name):
     return n
 
 
+_UP_RE = re.compile(r"(?<![а-яё])(рост|покупа|вверх|подорож|дорожа)", re.I)
+_DOWN_RE = re.compile(r"(?<![а-яё])(снижени|падени|вниз|подешев|дешевеет|шорт|продаю\b)", re.I)
+_BET_RE = re.compile(r"ставлю\s+на\s+([а-яё]+)", re.I)
+_NUM_RE = re.compile(r"(?<![\d.,])\d+(?:[.,]\d+)?")
+
+
+def _bet_side(header):
+    """Сторона ставки по ЗАГОЛОВКУ: «ставлю на <слово>» → 'вверх'|'вниз'|None; без фразы — по
+    словам-маркерам, только если они однозначны (перепроверка №2: поиск подстрок по всему тексту
+    находил «рост» в «роста»/«просто» и пропускал перевёрнутый заголовок)."""
+    m = _BET_RE.search(header)
+    if m:
+        w = m.group(1)
+        if _UP_RE.match(w):
+            return "вверх"
+        if _DOWN_RE.match(w):
+            return "вниз"
+    up, down = bool(_UP_RE.search(header)), bool(_DOWN_RE.search(header))
+    if up != down:
+        return "вверх" if up else "вниз"
+    return None
+
+
+def _has_number(text, value, rel=0.005):
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return True                                # в карточке нет числа — сверять нечего
+    for tok in _NUM_RE.findall(text):
+        try:
+            x = float(tok.replace(",", "."))
+        except ValueError:
+            continue
+        if v and abs(x - v) <= abs(v) * rel:
+            return True
+    return False
+
+
 def push_card_mismatch(text, card):
     """Текст пуша и §9-карточка говорят об одном? (перепроверка 02.11: суд и шлагбаум проверяли
-    карточку, а владелец получал push.txt — согласованность кодом не сверялась). → причина | None."""
+    карточку, а владелец получал push.txt). Fail-closed: (1) тикер карточки есть в тексте;
+    (2) ЗАГОЛОВОК прямо называет сторону ставки, и она = direction карточки; (3) цель и стоп
+    карточки (цены) и дата сверки §9 есть в тексте — владелец видит ту же ставку, что в журнале.
+    → причина | None."""
     t = str(text or "")
-    base = str((card or {}).get("ticker") or "").upper().split(".")[0]
+    card = card or {}
+    base = str(card.get("ticker") or "").upper().split(".")[0]
     if base and not re.search(rf"(?<![A-Z]){re.escape(base)}(?![A-Z])", t):
         return f"в тексте нет тикера {base} из карточки"
-    d = str((card or {}).get("direction") or "").lower()
-    low = t.lower()
-    up = any(w in low for w in ("рост", "покупаю", "вверх"))
-    down = any(w in low for w in ("снижен", "падени", "ставлю на падение", "вниз"))
-    if d == "вверх" and down and not up:
-        return "карточка «вверх», а текст — про снижение"
-    if d == "вниз" and up and not down:
-        return "карточка «вниз», а текст — про рост"
+    header = next((ln for ln in t.split("\n") if ln.strip()), "")
+    d = str(card.get("direction") or "").lower()
+    side = _bet_side(header)
+    if side is None:
+        return "в заголовке не сказано однозначно, на что ставлю (рост/снижение)"
+    if d in ("вверх", "вниз") and side != d:
+        return f"карточка «{d}», а заголовок — ставка «{side}»"
+    for key, what in (("target_price", "цель"), ("stop_price", "стоп")):
+        if card.get(key) is not None and not _has_number(t, card.get(key)):
+            return f"в тексте нет {what} {card.get(key)} из карточки"
+    s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+    rb = str(s9.get("resolve_by") or "")[:10]
+    if rb:
+        try:
+            dd = datetime.date.fromisoformat(rb)
+        except ValueError:
+            return "в карточке битая дата сверки"
+        if f"{dd.day} {_MONTHS[dd.month - 1]}" not in t and dd.strftime("%d.%m") not in t:
+            return f"в тексте нет даты сверки {dd.day} {_MONTHS[dd.month - 1]} из карточки"
+    return None
+
+
+def sealed_record(idea_file, predictions_path=None, kind=KIND):
+    """Запечатанная запись этой идеи (по стему) или None."""
+    stem = _idea_stem(idea_file)
+    recs = [r for r in _read_jsonl(predictions_path or PRED)
+            if r.get("kind") == kind and _idea_stem(r.get("idea_file")) == stem]
+    return recs[-1] if recs else None
+
+
+def update_bet_mismatch(card, idea_file, predictions_path=None):
+    """Исправление доставленной идеи не вправе менять ЗАПЕЧАТАННУЮ ставку (перепроверка №2:
+    футер говорил «уже записан», а текст нёс другой порог/срок). → причина | None."""
+    rec = sealed_record(idea_file, predictions_path)
+    if rec is None:
+        return None
+    try:
+        spec = spec_from_card(card, idea_file=idea_file)
+    except ValueError as e:
+        return f"спека исправления не разрешима: {e}"
+    for k in ("asset", "direction"):
+        if str(spec.get(k) or "").upper() != str(rec.get(k) or "").upper():
+            return f"исправление меняет {k}: в журнале {rec.get(k)}, в карточке {spec.get(k)}"
+    if abs(float(spec["threshold"]) - float(rec.get("threshold") or 0)) > 1e-9:
+        return f"исправление меняет порог: в журнале {rec.get('threshold')}, в карточке {spec['threshold']}"
+    if str(spec["resolve_by"])[:10] != str(rec.get("resolve_by") or "")[:10]:
+        return (f"исправление меняет дату сверки: в журнале {str(rec.get('resolve_by'))[:10]}, "
+                f"в карточке {str(spec['resolve_by'])[:10]}")
     return None
 
 
@@ -116,9 +209,19 @@ def idea_sealed(idea_file, predictions_path=None, kind=KIND):
                for r in _read_jsonl(predictions_path or PRED))
 
 
-def _server_last_close(asset, con=None):
-    """Последняя цена закрытия по СЕРВЕРНЫМ котировкам (Инв#6: не со слов LLM) — с добором истории
-    для бумаги вне базы (data/eodhd.ensure_history), если есть ключ EODHD. → (цена, дата) | (None, None)."""
+TRANSIENT = "ПОВТОР: "          # префикс причины временного сбоя: не брак, повторить позже
+MAX_TRIGGER_CLOSE_DIFF = 0.03   # цена в день повода в карточке против котировок сервера: допуск 3%
+
+
+def is_transient(fails):
+    """Причина — временный сбой данных (нет/устарела серверная цена), а не брак идеи."""
+    return bool(fails) and str(fails[0]).startswith(TRANSIENT)
+
+
+def _server_prices(asset, trigger_date=None, con=None):
+    """СЕРВЕРНЫЕ котировки для шлагбаума (Инв#6: не со слов LLM) с добором истории бумаги вне
+    базы (data/eodhd.ensure_history), если есть ключ EODHD. → {'last_close', 'last_date',
+    'trigger_close', 'trigger_date', 'closes'} | None (нет базы/строк — временный сбой)."""
     import os
     import sqlite3
     db = ROOT / "storage" / "oracle.db"
@@ -126,7 +229,7 @@ def _server_last_close(asset, con=None):
     try:
         if con is None:
             if not db.exists():
-                return None, None
+                return None
             con = sqlite3.connect(db, timeout=30)
         key = os.environ.get("EODHD_API_KEY")
         if key:
@@ -136,20 +239,43 @@ def _server_last_close(asset, con=None):
                 E.ensure_history(con, [asset], key)
             except Exception:                          # noqa: BLE001 — добор best-effort
                 pass
-        row = con.execute("SELECT close, date FROM quotes WHERE symbol=? AND close IS NOT NULL "
-                          "ORDER BY date DESC LIMIT 1", (asset,)).fetchone()
-        return (float(row[0]), str(row[1])[:10]) if row else (None, None)
-    except Exception:                                  # noqa: BLE001
-        return None, None
+        rows = con.execute("SELECT date, close FROM quotes WHERE symbol=? AND close IS NOT NULL "
+                           "ORDER BY date DESC LIMIT 61", (asset,)).fetchall()
+        if not rows:
+            return None
+        out = {"last_close": float(rows[0][1]), "last_date": str(rows[0][0])[:10],
+               "closes": [float(r[1]) for r in reversed(rows)], "trigger_close": None,
+               "trigger_date": None}
+        if trigger_date:
+            tr = con.execute("SELECT date, close FROM quotes WHERE symbol=? AND close IS NOT NULL "
+                             "AND date<=? ORDER BY date DESC LIMIT 1",
+                             (asset, str(trigger_date)[:10])).fetchone()
+            if tr:
+                d = datetime.date.fromisoformat(str(tr[0])[:10])
+                if (datetime.date.fromisoformat(str(trigger_date)[:10]) - d).days <= 5:
+                    out["trigger_close"], out["trigger_date"] = float(tr[1]), str(tr[0])[:10]
+        return out
+    except Exception:                                  # noqa: BLE001 — «база занята» и пр. — временно
+        return None
     finally:
         if own and con is not None:
             con.close()
 
 
-def server_check(card, *, idea_file, today=None, last_close_fn=None):
+def _server_last_close(asset, con=None):
+    """Совместимость: только последняя серверная цена → (цена, дата) | (None, None)."""
+    pr = _server_prices(asset, con=con)
+    return (pr["last_close"], pr["last_date"]) if pr else (None, None)
+
+
+def server_check(card, *, idea_file, today=None, last_close_fn=None, prices_fn=None):
     """ШЛАГБАУМ КОДОМ НА СЕРВЕРЕ (ревью 02.11: в облаке он исполнялся на слово LLM). Карточка
-    перепроверяется ops/idea_gate.check с СЕРВЕРНОЙ датой; цена закрытия для якоря порога берётся
-    из серверных котировок (если есть). → (ok, причины, карточка_с_серверной_ценой)."""
+    перепроверяется ops/idea_gate.check с СЕРВЕРНОЙ датой; цены (последнее закрытие, закрытие в
+    день повода) — из серверных котировок, проценты хода/потенциала/риска пересчитываются по ним
+    КОДОМ (перепроверка №2 03.11: раньше подменялась только цена закрытия, а «что в цене» и
+    асимметрия считались по числам LLM); горизонт меряется от даты охоты (лаг доставки ≤3 дн).
+    Нет/устарели серверные котировки → причина с префиксом TRANSIENT (повторить позже, не брак).
+    → (ok, причины, карточка_с_серверными_ценами)."""
     import copy
     try:
         from ops import idea_gate as G
@@ -165,15 +291,56 @@ def server_check(card, *, idea_file, today=None, last_close_fn=None):
     s = c2.get("spec9") if isinstance(c2.get("spec9"), dict) else None
     if s is not None:
         asset = str(s.get("asset") or c2.get("ticker") or "").upper()
-        px, pxd = (last_close_fn or _server_last_close)(asset)
-        if px is None:
-            # перепроверка 02.11: без серверной цены якорь/сторону/свежесть проверить нечем —
-            # цена со слов LLM не основание для печати (Инв#6), fail-closed
-            return False, [f"нет серверной цены закрытия {asset} — якорь порога не проверить"], c2
+        if prices_fn is None and last_close_fn is not None:   # тесты: только цена закрытия
+            px, pxd = last_close_fn(asset)
+            pr = None if px is None else {"last_close": px, "last_date": pxd, "closes": None,
+                                          "trigger_close": c2.get("trigger_close"),
+                                          "trigger_date": c2.get("trigger_date")}
+        else:
+            pr = (prices_fn or _server_prices)(asset, c2.get("trigger_date"))
+        if not pr or pr.get("last_close") is None:
+            # без серверной цены якорь/сторону/свежесть проверить нечем — цена со слов LLM не основание
+            # для печати (Инв#6); но это СБОЙ ДАННЫХ, а не брак идеи — повтор позже
+            return False, [TRANSIENT + f"нет серверной цены закрытия {asset} — якорь порога не проверить"], c2
+        px, pxd = float(pr["last_close"]), str(pr["last_date"])[:10]
+        age = (today - datetime.date.fromisoformat(pxd)).days
+        if age > G.MAX_PRICE_AGE_DAYS:
+            return False, [TRANSIENT + f"серверная цена {asset} от {pxd} устарела ({age} дн) — котировки "
+                           "не обновились"], c2
         s["last_close"], s["last_close_date"] = px, pxd
         s["цена_источник"] = "серверные котировки EODHD"
-    res = G.check(c2, today=today)
+        if c2.get("trigger_date"):
+            tcs = pr.get("trigger_close")
+            if tcs is None:
+                return False, [TRANSIENT + f"нет серверного закрытия {asset} на дату повода "
+                               f"{c2.get('trigger_date')}"], c2
+            tcc = G._num(c2.get("trigger_close"))
+            if tcc and abs(tcc / float(tcs) - 1) > MAX_TRIGGER_CLOSE_DIFF:
+                return False, [f"цена в день повода в карточке {tcc:g}, а по котировкам сервера "
+                               f"{float(tcs):g} — автор ошибся в исходной цене"], c2
+            c2["trigger_close"] = float(tcs)
+        pm = G.price_math(str(c2.get("direction") or "").lower(), px, c2.get("trigger_close"),
+                          c2.get("target_price"), c2.get("stop_price"), c2.get("entry_limit"))
+        for key, calc in (("move_since_trigger_pct", "ход_с_повода"), ("upside_pct", "потенциал"),
+                          ("downside_pct", "риск")):
+            if pm.get(calc) is not None:
+                c2[key] = pm[calc]
+        s["base_probability"] = _base_probability(s, pr.get("closes"), pxd)
+    res = G.check(c2, today=today, horizon_from=hd)
     return res["pass"], res["fails"], c2
+
+
+def _base_probability(spec, closes, last_date):
+    """База «случайного взгляда» (mathlib.base_odds) для запечатываемого вопроса или None."""
+    try:
+        from mathlib import base_odds as BO
+        sig = BO.daily_sigma(closes or [])
+        days = BO.trading_days(last_date, str(spec.get("resolve_by"))[:10])
+        p = BO.base_probability(spec.get("last_close"), spec.get("threshold"), sig, days,
+                                str(spec.get("direction") or "").lower()) if sig else None
+        return round(p, 4) if p is not None else None
+    except Exception:                                  # noqa: BLE001 — база не обязательна для печати
+        return None
 
 
 def hunt_date_from_name(name):
@@ -245,13 +412,34 @@ def _read_jsonl(path):
 
 
 def method_score(predictions_path=None, outcomes_path=None, kind=KIND):
-    """Счёт МЕТОДА охотника из журналов (П16: только из журнала, join по hash)."""
+    """Счёт МЕТОДА охотника из журналов (П16: только из журнала, join по hash). Перепроверка №2:
+    голое «K из N» без базы ничего не значит — рядом сумма БАЗ «случайного взгляда» по тем же
+    сверенным вопросам (сколько сбылось бы от одной качки цены; mathlib.base_odds при печати)."""
     preds = [p for p in _read_jsonl(predictions_path or PRED) if p.get("kind") == kind]
     outs = {o.get("hash"): o for o in _read_jsonl(outcomes_path or OUTC)
             if o.get("hash") and o.get("outcome") in (0, 1)}
-    n_out = [outs[p["hash"]] for p in preds if p.get("hash") in outs]
-    return {"идей": len(preds), "исходов": len(n_out),
-            "попаданий": sum(int(o["outcome"]) for o in n_out)}
+    pairs = [(p, outs[p["hash"]]) for p in preds if p.get("hash") in outs]
+    based = [(p, o) for p, o in pairs if isinstance(p.get("вероятность_база"), (int, float))]
+    return {"идей": len(preds), "исходов": len(pairs),
+            "попаданий": sum(int(o["outcome"]) for _p, o in pairs),
+            "с_базой": len(based),
+            "база_ожидание": round(sum(float(p["вероятность_база"]) for p, _o in based), 2),
+            "попаданий_с_базой": sum(int(o["outcome"]) for _p, o in based)}
+
+
+def score_line(score):
+    """Строка «счёт метода» для владельца: K из N и база шума на тех же порогах (кодом)."""
+    n, k, total = score.get("исходов", 0), score.get("попаданий", 0), score.get("идей", 0)
+    if n == 0:
+        return (f"Счёт метода охотника: идей в журнале {total}, сверенных пока нет — "
+                "первые исходы через 3–13 недель.")
+    line = f"Счёт метода охотника: сбылось {k} из {n} сверенных"
+    nb, eb = score.get("с_базой", 0), score.get("база_ожидание")
+    if nb:
+        part = "" if nb == n else f" (из {nb} с посчитанной базой)"
+        line += (f"; от одной обычной качки цен на тех же порогах сбылось бы около {eb:g}{part} — "
+                 "метод полезен, только если заметно чаще")
+    return line + (" — выборка мала, доверять рано." if n < 30 else ".")
 
 
 def _human_date(iso):
@@ -260,14 +448,15 @@ def _human_date(iso):
 
 
 def footer(rec, why, score):
-    """Строки, которые КОД дописывает в пуш: что запечатано и счёт метода (без вероятностей)."""
+    """Строки, которые КОД дописывает в пуш: что запечатано и счёт метода (без вероятностей
+    генератора). Перепроверка №2: прогноз — ВОПРОС, который сверю, а не утверждение «закроется»."""
     lines = []
     if rec:
         side = "выше" if rec["direction"] == "above" else "ниже"
         base = rec["asset"].split(".")[0]
         # разбор 02.11: прогноз проверяет ВЗГЛЯД метода на бумагу, а не сделку владельца (вошёл
         # он или нет, по условию или нет) — говорим это прямо, чтобы счёт и деньги не путались
-        lines.append(f"Прогноз запечатан в журнал: {base} закроется {side} {rec['threshold']:g} "
+        lines.append(f"Записал в журнал проверку: закроется ли {base} {side} {rec['threshold']:g} "
                      f"к {_human_date(rec['resolve_by'])}. Это проверка взгляда метода на бумагу, "
                      "а не твоей сделки: в этот день сверю по цене закрытия и пришлю итог сюда — "
                      "да или нет; запись задним числом не правится.")
@@ -277,13 +466,7 @@ def footer(rec, why, score):
         plain = re.sub(r"\s*\((?:§|П)\d+[^)]*\)", "", str(why))
         plain = re.sub(r"\b([A-Z][A-Z0-9\-]{0,9})\.US\b", r"\1", plain).strip().rstrip(".")
         lines.append(f"Счёт по этой идее не веду: {plain}.")
-    n, k, total = score["исходов"], score["попаданий"], score["идей"]
-    if n == 0:
-        lines.append(f"Счёт метода охотника: идей в журнале {total}, сверенных пока нет — "
-                     "первые исходы через 3–13 недель.")
-    else:
-        lines.append(f"Счёт метода охотника: сбылось {k} из {n} сверенных"
-                     + (" — выборка мала, доверять рано." if n < 30 else "."))
+    lines.append(score_line(score))
     return lines
 
 
@@ -295,8 +478,6 @@ def outcome_message(outcome, score):
     ok = int(outcome.get("outcome")) == 1
     when = _human_date(outcome.get("resolve_by")) if outcome.get("resolve_by") else "дату сверки"
     obs_txt = f"{float(obs):g}" if isinstance(obs, (int, float)) else "нет данных"
-    n, k = score["исходов"], score["попаданий"]
-    return (f"Итог идеи: ставил, что {base} закроется {side} {float(outcome.get('threshold')):g} "
+    return (f"Итог идеи: проверял, закроется ли {base} {side} {float(outcome.get('threshold')):g} "
             f"к {when}. Закрытие — {obs_txt}: {'сбылось' if ok else 'не сбылось'}.\n"
-            f"Счёт метода охотника: сбылось {k} из {n} сверенных"
-            + (" — выборка мала, доверять рано." if n < 30 else "."))
+            + score_line(score))

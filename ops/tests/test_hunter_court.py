@@ -74,3 +74,18 @@ def test_fatal_kept_only_with_verbatim_evidence_and_point_1_4():
     assert HC.judge_card(CARD, client=fake)[0]["verdict"] == "FIX"
     two = Stub('{"verdict":"PASS","objection":"a"} и ещё {"verdict":"FATAL"}', '{"verdict":"PASS","objection":"b"} хвост {x}')
     assert HC.judge_card(CARD, client=two)[0]["verdict"] == "PASS"      # первый объект, не жадный захват
+
+
+def test_fatal_evidence_found_despite_quotes_and_newlines():
+    """Перепроверка №2: улика ищется в ЗНАЧЕНИЯХ карточки (не в json.dumps с экранированием) —
+    дословная цитата с кавычками/переносом строки не разжалуется в FIX."""
+    import copy
+    import json as _json
+    card = copy.deepcopy(CARD)
+    card["thesis"] = 'Правило «0.1%» и "лицензии"\nоживают 10.11 — западные заместители переоцениваются'
+    ev = 'правило 0.1% и лицензии оживают 10.11'
+    st = Stub('{"verdict":"FIX","objection":"x"}',
+              _json.dumps({"verdict": "FATAL", "point": 1, "evidence": ev, "objection": "ложная связь"},
+                          ensure_ascii=False))
+    assert HC.judge_card(card, client=st)[0]["verdict"] == "FATAL"
+    assert HC._norm("«А»\n  Б") == "а б"

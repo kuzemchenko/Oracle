@@ -20,7 +20,7 @@ const OUT = A.out_dir || 'reports/ideas'
 const WORK = A.work_dir || 'reports/ideas/_work'
 const ROT = A.rotation_domain || 'фарма и биотех (даты решений FDA, патентные обрывы)'
 
-const COMMON = `Сегодня ${TODAY}. Проект «Оракул» (/home/user/Oracle). ПЛАНКА идеи — knowledge/idea_bar.yaml (прочитай целиком: жёсткие критерии, зоны поиска, правила суда, шаблон подачи) — она главнее твоих привычек. Контекст: тезисы владельца knowledge/theses_owner.yaml; библиотека механизмов knowledge/mechanisms.yaml (у механизмов — условия срабатывания, прецеденты с числами и URL, контрпримеры); журнал прошлых охот reports/ideas/hunt_log.jsonl (убитых не предлагай повторно, пока не выполнено их «пересмотреть_если»; бумагу, которая там уже «выбрана» за последние 13 недель, не предлагай вовсе — эта идея уже у владельца и ведётся своими проверками, а сервер не откроет второй прогноз по бумаге до сверки первого). П8 строго: каждый факт — живым веб-поиском (WebSearch; при тонких результатах mode extended) с датой и URL; память до 2026 не источник; число без источника — не число. Вероятности владельцу не показываются никогда; сырая вероятность нужна только в §9-спеке для честного счёта. Пиши по-русски; ключи JSON — латиницей по схеме. БЮДЖЕТ ПОИСКА ОБЩИЙ: на всю охоту ~200 запросов WebSearch на всех агентов (живой прогон 02.11 его выбрал, и суду проверять стало нечем) — держи свой лимит из задания; факты проверяй ОТКРЫТИЕМ URL (WebFetch), а не новыми поисками; закрытые хосты не повторяй.`
+const COMMON = `Сегодня ${TODAY}. Проект «Оракул» (/home/user/Oracle). ПЛАНКА идеи — knowledge/idea_bar.yaml (прочитай целиком: жёсткие критерии, зоны поиска, правила суда, шаблон подачи) — она главнее твоих привычек. Контекст: тезисы владельца knowledge/theses_owner.yaml; библиотека механизмов knowledge/mechanisms.yaml (у механизмов — условия срабатывания, прецеденты с числами и URL, контрпримеры); журнал прошлых охот reports/ideas/hunt_log.jsonl (убитых не предлагай повторно, пока не выполнено их «пересмотреть_если»; бумагу, которая там уже «выбрана» за последние 13 недель, не предлагай вовсе — эта идея уже у владельца и ведётся своими проверками, а сервер не откроет второй прогноз по бумаге до сверки первого). П8 строго: каждый факт — живым веб-поиском (WebSearch; при тонких результатах mode extended) с датой и URL; память до 2026 не источник; число без источника — не число. Вероятности владельцу не показываются никогда; сырая вероятность нужна только в §9-спеке для честного счёта. Пиши по-русски; ключи JSON — латиницей по схеме. БЮДЖЕТ ПОИСКА ОБЩИЙ: на всю охоту ~200 запросов WebSearch на всех агентов (живой прогон 02.11 его выбрал, и суду проверять стало нечем) — держи свой лимит из задания; факты проверяй ОТКРЫТИЕМ URL (WebFetch), а не новыми поисками; закрытые хосты не повторяй. ЦЕНЫ, А НЕ ПРОЦЕНТЫ: в карточке обязательны trigger_date + trigger_close (закрытие в день повода), target_price, stop_price и, если вход по условию, entry_limit; проценты хода/потенциала/риска и асимметрию от ХУДШЕГО входа считает код шлагбаума (сервер пересчитает по своим котировкам, а цену в день повода сверит с допуском 3%). ДАТА ФАКТА — дата ПУБЛИКАЦИИ источника, не дата твоей проверки (факт «из будущего» шлагбаум бракует).`
 
 const CARD_PROPS = {
   ticker: { type: 'string', description: 'EODHD-тикер вида MP.US' },
@@ -31,8 +31,13 @@ const CARD_PROPS = {
   thesis: { type: 'string', description: 'механизм в 2–3 фразах: почему цена этой бумаги сдвинется' },
   facts: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, url: { type: 'string' }, date: { type: 'string' } }, required: ['text', 'url', 'date'] } },
   precedent: { type: 'object', properties: { text: { type: 'string' }, amplitude: { type: 'string', description: 'числом: «+30–60%»' }, url: { type: 'string' }, counter: { type: 'string', description: 'контрпример' } }, required: ['text', 'amplitude', 'url'] },
-  move_since_trigger_pct: { type: 'number', description: 'ход ЭТОЙ бумаги с даты повода/сетапа, %' },
-  upside_pct: { type: 'number' }, downside_pct: { type: 'number', description: 'до стоп-условия, %' },
+  trigger_date: { type: 'string', description: 'дата повода/сетапа YYYY-MM-DD (от неё мерится ход)' },
+  trigger_close: { type: 'number', description: 'цена закрытия бумаги в день повода, $ (сервер сверит с котировками, допуск 3%)' },
+  target_price: { type: 'number', description: 'цель, $ (= порог §9 или дальше)' },
+  stop_price: { type: 'number', description: 'стоп, $ — закрытие по ту сторону = выход' },
+  entry_limit: { type: 'number', description: 'худший вход, $: для «вверх» — не дороже, для «вниз» — не дешевле' },
+  move_since_trigger_pct: { type: 'number', description: 'ход ЭТОЙ бумаги с даты повода, % — = (last_close/trigger_close−1)·100, код сверит' },
+  upside_pct: { type: 'number', description: 'до цели от last_close, % — код сверит с ценами' }, downside_pct: { type: 'number', description: 'до стопа от last_close, % — код сверит с ценами' },
   why_not_priced: { type: 'string', description: 'почему звено ещё не в цене — ЧИСЛОМ' },
   who_sells: { type: 'string', description: 'кто продаёт нам и почему (структурная причина)' },
   kill_conditions: { type: 'array', items: { type: 'object', properties: { what: { type: 'string' }, check_by: { type: 'string' } }, required: ['what', 'check_by'] } },
@@ -40,7 +45,7 @@ const CARD_PROPS = {
   spec9: { type: 'object', properties: { asset: { type: 'string' }, direction: { type: 'string', enum: ['above', 'below'] }, threshold: { type: 'number' }, resolve_by: { type: 'string' }, probability: { type: 'number' }, last_close: { type: 'number' }, last_close_date: { type: 'string' }, price_source: { type: 'string' } }, required: ['asset', 'direction', 'threshold', 'resolve_by', 'probability', 'last_close', 'last_close_date'] },
   gate_file: { type: 'string', description: 'путь к JSON карточки, прогнанной через шлагбаум' },
 }
-const CARD_REQ = ['ticker', 'name', 'role', 'direction', 'zone', 'mechanism_id', 'catalyst', 'thesis', 'facts', 'precedent', 'move_since_trigger_pct', 'upside_pct', 'downside_pct', 'why_not_priced', 'who_sells', 'kill_conditions', 'entry', 'spec9', 'gate_file']
+const CARD_REQ = ['ticker', 'name', 'role', 'direction', 'zone', 'mechanism_id', 'catalyst', 'thesis', 'facts', 'precedent', 'trigger_date', 'trigger_close', 'target_price', 'stop_price', 'move_since_trigger_pct', 'upside_pct', 'downside_pct', 'why_not_priced', 'who_sells', 'kill_conditions', 'entry', 'spec9', 'gate_file']
 const CARD = { type: 'object', properties: CARD_PROPS, required: CARD_REQ }
 const SCOUT_SCHEMA = {
   type: 'object',
@@ -69,7 +74,7 @@ const VERDICT = {
 const COURT_RULES = `ПРАВИЛА СУДА (планка, раздел court_rules): ты ПРОВЕРЯЕШЬ, а не казнишь. Бремя доказательства — на тебе: FATAL только с уликой (URL и/или число) и только за жёсткий провал: несущий факт ложен; звено уже отыграно ЧИСЛОМ (ход этой бумаги с даты повода ≥70% прецедентной амплитуды или катализатор уже разрешился); катализатора нет в окне 3–13 недель; бумага неликвидна; механизм ложен (бизнес бумаги не связан с поводом). НЕ основания для FATAL: «тема в новостях», «дата известна всем», «аналитики уже пишут», «рынок эффективен» — это вопрос ЦЕНЫ, отвечай числом или ставь FIX с конкретным запросом. Сомнение = FIX с точным запросом, не FATAL. PASS — если по твоей линзе идею можно защищать перед умным скептиком.`
 
 function brief(c) {
-  return JSON.stringify({ ticker: c.ticker, name: c.name, role: c.role, direction: c.direction, zone: c.zone, mechanism_id: c.mechanism_id, catalyst: c.catalyst, thesis: c.thesis, facts: c.facts, precedent: c.precedent, move_since_trigger_pct: c.move_since_trigger_pct, upside_pct: c.upside_pct, downside_pct: c.downside_pct, why_not_priced: c.why_not_priced, who_sells: c.who_sells, kill_conditions: c.kill_conditions, entry: c.entry, spec9: c.spec9 }, null, 1)
+  return JSON.stringify({ ticker: c.ticker, name: c.name, role: c.role, direction: c.direction, zone: c.zone, mechanism_id: c.mechanism_id, catalyst: c.catalyst, thesis: c.thesis, facts: c.facts, precedent: c.precedent, trigger_date: c.trigger_date, trigger_close: c.trigger_close, target_price: c.target_price, stop_price: c.stop_price, entry_limit: c.entry_limit, move_since_trigger_pct: c.move_since_trigger_pct, upside_pct: c.upside_pct, downside_pct: c.downside_pct, why_not_priced: c.why_not_priced, who_sells: c.who_sells, kill_conditions: c.kill_conditions, entry: c.entry, spec9: c.spec9 }, null, 1)
 }
 
 const LENSES = [
@@ -218,14 +223,21 @@ if (!pool.length) {
   genre = 'идея в проверке'
 }
 const KILLED = judged.filter(r => r.votes.some(v => v.verdict === 'FATAL')).map(r => r.card)
+// перепроверка №2: тени пишет КОД из файлов шлагбаума (gate_file), а не модель из обрезанного JSON
+const KILLED_FILES = KILLED.map(c => c.gate_file).filter(Boolean)
+if (KILLED_FILES.length < KILLED.length) log(`тени: у ${KILLED.length - KILLED_FILES.length} отвергнутых нет файла шлагбаума — тенью не пойдут`)
+const SHADOW_CMD = `python3 ops/hunter_files.py shadow ${OUT}/idea_${TODAY}_killed.shadow.json ${KILLED_FILES.join(' ')}`
 if (!pool.length) {
   // день без идеи всё равно пишет тени (вето надо заработать) и журнал охоты
-  await agent(`${COMMON}\n\nЗапиши ${OUT}/idea_${TODAY}_killed.shadow.json — JSON-список ровно этих карточек (как есть): ${JSON.stringify(KILLED).slice(0, 60000)}\nИ допиши (append) в ${OUT}/hunt_log.jsonl по строке на каждого судимого: {"дата":"${TODAY}","инструмент","механизм","вердикт":"отвергнута"|"не доведена","причина","пересмотреть_если"}. СУДИМЫЕ: ${JSON.stringify(judged.map(r => ({ ticker: r.card.ticker, mechanism: r.card.mechanism_id, votes: r.votes.map(v => `${v.lens}:${v.verdict}:${(v.evidence || v.fix_request || '').slice(0, 160)}`) }))).slice(0, 40000)}`, { label: 'тени-и-журнал', phase: 'Текст' })
+  await agent(`${COMMON}\n\nВыполни ровно эту команду (тени пишет код, карточки не переписывай): \`${SHADOW_CMD}\`\nИ допиши (append) в ${OUT}/hunt_log.jsonl по строке на каждого судимого: {"дата":"${TODAY}","инструмент","механизм","вердикт":"отвергнута"|"не доведена","причина","пересмотреть_если"}. СУДИМЫЕ: ${JSON.stringify(judged.map(r => ({ ticker: r.card.ticker, mechanism: r.card.mechanism_id, votes: r.votes.map(v => `${v.lens}:${v.verdict}:${(v.evidence || v.fix_request || '').slice(0, 160)}`) }))).slice(0, 40000)}`, { label: 'тени-и-журнал', phase: 'Текст' })
   return { status: 'нет защищаемой идеи после всех кругов', rounds: ROUNDS, judged: judged.map(r => ({ ticker: r.card.ticker, votes: r.votes.map(v => `${v.lens}:${v.verdict}:${(v.evidence || '').slice(0, 160)}`) })) }
 }
 const sel = await agent(`${COMMON}\n\nТы выбираешь ОДНУ идею дня из защищаемых (и запасную). Критерии планки (soft): асимметрия (потенциал/риск), свежесть (малая доля прецедентного хода пройдена), простота цепочки (меньше звеньев), убедительность «кто продаёт и почему», близость катализатора, оценки линз.\n\nКАНДИДАТЫ:\n${JSON.stringify(pool.map(r => ({ card: r.card, votes: r.votes })), null, 1).slice(0, 80000)}`, { label: 'выбор', phase: 'Выбор', schema: SEL })
-const lead = pool.find(r => r.card.ticker === (sel && sel.leader)) || pool[0]
-const backup = pool.find(r => r.card.ticker === (sel && sel.backup) && r !== lead) || null
+// перепроверка №2: модель отвечает «MP» вместо «MP.US» — строгое === молча подменяло лидера на pool[0]
+const norm = (t) => String(t || '').toUpperCase().trim().replace(/\.US$/, '')
+const lead = pool.find(r => norm(r.card.ticker) === norm(sel && sel.leader)) || pool[0]
+if (sel && norm(lead.card.ticker) !== norm(sel.leader)) log(`выбор: лидер «${sel.leader}» не найден среди защищаемых — взят ${lead.card.ticker}`)
+const backup = pool.find(r => norm(r.card.ticker) === norm(sel && sel.backup) && r !== lead) || null
 
 phase('Текст')
 const base = String(lead.card.ticker).split('.')[0]
@@ -244,10 +256,10 @@ const wr = await agent(`${COMMON}
 
 Ты автор подачи. Жанр: «${genre}» (в заголовке пуша — «Идея дня», а если вход по условию с датой — «Идея с триггером»; слово «наблюдение» в заголовке запрещено). Запиши ЧЕТЫРЕ файла:
 1) ${stem}.md — исследование: питч, вся карточка, КАЖДЫЙ факт с URL и датой (раздел «Источники»), прецедент и контрпример с URL, табло суда (линза → вердикт → улика/запрос → возражение и ответ), что починено, §9-спека, запасная идея (${backup ? backup.card.ticker : 'нет'}) одной строкой.
-2) ${stem}.card.json — карточка лидера (JSON ровно по полям карточки, включая spec9), прогони \`python3 ops/idea_gate.py ${stem}.card.json --today ${TODAY}\` — обязан pass=true.
+2) ${stem}.card.json — карточку лидера пишет КОД, не ты: выполни \`python3 ops/hunter_files.py card ${lead.card.gate_file || '<gate_file лидера>'} ${stem}.card.json\`, затем \`python3 ops/idea_gate.py ${stem}.card.json --today ${TODAY}\` — обязан pass=true; цель, стоп и дата сверки в пуше — ровно из этой карточки (код бота сверит).
 3) ${stem}.push.txt — текст владельцу в Telegram СТРОГО по шаблону push_template из knowledge/idea_bar.yaml (и списку banned_in_push): одна идея, которую ты ЗАЩИЩАЕШЬ; главное возражение суда — вместе с ответом, не приговором; никаких вероятностей, шансов, коэффициентов ни цифрами, ни словами; ≤8 чисел вне кавычек «…» и ≤14 во всём тексте (даты не считаются) — хватает на вход/цель/стоп/потенциал/риск; если жанр «идея в проверке» — в абзаце «Главный риск — и мой ответ» прямо назови, что ещё не досчитано (неснятые запросы суда) и что я сделаю до какой даты, ответ на возражение НЕ выдумывай; тикер один раз, без «.US», рядом имя и роль компании; дни недели сверь с календарём (${TODAY} — укажи сам, какой это день); последняя строка дословно «Это исследовательский инструмент, не инвестиционная рекомендация.» Строку о печати прогноза и счёт метода НЕ пиши — их допишет код бота.
 Проверь пуш кодом: \`python3 -c "import sys; sys.path[:0]=['.','ops']; import presentation_lint as P; print(P.lint_hunter_idea(open('${stem}.push.txt',encoding='utf-8').read()))"\` — обязан вывести []. Иначе правь и повторяй.
-4) ${OUT}/idea_${TODAY}_killed.shadow.json — JSON-СПИСОК карточек кандидатов, отвергнутых судом с FATAL, у которых есть полная §9-спека (asset/direction/threshold/resolve_by/probability/last_close/last_close_date) — их сервер тихо запечатает ТЕНЬЮ, чтобы суд со временем доказал своё право убивать; пустой список, если таких нет. Карточки бери из ВСЕХ СУДИМЫХ ниже как есть, ничего не выдумывай.
+4) ${OUT}/idea_${TODAY}_killed.shadow.json — тени отвергнутых пишет КОД: выполни ровно \`${SHADOW_CMD}\` (сервер тихо запечатает их тенью, чтобы суд со временем доказал своё право убивать).
 Пуш — не больше 250 слов.
 Затем ДОПИШИ (append, не переписывай) в ${OUT}/hunt_log.jsonl по строке JSON на каждого судимого кандидата: {"дата":"${TODAY}","инструмент","механизм","вердикт": "выбрана"|"запасная"|"отвергнута"|"не доведена","причина","пересмотреть_если"}.
 
@@ -255,7 +267,7 @@ const wr = await agent(`${COMMON}
 ${JSON.stringify({ card: lead.card, votes: lead.votes, repaired: !!lead.repaired }, null, 1)}
 
 ВСЕ СУДИМЫЕ (для hunt_log):
-${JSON.stringify(judged.map(r => ({ ticker: r.card.ticker, mechanism: r.card.mechanism_id, card: r.votes.some(v => v.verdict === 'FATAL') ? r.card : undefined, votes: r.votes.map(v => ({ lens: v.lens, verdict: v.verdict, evidence: (v.evidence || '').slice(0, 200), fix: v.fix_request || '' })) })), null, 1).slice(0, 60000)}`,
+${JSON.stringify(judged.map(r => ({ ticker: r.card.ticker, mechanism: r.card.mechanism_id, votes: r.votes.map(v => ({ lens: v.lens, verdict: v.verdict, evidence: (v.evidence || '').slice(0, 200), fix: v.fix_request || '' })) })), null, 1).slice(0, 60000)}`,
   { label: `текст:${base}`, phase: 'Текст', schema: WRITE })
 
 return {

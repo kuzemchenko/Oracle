@@ -29,11 +29,38 @@ GENERATOR_FAMILY = "anthropic"          # облачный охотник — Cl
 VERDICTS = ("PASS", "FIX", "FATAL")
 
 
+_KEEP = ("ticker", "name", "role", "direction", "mechanism_id", "catalyst", "thesis", "facts",
+         "precedent", "move_since_trigger_pct", "upside_pct", "downside_pct", "trigger_date",
+         "trigger_close", "target_price", "stop_price", "entry_limit", "why_not_priced",
+         "who_sells", "kill_conditions", "entry")
+
+
 def _card_text(card):
-    keep = ("ticker", "name", "role", "direction", "mechanism_id", "catalyst", "thesis", "facts",
-            "precedent", "move_since_trigger_pct", "upside_pct", "downside_pct", "why_not_priced",
-            "who_sells", "kill_conditions", "entry")
-    return json.dumps({k: card.get(k) for k in keep if k in card}, ensure_ascii=False, indent=1)
+    return json.dumps({k: card.get(k) for k in _KEEP if k in card}, ensure_ascii=False, indent=1)
+
+
+def _norm(t):
+    """Нормализация для поиска улики: регистр, кавычки любого вида, пробелы/переносы."""
+    t = re.sub(r"[«»“”„\"'`]", "", str(t or "")).lower()
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _haystack(card):
+    """Плоский текст ЗНАЧЕНИЙ карточки (без JSON-экранирования) — где ищется дословная улика
+    FATAL (перепроверка №2: поиск в json.dumps разжаловал цитаты с кавычкой/переносом в FIX)."""
+    out = []
+
+    def walk(v):
+        if isinstance(v, dict):
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                walk(x)
+        elif v is not None:
+            out.append(str(v))
+    walk({k: (card or {}).get(k) for k in _KEEP if k in (card or {})})
+    return _norm(" ".join(out))
 
 
 def _defense(card):
@@ -65,7 +92,7 @@ def parse_verdict(text, card_text=None):
     except (TypeError, ValueError):
         point = 0
     if verdict == "FATAL" and (not ev or point not in (1, 2, 3, 4)
-                               or (card_text is not None and ev not in card_text)):
+                               or (card_text is not None and _norm(ev) not in _norm(card_text))):
         verdict = "FIX"                    # FATAL без проверяемой улики — не казнь, а запрос
     return {"verdict": verdict, "point": v.get("point"), "evidence": str(v.get("evidence") or ""),
             "objection": str(v.get("objection") or ""), "answer": str(v.get("answer") or "")}
@@ -95,7 +122,8 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
                                    agent_id="hunter_critic", output_kind="hunter_court",
                                    exclude_family={GENERATOR_FAMILY})
             crit_txt = crit.get("text") if isinstance(crit, dict) else str(crit or "")
-            crit_v = parse_verdict(crit_txt, card_txt)
+            hay = _haystack(card)
+            crit_v = parse_verdict(crit_txt, hay)
             if crit_v is None:
                 return None, "критик дал невалидный ответ — суд не состоялся (П10)"
             excl = {GENERATOR_FAMILY}
@@ -116,7 +144,7 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
                                  output_kind="hunter_court", exclude_family=excl)
         except RB.RunBudgetExceeded as e:                  # BaseException — отдельная ветка (Инв#5)
             return None, f"ОСТАНОВ бюджета §24: {e.spent_usd:.4f} при потолке {e.cap_usd}"
-        jv = parse_verdict(jr.get("text") if isinstance(jr, dict) else jr, card_txt)
+        jv = parse_verdict(jr.get("text") if isinstance(jr, dict) else jr, hay)
         if jv is None:
             return None, "судья дал невалидный ответ — суд не состоялся (П10)"
         jv["critic"] = crit_v

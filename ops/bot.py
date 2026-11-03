@@ -350,6 +350,9 @@ class Bot:
         прокачки journal/deep_dive.jsonl (двухдневный конвейер V3) и СРАЗУ запускает
         полный состязательный разбор тикера (существующий контур «разбери ТИКЕР»)."""
         lid = self.state.get("last_idea_day") or {}
+        if lid.get("run_id") != run_id:
+            # перепроверка №2: у каждой идеи охотника свои кнопки — не только у последней
+            lid = (self.state.get("hunter_lids") or {}).get(run_id) or {}
         if not lid or lid.get("run_id") != run_id:
             self.tg.answer_callback(cb_id, "Эта подборка устарела — свежая придёт утром.")
             return
@@ -374,7 +377,10 @@ class Bot:
             S.append_motive(run_id=run_id, asset=lead, action="skip",
                             motive=_motives[code], chat_id=self.chat_id)
         lid["action"] = action
-        self.state["last_idea_day"] = lid
+        if (self.state.get("last_idea_day") or {}).get("run_id") == run_id:
+            self.state["last_idea_day"] = lid
+        if lid.get("source") == "hunter":
+            self.state.setdefault("hunter_lids", {})[run_id] = lid
         if msg.get("message_id"):      # кнопки сняли — решение одно на идею дня
             self.tg.edit_reply_markup(chat, msg["message_id"], {"inline_keyboard": []})
         if action == "skip":
@@ -395,6 +401,12 @@ class Bot:
             return
         # Качаем: очередь прокачки V3 + немедленный состязательный разбор (готовый контур).
         self.tg.answer_callback(cb_id, "Качаем!")
+        if lid.get("court_objection"):
+            # перепроверка №2: строка «вторая проверка» обещает подробности по этой кнопке —
+            # показываем само сомнение моделей другого разработчика, как оно записано
+            self.tg.send_message(chat, "Сомнение второй проверки (модели других разработчиков, "
+                                       "вслепую), которое я досчитываю: «"
+                                 + str(lid["court_objection"])[:500] + "»")
         self._append_deep_dive(run_id, lead)
         name = R._asset_human(lead)[0]
         self.tg.send_message(chat, f"Взял {name} ({lead}) в прокачку. Сейчас прогоню полный "
@@ -506,12 +518,26 @@ class Bot:
         seen = set(self.state.get("hunter_pushed") or [])          # все отметки (брак/нет-md/…)
         delivered = set(self.state.get("hunter_delivered") or [])  # ТОЛЬКО доставленные версии
         footers = self.state.setdefault("hunter_footer", {})
+        retry = self.state.setdefault("hunter_retry", {})           # версия → когда повторить
+        now = S.now_utc()
 
         def _mark(name):
             seen.add(name)
             self.state["hunter_pushed"] = sorted(seen)
             self.save()
 
+        def _later(key, why):
+            """Перепроверка №2: временный сбой (нет/устарела серверная цена, суд недоступен) —
+            не брак: повтор через час, заметка в дозор одна на версию. Окно ограничено само:
+            через MAX_SEAL_LAG_DAYS шлагбаум скажет «старше 3 дней» — это уже брак."""
+            import datetime as _dt
+            first = key not in retry
+            retry[key] = (now + _dt.timedelta(minutes=60)).isoformat(timespec="seconds")
+            self.save()
+            if first and why:
+                self._notice_dozor(why)
+
+        import datetime as _dt
         import hashlib
         import json as _json
         for p in sorted(d.glob("idea_*.push.txt")):
@@ -519,12 +545,26 @@ class Bot:
                 text = p.read_text(encoding="utf-8").strip()
             except OSError:
                 continue
-            key = p.name + "@" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
+            cp = HS.card_path_for(p)
+            try:
+                card_raw = cp.read_text(encoding="utf-8") if cp.exists() else ""
+            except OSError:
+                card_raw = ""
+            # перепроверка №2: версия = текст + КАРТОЧКА (исправление одной карточки — новая версия,
+            # брак не залипает на старом тексте)
+            key = p.name + "@" + hashlib.sha1((text + "\0" + card_raw).encode("utf-8")).hexdigest()[:10]
             # Ревью 02.11 (перепроверка): легаси-отметка «просто имя» (код до хеш-дедупа помечал так
             # и доставку, и брак — неразличимо) = файл уже обработан старым кодом: НЕ пересылаем
             # (иначе непроверенная судом записка ушла бы «обновлённой версией»).
             if p.name in seen or any(key + suf in seen for suf in ("", ":bad")):
                 continue
+            nxt = retry.get(key)
+            if nxt:
+                try:
+                    if now < _dt.datetime.fromisoformat(nxt):
+                        continue                        # временный сбой — ждём часа повтора
+                except ValueError:
+                    pass
             # «Обновлённая версия» — только для файла, доставленного НОВЫМ кодом (явный список)
             update = any(k.startswith(p.name + "@") for k in delivered)
             # П8: рядом обязано лежать исследование с источниками (*.md с URL, не пустышка)
@@ -545,25 +585,21 @@ class Bot:
                 self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
                                    + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
                 continue
-            # НОВАЯ идея: §9-карточка → шлагбаум КОДОМ на сервере (серверная дата и цена) → суд РАЗНЫХ
+            # НОВАЯ идея: §9-карточка → шлагбаум КОДОМ на сервере (серверная дата и цены) → суд РАЗНЫХ
             # семейств (П10) → печать §9 (П16, обязательна) → доставка. ИСПРАВЛЕНИЕ уже доставленной
-            # идеи: без суда и без новой ставки (печать одна на идею). Всё кэшируется по ключу версии.
+            # идеи: карточка → сверка со ЗАПЕЧАТАННОЙ ставкой → суд, без новой ставки. Кэш по версии.
             if key not in footers:
                 card, asset = None, None
-                cp = HS.card_path_for(p)
-                if cp.exists():
+                if card_raw:
                     try:
-                        card = _json.loads(cp.read_text(encoding="utf-8"))
+                        card = _json.loads(card_raw)
                         asset = str((card.get("spec9") or {}).get("asset")
                                     or card.get("ticker") or "").upper() or None
-                    except (OSError, ValueError) as e:
+                    except ValueError as e:
                         card = None
                         log("карточка охотника не читается", p.name, repr(e))
                 extra = []
-                # И новая идея, И исправление уже доставленной проходят карточку → согласованность
-                # пуша с карточкой → серверный шлагбаум → суд разных семейств (перепроверка 02.11:
-                # исправление шло мимо суда). Печатается только НОВАЯ идея — одна ставка на идею.
-                if card is None:
+                if not isinstance(card, dict):
                     if key + ":nocard" not in seen:        # заметка одна; появится карточка — пойдёт
                         _mark(key + ":nocard")
                         self._notice_dozor("Идея охотника " + p.name + " без §9-карточки (*.card.json) — "
@@ -575,12 +611,23 @@ class Bot:
                     self._notice_dozor("Идея охотника " + p.name + ": текст пуша не согласован с §9-карточкой ("
                                        + mismatch + ") — в Telegram не ушла.")
                     continue
-                # шлагбаум (окно катализатора, горизонт, якорь, «задним числом») — про НОВУЮ ставку;
-                # исправление уже доставленной идеи ставки не делает (печати нет), поэтому идёт без
-                # него — иначе честное обновление через неделю («напишу 9 ноября») было бы отклонено
-                if not update:
+                if update:
+                    # исправление не вправе менять запечатанную ставку (перепроверка №2): иначе футер
+                    # «уже записан» врёт, а владелец видит цель/срок не те, что в журнале
+                    um = HS.update_bet_mismatch(card, p.name)
+                    if um:
+                        _mark(key + ":bad")
+                        self._notice_dozor("Исправление идеи охотника " + p.name + " не ушло: " + um
+                                           + ". Новая ставка = новая идея с новой датой.")
+                        continue
+                else:
+                    # шлагбаум (окно катализатора, горизонт, якорь, «задним числом») — про НОВУЮ ставку
                     ok, gfails, card = HS.server_check(card, idea_file=p.name)
                     if not ok:
+                        if HS.is_transient(gfails):
+                            _later(key, "Идея охотника " + p.name + " ждёт серверных котировок ("
+                                   + str(gfails[0])[len(HS.TRANSIENT):][:160] + ") — повторю через час.")
+                            continue
                         _mark(key + ":bad")
                         self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
                                            + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
@@ -589,7 +636,8 @@ class Bot:
                                                    .encode("utf-8")).hexdigest()[:10]
                 verdict = self._hunter_court(ckey, card)    # кэш по СОДЕРЖИМОМУ карточки, не по тексту
                 if verdict is None:
-                    continue                            # суд недоступен — ждём, непроверенное не шлём
+                    _later(key, None)                   # суд недоступен — ждём (заметку пишет суд)
+                    continue                            # непроверенное не шлём
                 if verdict.get("verdict") == "FATAL":
                     if not update:
                         HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
@@ -598,8 +646,10 @@ class Bot:
                                        + str(verdict.get("objection") or "")[:160] + ") — в Telegram "
                                        "не ушла" + ("" if update else ", записана тенью для проверки права вето") + ".")
                     continue
+                objection = None
                 if verdict.get("verdict") == "FIX":
                     extra.append(HC.second_check_line(verdict) or "")
+                    objection = str(verdict.get("objection") or "")[:500] or None
                 if update:
                     rec, why = None, ("уже запечатано" if HS.idea_sealed(p.name) else
                                       "это исправление уже отправленной записки — новой ставки не делаю")
@@ -612,7 +662,9 @@ class Bot:
                                            + str(why) + ") — без записи в счёт идея не уходит.")
                         continue
                 footers[key] = {"lines": [x for x in extra if x] + HS.footer(rec, why, HS.method_score()),
-                                "asset": asset, "sealed": bool(rec) or why == "уже запечатано"}
+                                "asset": asset, "sealed": bool(rec) or why == "уже запечатано",
+                                "objection": objection}
+                retry.pop(key, None)
                 self.save()
             foot = footers[key]
             # без карточки тикер берём из имени файла idea_<дата>_<ТИКЕР>.push.txt
@@ -626,13 +678,27 @@ class Bot:
                 body = ["Обновлённая версия записки — заменяет прошлую.", ""] + body
             out = "\n".join(body)
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
-            kb = self._idea_kb(rid)
+            lids = self.state.setdefault("hunter_lids", {})
+            prev = lids.get(rid) or {}
+            # перепроверка №2: у каждой идеи охотника — свои кнопки (решение одно на идею): исправление
+            # не воскрешает уже нажатые и не отнимает кнопки у текущей идеи дня
+            kb = None if prev.get("action") else self._idea_kb(rid)
             if self._send_card(out, kb) is None:
                 return                                  # сеть — ретрай; доставленные уже отмечены
-            self.state["last_idea_day"] = {"run_id": rid, "lead": asset, "idx": {},
-                                           "issued_at": S.now_utc().isoformat(timespec="seconds"),
-                                           "source": "hunter", "sealed": bool(foot.get("sealed"))}
-            self.state["idea_day_delivered"] = S.now_utc().date().isoformat()
+            lid = prev if update and prev else {
+                "run_id": rid, "lead": asset, "idx": {},
+                "issued_at": S.now_utc().isoformat(timespec="seconds"), "source": "hunter"}
+            lid["sealed"] = bool(foot.get("sealed")) or bool(lid.get("sealed"))
+            if foot.get("objection"):
+                lid["court_objection"] = foot["objection"]
+            lids[rid] = lid
+            for old in sorted(lids)[:-30]:              # держим последние 30 идей
+                lids.pop(old, None)
+            cur = self.state.get("last_idea_day") or {}
+            if not update or cur.get("run_id") == rid:
+                self.state["last_idea_day"] = lid
+            if not update:
+                self.state["idea_day_delivered"] = S.now_utc().date().isoformat()
             delivered.add(key)
             self.state["hunter_delivered"] = sorted(delivered)
             _mark(key)
@@ -682,15 +748,24 @@ class Bot:
         import json as _json
         d = ROOT / "reports" / "ideas"
         done = set(self.state.get("hunter_shadow") or [])
+        sretry = self.state.setdefault("hunter_shadow_retry", {})
+        import datetime as _dt
+        _now = S.now_utc()
         if d.exists():
             for p in sorted(d.glob("idea_*.shadow.json")):
                 if p.name in done:
                     continue
                 try:
+                    if p.name in sretry and _now < _dt.datetime.fromisoformat(sretry[p.name]):
+                        continue                        # сбой данных — повтор не чаще раза в час
+                except ValueError:
+                    pass
+                try:
                     rows = _json.loads(p.read_text(encoding="utf-8"))
                 except (OSError, ValueError):
                     rows = []
                 rows = rows if isinstance(rows, list) else [rows]
+                wait = False
                 for card in rows:
                     if isinstance(card, dict):
                         # перепроверка 02.11: печать «одна на идею» по стему теряла все тени, кроме
@@ -699,6 +774,13 @@ class Bot:
                         ok, _f, card2 = HS.server_check(card, idea_file=p.name)   # тени — тем же шлагбаумом
                         if ok:
                             HS.seal_card(card2, idea_file=f"{p.name}#{tk}", kind=HS.SHADOW_KIND)
+                        elif HS.is_transient(_f):
+                            wait = True                 # перепроверка №2: сбой данных — повторим
+                if wait:                                # уже запечатанные — дубль «уже запечатано»
+                    sretry[p.name] = (_now + _dt.timedelta(minutes=60)).isoformat(timespec="seconds")
+                    self.save()
+                    continue
+                sretry.pop(p.name, None)
                 done.add(p.name)
                 self.state["hunter_shadow"] = sorted(done)
                 self.save()
@@ -729,9 +811,11 @@ class Bot:
             return
         if now.isoweekday() > 5:                 # выходные: охотник работает, но молчание не аварийно
             return
-        msg = ("Идея дня сегодня задерживается: охотник её ещё не доставил (поиск, проверка или "
-               "суд разных моделей не закончены). Пришлю, как только пройдёт проверку; «что ещё было» "
-               "покажет, что видит утренний конвейер.")
+        # перепроверка №2: без обещаний, которые бот не контролирует (идея могла и не пройти)
+        msg = ("Идея дня сегодня пока не готова: охотник её не доставил — поиск, проверка или суд "
+               "разных моделей не закончены, либо проверка её не пропустила. Если пройдёт сегодня — "
+               "пришлю сразу; причина задержки записана для разбора. «Что ещё было» покажет, что "
+               "видит утренний конвейер.")
         if self.tg.send_message(self.chat_id, msg) is None:
             return
         self.state["idea_day_watchdog"] = today
@@ -1493,13 +1577,14 @@ class Bot:
             except ValueError:
                 self.state["alerts_seen"] = i + 1     # битую строку не перечитываем вечно
                 continue
+            pull_day = None
             if rec.get("label") == "git_pull":
                 # ежечасная протяжка: повторный сбой в те же сутки — одним алертом, не 24-мя
                 day = str(rec.get("ts") or "")[:10]
                 if self.state.get("git_pull_alert_day") == day:
                     self.state["alerts_seen"] = i + 1
                     continue
-                self.state["git_pull_alert_day"] = day
+                pull_day = day                          # отметка — только после доставки
                 msg = (f"🚨 Сервер не смог забрать обновления с GitHub (код {rec.get('exit')}, "
                        f"{rec.get('ts')}): идеи охотника и правки кода до сервера не доходят. "
                        "Причина — в journal/cron.log; частая — расхождение веток или облачный "
@@ -1510,6 +1595,8 @@ class Bot:
                        f"Хвост ошибки: journal/cron.log; повторить можно командой /run-funnel.")
             if self.tg.send_message(self.chat_id, msg) is None:
                 break                                  # не дошло — ретрай со следующего tick
+            if pull_day:
+                self.state["git_pull_alert_day"] = pull_day
             self.state["alerts_seen"] = i + 1
             log("пуш алерта cron", rec.get("label"), rec.get("exit"))
 
@@ -1941,6 +2028,18 @@ def selfcheck():
     st_obj = S.load_state()
     print("bot_state:", "инициализирован" if st_obj.get("initialized") else "свежий",
           "· pending", len(st_obj.get("pending", {})))
+    # перепроверка №2: тихий перезапуск проверяет новый код этой самопроверкой — модули охоты
+    # импортируются тут явно, иначе сломанный импорт hunter_* молча выключил бы доставку идей
+    try:
+        try:
+            from ops import hunter_seal as _HS, hunter_court as _HC, idea_gate as _G   # noqa: F401
+        except ImportError:
+            import hunter_seal as _HS, hunter_court as _HC, idea_gate as _G   # noqa: F401
+        from mathlib import base_odds as _BO                                    # noqa: F401
+        print("модули охоты: OK")
+    except Exception as e:                                       # noqa: BLE001
+        print("модули охоты: ОШИБКА", repr(e))
+        return 2
     print("=== ок ===")
     return 0
 
