@@ -64,6 +64,6 @@ def test_owner_configs_guarded():
     # владельца; флаги подачи, планка, промпт суда и скрипты разворачиваются ежечасно (иначе протяжка
     # замерзала бы на каждом облачном коммите вместе с доставкой идей)
     assert r.stdout.split() == ["config/limits.yaml", "config/weights.yaml", "config/rubric.yaml",
-                                "config/thresholds.yaml"]
+                                "config/thresholds.yaml", "ops/journal_guard.sh"]     # №6: и охранные скрипты
     assert "--no-renames" in guard.read_text()
     assert "exit 10" in (ROOT / "ops" / "safe_pull.sh").read_text()

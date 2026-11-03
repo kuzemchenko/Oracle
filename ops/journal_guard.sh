@@ -25,7 +25,9 @@ incoming_journal_changes() {
 # каждым коммитом, и протяжка замерзала бы вместе с доставкой идей). Код и прочие конфиги
 # разворачиваются ежечасно по дизайну v3 — это записанный долг, а не дыра этого списка.
 # --no-renames: переименование защищённого файла — не обход.
-OWNER_CONFIGS='^config/(limits|weights|rubric|thresholds)\.yaml$'
+# Перепроверка №6: + сами охранные скрипты (меняются редко; без них облако ослабило бы охрану в два
+# шага — сначала скрипт, потом журнал). Частые файлы (флаги, планка, промпты) — не здесь.
+OWNER_CONFIGS='^(config/(limits|weights|rubric|thresholds)\.yaml|ops/(journal_guard|safe_pull|checkpoint|cron_alert)\.sh)$'
 
 incoming_owner_config_changes() {
   git diff --no-renames --name-only "$1" | grep -E "$OWNER_CONFIGS" | head -5

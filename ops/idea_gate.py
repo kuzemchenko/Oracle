@@ -152,6 +152,8 @@ def check(card, today=None, horizon_from=None):
         if fd is not None and fd > facts_until:
             future.append(str(fd))                 # дата публикации не бывает в будущем (П8)
             continue
+        if str(f.get("date_kind") or "").strip().lower() == "проверка":
+            continue                               # перепроверка №6: дата ПРОВЕРКИ — не опора (П8), но допустима
         if url.startswith("http") and fd and str(f.get("text") or "").strip():
             good += 1
             domains.add(urlparse(url).netloc.lower().removeprefix("www."))

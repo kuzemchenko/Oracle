@@ -239,6 +239,9 @@ HUNTER_MAX_NUMBERS_TOTAL = 14   # числа ВКЛЮЧАЯ цитаты: пре
 HUNTER_MAX_NUMBERS_OUTSIDE = 8
 
 
+_PROMISE_RE = re.compile(r"(?<![а-яё])(напишу|пришлю|сообщу|проверю\s+к|отпишусь|доложу)(?![а-яё])", re.I)
+
+
 def lint_hunter_idea(text):
     """Блокирующий линт идей ОХОТНИКА (облако → git → бот): правила «Идеи дня» + рамка
     «не рекомендация» проверяется КОДОМ + запрет вероятностных слов — ВКЛЮЧАЯ цитаты
@@ -253,6 +256,10 @@ def lint_hunter_idea(text):
     bad = sorted(odds_markers(text, include_quotes=True))
     if bad:
         viol.append("вероятностные слова без расчёта и печати §9 (Инв#6/П16): " + ", ".join(bad))
+    promises = sorted({m.group(0).lower() for m in _PROMISE_RE.finditer(str(text or ""))})
+    if promises:
+        # перепроверка №6: обещать можно только то, что шлёт код (напоминание в день развилки, итог)
+        viol.append("обещание сообщения без исполнителя в коде: " + ", ".join(promises))
     all_nums = [m.group(0).strip() for m in _NUM_RE.finditer(_DATE_RE.sub(" ", str(text or "")))]
     if len(all_nums) > HUNTER_MAX_NUMBERS_TOTAL:
         viol.append(f"чисел по полному тексту (с цитатами) {len(all_nums)} > "

@@ -761,3 +761,69 @@ def test_environment_error_is_retry_not_bad(tmp_path, monkeypatch):
     assert not b.tg.sent
     assert not any(k.endswith(":bad") for k in b.state.get("hunter_pushed") or [])
     assert b.state.get("hunter_retry") and any("сбоя окружения" in n for n in notes)
+
+
+def test_broken_utf8_push_does_not_block_others(tmp_path, monkeypatch):
+    """Перепроверка №6: битый UTF-8 (UnicodeDecodeError — это ValueError) больше не роняет тик."""
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-01_AA.push.txt").write_bytes(b"\xff\xfe\x00bad")
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-01_AA.md").write_text(MD, encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
+    assert any("AA" in n for n in notes)
+
+
+def test_shadow_env_error_retried_not_lost(tmp_path, monkeypatch):
+    import json as _json
+    import datetime as _dt
+    import bot_state as S
+    from ops import hunter_seal as HS
+    from test_idea_gate import CARD
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    monkeypatch.setattr(HS, "OUTC", tmp_path / "out.jsonl")
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_killed.shadow.json").write_text(
+        _json.dumps([CARD], ensure_ascii=False), encoding="utf-8")
+    real = HS.seal_card
+    monkeypatch.setattr(HS, "seal_card", lambda *a, **k: (_ for _ in ()).throw(PermissionError("лок")))
+    b._tick_hunter_followups()
+    assert "idea_2026-11-02_killed.shadow.json" not in (b.state.get("hunter_shadow") or [])
+    monkeypatch.setattr(HS, "seal_card", real)
+    later = S.now_utc() + _dt.timedelta(minutes=61)
+    monkeypatch.setattr(S, "now_utc", lambda: later)
+    b._tick_hunter_followups()
+    assert pred.exists() and len(pred.read_text("utf-8").splitlines()) == 1
+
+
+def test_dossier_marks_only_lens_marker_and_check_dates(tmp_path, monkeypatch):
+    import json as _json
+    import bot_state as S
+    from test_idea_gate import CARD
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    card = {**CARD, "facts": [
+        {"text": "Время линзой не подтверждено; само продление подтверждено.", "url": "https://a.org/1",
+         "date": "2026-09-23"},
+        {"text": "Пересказ. [Линза фактов: не подтверждено — ставку не несёт.]", "url": "https://b.org/2",
+         "date": "2026-11-03", "date_kind": "проверка"}] + CARD["facts"]}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(card, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    lid = b.state["hunter_lids"]["h_2026-11-02_MP"]
+    dossier = b._hunter_dossier(lid)
+    lines = [ln for ln in dossier.split("\n") if ln.startswith("•")]
+    assert not lines[0].startswith("• (не подтверждено") and "(2026-09-23, a.org)" in lines[0]
+    assert lines[1].startswith("• (не подтверждено, ставку не несёт)") and "проверено 2026-11-03" in lines[1]
+
+
+def test_git_pull_alerts_dedup_per_exit_code(tmp_path, monkeypatch):
+    import json as _json
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    j = tmp_path / "journal"
+    j.mkdir(exist_ok=True)
+    rows = [{"label": "git_pull", "exit": c, "ts": f"2026-11-03T1{i}:05:00Z"} for i, c in enumerate((10, 2, 10, 2))]
+    (j / "alerts.jsonl").write_text("\n".join(_json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    b._tick_alerts()
+    msgs = [t for _c, t, _k in b.tg.sent]
+    assert len(msgs) == 2                                        # по одному на код за сутки

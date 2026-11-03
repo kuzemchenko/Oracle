@@ -125,7 +125,13 @@ def _bet_side(header):
     return None
 
 
-def _has_number(text, value, rel=0.005):
+def _has_number(text, value, rel=0.001):
+    """Есть ли цена карточки в тексте — с точностью max(1 цент, 0.1%) (перепроверка №6: допуск 0.5%
+    считал $47.30 «целью 47.5»)."""
+    return _has_number_tol(text, value, rel)
+
+
+def _has_number_tol(text, value, rel):
     try:
         v = float(value)
     except (TypeError, ValueError):
@@ -135,12 +141,12 @@ def _has_number(text, value, rel=0.005):
             x = float(tok.replace(",", "."))
         except ValueError:
             continue
-        if v and abs(x - v) <= abs(v) * rel:
+        if v and abs(x - v) <= max(0.01, abs(v) * rel):
             return True
     return False
 
 
-def push_card_mismatch(text, card):
+def push_card_mismatch(text, card, require_prices=True):
     """Текст пуша и §9-карточка говорят об одном? (перепроверка 02.11: суд и шлагбаум проверяли
     карточку, а владелец получал push.txt). Fail-closed: (1) тикер карточки есть в тексте;
     (2) ЗАГОЛОВОК прямо называет сторону ставки, и она = direction карточки; (3) цель и стоп
@@ -158,8 +164,9 @@ def push_card_mismatch(text, card):
         return "в заголовке не сказано однозначно, на что ставлю (рост/снижение)"
     if d in ("вверх", "вниз") and side != d:
         return f"карточка «{d}», а заголовок — ставка «{side}»"
-    for key, what in (("target_price", "цель"), ("stop_price", "стоп")):
-        if card.get(key) is not None and not _has_number(t, card.get(key)):
+    # перепроверка №6: и граница входа — деньги в абзаце кода считаются от неё
+    for key, what in (("target_price", "цель"), ("stop_price", "стоп"), ("entry_limit", "граница входа")):
+        if require_prices and card.get(key) is not None and not _has_number(t, card.get(key)):
             return f"в тексте нет {what} {card.get(key)} из карточки"
     s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
     rb = str(s9.get("resolve_by") or "")[:10]
@@ -183,6 +190,7 @@ def push_card_mismatch(text, card):
 # по серверным ценам (Инв#6); модель пишет механизм и аргументы, код — цифры.
 WHY_HEAD = "Почему это ещё не в цене."
 MONEY_HEAD = "Сколько можно заработать и чем рискую."
+TODO_HEAD = "Что делать."
 
 
 def _norm_head(t):
@@ -196,12 +204,21 @@ def _ratio_words(r):
     names = {1.5: "в полтора раза", 2.0: "вдвое", 2.5: "в два с половиной раза", 3.0: "втрое",
              3.5: "в три с половиной раза", 4.0: "вчетверо", 5.0: "впятеро"}
     for k, w in names.items():
-        if abs(r - k) <= 0.05:
+        if k - 1e-9 <= r <= k + 0.05:                  # перепроверка №6: 1.46 — не «в полтора раза»
             return w
     below = [k for k in names if k < r]
     if not below:
         return None                                    # меньше полутора — словами не хвалим
     return "больше чем " + names[max(below)]
+
+
+def _ratio_sentence(r):
+    w = _ratio_words(r)
+    if w is None:
+        return None
+    if w.startswith("больше чем"):
+        return f"Выигрыш превышает возможную потерю {w}."
+    return f"Выигрыш {w} больше возможной потери."
 
 
 def _round5(x):
@@ -238,8 +255,9 @@ def render_with_problems(card, update=False):
     if mv is None or td is None or d not in ("вверх", "вниз"):
         problems.append("ход с даты повода не посчитан кодом — абзац «Почему это ещё не в цене» не из чего писать")
     else:
-        verb = ("почти не сдвинулась (меньше 1%)" if abs(mv) < 0.5 else
-                f"подешевела на {abs(mv):.0f}%" if mv < 0 else f"подорожала на {abs(mv):.0f}%")
+        n = int(abs(mv) + 0.5)                         # округление «как в школе», без банковского
+        verb = ("почти не сдвинулась (меньше 1%)" if n == 0 else
+                f"подешевела на {n}%" if mv < 0 else f"подорожала на {n}%")
         what = str(card.get("trigger_what") or "").strip().rstrip(".")
         since = f"С {what} {td.day} {_MONTHS[td.month - 1]}" if what else f"С {td.day} {_MONTHS[td.month - 1]}"
         phase, verdict = "", None
@@ -254,22 +272,32 @@ def render_with_problems(card, update=False):
         out["why"] = f"{WHY_HEAD} {since} бумага {verb} по ценам закрытия" + (f": {phase}." if phase else ".")
     g, l = pm.get("потенциал_от_входа"), pm.get("риск_от_входа")
     ratio = (g / l) if (g is not None and l is not None and l > 0) else None
-    words = _ratio_words(ratio) if ratio is not None else None
+    sentence = _ratio_sentence(ratio) if ratio is not None else None
     broken = [f for f in pm.get("fails") or []]
-    if broken or words is None:
+    px, el = G._num(s9.get("last_close")), G._num(card.get("entry_limit"))
+    beyond = bool(px and el and ((d == "вверх" and px > el) or (d == "вниз" and px < el)))
+    if beyond and not update:
+        # перепроверка №6: рынок уже за границей входа — план сейчас не исполним (TRANSIENT в шлагбауме)
+        problems.append(f"цена {px:g} уже за границей входа {el:g} — план входа сейчас не исполним")
+    if broken or sentence is None or (beyond and update):
         if update:
             why_not = ("цена уже за стопом" if any("за стопом" in f for f in broken) else
                        "цель уже достигнута" if any("достигнута" in f for f in broken) else
+                       "цена ушла за границу входа из плана" if beyond else
                        "возможный выигрыш больше не превышает возможную потерю в полтора раза")
             out["money"] = (f"{MONEY_HEAD} По последней цене закрытия прежний план уже не действует: "
                             f"{why_not}.")
+            rb = G._date(s9.get("resolve_by"))
+            when = f" после {rb.day} {_MONTHS[rb.month - 1]}" if rb else " в свой срок"
+            out["todo"] = (f"{TODO_HEAD} По этому плану сейчас не входить: {why_not}. Записанный прогноз не "
+                           f"меняется и будет сверен{when}.")
         else:
             problems.append("деньги не посчитать кодом: " + ("; ".join(broken) if broken else
                             "выигрыш меньше полутора возможных потерь"))
     else:
         basis = "при худшем входе из плана" if card.get("entry_limit") else "от последней цены закрытия"
         out["money"] = (f"{MONEY_HEAD} На пятьсот долларов на бумаге {basis}: прав — около +${_round5(5 * g)} "
-                        f"(+{g:.0f}%), неправ — около −${_round5(5 * l)} (−{l:.0f}%). Выигрыш {words} больше.")
+                        f"(+{g:.0f}%), неправ — около −${_round5(5 * l)} (−{l:.0f}%). {sentence}")
     return out, problems
 
 
@@ -285,6 +313,8 @@ def apply_rendered(text, rendered, drop_unrendered=True):
     rendered = rendered or {}
     blocks = re.split(r"\n\s*\n", str(text).strip())
     heads = {"why": _norm_head(WHY_HEAD)[:20], "money": _norm_head(MONEY_HEAD)[:20]}
+    if "todo" in rendered:                             # «план не действует»: черновой план не остаётся
+        heads["todo"] = _norm_head(TODO_HEAD)
     done, keep = set(), []
     for b in blocks:
         nb = _norm_head(b)
@@ -298,7 +328,7 @@ def apply_rendered(text, rendered, drop_unrendered=True):
         elif not drop_unrendered:
             keep.append(b)
     blocks = keep
-    missing = [rendered[k] for k in ("why", "money") if k in rendered and k not in done]
+    missing = [rendered[k] for k in ("why", "money", "todo") if k in rendered and k not in done]
     if missing:
         anchor = next((i for i, b in enumerate(blocks) if _norm_head(b).startswith("кто продает")), None)
         if anchor is None:
@@ -317,7 +347,7 @@ def prepare_push(text, card, update=False):
         import presentation_lint as PL
     rendered, problems = render_with_problems(card, update=update)
     final = apply_rendered(text, rendered)
-    mm = push_card_mismatch(final, card)
+    mm = push_card_mismatch(final, card, require_prices="todo" not in rendered)
     if mm:
         problems.append("текст не согласован с карточкой: " + mm)
     problems += [str(v) for v in PL.lint_hunter_idea(final)]
@@ -355,6 +385,11 @@ def update_bet_mismatch(card, idea_file, predictions_path=None):
     for k in ("asset", "direction"):
         if str(spec.get(k) or "").upper() != str(rec.get(k) or "").upper():
             return f"исправление меняет {k}: в журнале {rec.get(k)}, в карточке {spec.get(k)}"
+    # перепроверка №6 (high): spec9 мог остаться прежним, а сторона идеи — перевернуться
+    side = {"вверх": "above", "вниз": "below"}.get(str(card.get("direction") or "").strip().lower())
+    if side != str(rec.get("direction") or "").lower():
+        return (f"исправление меняет сторону идеи: в журнале {rec.get('direction')}, "
+                f"в карточке «{card.get('direction')}»")
     if abs(float(spec["threshold"]) - float(rec.get("threshold") or 0)) > 1e-9:
         return f"исправление меняет порог: в журнале {rec.get('threshold')}, в карточке {spec['threshold']}"
     if str(spec["resolve_by"])[:10] != str(rec.get("resolve_by") or "")[:10]:
@@ -447,6 +482,13 @@ def server_check(card, *, idea_file, today=None, last_close_fn=None, prices_fn=N
     c2, fails = reprice(card, today=today, last_close_fn=last_close_fn, prices_fn=prices_fn)
     if fails:
         return False, fails, c2
+    s9c = c2.get("spec9") if isinstance(c2.get("spec9"), dict) else {}
+    px, el = G._num(s9c.get("last_close")), G._num(c2.get("entry_limit"))
+    dd = str(c2.get("direction") or "").strip().lower()
+    if px and el and ((dd == "вверх" and px > el) or (dd == "вниз" and px < el)):
+        # перепроверка №6: рынок уже за границей входа — «худший вход» лучше рынка, план сейчас не
+        # исполним; цена может вернуться — повтор (окно печати 3 дня ограничит ожидание само)
+        return False, [TRANSIENT + f"цена {px:g} за границей входа {el:g} — жду, пока план станет исполним"], c2
     res = G.check(c2, today=today, horizon_from=hd)
     return res["pass"], res["fails"], c2
 

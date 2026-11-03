@@ -446,7 +446,7 @@ class Bot:
             return t if t and not PL.odds_markers(t, include_quotes=True) else ""
 
         out = [f"Взял {name} ({base}) в прокачку — вот на чём стоит идея: материалы её карточки "
-               "(факты с датой и источником; пометка «не подтверждено» значит, что факт ставку не несёт)."]
+               "(факты с датой публикации или проверки и источником)."]
         th = ok(card.get("thesis"))
         if th:
             out.append("Суть. " + th[:700])
@@ -456,8 +456,12 @@ class Bot:
             t = ok(x.get("text"))
             if t:
                 dom = urlparse(str(x.get("url") or "")).netloc.removeprefix("www.")
-                mark = "(не подтверждено) " if "не подтвержд" in t.lower() else ""
-                rows.append(f"• {mark}{t[:260]} ({x.get('date')}, {dom})")
+                # перепроверка №6: только точный маркер линзы фактов «ставку не несёт» (а не любое
+                # «не подтверждено» — так помечался подтверждённый опорный факт)
+                mark = "(не подтверждено, ставку не несёт) " if "ставку не несёт" in t.lower() else ""
+                when = (f"проверено {x.get('date')}" if str(x.get("date_kind") or "").lower() == "проверка"
+                        else str(x.get("date")))
+                rows.append(f"• {mark}{t[:260]} ({when}, {dom})")
         if rows:
             out.append("Факты с источниками:\n" + "\n".join(rows))
         pr = card.get("precedent") if isinstance(card.get("precedent"), dict) else {}
@@ -610,7 +614,7 @@ class Bot:
             """Версия = текст + КАРТОЧКА (перепроверка №2: исправление одной карточки — новая версия)."""
             cp = HS.card_path_for(p)
             try:
-                card_raw = cp.read_text(encoding="utf-8") if cp.exists() else ""
+                card_raw = cp.read_bytes().decode("utf-8", "replace") if cp.exists() else ""
             except OSError:
                 card_raw = ""
             return p.name + "@" + hashlib.sha1((text + "\0" + card_raw).encode("utf-8")).hexdigest()[:10], card_raw
@@ -813,8 +817,8 @@ class Bot:
                 # карточка роняла весь тик и навсегда блокировала все следующие идеи
                 log("идея охотника: сбой обработки", p.name, repr(e))
                 import sqlite3 as _sq
-                try:
-                    vkey = _version(p, p.read_text(encoding="utf-8").strip())[0]
+                try:   # перепроверка №6: битый UTF-8 — ValueError; читаем байты с заменой, ключ всегда есть
+                    vkey = _version(p, p.read_bytes().decode("utf-8", "replace").strip())[0]
                 except OSError:
                     vkey = None
                 if isinstance(e, (OSError, _sq.Error, TimeoutError, ConnectionError)) and vkey:
@@ -885,7 +889,7 @@ class Bot:
                 except ValueError:
                     pass
                 try:
-                    rows = _json.loads(p.read_text(encoding="utf-8"))
+                    rows = _json.loads(p.read_bytes().decode("utf-8", "replace"))
                 except (OSError, ValueError):
                     rows = []
                 rows = rows if isinstance(rows, list) else [rows]
@@ -905,6 +909,9 @@ class Bot:
                             wait = True                 # перепроверка №2: сбой данных — повторим
                     except Exception as e:              # noqa: BLE001 — перепроверка №5: одна битая тень
                         log("тень охотника: сбой", p.name, repr(e))   # не блокирует напоминания и итоги
+                        import sqlite3 as _sq
+                        if isinstance(e, (OSError, _sq.Error, TimeoutError, ConnectionError)):
+                            wait = True                 # перепроверка №6: сбой окружения — повтор, тень не теряем
                 if wait:                                # уже запечатанные — дубль «уже запечатано»
                     sretry[p.name] = (_now + _dt.timedelta(minutes=60)).isoformat(timespec="seconds")
                     self.save()
@@ -1742,8 +1749,9 @@ class Bot:
             pull_day = None
             if rec.get("label") == "git_pull":
                 # ежечасная протяжка: повторный сбой в те же сутки — одним алертом, не 24-мя
-                day = str(rec.get("ts") or "")[:10] + ":" + str(rec.get("exit"))   # код 10 — свой дедуп
-                if self.state.get("git_pull_alert_day") == day:
+                day = str(rec.get("ts") or "")[:10] + ":" + str(rec.get("exit"))
+                days = self.state.setdefault("git_pull_alert_days", {})   # перепроверка №6: по коду
+                if days.get(str(rec.get("exit"))) == day or self.state.get("git_pull_alert_day") == day:
                     self.state["alerts_seen"] = i + 1
                     continue
                 pull_day = day                          # отметка — только после доставки
@@ -1760,6 +1768,7 @@ class Bot:
                     if self.tg.send_message(self.chat_id, msg) is None:
                         break
                     self.state["git_pull_alert_day"] = pull_day
+                    self.state.setdefault("git_pull_alert_days", {})[str(rec.get("exit"))] = pull_day
                     self.state["alerts_seen"] = i + 1
                     continue
                 msg = (f"🚨 Сервер не смог забрать обновления с GitHub (код {rec.get('exit')}, "
@@ -1774,6 +1783,7 @@ class Bot:
                 break                                  # не дошло — ретрай со следующего tick
             if pull_day:
                 self.state["git_pull_alert_day"] = pull_day
+                self.state.setdefault("git_pull_alert_days", {})[str(rec.get("exit"))] = pull_day
             self.state["alerts_seen"] = i + 1
             log("пуш алерта cron", rec.get("label"), rec.get("exit"))
 

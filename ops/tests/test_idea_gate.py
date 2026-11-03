@@ -353,3 +353,49 @@ def test_render_words_only_and_honest_update_states():
     # черновой абзац без кодового — удаляется, числа модели не уходят
     txt = "Шапка: ставлю на рост MP.\n\nСколько можно заработать и чем рискую. +80% (+$400).\n\nЧто делать."
     assert "+80%" not in HS.apply_rendered(txt, {})
+
+
+def test_regate6_bet_side_entry_and_plan_invalid(tmp_path):
+    """Перепроверка №6: исправление не переворачивает сторону; граница входа из карточки обязана быть в
+    тексте (точность — до цента); рынок за границей входа — для новой идеи повтор, для исправления —
+    «план не действует» и свой «Что делать» (черновой вход не остаётся)."""
+    pred = tmp_path / "p.jsonl"
+    rec, _ = HS.seal_card(CARD, idea_file=NAME, predictions_path=pred, sealable_fn=lambda a: True)
+    flipped = _c(direction="вниз")
+    assert "сторону" in HS.update_bet_mismatch(flipped, NAME, predictions_path=pred)
+    card = _c(entry_limit=40.30)
+    body = ("Идея дня — 2 ноября. MP Materials (MP) — добытчик: ставлю на рост.\n\n"
+            "Что это значит для тебя. Сегодня ничего.\n\n"
+            "Что делать. Вход не дороже $40.30. Цель $51.44, стоп $35.61, сверка 15 декабря.\n\n"
+            "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    assert HS.push_card_mismatch(body, card) is None
+    assert "граница входа" in HS.push_card_mismatch(body.replace("$40.30", "$43.90"), card)
+    assert "цель" in HS.push_card_mismatch(body.replace("51.44", "51.30"), card)        # 0.3% — уже не цель
+    hot = _c(entry_limit=40.30, spec9={**CARD["spec9"], "last_close": 42.0})
+    ok, fails, _ = HS.server_check(CARD | {"entry_limit": 40.30}, idea_file=f"idea_{TODAY}_MP.push.txt",
+                                   today=TODAY, prices_fn=_prices(last=42.0))
+    assert not ok and HS.is_transient(fails) and "границей входа" in fails[0]
+    final, probs = HS.prepare_push(body, hot, update=True)
+    assert not probs, probs
+    assert "прежний план уже не действует" in final and "не дороже $40.30" not in final
+    assert "По этому плану сейчас не входить" in final
+
+
+def test_regate6_words_and_numbers_of_code_paragraphs():
+    assert HS._ratio_words(1.46) is None and HS._ratio_words(1.5) == "в полтора раза"
+    assert HS._ratio_sentence(2.3) == "Выигрыш превышает возможную потерю больше чем вдвое."
+    assert HS._ratio_sentence(1.5) == "Выигрыш в полтора раза больше возможной потери."
+    half = _c(trigger_close=round(39.57 / 1.005, 6))                      # ход ровно около 0.5%
+    assert "на 0%" not in HS.render_numbers(half)["why"]
+
+
+def test_regate6_fact_date_kind_and_promise_lint():
+    import presentation_lint as PL
+    checked = [{**f, "date_kind": "проверка"} for f in CARD["facts"]]
+    r = G.check(_c(facts=checked), today=TODAY)
+    assert any("фактов с URL и датой 0" in f for f in r["fails"])        # даты проверки — не опора
+    t = ("Идея дня. MP (MP) — x: ставлю на рост. Сегодня ничего; напишу 9 ноября. Проверю к 9 ноября.\n"
+         "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    assert any("обещание сообщения" in v for v in PL.lint_hunter_idea(t))
+    assert not any("обещание" in v for v in PL.lint_hunter_idea(t.replace("напишу 9 ноября", "бот напомнит 10 ноября")
+                                                                .replace("Проверю к 9 ноября.", "")))
