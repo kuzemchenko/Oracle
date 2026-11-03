@@ -72,6 +72,15 @@ PULL_CODES = {   # ops/safe_pull.sh
     "9": ("облачный коммит тронул журналы честности — сервер его не пускает (так и задумано)",
           "не протягивать вручную; напиши мне в сессию — разберу коммит"),
 }
+# Аудит 03.11 (P1 №24): задачи, которые бот запускает сам за флагами config/presentation.yaml — «ок»
+# владельца становится облачным коммитом флага (сервер протянет его за час), без захода в терминал ради
+# crontab. ВНИМАНИЕ: при включённом флаге одноимённую строку в crontab НЕ раскомментировать (двойной прогон).
+SCHEDULED_JOBS = (
+    # флаг,              метка в алертах, команда (от корня проекта),                    дни недели,      не раньше (UTC)
+    ("deep_dive_auto", "deep_dive", ("orchestrator/deep_dive.py", "--mode", "live"), (1, 2, 3, 4, 5, 6, 7), (9, 40)),
+    ("week_odds_auto", "week_odds", ("orchestrator/week_odds.py", "--mode", "live", "--seal"), (2, 4), (8, 10)),
+    ("point_b_auto", "point_b", ("ops/point_b.py", "--write"), (5,), (17, 30)),
+)
 CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,
     "4": "в индексе git чужие изменения (ручная работа на сервере) — закончи её или пришли мне git status",
@@ -1373,6 +1382,37 @@ class Bot:
             log("журнал доставок не записан", repr(e))
         return rec
 
+    def _tick_scheduled_jobs(self, now=None, popen=None):
+        """Задачи за флагами (SCHEDULED_JOBS): раз в свой день после своего часа, отдельным процессом
+        (бот не замирает на минуты LLM-вызовов) через ops/cron_alert.sh — падение уходит алертом,
+        вывод — в journal/cron.log. Уже идущая задача второй раз не стартует."""
+        import subprocess
+        now = now or S.now_utc()
+        pres = R.load_presentation()
+        procs = getattr(self, "_job_procs", {})
+        self._job_procs = procs
+        for label, pr in list(procs.items()):
+            if pr.poll() is not None:                    # закончилась — прибираем
+                procs.pop(label, None)
+        days = self.state.setdefault("jobs_last_day", {})
+        today = now.date().isoformat()
+        for flag, label, argv, weekdays, (hh, mm) in SCHEDULED_JOBS:
+            if not pres.get(flag) or now.isoweekday() not in weekdays or (now.hour, now.minute) < (hh, mm):
+                continue
+            if days.get(label) == today or label in procs:
+                continue
+            cmd = [str(ROOT / "ops" / "cron_alert.sh"), label, sys.executable, *argv]
+            try:
+                with open(ROOT / "journal" / "cron.log", "a", encoding="utf-8") as logf:   # ребёнок держит свою копию
+                    procs[label] = (popen or subprocess.Popen)(cmd, cwd=str(ROOT), stdout=logf, stderr=logf,
+                                                               start_new_session=True)
+            except OSError as e:
+                log("задача за флагом не запустилась", label, repr(e))
+                continue
+            days[label] = today
+            log("запущена задача за флагом", flag, label)
+            self.save()
+
     def _tick_heartbeat(self, now=None):
         """Суточная строка «бот жив» в журнале доставок — тишина в нём = бот лежит (не «идей нет»)."""
         today = (now or S.now_utc()).date().isoformat()
@@ -1982,6 +2022,10 @@ class Bot:
             self._tick_heartbeat(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick heartbeat ошибка", repr(e))
+        try:
+            self._tick_scheduled_jobs(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick jobs ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):

@@ -997,3 +997,40 @@ def test_more_ideas_under_hunter_shows_this_hunts_candidates(tmp_path, monkeypat
     assert "Micron Technology (MU), производитель памяти" in t and "Corteva (CTVA)" in t
     assert "MP Materials" not in t and "XLE" not in t and "FIX" not in t and "URL" not in t
     assert "проверка нашла улику" in t and "не инвестиционная рекомендация" in t
+
+
+def test_scheduled_jobs_run_behind_flags_once_per_day(tmp_path, monkeypatch):
+    """Аудит 03.11 (P1 №24): «ок» владельца = флаг в presentation.yaml; бот сам запускает задачу раз
+    в её день после её часа, через cron_alert.sh, не дублирует идущую; без флага — ничего."""
+    import datetime as _dt
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    (tmp_path / "journal").mkdir()
+    b = _bot()
+    started = []
+
+    class P:
+        def __init__(self, cmd, **k):
+            started.append(cmd)
+            self.done = False
+
+        def poll(self):
+            return 0 if self.done else None
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {})
+    tue = _dt.datetime(2026, 11, 10, 9, 45, tzinfo=_dt.timezone.utc)
+    b._tick_scheduled_jobs(tue, popen=P)
+    assert not started                                         # флаги выключены
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"deep_dive_auto": True, "week_odds_auto": True})
+    b._tick_scheduled_jobs(_dt.datetime(2026, 11, 10, 8, 0, tzinfo=_dt.timezone.utc), popen=P)
+    assert not started                                         # раньше своего часа
+    b._tick_scheduled_jobs(tue, popen=P)
+    labels = sorted(c[1] for c in started)
+    assert labels == ["deep_dive", "week_odds"] and all(c[0].endswith("cron_alert.sh") for c in started)
+    b._tick_scheduled_jobs(tue, popen=P)
+    assert len(started) == 2                                   # раз в день
+    wed = _dt.datetime(2026, 11, 11, 9, 45, tzinfo=_dt.timezone.utc)
+    b._tick_scheduled_jobs(wed, popen=P)                       # deep_dive ещё идёт — второй не стартует
+    assert len(started) == 2
+    for pr in b._job_procs.values():
+        pr.done = True
+    b._tick_scheduled_jobs(wed, popen=P)                       # завершился → в среду только deep_dive
+    assert [c[1] for c in started[2:]] == ["deep_dive"]
