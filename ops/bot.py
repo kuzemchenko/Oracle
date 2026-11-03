@@ -1274,9 +1274,13 @@ class Bot:
     def _cmd_more_ideas(self, chat):
         """Остальные идеи дня = «Топ-3» того же прогона, из готового суда, через линт стиль-контракта."""
         lid = self.state.get("last_idea_day") or self.state.get("last_top3")
-        # ревью 02.11: под идеей охотника run_id «h_…» — это не прогон конвейера; «что ещё было» =
-        # Топ-3 последнего серверного прогона (last_top3), иначе — честно «подборки нет»
+        # аудит 03.11: под идеей охотника «что ещё было» = кандидаты ЭТОЙ охоты (hunt_log.jsonl),
+        # а не Топ-3 старого конвейера; журнала за дату нет — прежний фолбэк на Топ-3 сервера
         if lid and str(lid.get("run_id") or "").startswith("h_"):
+            text = self._hunter_more_text(lid)
+            if text:
+                self._send_card(text, None)
+                return
             lid = self.state.get("last_top3")
         if not lid or not lid.get("run_id"):
             self.tg.send_message(chat, "Сегодняшней подборки у меня нет — скажи «найди идеи», сделаю прогон.")
@@ -1294,6 +1298,61 @@ class Bot:
         self._send_card(text, None)
         self.state["last_top3"] = {"run_id": lid["run_id"], "idx": (meta or {}).get("idx") or {}}
         self.save()
+
+    def _hunter_more_text(self, lid):
+        """Кандидаты той же охоты, не ставшие идеей дня, — человеческим языком (без линз и FIX/PASS):
+        имя и роль из журнала охоты, причина — по вердикту, «вернусь, если» — только если чистое."""
+        import json as _json
+        import re as _re
+        try:
+            from ops import presentation_lint as PL
+        except ImportError:
+            import presentation_lint as PL
+        day = str(lid.get("run_id"))[2:12]
+        lead = str(lid.get("lead") or "").split(".")[0].upper()
+        try:
+            lines = (self._ideas_dir() / "hunt_log.jsonl").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return None
+        why_ru = {"отвергнута": "проверка нашла улику против идеи",
+                  "не доведена": "не все опорные факты удалось подтвердить первоисточниками за время поиска",
+                  "запасная": "запасная идея дня — была бы отправлена, если бы главная не прошла проверку"}
+        rows, seen = [], set()
+        for ln in lines:
+            try:
+                r = _json.loads(ln)
+            except ValueError:
+                continue
+            if not isinstance(r, dict) or str(r.get("дата")) != day:
+                continue
+            inst = " ".join(str(r.get("инструмент") or "").split())
+            m = _re.match(r"^([A-Z0-9.]{1,10})\s*\((.+)\)\s*$", inst)
+            tk, about = (m.group(1).split(".")[0], m.group(2)) if m else (inst.split(" ")[0].split(".")[0], "")
+            if not tk or tk == lead or tk in seen or r.get("вердикт") == "выбрана":
+                continue
+            seen.add(tk)
+            parts = [x.strip() for x in about.split(" — ", 1)]
+            name = parts[0] or tk
+            role = parts[1] if len(parts) > 1 else ""
+            if len(role) > 110:
+                role = role[:110].rsplit(" ", 1)[0].rstrip(",;") + "…"
+            # условия «пересмотреть, если» охотник пишет для себя (URL, гарды, коридоры цен) — владельцу
+            # не показываем: роль компании и причина простыми словами полезнее
+            line = (f"• {name} ({tk})" + (f", {role}" if role else "") + ": "
+                    + why_ru.get(str(r.get("вердикт")), "не стала идеей дня") + ".")
+            if PL.odds_markers(line, include_quotes=True):
+                line = f"• {name} ({tk}): " + why_ru.get(str(r.get("вердикт")), "не стала идеей дня") + "."
+            rows.append(line)
+        if not rows:
+            return None
+        text = ("Что ещё смотрел охотник в этот день — кандидаты, которые не стали идеей дня:\n\n"
+                + "\n".join(rows[:6]) + "\n\nЛюбую можно разобрать подробно: «разбери ТИКЕР». Это "
+                + PL.RESEARCH_FRAME + ".")
+        viol = PL.lint_for_user(text, max_len=3500)
+        if viol or PL._bare_tickers(text) or PL._TECH_ID_RE.search(text):
+            log("«что ещё было» охотника не прошло подачу", viol[:2])
+            return None
+        return text
 
     def _log_delivery(self, kind, ref=None, text=None, mid=None, buttons=False, lint_ok=None):
         """Аудит 03.11 (P0): журнал доставок journal/deliveries.jsonl (append-only, не §16) — что

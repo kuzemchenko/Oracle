@@ -976,3 +976,24 @@ def test_honest_zero_delivered_even_on_weekend_and_linted(tmp_path, monkeypatch)
     mon = _dt.datetime(2026, 11, 9, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc)
     b2._tick_idea_day_watchdog(mon)
     assert "пока не готова" in b2.tg.sent[-1][1] and any("Честный ноль" in n for n in notes2)
+
+
+def test_more_ideas_under_hunter_shows_this_hunts_candidates(tmp_path, monkeypatch):
+    """Аудит 03.11 (P1): «Что ещё было» под идеей охотника — кандидаты ЭТОЙ охоты простыми словами
+    (без линз FIX/PASS и служебных условий), без лидера; журнала нет — прежний Топ-3 сервера."""
+    import json as _json
+    b, _n = _setup(tmp_path, monkeypatch, [])
+    log_rows = [
+        {"дата": "2026-11-02", "инструмент": "MP (MP Materials — добытчик редкоземов)", "вердикт": "выбрана"},
+        {"дата": "2026-11-02", "инструмент": "MU (Micron Technology — производитель памяти)",
+         "вердикт": "не доведена", "причина": "Факты — FIX: не открыты", "пересмотреть_если": "гард по URL"},
+        {"дата": "2026-11-02", "инструмент": "CTVA (Corteva — семена и защита растений)", "вердикт": "отвергнута"},
+        {"дата": "2026-11-01", "инструмент": "XLE (Energy Select — фонд нефтяников)", "вердикт": "отвергнута"}]
+    (tmp_path / "reports" / "ideas" / "hunt_log.jsonl").write_text(
+        "".join(_json.dumps(r, ensure_ascii=False) + "\n" for r in log_rows), encoding="utf-8")
+    b.state["last_idea_day"] = {"run_id": "h_2026-11-02_MP", "lead": "MP.US", "source": "hunter"}
+    b._cmd_more_ideas("555")
+    t = b.tg.sent[-1][1]
+    assert "Micron Technology (MU), производитель памяти" in t and "Corteva (CTVA)" in t
+    assert "MP Materials" not in t and "XLE" not in t and "FIX" not in t and "URL" not in t
+    assert "проверка нашла улику" in t and "не инвестиционная рекомендация" in t
