@@ -879,10 +879,14 @@ def test_update_without_what_changed_is_silent_and_greeting_once(tmp_path, monke
     Исправление без абзаца «Что изменилось.» тихо заменяет прошлую версию; приветствие — один раз."""
     b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
     b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
+    b.state["hunter_lids"] = {"h_2026-11-02_MP": {"run_id": "h_2026-11-02_MP", "catalyst_date": "2026-01-01",
+                                                  "header": "старый заголовок", "sealed": True}}
     b._tick_hunter_ideas()
     assert not b.tg.sent
     assert any(k.startswith("idea_2026-11-02_MP.push.txt@") and k != "idea_2026-11-02_MP.push.txt@0000000000"
                for k in b.state["hunter_delivered"])
+    lid = b.state["hunter_lids"]["h_2026-11-02_MP"]                # ре-гейт 03.11: состояние обновлено
+    assert lid["header"] != "старый заголовок" and lid["catalyst_date"] != "2026-01-01"
 
 
 def test_second_check_line_answers_itself():
@@ -1063,3 +1067,40 @@ def test_silent_dozor_not_pushed_and_watchdog_says_why(tmp_path, monkeypatch):
     b._tick_idea_day_watchdog(d)
     msg = b.tg.sent[-1][1]
     assert "перестала проходить планку" in msg and len(b.tg.sent) == 2
+
+
+def test_job_flags_survive_real_yaml_load_and_format_save(tmp_path):
+    """Ре-гейт 03.11 (блокер): флаги *_auto читаются из НАСТОЯЩЕГО YAML (раньше load_presentation их
+    выбрасывал — ни одна задача за флагом не стартовала) и не стираются командой /format."""
+    p = tmp_path / "presentation.yaml"
+    p.write_text("mode: long\nprice_snapshot_auto: true\ndeep_dive_auto: false\n", encoding="utf-8")
+    pres = BOT.R.load_presentation(p)
+    assert pres["price_snapshot_auto"] is True and pres["deep_dive_auto"] is False
+    BOT.R.save_presentation(mode="short", path=p)
+    assert BOT.R.load_presentation(p)["price_snapshot_auto"] is True
+    real = BOT.R.load_presentation(ROOT / "config" / "presentation.yaml")
+    assert real["price_snapshot_auto"] is True                 # боевой конфиг: снимок цен включён
+
+
+def test_honest_zero_goes_in_the_morning_and_snapshot_exact_date(tmp_path, monkeypatch):
+    """Ре-гейт 03.11: честный ноль уходит сразу (до 15:00 — засчитывается точкой Б), а не в час
+    сторожа; снимок цен не выдаёт закрытие прошлого дня за цену в день повода."""
+    import datetime as _dt
+    import json as _json
+    b, _n = _setup(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-04_none.json").write_text(_json.dumps(
+        {"checked": 3, "reasons": ["факты не удалось подтвердить первоисточниками"]}, ensure_ascii=False), "utf-8")
+    b._tick_idea_day_watchdog(_dt.datetime(2026, 11, 4, 5, 10, tzinfo=_dt.timezone.utc))
+    assert b.tg.sent and "готов защищать, нет" in b.tg.sent[-1][1]
+    b2, _n2 = _setup(tmp_path / "y", monkeypatch, [])
+    b2._tick_idea_day_watchdog(_dt.datetime(2026, 11, 4, 5, 10, tzinfo=_dt.timezone.utc))
+    assert not b2.tg.sent                                         # без ноля до часа сторожа — тишина
+    import price_snapshot as PS
+    snap = tmp_path / "s.json"
+    snap.write_text(_json.dumps({"as_of": "2026-11-03", "symbols": {"MP.US": [
+        ["2026-10-30", 39.5], ["2026-11-02", 38.4], ["2026-11-03", 38.0]]}}), encoding="utf-8")
+    assert PS.lookup("MP", "2026-11-02", path=snap)["точно_на_дату"] is True
+    assert PS.lookup("MP", "2026-11-01", path=snap)["точно_на_дату"] is False      # воскресенье
+    late = PS.lookup("MP", "2026-11-04", path=snap)
+    assert late["on_or_before"] is None and late["точно_на_дату"] is False

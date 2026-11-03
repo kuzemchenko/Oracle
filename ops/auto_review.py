@@ -302,11 +302,17 @@ def _product_lines(now=None):
         m = PB.measure((now or _now()).date().isoformat())
     except Exception as e:                               # noqa: BLE001 — сводка живёт и без замера
         return [f"• замер точки Б не посчитался ({type(e).__name__}) — смотри reports/point_b/"]
-    c = {x["что"]: x for x in m["критерии"]}
-    week_ago = ((now or _now()) - datetime.timedelta(days=7)).date().isoformat()
-    days_week = [d for d in m["дни_с_идеей"] if d >= week_ago]
+    # ре-гейт 03.11: окно — текущая ISO-неделя (пн … сегодня), а не «7 дней назад» (давало «6 из 5»);
+    # честный ноль — отдельно от доставленной идеи
+    today = (now or _now()).date()
+    monday = today - datetime.timedelta(days=today.isoweekday() - 1)
+    weekdays = [(monday + datetime.timedelta(days=i)).isoformat() for i in range(min(today.isoweekday(), 5))]
+    zero = set(m.get("дни_честного_ноля") or [])
+    idea_week = [d for d in m["дни_с_идеей"] if d in weekdays and d not in zero]
+    zero_week = [d for d in weekdays if d in zero and d not in idea_week]
     h, t = m["идеи_охотника"], m["событийный_трек"]
-    out = [f"• Идея дня дошла в {len(days_week)} из 5 будних дней недели."]
+    out = [f"• Идея дня дошла в {len(idea_week)} из {len(weekdays)} будних дней недели"
+           + (f"; ещё {len(zero_week)} — честное «сегодня защищать нечего» с причинами." if zero_week else ".")]
     if h["исходов"]:
         out.append(f"• Идеи охотника: сверено {h['исходов']}, сбылось {h['сбылось']}"
                    + (f"; от обычной качки цен сбылось бы около {h['база_ожидание']}" if h["база_ожидание"] is not None else "")
@@ -338,12 +344,20 @@ def _summary_notice(r):
     засуха = r["money_засуха_дней"]
     p = r["промоушен"]
     old_n = m["исходов"] + pv["исходов"] + ef["исходов"]
+    week_n = m["исходов_7д"] + pv["исходов_7д"] + (ef.get("исходов_7д") or 0)
+    # ре-гейт 03.11 (П8): оценка — из посчитанного Brier, не зашитой фразой
+    b = pv.get("brier")
+    if b is None:
+        verdict = "счёт точности пока не посчитан"
+    else:
+        verdict = (f"счёт точности {b} при 0.25 у подбрасывания монетки (меньше — лучше) — "
+                   + ("не лучше монетки, поэтому в идеи дня он не идёт" if float(b) >= 0.245
+                      else "чуть лучше монетки, но до доказанного умения далеко"))
     text = (
         "Пятничный разбор: что было за неделю\n\n"
         + "\n".join(_product_lines(r.get("_now"))) + "\n\n"
-        f"Старый конвейер работает фоном как измеритель: сверено прогнозов {old_n} (за неделю "
-        f"+{m['исходов_7д'] + pv['исходов_7д']}); его счёт пока не лучше подбрасывания монетки, поэтому "
-        f"в идеи дня он не идёт. Связи между бумагами, подтверждённые наблюдением: "
+        f"Старый конвейер работает фоном как измеритель: сверено прогнозов {old_n} (за неделю +{week_n}); "
+        f"{verdict}. Связи между бумагами, подтверждённые наблюдением: "
         f"{'есть — нужна твоя подпись' if p.get('n_promote') else 'пока нет'}.\n"
         "Полный отчёт: reports/auto_review/."
     )

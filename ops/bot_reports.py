@@ -559,6 +559,9 @@ field_help = {
 EMPTY_MARK = "[поле пустое]"   # П8: пусто → честно, ничего не выдумываем
 
 
+JOB_FLAGS = ("deep_dive_auto", "week_odds_auto", "point_b_auto", "price_snapshot_auto")
+
+
 def load_presentation(path=None):
     """Слой подачи: режим (long/short), still_unclear, слать ли mock. Читается при каждом рендере."""
     import yaml
@@ -591,7 +594,10 @@ def load_presentation(path=None):
             "hunter_push": bool(cfg.get("hunter_push", False)),
             # Архитектура 02.11: «наблюдение» серверного конвейера (защищать нечего) главным
             # пушем не уходит — идея дня от охотника. Дефолт True = прежнее поведение.
-            "server_observation_push": bool(cfg.get("server_observation_push", True))}
+            "server_observation_push": bool(cfg.get("server_observation_push", True)),
+            # аудит 03.11 (ре-гейт): задачи, которые бот запускает сам (ops/bot.py SCHEDULED_JOBS) —
+            # без проброса здесь флаги молча терялись и ни одна задача не стартовала
+            **{k: bool(cfg.get(k, False)) for k in JOB_FLAGS}}
 
 
 def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
@@ -611,7 +617,8 @@ def save_presentation(mode=None, still_unclear=None, send_mock=None, path=None):
            "week_odds_push": cur["week_odds_push"],
            "story_editor": cur["story_editor"],
            "hunter_push": cur["hunter_push"],
-           "server_observation_push": cur["server_observation_push"]}
+           "server_observation_push": cur["server_observation_push"],
+           **{k: cur[k] for k in JOB_FLAGS}}
     p.write_text("# config/presentation.yaml — слой подачи (см. spec/PRESENTATION.md). "
                  "Меняется командой /format или руками.\n"
                  + yaml.safe_dump(obj, allow_unicode=True, sort_keys=False), encoding="utf-8")
@@ -2553,6 +2560,16 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
                 счёт = FS.score_phrase(scores.get(key))
             строка += f" (взгляд «{имя_в}»: {счёт or 'счёт взгляда копится с этих вопросов'})"
         L.append(строка)
+    rest = qs[8:]
+    if rest:
+        # ре-гейт 03.11 (П8/П16): запечатано до 12, подробно влезает 8 — остальные называем, чтобы владелец
+        # знал о КАЖДОМ вопросе, который войдёт в счёт
+        names = []
+        for q in rest:
+            a = q.get("asset") or ""
+            nm = _asset_human(a)[0]
+            names.append(f"{nm} ({a})" if nm and nm != a else f"{a} — компанию не опознал")
+        L += ["", f"Ещё {len(rest)} вопрос(а) записаны в счёт и будут сверены так же: " + ", ".join(names) + "."]
     L += ["",
           track_score_line(track),
           "",

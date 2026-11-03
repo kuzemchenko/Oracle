@@ -318,14 +318,14 @@ def test_tick_skips_unsealed_and_notices_lint_fail(tmp_path, monkeypatch):
     monkeypatch.setattr(R, "load_presentation", lambda path=None: {"week_odds_push": True})
     d = tmp_path / "journal" / "week_odds"
     d.mkdir(parents=True)
-    (d / "wo_1.json").write_text(_json.dumps({"mode": "mock", "запечатано": 0, "вопросы": [
+    (d / "wo_1.json").write_text(_json.dumps({"mode": "mock", "запечатано": 0, "печать_запрошена": True, "вопросы": [
         {"вопрос": "x", "asset": "USO.US", "probability": 0.4}]}, ensure_ascii=False), "utf-8")
     b._tick_week_odds()
     assert not b.tg.sent and "wo_1.json" in b.state["week_odds_sent"]
     # ре-гейт №2 02.11: пропуск при включённом боевом флаге — всегда аномалия, дозор не молчит
     assert notes and "без печатей" in notes[0]
     # запечатанный, но битый по подаче (нет вопросов → format вернёт None с причиной)
-    (d / "wo_2.json").write_text(_json.dumps({"mode": "live", "запечатано": 2,
+    (d / "wo_2.json").write_text(_json.dumps({"mode": "live", "запечатано": 2, "печать_запрошена": True,
                                               "вопросы": []}, ensure_ascii=False), "utf-8")
     b._tick_week_odds()
     assert not b.tg.sent and any("не прошли проверку подачи" in n for n in notes)
@@ -466,3 +466,46 @@ def test_track_score_line_from_journal_not_constant():
     line = R.track_score_line(t)
     assert "сверено 12, сбылось 5" in line and "около 4.1" in line and "данных мало" in line
     assert "вердикт: лучше шума" in R.track_score_line({**t, "умение": {"verdict": "лучше шума"}})
+
+
+
+def test_watermark_no_carousel_after_50_protocols(tmp_path, monkeypatch):
+    """Ре-гейт 03.11: sent обрезается до 50 — без водяного знака после 51-го протокола старые выпуски
+    уходили бы снова на каждом тике. Протокол без поля «печать_запрошена» (до 03.11) — сухой, молча."""
+    import json as _json
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    d = tmp_path / "journal" / "week_odds"
+    d.mkdir(parents=True)
+    base = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                            mechs_path=_mechs(tmp_path), out_dir=tmp_path / "x", client=StubClient())
+
+    class T:
+        def __init__(self):
+            self.sent = []
+
+        def send_message(self, chat, text, reply_markup=None):
+            self.sent.append(text)
+            return 1
+    b = BOT.Bot(T(), "5", state=S._default_state())
+    notes = []
+    monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    monkeypatch.setattr(b, "_notice_owner", lambda t: notes.append(t))
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": True})
+    (d / "wo_20261103T000000Z.json").write_text(_json.dumps({**base, "mode": "live"}, ensure_ascii=False), "utf-8")
+    for i in range(60):
+        (d / f"wo_202611{10 + i // 24:02d}T{i % 24:02d}0000Z.json").write_text(_json.dumps(
+            {**base, "mode": "live", "запечатано": 2, "печать_запрошена": True}, ensure_ascii=False), "utf-8")
+        b._tick_week_odds()
+    n = len(b.tg.sent)
+    assert n == 60 and not notes                                   # по одному пушу на выпуск, без тревог
+    for _ in range(3):
+        b._tick_week_odds()
+    assert len(b.tg.sent) == n                                     # карусели нет
+
+
+def test_more_than_8_questions_all_named():
+    qs = [{"asset": f"USO.US", "вопрос": f"Нефть закроется выше ${80 + i} к 1 декабря", "probability": 0.4,
+           "почему": "запасы низкие"} for i in range(10)]
+    text, viol = R.format_week_odds({"ts": "2026-11-10T08:10:00+00:00", "вопросы": qs})
+    assert not viol and "Ещё 2 вопрос(а) записаны в счёт" in text

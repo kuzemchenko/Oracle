@@ -86,6 +86,13 @@ def lookup(symbol, on_date=None, path=None):
         prior = [r for r in rows if r[0] <= str(on_date)[:10]]
         if prior and str(on_date)[:10] >= rows[0][0]:
             res["on_or_before"] = {"date": prior[-1][0], "close": prior[-1][1]}
+        # ре-гейт 03.11: закрытие ПРЕДЫДУЩЕГО дня — не цена в день повода (выходной/праздник — да, но если
+        # дата повода позже снимка, это просто «ещё нет данных»): охотник берёт trigger_close только при точном
+        res["точно_на_дату"] = bool(res["on_or_before"] and res["on_or_before"]["date"] == str(on_date)[:10])
+        if str(on_date)[:10] > rows[-1][0]:
+            res["on_or_before"] = None
+            res["точно_на_дату"] = False
+            res["примечание"] = "дата повода позже снимка — закрытия ещё нет; не подставляй прошлое"
     return res
 
 

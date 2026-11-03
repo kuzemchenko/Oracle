@@ -88,8 +88,13 @@ CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "4": "в индексе git чужие изменения (ручная работа на сервере) — закончи её или пришли мне git status",
     "5": "не удалось добавить файлы журналов в git — пришли мне хвост journal/cron.log",
     "6": "не удалось сделать коммит журналов — пришли мне хвост journal/cron.log",
-    "7": ("главная ветка в GitHub заморожена (облачный коммит ждёт твоего «ок» или ветки разошлись); журналы "
-          "сохранены в запасную ветку server-journal, ничего не потеряно. Одна ручная протяжка: " + OWNER_PULL_CMD),
+    # ре-гейт 03.11 (П16): прежний сервер отдаёт 7 и при «облако тронуло журналы» — совет протянуть вручную
+    # обходил бы охрану журнала. Поэтому сначала проверка по алерту протяжки того же дня
+    "7": ("главная ветка в GitHub заморожена или ветки разошлись. Сначала посмотри: если сегодня был алерт "
+          "протяжки с кодом 9 (облако тронуло журналы) — вручную НЕ протягивай, напиши мне. Иначе — одна "
+          "ручная протяжка: " + OWNER_PULL_CMD),
+    "9": ("облачный коммит тронул журналы честности — журналы сервера сохранены в запасную ветку "
+          "server-journal, ничего не потеряно; вручную НЕ протягивай, напиши мне — разберу коммит"),
     "8": "git был занят другой операцией дольше 15 минут — повторю завтра",
 }
 
@@ -726,7 +731,7 @@ class Bot:
                     um = HS.update_bet_mismatch(card, p.name)
                     if um:
                         _mark(key + ":bad")
-                        self._notice_dozor("Исправление идеи охотника " + p.name + " не ушло: " + um
+                        self._notice_owner("Исправление идеи охотника " + p.name + " не ушло: " + um
                                            + ". Новая ставка = новая идея с новой датой.")
                         return None
                     # перепроверка №4: шлагбаума новой ставки у исправления нет (честное «выхожу» после
@@ -738,7 +743,7 @@ class Bot:
                                    + str(rfails[0])[len(HS.TRANSIENT):][:160] + ") — повторю через час.")
                             return None
                         _mark(key + ":bad")
-                        self._notice_dozor("Исправление идеи охотника " + p.name + " не ушло: "
+                        self._notice_owner("Исправление идеи охотника " + p.name + " не ушло: "
                                            + "; ".join(str(f) for f in rfails[:2]) + ".")
                         return None
                 else:
@@ -758,7 +763,8 @@ class Bot:
                 final, pproblems = HS.prepare_push(text, card, update=update)
                 if pproblems:
                     _mark(key + ":bad")
-                    self._notice_dozor("Идея охотника " + p.name + " не прошла проверку итогового текста ("
+                    # ре-гейт 03.11: срыв ИСПРАВЛЕНИЯ уже доставленной идеи владелец видит (сторож его не ловит)
+                    (self._notice_owner if update else self._notice_dozor)("Идея охотника " + p.name + " не прошла проверку итогового текста ("
                                        + "; ".join(str(x) for x in pproblems[:2]) + ") — в Telegram не ушла.")
                     return None
                 ckey = p.name + "#" + hashlib.sha1(_json.dumps(card, sort_keys=True, ensure_ascii=False)
@@ -774,7 +780,7 @@ class Bot:
                     # перепроверка №3: заметки дозора уходят владельцу — только очищенное возражение
                     why_txt = HC.safe_objection(verdict) or ("пункт рубрики " + str(verdict.get("point") or "?")
                                                              + "; дословно — в кэше суда на сервере")
-                    self._notice_dozor("Идею охотника " + p.name + " отверг суд разных семейств ("
+                    (self._notice_owner if update else self._notice_dozor)("Идею охотника " + p.name + " отверг суд разных семейств ("
                                        + why_txt + ") — в Telegram не ушла"
                                        + ("" if update else ", записана тенью для проверки права вето") + ".")
                     return None
@@ -828,6 +834,19 @@ class Bot:
                 changed = next((b for b in "\n".join(lines).split("\n\n")
                                 if b.strip().lower().startswith("что изменилось")), None)
                 if not changed:
+                    # ре-гейт 03.11 (П8): тихая замена обязана обновить состояние идеи — иначе напоминание
+                    # в день развилки сработало бы по СТАРОЙ дате и цитировало старый план и возражение
+                    rid0 = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
+                    lid0 = (self.state.get("hunter_lids") or {}).get(rid0)
+                    if lid0 is not None:
+                        for k in ("name", "catalyst_date", "header", "todo"):
+                            if foot.get(k):
+                                lid0[k] = foot[k]
+                        if foot.get("objection"):
+                            lid0["court_objection"] = foot["objection"]
+                        self.state["hunter_lids"][rid0] = lid0
+                        if (self.state.get("last_idea_day") or {}).get("run_id") == rid0:
+                            self.state["last_idea_day"] = lid0
                     delivered.add(key)
                     self.state["hunter_delivered"] = sorted(delivered)
                     _mark(key)
@@ -882,8 +901,19 @@ class Bot:
                     lkey = _version(lp, lp.read_text(encoding="utf-8").strip())[0]
                 except (OSError, ValueError):
                     return False                     # не читается — не решаем за лидера
-                if lkey + ":bad" not in seen:
-                    return False                     # лидер жив или ещё ждёт (котировки, суд, .md)
+                if lkey + ":bad" in seen:
+                    continue
+                # ре-гейт 03.11: лидер без исследования (.md) или карточки дольше 3 часов после протяжки —
+                # облако его уже не дочинит в этот день; запасная не должна ждать вечно
+                stale = False
+                try:
+                    import time as _time
+                    stale = (_time.time() - lp.stat().st_mtime) > 3 * 3600
+                except OSError:
+                    pass
+                if stale and (lkey + ":nomd" in seen or lkey + ":nocard" in seen):
+                    continue
+                return False                         # лидер жив или ещё ждёт (котировки, суд, .md)
             return True
 
         _alts = []
@@ -1159,10 +1189,13 @@ class Bot:
             return
         now = now or S.now_utc()
         today = now.date().isoformat()
-        if now.hour < WATCHDOG_HOUR_UTC or self.state.get("idea_day_delivered") == today \
-                or self.state.get("idea_day_watchdog") == today:
+        if self.state.get("idea_day_delivered") == today or self.state.get("idea_day_watchdog") == today:
             return
+        # ре-гейт 03.11: честный ноль — СРАЗУ, как охотник его положил (а не в час сторожа): владелец
+        # узнаёт утром, и замер точки Б (доставка до 15:00 UTC) его засчитывает
         zero = self._honest_zero_text(today)
+        if not zero and now.hour < WATCHDOG_HOUR_UTC:
+            return
         if zero:                                 # аудит 03.11: честный ноль охотника — и в выходные тоже
             _mid = self.tg.send_message(self.chat_id, zero)
             if _mid is None:
@@ -1227,16 +1260,21 @@ class Bot:
         sent = self.state.setdefault("week_odds_sent", [])
         import json as _json
         latest, proto = None, None
+        # ре-гейт 03.11: водяной знак (имена wo_<время>.json растут) — список sent обрезается до 50,
+        # и без знака после 51-го протокола старые выпуски уходили бы владельцу снова и снова
+        mark = self.state.get("week_odds_mark") or (max(sent) if sent else "")
         for f in files:
-            if f.name in sent:
+            if f.name in sent or f.name <= mark:
                 continue
+            self.state["week_odds_mark"] = max(self.state.get("week_odds_mark") or "", f.name)
             try:
                 pr = _json.loads(f.read_text(encoding="utf-8"))
             except ValueError:
                 sent.append(f.name)
                 continue
-            # аудит 03.11: ручной показ (--show без --seal) — не сбой крона; молча мимо
-            if pr.get("печать_запрошена") is False:
+            # аудит 03.11: ручной показ (--show без --seal) — не сбой крона; молча мимо. Протоколы до
+            # 03.11 поля не знают (ре-гейт: 2 сухих прогона 03.11 дали бы ложную тревогу) — тоже сухие
+            if not pr.get("печать_запрошена"):
                 sent.append(f.name)
                 log("Шансы недели: сухой прогон без печати — не пушим", f.name)
                 continue
@@ -2506,6 +2544,10 @@ class Bot:
         if sig == code_sig:
             return False
         if self._job_busy():                         # не рвём «Качаем», /run-funnel, /debate на лету
+            return False
+        # ре-гейт 03.11: задачи за флагами (прокачка, «Шансы недели», снимок цен) — отдельные процессы в той
+        # же группе systemd: выход бота убил бы их на середине. Перезапуск — после их завершения
+        if any(pr.poll() is None for pr in (getattr(self, "_job_procs", None) or {}).values()):
             return False
         bad = []
         for f in _code_files():

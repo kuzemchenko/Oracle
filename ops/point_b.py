@@ -105,6 +105,7 @@ def measure(today=None, root=None):
     dd = _jsonl(j / "deep_dive.jsonl")
     edges = _jsonl(root / "knowledge" / "edge_candidates.jsonl")
     days = idea_days(deliveries, preds, until=today)
+    zero_days = sorted({str(r.get("ts"))[:10] for r in deliveries if r.get("kind") == "честный ноль"})
     passports = sorted({(r.get("run_id"), r.get("asset")) for r in dd if r.get("stage") == "day2"}, key=str)
     first_log = min((str(r.get("ts"))[:10] for r in deliveries if r.get("ts")), default="9999")
     hunter_pushes = [r for r in deliveries if r.get("kind") == "идея охотника"] + \
@@ -137,7 +138,7 @@ def measure(today=None, root=None):
     ]
     return {"дата": today, "точки": POINTS, "критерии": [
         {"точка": p, "что": what, "сейчас": now, "цель": goal, "выполнено": now >= goal} for p, what, now, goal in crit],
-        "дни_с_идеей": days, "паспорта": [list(x) for x in passports], "этапы": stages,
+        "дни_с_идеей": days, "дни_честного_ноля": zero_days, "паспорта": [list(x) for x in passports], "этапы": stages,
         "событийный_трек": thesis, "идеи_охотника": hunter, "происхождение_связей": origins,
         "пятницы": fridays, "дни_бот_жив": alive[-10:],
         "код_sha256": hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()}
