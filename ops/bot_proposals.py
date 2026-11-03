@@ -72,6 +72,8 @@ def pending(prop_dir=None, decisions_path=None, limit=BATCH):
     for item in (doc.get("предложения") or []):
         if not isinstance(item, dict):
             continue
+        if not item.get("требует_подписи"):          # аудит 03.11: на подпись — только то, что её требует
+            continue
         k = proposal_key(ts, item)
         if k in decided:
             continue

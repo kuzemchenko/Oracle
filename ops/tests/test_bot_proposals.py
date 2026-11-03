@@ -93,3 +93,15 @@ def test_tick_weekly_sunday_and_button_flow(tmp_path, monkeypatch):
     monkeypatch.setattr(PR, "PROP_DIR", _props_file(tmp_path))
     b2._tick_proposal_batch(datetime.datetime(2026, 11, 7, 11, 0, tzinfo=datetime.timezone.utc))
     assert not b2.tg.sent
+
+
+def test_info_only_items_not_put_to_signature(tmp_path):
+    """Аудит 03.11 (P1 №17): справочные пункты (требует_подписи=false) в карточку подписи не идут."""
+    d = tmp_path / "proposals"
+    d.mkdir()
+    doc = {"ts": "2026-11-06T18:00:01+00:00", "предложения": [
+        {"наблюдение": "фильтр старого конвейера", "предложение": "к сведению", "эффект": "—", "требует_подписи": False},
+        {"наблюдение": "цепочка мертва", "предложение": "проверить цепочку", "эффект": "чистка", "требует_подписи": True}]}
+    (d / "proposals_20261106T180001.json").write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    items = PR.pending(d, tmp_path / "dec.jsonl")
+    assert [r["item"]["наблюдение"] for _k, r in items] == ["цепочка мертва"]

@@ -37,7 +37,10 @@ def test_generate_proposals_flags_dominant_gate_and_dead_chain():
     props = D.generate_proposals(metrics, {"провизорный": {"исходов": 0, "brier": None}})
     obs = " ".join(p["наблюдение"] for p in props)
     assert "ликвидность" in obs and "dead" in obs
-    assert all(p["требует_подписи"] for p in props)                  # автономия 0: всё на подпись
+    # автономия 0: всё, что что-то меняет, — на подпись; справка про фильтры старого конвейера (аудит
+    # 03.11) ничего не меняет и подписи не требует
+    assert all(p["требует_подписи"] or p["предложение"].startswith("к сведению") for p in props)
+    assert any(p["требует_подписи"] for p in props)
 
 
 def test_generate_proposals_graduation_when_calibrated():
@@ -49,3 +52,11 @@ def test_generate_proposals_graduation_when_calibrated():
 def test_generate_proposals_empty_when_clean():
     props = D.generate_proposals({"доля_отсева": {}, "цепочки_активаций": {}}, {"провизорный": {}})
     assert len(props) == 1 and props[0]["требует_подписи"] is False  # нечего менять — не выдумываем
+
+
+
+def test_no_graduation_when_worse_than_coin():
+    """Аудит 03.11: Brier 0.2565 (хуже монетки 0.25) — выпуск в денежный трек не предлагается."""
+    props = D.generate_proposals({"доля_отсева": {}, "цепочки_активаций": {}},
+                                 {"провизорный": {"исходов": 1932, "brier": 0.2565}})
+    assert not any("ВЫПУСК" in p["предложение"] for p in props)
