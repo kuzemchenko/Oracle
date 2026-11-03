@@ -36,6 +36,7 @@
 cascade_resolve.seal_spec. Псевдо-цепочка из 2 узлов ⇒ path_edges длины 1 (атрибуция ребру).
 """
 import datetime
+import hashlib
 import json
 import pathlib
 import sqlite3
@@ -109,7 +110,7 @@ def candidate_edges(path=CANDIDATES):
 _DEFAULT_CANDIDATES = object()   # сентинел: дефолт резолвится В МОМЕНТ ВЫЗОВА (тестируемость)
 
 
-def edge_library(path=SENS, candidates_path=_DEFAULT_CANDIDATES):
+def edge_library(path=SENS, candidates_path=_DEFAULT_CANDIDATES, rotate=None):
     """Направленные рёбра библиотеки: (from, to, lag) из sensitivities + chain_sensitivities,
     дедуп по тройке. Порядок детерминирован (сортировка) — прогон воспроизводим.
 
@@ -142,6 +143,16 @@ def edge_library(path=SENS, candidates_path=_DEFAULT_CANDIDATES):
     # Иначе при кэпе MAX_SEALS_PER_RUN алфавитная сортировка давала кандидатам «A…» вытеснять
     # библиотеку из суточных печатей по мере роста реестра кандидатов (цель программы ≥100 рёбер).
     edges.sort(key=lambda x: (x.get("origin", "library") != "library", x["from"], x["to"], x["lag"]))
+    if rotate:
+        # 03.11 (библиотека исторических каскадов): кандидатов стало много, а суб-кэп печатей — половина
+        # суточного; при алфавитном порядке кандидаты «на Z» не печатались бы НИКОГДА. Порядок кандидатов
+        # внутри дня — детерминированная ротация по хэшу (дата прогона + ключ ребра): воспроизводимо и
+        # честно ко всем. Библиотечные рёбра по-прежнему первыми.
+        lib = [e for e in edges if e.get("origin", "library") == "library"]
+        cand = [e for e in edges if e.get("origin", "library") != "library"]
+        cand.sort(key=lambda e: hashlib.sha256(
+            f"{rotate}|{FP.edge_key(e['from'], e['to'], e['lag'])}".encode()).hexdigest())
+        edges = lib + cand
     return edges
 
 
@@ -200,7 +211,7 @@ def run_edge_forward(*, write=True, seal=True, con=None, now_dt=None,
     now_dt = now_dt or datetime.datetime.now(datetime.timezone.utc)
     asof = now_dt.strftime("%Y-%m-%d")
     run_id = "b4_" + now_dt.strftime("%Y%m%dT%H%M%SZ")
-    edges = edge_library(sens_path, candidates_path=candidates_path)
+    edges = edge_library(sens_path, candidates_path=candidates_path, rotate=asof)
     own = con is None
     if con is None:
         con = sqlite3.connect(str(db or DB), timeout=30)
