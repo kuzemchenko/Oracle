@@ -111,7 +111,8 @@ MAILTO=""
 5 * * * *   cd /home/oracle/oracle && ops/cron_alert.sh git_pull ops/safe_pull.sh >> journal/cron.log 2>&1
 # V5 «Шансы недели» (пятница 08:10 UTC). ВКЛЮЧИТЬ после ручного прогона испытателя и «ок»
 # владельца (правило внедрения 01.11, ops/roadmap_state.yaml) + week_odds_push: true в presentation.yaml:
-# 10 8 * * 5 /home/oracle/oracle/ops/cron_alert.sh week_odds /home/oracle/oracle/.venv/bin/python /home/oracle/oracle/orchestrator/week_odds.py --mode auto --seal
+# (03.11: прежняя заготовка не поднимала .env — ключа OpenRouter не было бы, прогон молча ушёл бы в отказ)
+# 10 8 * * 5 cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh week_odds /home/oracle/oracle/.venv/bin/python orchestrator/week_odds.py --mode live --seal >> journal/cron.log 2>&1
 # V3 «качаем 2 дня» (ежедневно 09:40 UTC — продвижение очереди прокачки после кнопки).
 # ВКЛЮЧИТЬ после ручного прогона испытателя и «ок» владельца (правило внедрения 01.11):
 # 40 9 * * * /home/oracle/oracle/ops/cron_alert.sh deep_dive /home/oracle/oracle/.venv/bin/python /home/oracle/oracle/orchestrator/deep_dive.py --mode auto
