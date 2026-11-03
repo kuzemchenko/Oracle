@@ -149,23 +149,24 @@ def test_weekly_edge_candidates_empty_registry(tmp_path, monkeypatch):
 
 
 def test_watch_github_тишина_и_дедуп_ступеней(tmp_path, monkeypatch):
-    """v3/V1: пуш старше 4 дней → заметка; та же ступень — молчим; рост ступени — шумим снова."""
+    """v3/V1 (аудит 03.11: порог 2 дня по СЕРВЕРНОМУ чекпоинту): старше 2 дней → заметка; та же
+    ступень — молчим; рост ступени — шумим снова; ожил — сброс."""
     j = _journals(tmp_path, money_seal_day="2026-07-08")   # без засухи, чтобы изолировать сигнал
     notices, state = tmp_path / "notices.jsonl", tmp_path / "st.json"
     AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=5, **j)
     rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
-    assert any("не было пушей 5 дн" in r["text"] for r in rows), "алерт тишины GitHub не ушёл"
+    assert any("не доезжали до GitHub 5 дн" in r["text"] for r in rows), "алерт тишины GitHub не ушёл"
     n1 = len(rows)
-    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=6, **j)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=5, **j)
     assert len([x for x in notices.read_text("utf-8").splitlines()]) == n1, "дедуп ступени не сработал"
-    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=9, **j)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=7, **j)
     rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
-    assert any("9 дн" in r["text"] for r in rows), "новая ступень (9 дн) должна шуметь"
-    # пуш ожил → состояние сброшено, следующий застой шумит заново
+    assert any("7 дн" in r["text"] for r in rows), "новая ступень (7 дн) должна шуметь"
+    # чекпоинт ожил → состояние сброшено, следующий застой шумит заново
     AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=0, **j)
-    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=4, **j)
+    AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=2, **j)
     rows = [json.loads(x) for x in notices.read_text("utf-8").splitlines()]
-    assert any("4 дн" in r["text"] for r in rows)
+    assert any("2 дн" in r["text"] for r in rows)
 
 
 def test_watch_github_офлайн_не_шумит(tmp_path):
@@ -174,7 +175,7 @@ def test_watch_github_офлайн_не_шумит(tmp_path):
     notices, state = tmp_path / "notices.jsonl", tmp_path / "st.json"
     AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)
     text = notices.read_text("utf-8") if notices.exists() else ""
-    assert "не было пушей" not in text
+    assert "не доезжали до GitHub" not in text
 
 
 def test_watch_буксовка_этапа_вопрос_развилка(tmp_path):
@@ -212,3 +213,29 @@ def test_watch_битый_roadmap_не_роняет_дозор(tmp_path):
     rm.write_text("этапы: [незакрытая: {скобка", encoding="utf-8")
     AR.run_watch(notices_path=tmp_path / "n.jsonl", state_path=tmp_path / "s.json",
                  now=NOW, push_age_days=None, roadmap_path=rm, **j)
+
+
+# ── аудит 03.11: датчики V1 там, где процесс уже ломался ────────────────────────────────────────
+def test_v1_sensors_crontab_queue_week_odds(tmp_path):
+    import datetime as _dt
+    import json as _json
+    import auto_review as AR
+    ct = tmp_path / "crontab.txt"
+    ct.write_text("# комментарий\n5 * * * *   a  b\n0 22 * * * checkpoint\n# 10 8 * * 2,4 week_odds\n", encoding="utf-8")
+    assert AR.crontab_missing(ct, installed_text="5 * * * * a b\n") == ["0 22 * * * checkpoint"]
+    assert AR.crontab_missing(ct, installed_text="5 * * * * a b\n0 22 * * *  checkpoint\n") == []
+    q = tmp_path / "dd.jsonl"
+    q.write_text("".join(_json.dumps(r, ensure_ascii=False) + "\n" for r in [
+        {"ts": "2026-11-03T07:40:00+00:00", "run_id": "h_2026-11-02_MP", "asset": "MP.US", "status": "queued"},
+        {"ts": "2026-11-04T08:00:00+00:00", "run_id": "h_x", "asset": "X.US", "status": "queued"}]), encoding="utf-8")
+    now = _dt.datetime(2026, 11, 4, 21, 15, tzinfo=_dt.timezone.utc)
+    assert AR.deep_dive_waiting(now, queue_path=q) == [("h_2026-11-02_MP", "MP.US", "2026-11-03")]
+    tue = _dt.datetime(2026, 11, 10, 21, 15, tzinfo=_dt.timezone.utc)
+    wo = tmp_path / "wo"
+    wo.mkdir()
+    assert AR.week_odds_missed(tue, out_dir=wo, presentation={"week_odds_push": True}) is True
+    (wo / "wo_20261110T081000Z.json").write_text("{}", encoding="utf-8")
+    assert AR.week_odds_missed(tue, out_dir=wo, presentation={"week_odds_push": True}) is False
+    assert AR.week_odds_missed(tue, out_dir=tmp_path / "none", presentation={"week_odds_push": False}) is False
+    wed = _dt.datetime(2026, 11, 11, 21, 15, tzinfo=_dt.timezone.utc)
+    assert AR.week_odds_missed(wed, out_dir=tmp_path / "none", presentation={"week_odds_push": True}) is False

@@ -44,7 +44,8 @@ EDGE_CANDIDATES = ROOT / "knowledge" / "edge_candidates.jsonl"   # Э4(ж): ре
 WEEK_DAYS = 7
 DROUGHT_ALERT_DAYS = 7          # засуха money-печати: первый алерт на 7-й день, далее раз в 7
 COURT_STREAK_MIN = 4            # 100% РАЗБИТА при ≥N судах за неделю — это уже закономерность
-PUSH_AGE_ALERT_DAYS = 4         # v3/V1: тишина в GitHub >N дней = конвейер публикации мёртв
+PUSH_AGE_ALERT_DAYS = 2         # v3/V1 (аудит 03.11: было 4 и по ЛЮБОМУ коммиту): последний СЕРВЕРНЫЙ
+                                # чекпоинт старше N дней = журналы сервера не доезжают до GitHub
 ROADMAP_STATE = ROOT / "ops" / "roadmap_state.yaml"   # v3/V1: машинное состояние карты
 
 
@@ -342,10 +343,12 @@ def _save_state(st, state_path=None):
 
 
 def _github_push_age_days(now=None, repo_dir=None):
-    """Возраст (в днях) последнего коммита origin/master на GitHub, или None при недоступности.
+    """Возраст (в днях) последнего СЕРВЕРНОГО чекпоинта журналов в GitHub, или None при недоступности.
 
-    v3/V1 «тишина в GitHub»: с 15.07 по 31.10 пуши молчали 3.5 месяца и никто не заметил —
-    теперь дозор меряет сам. fail-soft: нет сети/не git — честный None, не крах дозора."""
+    v3/V1 «тишина в GitHub»: с 15.07 по 31.10 пуши молчали 3.5 месяца и никто не заметил.
+    Аудит 03.11: меряем не любой коммит (облако коммитит каждый день и маскировало бы тишину
+    сервера), а коммит «journal: чекпоинт …» в master ИЛИ в боковой ветке server-journal (туда
+    чекпоинт уводит журналы, пока master заморожен). fail-soft: нет сети/не git — честный None."""
     import subprocess
     now = now or _now()
     cwd = str(repo_dir or ROOT)
@@ -353,13 +356,74 @@ def _github_push_age_days(now=None, repo_dir=None):
         subprocess.run(["git", "fetch", "--quiet", "origin", "master"],
                        cwd=cwd, timeout=60, check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        out = subprocess.run(["git", "log", "-1", "--format=%ct", "FETCH_HEAD"],
+        subprocess.run(["git", "fetch", "--quiet", "origin", "server-journal:refs/remotes/origin/server-journal"],
+                       cwd=cwd, timeout=60, check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        refs = ["origin/master"]
+        if subprocess.run(["git", "rev-parse", "--verify", "--quiet", "origin/server-journal"], cwd=cwd,
+                          timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+            refs.append("origin/server-journal")
+        out = subprocess.run(["git", "log", "-1", "--format=%ct", "--grep=^journal: чекпоинт", *refs],
                              cwd=cwd, timeout=30, check=True,
                              capture_output=True, text=True)
         ts = int(out.stdout.strip())
-    except Exception:                                    # noqa: BLE001 — сеть/гит недоступны
+    except Exception:                                    # noqa: BLE001 — сеть/гит недоступны/чекпоинтов нет
         return None
     return (now - datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)).days
+
+
+def crontab_missing(expected_path=None, installed_text=None):
+    """Строки ops/crontab.txt (без комментариев), которых НЕТ в установленном crontab пользователя.
+
+    Аудит 03.11 (датчик V1): 31.10 выяснилось, что чекпоинт-строка жила только в файле — в
+    установленный crontab её никто не внёс. installed_text=None → `crontab -l` (fail-soft: None)."""
+    import subprocess
+    exp_path = pathlib.Path(expected_path or ROOT / "ops" / "crontab.txt")
+    try:
+        exp = [" ".join(ln.split()) for ln in exp_path.read_text(encoding="utf-8").splitlines()
+               if ln.strip() and not ln.lstrip().startswith("#")]
+    except OSError:
+        return None
+    if installed_text is None:
+        try:
+            r = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=30)
+        except Exception:                                # noqa: BLE001 — нет crontab в среде
+            return None
+        if r.returncode != 0:
+            return None
+        installed_text = r.stdout
+    inst = {" ".join(ln.split()) for ln in installed_text.splitlines() if ln.strip()}
+    return [ln for ln in exp if ln not in inst]
+
+
+def deep_dive_waiting(now=None, queue_path=None, days=1):
+    """Нажатия «Качаем», которые ждут прокачки дольше `days` суток → [(run_id, asset, с какого числа)]."""
+    now = now or _now()
+    try:
+        from orchestrator import deep_dive as DD
+        st = DD.queue_state(queue_path)
+    except Exception:                                    # noqa: BLE001 — нет модуля/очереди
+        return []
+    cut = (now - datetime.timedelta(days=days)).isoformat()
+    return [(rid, a, str(v.get("last_ts"))[:10]) for (rid, a), v in sorted(st.items(), key=str)
+            if v.get("stage") == "queued" and str(v.get("last_ts") or "") < cut]
+
+
+def week_odds_missed(now=None, out_dir=None, presentation=None, weekdays=(2, 4)):
+    """День прогона «Шансов недели» (вт/чт) при включённом флаге, а нового выпуска за сегодня нет."""
+    now = now or _now()
+    if now.isoweekday() not in weekdays or now.hour < 9:
+        return False
+    if presentation is None:
+        try:
+            import yaml
+            presentation = yaml.safe_load((ROOT / "config" / "presentation.yaml").read_text(encoding="utf-8")) or {}
+        except Exception:                                # noqa: BLE001
+            return False
+    if not presentation.get("week_odds_push"):
+        return False
+    d = pathlib.Path(out_dir or ROOT / "journal" / "week_odds")
+    return not any(d.glob(f"wo_{now.strftime('%Y%m%d')}*.json")) if d.exists() else True
 
 
 def _roadmap_stuck(state_path=None):
@@ -441,9 +505,9 @@ def run_watch(predictions_path=None, outcomes_path=None, funnel_glob=None,
         step = age // PUSH_AGE_ALERT_DAYS
         if st.get("push_age_step") != step:
             fired.append(_notice(
-                f"🩺 Дозор §25: в GitHub не было пушей {age} дн. — вечерний чекпоинт "
-                f"(ops/checkpoint.sh, cron 22:00) не доносит журналы. Летом так молча пропали "
-                f"3.5 месяца. Проверить: crontab -u oracle -l и хвост journal/cron.log.",
+                f"🩺 Дозор: журналы сервера не доезжали до GitHub {age} дн. — вечерний чекпоинт "
+                f"(cron 22:00) не прошёл ни в главную, ни в запасную ветку. Летом так молча пропали "
+                f"3.5 месяца. Проверить: sudo crontab -u oracle -l | grep checkpoint и хвост journal/cron.log.",
                 notices_path))
             st["push_age_step"] = step
     elif age is not None:
@@ -462,6 +526,41 @@ def run_watch(predictions_path=None, outcomes_path=None, funnel_glob=None,
                 notices_path))
             seen.append(key)
             st["roadmap_stuck_alerted"] = seen[-20:]
+
+    # 6) аудит 03.11 (V1): установленный crontab разошёлся с ops/crontab.txt
+    miss = crontab_missing() if push_age_days == "auto" else None
+    if miss:
+        key = str(sorted(miss))[:500]
+        if st.get("crontab_missing_key") != key:
+            fired.append(_notice(
+                f"🩺 Дозор: в установленном расписании сервера нет {len(miss)} строк из ops/crontab.txt "
+                f"(например: «{miss[0][:120]}»). Пока их нет, эти задачи не запускаются. Одна команда: "
+                f"sudo crontab -u oracle /home/oracle/oracle/ops/crontab.txt", notices_path))
+            st["crontab_missing_key"] = key
+    elif miss is not None:
+        st.pop("crontab_missing_key", None)
+
+    # 7) аудит 03.11 (V1): «Качаем» ждёт прокачки дольше суток (раз на нажатие)
+    seen_dd = st.setdefault("deep_dive_waiting_alerted", [])
+    for rid, asset, since in (deep_dive_waiting(now) if push_age_days == "auto" else []):
+        if rid in seen_dd:
+            continue
+        fired.append(_notice(
+            f"🩺 Дозор: «Качаем» по {asset} (нажато {since}) ждёт прокачки дольше суток. Двухдневная "
+            f"прокачка на сервере пока выключена до твоего «ок» после ручного показа: "
+            f"cd /home/oracle/oracle && sudo -u oracle sh -c 'set -a && . ./.env && set +a && "
+            f".venv/bin/python orchestrator/deep_dive.py --show'", notices_path))
+        seen_dd.append(rid)
+        st["deep_dive_waiting_alerted"] = seen_dd[-30:]
+
+    # 8) аудит 03.11 (V1): день «Шансов недели» без нового выпуска при включённом флаге
+    if push_age_days == "auto" and week_odds_missed(now):
+        key = now.date().isoformat()
+        if st.get("week_odds_missed_day") != key:
+            fired.append(_notice(
+                "🩺 Дозор: сегодня день «Шансов недели», флаг включён, а нового выпуска нет — "
+                "прогон не запускался или упал. Хвост: journal/cron.log (метка week_odds).", notices_path))
+            st["week_odds_missed_day"] = key
 
     _save_state(st, state_path)
     print(f"[auto_review --watch] сработавших сигналов: {len(fired)}"
