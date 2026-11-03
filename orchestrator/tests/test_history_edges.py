@@ -182,3 +182,17 @@ def test_merge_duplicates_across_collectors():
     out, n = HE.merge_duplicates([b, a, c, same_id, other])
     assert n == 2 and sorted(e["id"] for e in out) == ["2019_a", "2019_c", "2019_other_chain"]
     assert [e for e in out if e["id"] == "2019_a"][0]["merged_from"] == ["2019_b"]
+
+
+def test_rank_for_forward_limits_and_order():
+    def r(a, b, v, p, m="намёк"):
+        return {"from": a, "to": b, "вердикт": v, "на_сервере": True, "знак": 1, "знак_корреляции": 1, "ρ": 0.2,
+                "счёт": {"p": p}, "сверх_рынка": {"вердикт": m}}
+    rows = [r("A", f"T{i}", "намёк", 0.1 + i / 100) for i in range(5)] + \
+        [r("B", "T0", "подтверждена", 0.01), r("C", "T0", "намёк", 0.02), r("D", "X", "мало данных", None),
+         r("E", "Y", "история против", 0.9)]
+    pick, rest = HE.rank_for_forward(rows, top=5, per_from=3, per_to=2)
+    keys = [(x["from"], x["to"]) for x in pick]
+    assert keys[0] == ("B", "T0") and ("E", "Y") not in keys + [(x["from"], x["to"]) for x in rest]
+    assert sum(1 for k in keys if k[0] == "A") <= 3 and sum(1 for k in keys if k[1] == "T0") <= 2
+    assert len(pick) == 5 and ("D", "X") in [(x["from"], x["to"]) for x in rest + pick]

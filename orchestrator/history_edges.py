@@ -377,7 +377,28 @@ def test_pairs(episodes, *, series_fn=None, server=None):
             if results[i]["вердикт"] == "подтверждена" and not rej:
                 results[i]["вердикт"] = "намёк"
                 results[i]["причина"] = f"p≤0.05, но после поправки на множественность q={round(float(q), 3)}>{Q_FDR}"
+    pm = [(i, r["сверх_рынка"]["p"]) for i, r in enumerate(results)
+          if (r.get("сверх_рынка") or {}).get("p") is not None]
+    if pm:
+        bh = FDR.benjamini_hochberg([p for _i, p in pm], q=Q_FDR)
+        for (i, _p), q, rej in zip(pm, bh["qvalues"], bh["rejected"]):
+            sm = results[i]["сверх_рынка"]
+            sm["q"] = round(float(q), 4)
+            if sm.get("вердикт") == "подтверждена" and not rej:
+                sm["вердикт"] = "намёк"
     return results
+
+
+def aggregate(results):
+    """Сводка по всей библиотеке: сколько раз второе звено пошло следом против ожидания от базы.
+    События разных пар пересекаются (общие шоки) — это описание, не тест значимости."""
+    P = [r for r in results if (r.get("счёт") or {}).get("p") is not None]
+    n = sum(r["счёт"]["событий"] for r in P)
+    h = sum(r["счёт"]["пошло"] for r in P)
+    e = sum(r["счёт"]["ожидание_базы"] for r in P)
+    return {"пар_с_счётом": len(P), "событий": n, "пошло": h, "ожидание_базы": round(e, 1),
+            "доля": round(h / n, 4) if n else None, "база": round(e / n, 4) if n else None,
+            "пар_выше_базы": sum(1 for r in P if r["счёт"]["доля"] > r["счёт"]["база"])}
 
 
 def eligible(r):
@@ -394,8 +415,35 @@ def eligible(r):
     return True, "ок"
 
 
-def append_candidates(results, *, registry=None, sens_path=None, now_dt=None):
-    """Пары, прошедшие eligible, → knowledge/edge_candidates.jsonl (origin=history), идемпотентно."""
+TOP_APPEND = 60       # за один заход: меньше рёбер — быстрее у каждого копится форвард-счёт (кулдаун 1 на ребро)
+PER_FROM, PER_TO = 3, 2
+_VORDER = {"подтверждена": 0, "намёк": 1, "мало данных": 2}
+
+
+def rank_for_forward(results, top=TOP_APPEND, per_from=PER_FROM, per_to=PER_TO):
+    """Годные пары → порядок для форвард-теста: сильнее история (вердикт, затем «сверх рынка», затем p) —
+    раньше; не больше per_from пар от одного источника и per_to к одной бумаге (разнообразие, а не 20
+    вариаций «нефть → …»). → (выбранные, запас)."""
+    el = [r for r in results if eligible(r)[0]]
+    el.sort(key=lambda r: (_VORDER.get(r["вердикт"], 9),
+                           0 if (r.get("сверх_рынка") or {}).get("вердикт") in ("подтверждена", "намёк") else 1,
+                           (r.get("счёт") or {}).get("p") if (r.get("счёт") or {}).get("p") is not None else 1.0,
+                           r["from"], r["to"]))
+    pick, rest = [], []
+    nf, nt = collections.Counter(), collections.Counter()
+    for r in el:
+        if len(pick) < top and nf[r["from"]] < per_from and nt[r["to"]] < per_to:
+            pick.append(r)
+            nf[r["from"]] += 1
+            nt[r["to"]] += 1
+        else:
+            rest.append(r)
+    return pick, rest
+
+
+def append_candidates(results, *, registry=None, sens_path=None, now_dt=None, top=TOP_APPEND):
+    """Лучшие `top` годных пар (rank_for_forward) → knowledge/edge_candidates.jsonl (origin=history),
+    идемпотентно. Остальные годные — запас в отчёте (следующий заход, когда первые наберут счёт)."""
     from orchestrator import edge_forward as EFW
     from mathlib.calibration import forward_promotion as FP
     reg = pathlib.Path(registry) if registry else EFW.CANDIDATES
@@ -411,12 +459,14 @@ def append_candidates(results, *, registry=None, sens_path=None, now_dt=None):
     now_iso = (now_dt or _now()).isoformat(timespec="seconds")
     added, skipped = [], collections.Counter()
     reg.parent.mkdir(parents=True, exist_ok=True)
+    pick, rest = rank_for_forward(results, top=top)
+    for r in results:
+        ok, why = eligible(r)
+        if not ok:
+            skipped[why.split(" — ")[0].split(" ρ=")[0]] += 1
+    skipped["в запасе (сверх лимита захода или разнообразия)"] = len(rest)
     with open(reg, "a", encoding="utf-8") as f:
-        for r in results:
-            ok, why = eligible(r)
-            if not ok:
-                skipped[why.split(" — ")[0]] += 1
-                continue
+        for r in pick:
             key = FP.edge_key(r["from"] + ".US", r["to"] + ".US", LAG_DAYS)
             if key in lib_keys or key in have:
                 skipped["уже под наблюдением"] += 1
@@ -432,7 +482,8 @@ def append_candidates(results, *, registry=None, sens_path=None, now_dt=None):
                    "история": {"вердикт": r["вердикт"], "горизонт": st.get("горизонт"),
                                "событий": st.get("событий"), "лет": st.get("лет"), "пошло": st.get("пошло"),
                                "доля": st.get("доля"), "база": st.get("база"), "p": st.get("p"),
-                               "q": r.get("q"), "ρ": r.get("ρ"), "с": st.get("с")},
+                               "q": r.get("q"), "ρ": r.get("ρ"), "с": st.get("с"),
+                               "сверх_рынка": (r.get("сверх_рынка") or {}).get("вердикт")},
                    "провенанс": ("библиотека исторических каскадов knowledge/cascade_history.yaml (воркфлоу "
                                  "cascade-history 03.11, эпизоды с источниками); счёт истории — код "
                                  "mathlib/event_study по Yahoo/FRED (отсев, не доказательство — П16); "
@@ -446,6 +497,8 @@ def append_candidates(results, *, registry=None, sens_path=None, now_dt=None):
 def render_md(results, lib_summary=None, today=None):
     cnt = collections.Counter(r["вердикт"] for r in results)
     el = [r for r in results if eligible(r)[0]]
+    pick, _rest = rank_for_forward(results)
+    ag = aggregate(results)
     L = [f"# Исторические каскады: счёт пар — {today or _now().date().isoformat()}", "",
          "Что это значит для продукта: из истории взяты эпизоды сильных движений с волнами второго-третьего "
          "порядка. Для каждой пары «звено → следующее звено» код прошёл ВСЮ историю цен, нашёл все резкие "
@@ -453,7 +506,12 @@ def render_md(results, lib_summary=None, today=None):
          "шло следом сильнее своей обычной качки, — и сравнил с тем, как часто оно ходит так само по себе. "
          "Пары, которые история опровергла, в форвард не идут; остальные ставятся под счёт вперёд.", "",
          "Вердикты: " + ", ".join(f"{k} — {v}" for k, v in cnt.most_common()), "",
-         f"В форвард-тест годны: {len(el)}", "",
+         f"В сумме по {ag['пар_с_счётом']} парам: после {ag['событий']} резких движений первого звена второе пошло "
+         f"следом {ag['пошло']} раз при {ag['ожидание_базы']} ожидаемых от обычной качки (доля {ag['доля']} против "
+         f"базы {ag['база']}); выше базы — {ag['пар_выше_базы']} пар из {ag['пар_с_счётом']}. События пар "
+         "пересекаются, поэтому это описание, а не доказательство.", "",
+         f"Годны в форвард-тест: {len(el)}; в этот заход идут {len(pick)} (сильнее история, не больше "
+         f"{PER_FROM} от одного источника и {PER_TO} к одной бумаге), остальные — запас.", "",
          "| Пара | Шоки | Знак | Горизонт | Событий/лет | Пошло | База | p | q | Вердикт | Сверх рынка | Эпизоды |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     order = {"подтверждена": 0, "намёк": 1, "мало данных": 2, "история против": 3}
