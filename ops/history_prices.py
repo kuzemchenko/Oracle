@@ -92,7 +92,9 @@ def _yahoo(sym):
 
 
 def _fred(series):
-    txt = _curl("https://fred.stlouisfed.org/graph/fredgraph.csv?id=" + urllib.parse.quote(series))
+    # FRED из облака часто рвёт соединение — две короткие попытки, дальше честное «нет данных»
+    txt = _curl("https://fred.stlouisfed.org/graph/fredgraph.csv?id=" + urllib.parse.quote(series),
+                timeout=25, tries=2)
     rows = []
     for ln in txt.splitlines()[1:]:
         parts = ln.split(",")

@@ -55,6 +55,17 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+def _memo(fn):
+    """Один прогон — одна загрузка бумаги (и одна неудача: недоступный FRED не тормозит каждое звено)."""
+    cache = {}
+
+    def f(sym):
+        if sym not in cache:
+            cache[sym] = fn(sym)
+        return cache[sym]
+    return f
+
+
 def _sym(s):
     s = str(s or "").strip()
     if not s or s.lower() in ("нет", "none", "n/a", "-"):
@@ -216,6 +227,7 @@ def build(patterns, *, out=LIBRARY, series_fn=None, today=None, mechs=None, now_
     if series_fn is None:
         from ops import history_prices as HP
         series_fn = HP.series
+    series_fn = _memo(series_fn)
     today = today or _now().date()
     mechs = mechanism_ids() if mechs is None else mechs
     raw = load_inputs(patterns)
@@ -305,6 +317,7 @@ def test_pairs(episodes, *, series_fn=None, server=None):
     if series_fn is None:
         from ops import history_prices as HP
         series_fn = HP.series
+    series_fn = _memo(series_fn)
     server = server_symbols() if server is None else server
     groups = collections.OrderedDict()
     for ep in episodes:
