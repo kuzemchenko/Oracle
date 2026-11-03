@@ -345,3 +345,34 @@ def test_cli_show_prints_owner_text(tmp_path, monkeypatch, capsys):
     assert WO.main(["--mode", "mock", "--show"]) == 0
     out = capsys.readouterr().out
     assert "[week_odds]" in out and ("не инвестиционная рекомендация" in out or "ПОДАЧА НЕ ПРОШЛА" in out)
+
+
+def test_threshold_from_move_and_server_price_not_llm_memory():
+    """03.11 (ручной прогон для «ок»): экономист ставил пороги по памяти (USO $85 при $156.87) →
+    6/8 в брак. Теперь он задаёт ход в %, порог считает код от серверной цены, текст вопроса — код."""
+    c = {"thesis_id": "T1", "mechanism_id": "energy_supply_shock",
+         "вопрос": "Нефть (фонд USO) закроется выше $85 к 15 января?", "актив": "USO.US",
+         "направление": "above", "ход_проц": 8.0, "срок_недель": 6, "вероятность": 0.35,
+         "почему": "дефицит предложения"}
+    spec, why = WO.validate_candidate(c, NOW, sealable_fn=lambda a: True, last_close_fn=lambda a: 156.87)
+    assert why is None and spec["threshold"] == round(156.87 * 1.08, 2)
+    assert "$169.42" in spec["вопрос"] and "$85" not in spec["вопрос"] and spec["вопрос"].startswith("Нефть (фонд USO)")
+    bad, why2 = WO.validate_candidate({**c, "ход_проц": -5.0}, NOW, sealable_fn=lambda a: True,
+                                      last_close_fn=lambda a: 156.87)
+    assert bad is None and "знак хода" in why2
+    tiny, why3 = WO.validate_candidate({**c, "ход_проц": 0.4}, NOW, sealable_fn=lambda a: True,
+                                       last_close_fn=lambda a: 156.87)
+    assert tiny is None and "шуме" in why3
+
+
+def test_prompt_carries_server_prices_and_named_company_not_flagged(tmp_path):
+    mechs = [{"mechanism_id": "m", "watch": "энергосектор (XLE/XOP), фонды USO/UNG; TTF как датчик"}]
+    tk = WO.watch_tickers(mechs)
+    assert tk[:4] == ["XLE", "XOP", "USO", "UNG"] and "TTF" not in tk
+    u = WO.build_user_prompt({}, mechs, NOW, prices={"USO.US": 156.87})
+    assert "СВЕЖИЕ ЦЕНЫ ЗАКРЫТИЯ" in u and "USO.US: 156.87" in u
+    proto = {"ts": NOW.isoformat(), "вопросы": [{"asset": "ZZQQ.US", "direction": "above", "threshold": 330.0,
+             "вопрос": "Constellation Energy (ZZQQ) закроется выше $330.00 к 12 января",
+             "probability": 0.56, "почему": "спрос на мощность"}]}
+    text, viol = R.format_week_odds(proto)
+    assert text and "не опознал" not in text, viol

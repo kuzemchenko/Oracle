@@ -80,10 +80,35 @@ def load_mechanisms(path=None, top=14):
     return out
 
 
-def build_user_prompt(theses, mechs, now=None):
+_TICK_RE = re.compile(r"(?<![A-Za-z0-9])([A-Z]{2,5})(?![A-Za-z0-9])")
+_NOT_TICKERS = {"TTF", "LNG", "CFR", "FOB", "VLCC", "TCE", "BDTI", "WCI", "SCFI", "FBX", "ETF", "ESPO",
+                "WTI", "USA", "OPEC", "GDP", "CPI", "AI", "PPA", "EU", "US", "IEA", "LME", "EUA", "FX"}
+
+
+def watch_tickers(mechs, theses=None, limit=40):
+    """Тикеры-кандидаты для таблицы цен в промпте: из watch механизмов и цепочек тезисов
+    (свободный текст → токены ВЕРХНЕГО регистра 2–5 букв, без явных не-тикеров)."""
+    seen = []
+    texts = [str(m.get("watch") or "") for m in (mechs or [])]
+    for t in (theses or {}).values():
+        texts += [json.dumps(t.get("кандидаты_цепочек") or "", ensure_ascii=False)]
+    for txt in texts:
+        for tok in _TICK_RE.findall(txt):
+            if tok not in _NOT_TICKERS and tok not in seen:
+                seen.append(tok)
+    return seen[:limit]
+
+
+def build_user_prompt(theses, mechs, now=None, prices=None):
     now = now or _now()
     lines = [f"Сегодня {now.date().isoformat()}. Горизонт вопросов: {MIN_WEEKS}–{MAX_WEEKS} недель.",
              "", "ТЕЗИСЫ ВЛАДЕЛЬЦА:"]
+    if prices:
+        # 03.11 (ручной прогон для «ок» владельца): экономист ставил пороги по памяти — USO $85 при
+        # $156.87, SMH $250 при $508 — 6 из 8 вопросов в брак. Теперь видит СЕРВЕРНЫЕ цены и задаёт
+        # ход в процентах; порог в долларах считает код от той же цены (Инв#6).
+        lines = lines[:2] + ["СВЕЖИЕ ЦЕНЫ ЗАКРЫТИЯ (сервер, EODHD) — опирайся на них, не на память:"] + \
+            [f"- {a}: {px:.2f}" for a, px in prices.items()] + ["", "ТЕЗИСЫ ВЛАДЕЛЬЦА:"]
     for tid, t in theses.items():
         lines.append(f"- {tid}: {str(t.get('формулировка') or '').strip()}")
         for c in (t.get("наблюдаемые_следствия") or [])[:3]:
@@ -119,10 +144,26 @@ def validate_candidate(c, now=None, *, sealable_fn=None, last_close_fn=None):
     direction = str(c.get("направление") or "").strip().lower()
     if direction not in ("above", "below"):
         return None, f"направление не above/below: {direction!r}"
-    try:
-        threshold = float(c.get("порог"))
-    except (TypeError, ValueError):
-        return None, "порог не число"
+    px_code = None
+    if c.get("ход_проц") is not None and last_close_fn is not None:
+        # 03.11: порог считает КОД — от серверной цены и хода экономиста в процентах
+        try:
+            move = float(c.get("ход_проц"))
+        except (TypeError, ValueError):
+            return None, "ход_проц не число"
+        if abs(move) < 1.0:
+            return None, f"ход {move}% меньше 1% — вопрос о шуме, а не о взгляде"
+        if (move > 0) != (direction == "above"):
+            return None, f"знак хода {move}% не совпадает с направлением {direction}"
+        px_code = last_close_fn(asset)
+        if px_code is None or px_code <= 0:
+            return None, f"нет котировки для расчёта порога {asset} (П8) — не печатаем"
+        threshold = round(px_code * (1 + move / 100.0), 2)
+    else:
+        try:
+            threshold = float(c.get("порог"))
+        except (TypeError, ValueError):
+            return None, "порог не число"
     if threshold <= 0:
         return None, "порог должен быть > 0"
     try:
@@ -143,6 +184,13 @@ def validate_candidate(c, now=None, *, sealable_fn=None, last_close_fn=None):
         return None, "нет текста вопроса или «почему»"
     resolve_by = (now + datetime.timedelta(weeks=weeks)).replace(
         hour=20, minute=0, second=0, microsecond=0)
+    if px_code is not None:
+        # текст вопроса — из КОДА (в тексте модели остались бы её цены по памяти)
+        label = re.split(r"\s+закроется\s+", вопрос, maxsplit=1)[0].strip() or asset.split(".")[0]
+        months = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа",
+                  "сентября", "октября", "ноября", "декабря")
+        вопрос = (f"{label} закроется {'выше' if direction == 'above' else 'ниже'} ${threshold:.2f} "
+                  f"к {resolve_by.day} {months[resolve_by.month - 1]}")
     spec = {
         "kind": KIND, "track": TRACK,
         "asset": asset, "direction": direction, "threshold": threshold,
@@ -319,7 +367,19 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
             return _write_protocol(итог, out_dir)
         cl.cost_guard = RB.RunBudgetGuard("week_odds", decision["cap_usd"])
     system = PROMPT.read_text(encoding="utf-8")
-    user = build_user_prompt(theses, mechs, now)
+    if getattr(cl, "mode", None) == "live" and last_close_fn is None:
+        last_close_fn = _last_close_from_db()
+    prices = {}
+    if last_close_fn is not None:
+        for tk in watch_tickers(mechs, theses):
+            try:
+                px = last_close_fn(tk + ".US")
+            except Exception:                            # noqa: BLE001 — таблица цен best-effort
+                px = None
+            if px:
+                prices[tk + ".US"] = px
+    итог["цен_в_запросе"] = len(prices)
+    user = build_user_prompt(theses, mechs, now, prices=prices)
     from orchestrator import run_budget as RB
     try:
         resp = cl.complete(ROLE, system, user, agent_id="v5_flow_economist",

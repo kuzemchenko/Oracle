@@ -2499,8 +2499,10 @@ def format_week_odds(protocol, *, name_fn=None, scores=None):
         текст = str(q.get("вопрос") or "").strip().rstrip("?.")
         # Ре-гейт V0 02.11: незнакомый тикер (имя==тикер) не валит ВЕСЬ выпуск из-за линта —
         # честная пометка «компанию не опознал» рядом с тикером (как у Идеи дня), пуш живёт.
-        _unknown = (имя == asset)
         _base = (asset.split(".")[0] if asset else "")
+        # 03.11: «Constellation Energy (CEG)» — имя уже названо в вопросе; пометка «не опознал» лишняя
+        _named = bool(_base and re.search(rf"[A-Za-zА-Яа-яЁё][^()]*\(\s*{re.escape(_base)}\s*\)", текст))
+        _unknown = (имя == asset) and not _named
         # Ре-гейт №2 02.11: замена тикера ТОЛЬКО по границе слова — подстрочный replace
         # мог искорёжить чужой тикер-надстроку в том же вопросе (asset='A.US' внутри 'NVDA.US')
         _pat = re.compile(rf"(?<![A-Z0-9.]){re.escape(asset)}(?![A-Z0-9])") if asset else None
