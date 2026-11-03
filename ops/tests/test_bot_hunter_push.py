@@ -235,10 +235,12 @@ def test_hunter_changed_after_delivery_goes_once_as_update(tmp_path, monkeypatch
     """Перепроверка 02.11: «обновлённая версия» — только для версии, доставленной НОВЫМ кодом
     (явный список hunter_delivered); без суда и без второй ставки. Легаси-отметка «просто имя»
     (старый код так помечал и доставку, и брак) — файл не пересылается вовсе."""
-    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
+    upd = GOOD.replace("Что делать.", "Что изменилось. Отчёт 5 ноября вышел — план прежний.\n\nЧто делать.")
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", upd)])
     b.state["hunter_delivered"] = ["idea_2026-11-01_MP.push.txt@0000000000"]   # доставлена прежняя версия
     b._tick_hunter_ideas()
     assert len(b.tg.sent) == 1 and b.tg.sent[0][1].startswith("Обновлённая версия записки")
+    assert "Что изменилось. Отчёт 5 ноября вышел" in b.tg.sent[0][1]
     assert "новой ставки не делаю" in b.tg.sent[0][1]
     b._tick_hunter_ideas()
     assert len(b.tg.sent) == 1                                          # обновление — один раз
@@ -479,7 +481,8 @@ def test_update_of_delivered_idea_skips_seal_window_but_not_court(tmp_path, monk
     """Исправление доставленной идеи через неделю: без шлагбаума новой ставки (печати нет),
     но через суд разных семейств и сверку с карточкой."""
     from ops import hunter_seal as HS
-    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict="PASS")
+    upd = GOOD.replace("Что делать.", "Что изменилось. Новый факт по отчёту.\n\nЧто делать.")
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", upd)], verdict="PASS")
     b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
     monkeypatch.setattr(HS, "server_check", lambda *a, **k: (_ for _ in ()).throw(AssertionError("не нужен")))
     b._tick_hunter_ideas()
@@ -866,3 +869,22 @@ def test_exact_asymmetry_1_5_renders_and_frame_survives_todo_replace():
     final, probs2 = HS.prepare_push(txt, broken, update=True)
     assert "не дороже $40" not in final and "исследовательский инструмент" in final
     assert not any("рамки" in p for p in probs2), probs2
+
+
+
+def test_update_without_what_changed_is_silent_and_greeting_once(tmp_path, monkeypatch):
+    """03.11 (отзыв владельца): та же идея второй раз без новостей и два «на связи» — шум.
+    Исправление без абзаца «Что изменилось.» тихо заменяет прошлую версию; приветствие — один раз."""
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
+    b._tick_hunter_ideas()
+    assert not b.tg.sent
+    assert any(k.startswith("idea_2026-11-02_MP.push.txt@") and k != "idea_2026-11-02_MP.push.txt@0000000000"
+               for k in b.state["hunter_delivered"])
+
+
+def test_second_check_line_answers_itself():
+    from ops import hunter_court as HC
+    line = HC.second_check_line({"objection": "вход может быть задержкой текста",
+                                 "answer": "тогда продаю на ближайшем закрытии"})
+    assert "Мой ответ: «тогда продаю на ближайшем закрытии»" in line and "сверь" not in line

@@ -776,7 +776,18 @@ class Bot:
                           default=len(lines))
             body = lines[:frame_i] + [""] + list(foot["lines"]) + lines[frame_i:]
             if update:
-                body = ["Обновлённая версия записки — заменяет прошлую.", ""] + body
+                # 03.11 (отзыв владельца: та же идея второй раз без новостей — шум): исправление уходит,
+                # только если автор назвал, что изменилось по сути (абзац «Что изменилось.»); иначе
+                # версия молча заменяет прошлую в состоянии бота, владельцу не шлётся
+                changed = next((b for b in "\n".join(lines).split("\n\n")
+                                if b.strip().lower().startswith("что изменилось")), None)
+                if not changed:
+                    delivered.add(key)
+                    self.state["hunter_delivered"] = sorted(delivered)
+                    _mark(key)
+                    log("исправление без «Что изменилось» — тихо заменено:", p.name)
+                    return None
+                body = ["Обновлённая версия записки.", ""] + body
             out = "\n".join(body)
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
             lids = self.state.setdefault("hunter_lids", {})
@@ -2116,10 +2127,14 @@ class Bot:
         quiet = bool(self.state.pop("quiet_restart", False))
         if quiet:
             self.save()
-        if self.chat_id and not quiet:
-            self.tg.send_message(self.chat_id, "🤖 «Оракул» на связи. Буду присылать идеи простым "
-                                               "языком и отвечать на вопросы. Нажми /help, чтобы понять, "
-                                               "что я умею.")
+        # 03.11 (отзыв владельца: два «на связи» подряд — шум): приветствие только при самом первом
+        # запуске; перезапуски после обновлений — молча
+        if self.chat_id and not quiet and not self.state.get("greeted"):
+            if self.tg.send_message(self.chat_id, "🤖 «Оракул» на связи. Буду присылать идеи простым "
+                                                  "языком и отвечать на вопросы. Нажми /help, чтобы понять, "
+                                                  "что я умею.") is not None:
+                self.state["greeted"] = True
+                self.save()
         code_sig, next_check = _code_signature(), time.time() + 60
         while True:
             try:
