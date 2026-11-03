@@ -19,7 +19,9 @@ if [ -n "$incoming" ]; then
 fi
 owner_cfg=$(incoming_owner_config_changes HEAD...origin/master)
 if [ -n "$owner_cfg" ]; then
+  echo "$owner_cfg" > journal/pull_refused.txt      # бот назовёт владельцу конкретные файлы
   echo "[safe_pull] $(date -u +%FT%TZ) ОТКАЗ: входящие коммиты меняют настройки владельца (лимиты/веса/рубрика/пороги): $owner_cfg — только ручная протяжка владельцем"; exit 10
 fi
+rm -f journal/pull_refused.txt
 git merge -q --ff-only origin/master || exit 3
 echo "[safe_pull] $(date -u +%FT%TZ) ok $(git rev-parse --short HEAD)"

@@ -152,7 +152,7 @@ def push_card_mismatch(text, card):
     if base and not re.search(rf"(?<![A-Z]){re.escape(base)}(?![A-Z])", t):
         return f"в тексте нет тикера {base} из карточки"
     header = next((ln for ln in t.split("\n") if ln.strip()), "")
-    d = str(card.get("direction") or "").lower()
+    d = str(card.get("direction") or "").strip().lower()
     side = _bet_side(header)
     if side is None:
         return "в заголовке не сказано однозначно, на что ставлю (рост/снижение)"
@@ -190,70 +190,114 @@ def _norm_head(t):
 
 
 def _ratio_words(r):
-    for lo, hi, w in ((1.45, 1.55, "в полтора раза"), (1.9, 2.1, "вдвое"), (2.4, 2.6, "в два с половиной раза"),
-                      (2.9, 3.1, "втрое"), (3.9, 4.1, "вчетверо")):
-        if lo <= r <= hi:
+    """Асимметрия СЛОВАМИ, без цифр (перепроверка №5: «в 1,7 раза» добавляло число и на сервере, при
+    другой цене, валило лимит линта ≤8 чисел). Точное попадание (±0.05) — «в полтора раза», иначе
+    «больше чем в …» по ближайшей снизу половинке."""
+    names = {1.5: "в полтора раза", 2.0: "вдвое", 2.5: "в два с половиной раза", 3.0: "втрое",
+             3.5: "в три с половиной раза", 4.0: "вчетверо", 5.0: "впятеро"}
+    for k, w in names.items():
+        if abs(r - k) <= 0.05:
             return w
-    return f"в {r:.1f} раза".replace(".", ",")
+    below = [k for k in names if k < r]
+    if not below:
+        return None                                    # меньше полутора — словами не хвалим
+    return "больше чем " + names[max(below)]
 
 
 def _round5(x):
     return int(5 * round(float(x) / 5.0))
 
 
-def render_numbers(card):
-    """Карточка с пересчитанными ценами (после reprice) → {'why': абзац, 'money': абзац} | {}.
-    Каждый абзац — столько же чисел, сколько требует шаблон (1 и 4), без вероятностей."""
+def _phase_text(verdict):
+    from mathlib import priced_in as PI
+    return {PI.ПРОТИВ: "цена пока шла против механизма — ход, как в похожем случае, ещё не начался",
+            PI.РАНО: "из хода, как в похожем случае, пройдена малая часть",
+            PI.В_ПУТИ: "часть хода, как в похожем случае, уже пройдена",
+            PI.В_ЦЕНЕ: "большая часть хода, как в похожем случае, уже пройдена",
+            PI.ПЕРЕЛЁТ: "ход уже больше, чем был в похожем случае"}.get(verdict, "")
+
+
+def render_with_problems(card, update=False):
+    """Карточка с пересчитанными ценами (после reprice) → ({'why','money'}, проблемы).
+    Числа ровно по шаблону: «почему» — ОДНО число всегда, «деньги» — ЧЕТЫРЕ (стабильный счёт для
+    линта и в облаке, и на сервере). Новая идея в состоянии «в цене / перелёт / цена за стопом / цель
+    взята / асимметрия < 1.5» — проблема (не печатать, не слать). Исправление в таком состоянии —
+    честный текст «план больше не действует», без «+$90» (перепроверка №5)."""
     try:
         from ops import idea_gate as G
     except ImportError:
         import idea_gate as G
     from mathlib import priced_in as PI
     s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
-    d = str(card.get("direction") or "").lower()
+    d = str(card.get("direction") or "").strip().lower()
     pm = G.price_math(d, s9.get("last_close"), card.get("trigger_close"), card.get("target_price"),
                       card.get("stop_price"), card.get("entry_limit"))
-    out = {}
+    out, problems = {}, []
     mv = pm.get("ход_с_повода")
     td = G._date(card.get("trigger_date"))
-    if mv is not None and td is not None:
-        verb = ("почти не сдвинулась" if abs(mv) < 0.5 else
-                "подешевела на" if mv < 0 else "подорожала на")
-        num = "" if abs(mv) < 0.5 else f" {abs(mv):.0f}%"
+    if mv is None or td is None or d not in ("вверх", "вниз"):
+        problems.append("ход с даты повода не посчитан кодом — абзац «Почему это ещё не в цене» не из чего писать")
+    else:
+        verb = ("почти не сдвинулась (меньше 1%)" if abs(mv) < 0.5 else
+                f"подешевела на {abs(mv):.0f}%" if mv < 0 else f"подорожала на {abs(mv):.0f}%")
         what = str(card.get("trigger_what") or "").strip().rstrip(".")
         since = f"С {what} {td.day} {_MONTHS[td.month - 1]}" if what else f"С {td.day} {_MONTHS[td.month - 1]}"
-        phase = ""
+        phase, verdict = "", None
         ranges = PI.parse_amplitude(str((card.get("precedent") or {}).get("amplitude") or ""))
-        if ranges and d in ("вверх", "вниз"):
+        if ranges:
             lo, hi = sorted((abs(ranges[0]["низ"]), abs(ranges[0]["верх"])))
             pf = PI.played_fraction(mv if d == "вверх" else -mv, f"+{lo:g}–{hi:g}%" if lo != hi else f"+{hi:g}%")
-            phase = {PI.ПРОТИВ: "цена пока шла против механизма — ход, как в похожем случае, ещё не начался",
-                     PI.РАНО: "из хода, как в похожем случае, пройдена малая часть",
-                     PI.В_ПУТИ: "часть хода, как в похожем случае, уже пройдена"}.get(pf.get("вердикт"), "")
-        out["why"] = f"{WHY_HEAD} {since} бумага {verb}{num} по ценам закрытия" + (f": {phase}." if phase else ".")
+            verdict = pf.get("вердикт")
+            phase = _phase_text(verdict)
+        if verdict in (PI.В_ЦЕНЕ, PI.ПЕРЕЛЁТ) and not update:
+            problems.append(f"звено уже отыграно ({verdict}) — новая идея не уходит")
+        out["why"] = f"{WHY_HEAD} {since} бумага {verb} по ценам закрытия" + (f": {phase}." if phase else ".")
     g, l = pm.get("потенциал_от_входа"), pm.get("риск_от_входа")
-    if g is not None and l is not None and l > 0:
+    ratio = (g / l) if (g is not None and l is not None and l > 0) else None
+    words = _ratio_words(ratio) if ratio is not None else None
+    broken = [f for f in pm.get("fails") or []]
+    if broken or words is None:
+        if update:
+            why_not = ("цена уже за стопом" if any("за стопом" in f for f in broken) else
+                       "цель уже достигнута" if any("достигнута" in f for f in broken) else
+                       "возможный выигрыш больше не превышает возможную потерю в полтора раза")
+            out["money"] = (f"{MONEY_HEAD} По последней цене закрытия прежний план уже не действует: "
+                            f"{why_not}.")
+        else:
+            problems.append("деньги не посчитать кодом: " + ("; ".join(broken) if broken else
+                            "выигрыш меньше полутора возможных потерь"))
+    else:
         basis = "при худшем входе из плана" if card.get("entry_limit") else "от последней цены закрытия"
         out["money"] = (f"{MONEY_HEAD} На пятьсот долларов на бумаге {basis}: прав — около +${_round5(5 * g)} "
-                        f"(+{g:.0f}%), неправ — около −${_round5(5 * l)} (−{l:.0f}%). Выигрыш "
-                        f"{_ratio_words(g / l)} больше.")
-    return out
+                        f"(+{g:.0f}%), неправ — около −${_round5(5 * l)} (−{l:.0f}%). Выигрыш {words} больше.")
+    return out, problems
 
 
-def apply_rendered(text, rendered):
+def render_numbers(card, update=False):
+    return render_with_problems(card, update=update)[0]
+
+
+def apply_rendered(text, rendered, drop_unrendered=True):
     """Заменить абзацы «Почему это ещё не в цене» и «Сколько можно заработать» текстом кода;
-    нет такого абзаца — вставить перед «Кто продаёт…» (или перед «Что делать», или в конец до рамки)."""
-    if not rendered:
-        return text
+    нет такого абзаца — вставить перед «Кто продаёт…» (или перед «Что делать», или в конец).
+    Черновой абзац, для которого кодового нет, УДАЛЯЕТСЯ (drop_unrendered): числа модели владельцу
+    не уходят ни при каких условиях (перепроверка №5)."""
+    rendered = rendered or {}
     blocks = re.split(r"\n\s*\n", str(text).strip())
     heads = {"why": _norm_head(WHY_HEAD)[:20], "money": _norm_head(MONEY_HEAD)[:20]}
-    done = set()
-    for i, b in enumerate(blocks):
+    done, keep = set(), []
+    for b in blocks:
         nb = _norm_head(b)
-        for k, h in heads.items():
-            if k in rendered and k not in done and nb.startswith(h):
-                blocks[i] = rendered[k]
-                done.add(k)
+        hit = next((k for k, h in heads.items() if nb.startswith(h)), None)
+        if hit is None:
+            keep.append(b)
+        elif hit in rendered:
+            if hit not in done:                        # дубль заголовка после подстановки — выбрасываем
+                keep.append(rendered[hit])
+                done.add(hit)
+        elif not drop_unrendered:
+            keep.append(b)
+    blocks = keep
     missing = [rendered[k] for k in ("why", "money") if k in rendered and k not in done]
     if missing:
         anchor = next((i for i, b in enumerate(blocks) if _norm_head(b).startswith("кто продает")), None)
@@ -263,20 +307,31 @@ def apply_rendered(text, rendered):
     return "\n\n".join(blocks)
 
 
-def preview(stem, today=None):
-    """Облако и сервер видят ОДНО и то же: сверка пуша с карточкой + подстановка абзацев кода +
-    линт итогового текста (перепроверка №4: брак находился только на сервере, без обратной связи).
-    stem = reports/ideas/idea_<дата>_<ТИКЕР>. → {'mismatch', 'lint', 'text'}."""
+def prepare_push(text, card, update=False):
+    """ОДНА проверка для бота и облачного предпросмотра (перепроверка №5): собрать ИТОГОВЫЙ текст
+    (абзацы с деньгами — кодом) и проверить ИМЕННО его — сверка с карточкой (тикер, сторона ставки,
+    цель/стоп/дата) и линт подачи. Вызывается ДО суда и ДО печати. → (итоговый текст, проблемы)."""
     try:
         from ops import presentation_lint as PL
     except ImportError:
         import presentation_lint as PL
+    rendered, problems = render_with_problems(card, update=update)
+    final = apply_rendered(text, rendered)
+    mm = push_card_mismatch(final, card)
+    if mm:
+        problems.append("текст не согласован с карточкой: " + mm)
+    problems += [str(v) for v in PL.lint_hunter_idea(final)]
+    return final, problems
+
+
+def preview(stem, today=None):
+    """Облако и сервер видят ОДНО и то же: prepare_push по карточке (в облаке — её цены, на сервере —
+    серверные). stem = reports/ideas/idea_<дата>_<ТИКЕР>. → {'problems', 'text'}; код выхода CLI 0 —
+    только если проблем нет."""
     text = pathlib.Path(str(stem) + ".push.txt").read_text(encoding="utf-8").strip()
     card = json.loads(pathlib.Path(str(stem) + ".card.json").read_text(encoding="utf-8"))
-    mm = push_card_mismatch(text, card)
-    final = apply_rendered(text, render_numbers(card))
-    return {"mismatch": mm, "lint": PL.lint_hunter_idea(final), "lint_source": PL.lint_hunter_idea(text),
-            "text": final}
+    final, problems = prepare_push(text, card)
+    return {"problems": problems, "text": final}
 
 
 def sealed_record(idea_file, predictions_path=None, kind=KIND):
@@ -624,4 +679,4 @@ if __name__ == "__main__":
     a = ap.parse_args()
     res = preview(a.stem)
     print(json.dumps(res, ensure_ascii=False, indent=1))
-    sys.exit(0 if res["mismatch"] is None and not res["lint"] else 1)
+    sys.exit(0 if not res["problems"] else 1)

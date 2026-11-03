@@ -445,8 +445,8 @@ class Bot:
             t = " ".join(str(t or "").split())
             return t if t and not PL.odds_markers(t, include_quotes=True) else ""
 
-        out = [f"Взял {name} ({base}) в прокачку — вот на чём стоит идея (материалы охоты, "
-               "прошедшие проверку кодом и суд моделей других разработчиков)."]
+        out = [f"Взял {name} ({base}) в прокачку — вот на чём стоит идея: материалы её карточки "
+               "(факты с датой и источником; пометка «не подтверждено» значит, что факт ставку не несёт)."]
         th = ok(card.get("thesis"))
         if th:
             out.append("Суть. " + th[:700])
@@ -456,7 +456,8 @@ class Bot:
             t = ok(x.get("text"))
             if t:
                 dom = urlparse(str(x.get("url") or "")).netloc.removeprefix("www.")
-                rows.append(f"• {t[:260]} ({x.get('date')}, {dom})")
+                mark = "(не подтверждено) " if "не подтвержд" in t.lower() else ""
+                rows.append(f"• {mark}{t[:260]} ({x.get('date')}, {dom})")
         if rows:
             out.append("Факты с источниками:\n" + "\n".join(rows))
         pr = card.get("precedent") if isinstance(card.get("precedent"), dict) else {}
@@ -646,12 +647,8 @@ class Bot:
                     self._notice_dozor("Идея охотника " + p.name + " без файла исследования с "
                                        "источниками (*.md с URL рядом, П8) — в Telegram не ушла.")
                 return None
-            viol = PL.lint_hunter_idea(text)
-            if viol:
-                _mark(key + ":bad")                    # эта версия не ретраится; починка = новый хеш
-                self._notice_dozor("Идея охотника " + p.name + " не прошла проверку подачи ("
-                                   + "; ".join(str(v) for v in viol[:2]) + ") — в Telegram не ушла.")
-                return None
+            # перепроверка №5: линтуется ИТОГОВЫЙ текст (после подстановки абзацев кода) в prepare_push —
+            # тот же, что видит облачный предпросмотр; черновик сам по себе не бракуется
             # НОВАЯ идея: §9-карточка → шлагбаум КОДОМ на сервере (серверная дата и цены) → суд РАЗНЫХ
             # семейств (П10) → печать §9 (П16, обязательна) → доставка. ИСПРАВЛЕНИЕ уже доставленной
             # идеи: карточка → сверка со ЗАПЕЧАТАННОЙ ставкой → суд, без новой ставки. Кэш по версии.
@@ -672,12 +669,6 @@ class Bot:
                         _mark(key + ":nocard")
                         self._notice_dozor("Идея охотника " + p.name + " без §9-карточки (*.card.json) — "
                                            "без проверяемого прогноза идея не уходит.")
-                    return None
-                mismatch = HS.push_card_mismatch(text, card)
-                if mismatch:
-                    _mark(key + ":bad")
-                    self._notice_dozor("Идея охотника " + p.name + ": текст пуша не согласован с §9-карточкой ("
-                                       + mismatch + ") — в Telegram не ушла.")
                     return None
                 if update:
                     # исправление не вправе менять запечатанную ставку (перепроверка №2): иначе футер
@@ -712,6 +703,14 @@ class Bot:
                         self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
                                            + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
                         return None
+                # перепроверка №5: ИТОГОВЫЙ текст собирается и проверяется ДО суда и ДО печати — сверка с
+                # карточкой и линт по тому, что реально уйдёт владельцу (одна функция с облачным preview)
+                final, pproblems = HS.prepare_push(text, card, update=update)
+                if pproblems:
+                    _mark(key + ":bad")
+                    self._notice_dozor("Идея охотника " + p.name + " не прошла проверку итогового текста ("
+                                       + "; ".join(str(x) for x in pproblems[:2]) + ") — в Telegram не ушла.")
+                    return None
                 ckey = p.name + "#" + hashlib.sha1(_json.dumps(card, sort_keys=True, ensure_ascii=False)
                                                    .encode("utf-8")).hexdigest()[:10]
                 verdict = self._hunter_court(ckey, card)    # кэш по СОДЕРЖИМОМУ карточки, не по тексту
@@ -753,15 +752,6 @@ class Bot:
                             self._notice_dozor("Новая версия идеи охотника " + p.name + " не ушла: " + um
                                                + ". Новая ставка = новая идея с новой датой.")
                             return None
-                # перепроверка №4: абзацы с деньгами — текстом КОДА по серверным ценам (Инв#6); итог —
-                # тем же линтом, что облако гоняет в предпросмотре (hunter_seal preview)
-                final = HS.apply_rendered(text, HS.render_numbers(card))
-                fviol = PL.lint_hunter_idea(final)
-                if fviol:
-                    _mark(key + ":bad")
-                    self._notice_dozor("Идея охотника " + p.name + " после подстановки цифр кодом не прошла "
-                                       "проверку подачи (" + "; ".join(str(v) for v in fviol[:2]) + ").")
-                    return None
                 blocks = [b for b in final.split("\n\n")]
                 footers[key] = {"lines": [x for x in extra if x] + HS.footer(rec, why, HS.method_score()),
                                 "asset": asset, "sealed": bool(rec) or why == "уже запечатано",
@@ -822,10 +812,17 @@ class Bot:
             except Exception as e:                      # noqa: BLE001 — перепроверка №4: одна битая
                 # карточка роняла весь тик и навсегда блокировала все следующие идеи
                 log("идея охотника: сбой обработки", p.name, repr(e))
+                import sqlite3 as _sq
                 try:
-                    bad = _version(p, p.read_text(encoding="utf-8").strip())[0] + ":bad"
+                    vkey = _version(p, p.read_text(encoding="utf-8").strip())[0]
                 except OSError:
-                    bad = p.name + "@?:bad"
+                    vkey = None
+                if isinstance(e, (OSError, _sq.Error, TimeoutError, ConnectionError)) and vkey:
+                    # перепроверка №5: сбой окружения (диск, лок журнала, база, сеть) — не брак: повтор
+                    _later(vkey, "Идея охотника " + p.name + " отложена из-за сбоя окружения ("
+                           + type(e).__name__ + ") — повторю через час.")
+                    continue
+                bad = (vkey or p.name + "@?") + ":bad"
                 if bad not in seen:
                     _mark(bad)
                     self._notice_dozor("Идея охотника " + p.name + " не обработана (" + type(e).__name__
@@ -894,15 +891,20 @@ class Bot:
                 rows = rows if isinstance(rows, list) else [rows]
                 wait = False
                 for card in rows:
-                    if isinstance(card, dict):
+                    if not isinstance(card, dict):
+                        continue
+                    try:
                         # перепроверка 02.11: печать «одна на идею» по стему теряла все тени, кроме
                         # первой — у каждой тени свой стем (имя файла + тикер)
-                        tk = str(card.get("ticker") or (card.get("spec9") or {}).get("asset") or "?")
+                        _s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+                        tk = str(card.get("ticker") or _s9.get("asset") or "?")
                         ok, _f, card2 = HS.server_check(card, idea_file=p.name)   # тени — тем же шлагбаумом
                         if ok:
                             HS.seal_card(card2, idea_file=f"{p.name}#{tk}", kind=HS.SHADOW_KIND)
                         elif HS.is_transient(_f):
                             wait = True                 # перепроверка №2: сбой данных — повторим
+                    except Exception as e:              # noqa: BLE001 — перепроверка №5: одна битая тень
+                        log("тень охотника: сбой", p.name, repr(e))   # не блокирует напоминания и итоги
                 if wait:                                # уже запечатанные — дубль «уже запечатано»
                     sretry[p.name] = (_now + _dt.timedelta(minutes=60)).isoformat(timespec="seconds")
                     self.save()
@@ -1746,10 +1748,15 @@ class Bot:
                     continue
                 pull_day = day                          # отметка — только после доставки
                 if rec.get("exit") in (10, "10"):
-                    msg = ("🚨 В GitHub пришёл облачный коммит, который меняет лимиты, веса, рубрику суда "
-                           f"или пороги ({rec.get('ts')}). Сам сервер такое не применяет — нужно твоё «ок»: "
-                           "посмотри коммит и, если согласен, обнови сервер вручную командой из CLAUDE.md. "
-                           "До этого идеи охотника и правки кода до сервера не доходят.")
+                    try:
+                        paths = (ROOT / "journal" / "pull_refused.txt").read_text(encoding="utf-8").split()
+                    except OSError:
+                        paths = []
+                    msg = ("🚨 В GitHub пришёл облачный коммит, который меняет настройки владельца ("
+                           + (", ".join(paths[:5]) if paths else "лимиты, веса, рубрику или пороги")
+                           + f"; {rec.get('ts')}). Сам сервер такое не применяет — нужно твоё «ок»: посмотри "
+                           "коммит и, если согласен, обнови сервер вручную командой из CLAUDE.md. До этого "
+                           "идеи охотника и правки кода до сервера не доходят.")
                     if self.tg.send_message(self.chat_id, msg) is None:
                         break
                     self.state["git_pull_alert_day"] = pull_day

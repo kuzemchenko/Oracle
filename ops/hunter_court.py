@@ -91,7 +91,8 @@ def parse_verdict(text, card_text=None):
         point = int(v.get("point") or 0)
     except (TypeError, ValueError):
         point = 0
-    if verdict == "FATAL" and (not ev or point not in (1, 2, 3, 4)
+    # перепроверка №5: улика — содержательная цитата (≥12 знаков после нормализации), а не «а»/«MP»
+    if verdict == "FATAL" and (not ev or point not in (1, 2, 3, 4) or len(_norm(ev)) < 12
                                or (card_text is not None and _norm(ev) not in _norm(card_text))):
         verdict = "FIX"                    # FATAL без проверяемой улики — не казнь, а запрос
     return {"verdict": verdict, "point": v.get("point"), "evidence": str(v.get("evidence") or ""),
@@ -157,7 +158,7 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
 
 # перепроверка №4: без обещаний, которых никто не исполнит, и честно — почему текста нет
 GENERIC_LINE = ("Вторая проверка (модели других разработчиков, вслепую) нашла сомнение, но опровергнуть "
-                "идею не смогла; дословно его не показываю — в нём оценки шансов или внутренние термины.")
+                "идею не смогла; дословно его не показываю — в нём числа или термины, которые я не могу сверить.")
 
 
 def safe_objection(v):
@@ -177,7 +178,7 @@ def safe_objection(v):
     # перепроверка №4: проценты и суммы судьи код не сверяет с карточкой («выросла на 45%» при −19%) —
     # такие возражения владельцу не показываем вовсе
     if (PL.odds_markers(obj, include_quotes=True) or PL._TECH_ID_RE.search(obj) or len(nums) > 2
-            or "%" in obj or "$" in obj
+            or "%" in obj or "$" in obj or re.search(r"процент|доллар|долл\.|\bраз[а]?\b", obj, re.I)
             or PL._unexplained_terms(obj) or "«" in obj or "»" in obj):
         return None
     return obj

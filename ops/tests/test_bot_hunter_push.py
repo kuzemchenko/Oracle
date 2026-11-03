@@ -731,3 +731,33 @@ def test_update_repriced_by_server_and_waits_on_missing_prices(tmp_path, monkeyp
     b._tick_hunter_ideas()
     assert not b.tg.sent and any("ждёт серверных котировок" in n for n in notes)
     assert not any(k.endswith(":bad") for k in b.state.get("hunter_pushed") or [])
+
+
+def test_final_text_checked_before_seal_nothing_sealed_on_reject(tmp_path, monkeypatch):
+    """Перепроверка №5 (блокер): итоговый текст (после подстановки кодом) проверяется ДО печати —
+    отбракованная идея не попадает в журнал (не портит счёт и не блокирует бумагу)."""
+    from ops import hunter_seal as HS
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    # цель и стоп есть ТОЛЬКО в черновом абзаце о деньгах — после подстановки кода их в тексте нет
+    draft = GOOD.replace("Что делать. Ждать. Цель $51.44, стоп $35.61, сверка 15 декабря. Решение за тобой.",
+                         "Сколько можно заработать и чем рискую. Цель $51.44, стоп $35.61.\n\n"
+                         "Что делать. Ждать до 15 декабря. Решение за тобой.")
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", draft)])
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and not pred.exists(), "ничего не запечатано"
+    assert any("итогового текста" in n and "цель" in n for n in notes)
+
+
+def test_environment_error_is_retry_not_bad(tmp_path, monkeypatch):
+    """Перепроверка №5: сбой окружения (лок журнала, база) — повтор, а не вечный брак."""
+    from ops import hunter_seal as HS
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+
+    def boom(*a, **k):
+        raise OSError("журнал занят")
+    monkeypatch.setattr(HS, "seal_card", boom)
+    b._tick_hunter_ideas()
+    assert not b.tg.sent
+    assert not any(k.endswith(":bad") for k in b.state.get("hunter_pushed") or [])
+    assert b.state.get("hunter_retry") and any("сбоя окружения" in n for n in notes)

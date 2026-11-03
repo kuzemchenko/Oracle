@@ -288,7 +288,7 @@ def test_preview_cli_matches_bot(tmp_path):
     """Облако гоняет тот же предпросмотр, что применит бот: сверка + подстановка + линт итога."""
     stem = ROOT / "reports" / "ideas" / "idea_2026-11-02_MP"
     res = HS.preview(stem)
-    assert res["mismatch"] is None and res["lint"] == [], res
+    assert res["problems"] == [], res
     assert "подешевела на 19% по ценам закрытия" in res["text"]
 
 
@@ -324,3 +324,32 @@ def test_score_line_same_population_and_significance(tmp_path):
     assert "пока не отличить от случайности" in HS.score_line(sc2)
     sc3 = dict(sc, исходов=12, с_базой=8, попаданий_с_базой=2, база_ожидание=2.5, p_шум=0.7)
     assert "из 8 с посчитанной базой сбылось 2" in HS.score_line(sc3)
+
+
+def test_render_words_only_and_honest_update_states():
+    """Перепроверка №5: асимметрия — только словами (стабильный счёт чисел для линта); новая идея
+    «в цене»/за стопом — проблема (не уходит); исправление — честное «план не действует»."""
+    assert HS._ratio_words(1.5) == "в полтора раза" and HS._ratio_words(1.7) == "больше чем в полтора раза"
+    assert HS._ratio_words(3.02) == "втрое" and HS._ratio_words(1.2) is None
+    import re as _re
+    for r in (1.5, 1.73, 2.4, 6.0):
+        assert not _re.search(r"\d", HS._ratio_words(r))
+    # цена ушла за стоп
+    broken = _c(spec9={**CARD["spec9"], "last_close": 35.0})
+    rend, probs = HS.render_with_problems(broken)
+    assert probs and "money" not in rend
+    rend_u, probs_u = HS.render_with_problems(broken, update=True)
+    assert not probs_u and "план уже не действует: цена уже за стопом" in rend_u["money"]
+    assert "+$" not in rend_u["money"]
+    # «в цене» — новая идея нельзя, исправление пишет честную фазу
+    played = _c(trigger_close=round(39.57 / 1.5, 6))           # +50% против +30–60%
+    _r, p_new = HS.render_with_problems(played)
+    assert any("отыграно" in x for x in p_new)
+    r_upd, p_upd = HS.render_with_problems(played, update=True)
+    assert "уже пройдена" in r_upd["why"]
+    # «почти не сдвинулась» — тоже ровно одно число
+    flat = _c(trigger_close=39.6)
+    assert "меньше 1%" in HS.render_numbers(flat)["why"]
+    # черновой абзац без кодового — удаляется, числа модели не уходят
+    txt = "Шапка: ставлю на рост MP.\n\nСколько можно заработать и чем рискую. +80% (+$400).\n\nЧто делать."
+    assert "+80%" not in HS.apply_rendered(txt, {})

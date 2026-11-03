@@ -37,3 +37,4 @@ journal/*.anchor.json.tmp
 # Ротированные logrotate-копии журналов-логов (сами логи игнорируются выше; 31.10.2026)
 journal/*.log.[0-9]*
 reports/ideas/_work/
+journal/pull_refused.txt

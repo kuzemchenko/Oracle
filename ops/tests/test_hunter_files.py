@@ -60,9 +60,10 @@ def test_owner_configs_guarded():
     script = f'. "{guard}"; printf "%s" "$P" | grep -E "$OWNER_CONFIGS"'
     r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
                        env={"P": paths, "PATH": "/usr/bin:/bin"})
+    # перепроверка №5: только то, что облако почти не трогает и что меняется лишь с согласия
+    # владельца; флаги подачи, планка, промпт суда и скрипты разворачиваются ежечасно (иначе протяжка
+    # замерзала бы на каждом облачном коммите вместе с доставкой идей)
     assert r.stdout.split() == ["config/limits.yaml", "config/weights.yaml", "config/rubric.yaml",
-                                "config/thresholds.yaml", "config/presentation.yaml",
-                                "knowledge/idea_bar.yaml", "agents/prompts/hunter_court.md",
-                                "ops/journal_guard.sh"]
+                                "config/thresholds.yaml"]
     assert "--no-renames" in guard.read_text()
     assert "exit 10" in (ROOT / "ops" / "safe_pull.sh").read_text()
