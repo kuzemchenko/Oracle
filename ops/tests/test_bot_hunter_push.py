@@ -106,10 +106,10 @@ def test_hunter_push_delivers_once_and_lints(tmp_path, monkeypatch):
 def test_hunter_fixed_file_redelivered(tmp_path, monkeypatch):
     """Перепроверка №3: брак не хоронит файл навечно — починенная версия (новый хеш)
     доставляется; доставленная версия повторно не уходит."""
-    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-05_F.push.txt", "Жаргон: каскад")])
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_F.push.txt", "Жаргон: каскад")])
     b._tick_hunter_ideas()
     assert not b.tg.sent and notes
-    f = tmp_path / "reports" / "ideas" / "idea_2026-11-05_F.push.txt"
+    f = tmp_path / "reports" / "ideas" / "idea_2026-11-02_F.push.txt"
     f.write_text(GOOD, encoding="utf-8")
     b._tick_hunter_ideas()
     assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
@@ -158,13 +158,13 @@ def test_hunter_network_failure_keeps_delivered_marks(tmp_path, monkeypatch):
 def test_hunter_requires_research_md(tmp_path, monkeypatch):
     """Перепроверка №2 02.11 (П8): пуш без файла исследования с источниками рядом — брак.
     Перепроверка №4: брак не вечный — появился .md → идея доставляется; дозор не спамится."""
-    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-04_X.push.txt", GOOD)],
-                      no_md=("idea_2026-11-04_X.push.txt",))
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_X.push.txt", GOOD)],
+                      no_md=("idea_2026-11-02_X.push.txt",))
     b._tick_hunter_ideas()
     assert not b.tg.sent and notes and "источник" in notes[0]
     b._tick_hunter_ideas()
     assert len(notes) == 1                       # повтор без .md — заметка одна
-    (tmp_path / "reports" / "ideas" / "idea_2026-11-04_X.md").write_text(MD, encoding="utf-8")
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_X.md").write_text(MD, encoding="utf-8")
     b._tick_hunter_ideas()
     assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
 
@@ -249,9 +249,9 @@ def test_hunter_changed_after_delivery_goes_once_as_update(tmp_path, monkeypatch
 
 
 def test_empty_md_is_not_a_source(tmp_path, monkeypatch):
-    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-06_E.push.txt", GOOD)],
-                      no_md=("idea_2026-11-06_E.push.txt",))
-    (tmp_path / "reports" / "ideas" / "idea_2026-11-06_E.md").write_text("", encoding="utf-8")
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_E.push.txt", GOOD)],
+                      no_md=("idea_2026-11-02_E.push.txt",))
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_E.md").write_text("", encoding="utf-8")
     b._tick_hunter_ideas()
     assert not b.tg.sent and notes
 
@@ -413,7 +413,10 @@ def test_watchdog_one_honest_message_when_no_idea_by_13(tmp_path, monkeypatch):
     import datetime as _dt
     b, notes = _setup(tmp_path, monkeypatch, [])
     monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
-    mon13 = _dt.datetime(2026, 11, 2, 13, 5, tzinfo=_dt.timezone.utc)
+    early = _dt.datetime(2026, 11, 2, 13, 5, tzinfo=_dt.timezone.utc)
+    b._tick_idea_day_watchdog(early)                 # перепроверка №3: до штатной доставки — молчим
+    assert not b.tg.sent
+    mon13 = _dt.datetime(2026, 11, 2, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc)
     b._tick_idea_day_watchdog(mon13)
     b._tick_idea_day_watchdog(mon13)
     msgs = [t for _c, t, _k in b.tg.sent]
@@ -600,3 +603,47 @@ def test_git_pull_alert_dedup_only_after_delivery(tmp_path, monkeypatch):
 def test_selfcheck_imports_hunter_modules(capsys):
     assert BOT.selfcheck() == 0
     assert "модули охоты: OK" in capsys.readouterr().out
+
+
+def test_raw_court_odds_never_reach_owner(tmp_path, monkeypatch):
+    """Перепроверка №3 (блокер): сырое возражение судьи с шансами не уходит владельцу ни строкой
+    в пуше, ни по кнопке «Качаем», ни в заметке дозора о FATAL."""
+    import bot_state as S
+    from ops import hunter_court as HC
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict="FIX")
+    monkeypatch.setattr(HC, "judge_card", lambda card, **k: (
+        {"verdict": "FIX", "objection": "шанс провала около 70%, вероятно", "evidence": ""}, None))
+    monkeypatch.setattr(b, "_cmd_check_idea", lambda chat, lead: None)
+    b._tick_hunter_ideas()
+    b._on_callback({"id": "c", "data": "v:q:h_2026-11-02_MP",
+                    "message": {"message_id": 5, "chat": {"id": 555}}})
+    allt = " ".join(t for _c, t, _k in b.tg.sent)
+    assert "70%" not in allt and "шанс провала" not in allt
+    assert HC.GENERIC_LINE in allt and "Качаем" not in HC.GENERIC_LINE
+    b2, notes2 = _setup(tmp_path / "f", monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    monkeypatch.setattr(HC, "judge_card", lambda card, **k: (
+        {"verdict": "FATAL", "point": 1, "objection": "шанс 65% что продлят", "evidence": "x"}, None))
+    b2._tick_hunter_ideas()
+    assert notes2 and not any("65%" in n for n in notes2) and any("пункт рубрики 1" in n for n in notes2)
+
+
+def test_new_version_after_failed_delivery_must_keep_sealed_bet(tmp_path, monkeypatch):
+    """Перепроверка №3: печать прошла, доставка сорвалась, пришла новая версия с ДРУГОЙ ставкой —
+    она не уходит с подписью «уже записан» (в журнале другая ставка)."""
+    import json as _json
+    from ops import hunter_seal as HS
+    from test_idea_gate import CARD
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    monkeypatch.setattr(b, "_send_card", lambda text, kb: None)        # сеть упала после печати
+    b._tick_hunter_ideas()
+    assert pred.exists() and not b.tg.sent
+    moved = {**CARD, "spec9": {**CARD["spec9"], "threshold": 47.0}}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(moved, ensure_ascii=False), encoding="utf-8")
+    sent = []
+    monkeypatch.setattr(b, "_send_card", lambda text, kb: sent.append(text) or 1)
+    b._tick_hunter_ideas()
+    assert not sent and any("меняет порог" in n for n in notes)

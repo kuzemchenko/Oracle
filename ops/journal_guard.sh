@@ -13,3 +13,13 @@ JOURNAL_CLOUD_ALLOWED='^journal/(proposals/|[^/]+\.md$)'
 incoming_journal_changes() {
   git diff --name-only "$1" -- journal/ | grep -Ev "$JOURNAL_CLOUD_ALLOWED" | head -5
 }
+
+# Перепроверка №3 (03.11): ежечасная протяжка + тихий перезапуск бота применяли бы облачные правки
+# лимитов и kill-критериев (Инв#4/#5), весов скоринга и рубрики суда (меняются только с согласия
+# владельца) без его «ок». Такие входящие коммиты safe_pull НЕ применяет (код 10 → алерт владельцу);
+# применить их можно только ручной протяжкой владельца (команда в CLAUDE.md).
+OWNER_CONFIGS='^config/(limits|weights|rubric|thresholds)\.yaml$'
+
+incoming_owner_config_changes() {
+  git diff --name-only "$1" -- config/ | grep -E "$OWNER_CONFIGS" | head -5
+}

@@ -17,5 +17,9 @@ incoming=$(incoming_journal_changes HEAD...origin/master)
 if [ -n "$incoming" ]; then
   echo "[safe_pull] $(date -u +%FT%TZ) ОТКАЗ: входящие коммиты трогают журналы честности: $incoming"; exit 9
 fi
+owner_cfg=$(incoming_owner_config_changes HEAD...origin/master)
+if [ -n "$owner_cfg" ]; then
+  echo "[safe_pull] $(date -u +%FT%TZ) ОТКАЗ: входящие коммиты меняют настройки владельца (лимиты/веса/рубрика/пороги): $owner_cfg — только ручная протяжка владельцем"; exit 10
+fi
 git merge -q --ff-only origin/master || exit 3
 echo "[safe_pull] $(date -u +%FT%TZ) ok $(git rev-parse --short HEAD)"

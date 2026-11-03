@@ -41,6 +41,9 @@ if ! git push -q origin master; then
   # отчёты сервера; облако journal/ не пишет — П16) поверх origin и пробуем ещё раз
   git fetch -q origin master
   . ops/journal_guard.sh || exit 1                 # то же правило, что у safe_pull (перепроверка №2)
+  if [ -n "$(incoming_owner_config_changes HEAD...origin/master)" ]; then
+    echo "[checkpoint] входящие облачные коммиты меняют лимиты/веса/рубрику/пороги — пересадку не делаю (нужно «ок» владельца)"; exit 7
+  fi
   if [ -n "$(incoming_journal_changes HEAD...origin/master)" ]; then
     echo "[checkpoint] входящие облачные коммиты трогают journal/ — пересадку не делаю (П16)"; exit 7
   fi

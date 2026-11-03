@@ -46,3 +46,14 @@ def test_daily_sigma_and_trading_days():
     assert s is not None and 0.009 < s < 0.011
     assert BO.trading_days("2026-11-02", "2026-11-09") == 5      # пн → пн: 5 рабочих
     assert BO.trading_days("2026-10-30", "2026-11-25") == 18     # пт 30.10 → ср 25.11
+
+
+
+def test_poisson_binomial_tail():
+    assert BO.poisson_binomial_sf(0, [0.3, 0.5]) == 1.0
+    assert abs(BO.poisson_binomial_sf(2, [0.3, 0.5]) - 0.15) < 1e-12        # обе сбылись
+    assert abs(BO.poisson_binomial_sf(1, [0.3, 0.5]) - (1 - 0.7 * 0.5)) < 1e-12
+    assert BO.poisson_binomial_sf(3, [0.3, 0.5]) == 0.0
+    # совпадает с биномом при равных p: P(X≥8 | n=10, p=0.5) = 56/1024
+    assert abs(BO.poisson_binomial_sf(8, [0.5] * 10) - 56 / 1024) < 1e-12
+    assert BO.poisson_binomial_sf(1, [1.5]) is None

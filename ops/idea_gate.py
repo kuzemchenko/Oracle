@@ -140,13 +140,16 @@ def check(card, today=None, horizon_from=None):
 
     # 4. факты с источниками
     facts = card["facts"] if isinstance(card["facts"], list) else []
+    # перепроверка №3: «из будущего» — относительно ДНЯ ОХОТЫ (+1 день: охота может перейти через
+    # полночь UTC), а не серверного сегодня — иначе через 3 дня проходили бы факты «из завтра»
+    facts_until = (horizon_from or today) + datetime.timedelta(days=1)
     good, domains, future = 0, set(), []
     for f in facts:
         if not isinstance(f, dict):
             continue
         url = str(f.get("url") or "")
         fd = _date(f.get("date"))
-        if fd is not None and fd > today:
+        if fd is not None and fd > facts_until:
             future.append(str(fd))                 # дата публикации не бывает в будущем (П8)
             continue
         if url.startswith("http") and fd and str(f.get("text") or "").strip():
@@ -154,7 +157,7 @@ def check(card, today=None, horizon_from=None):
             domains.add(urlparse(url).netloc.lower().removeprefix("www."))
     comp["фактов_с_источником"], comp["источников"] = good, len(domains)
     if future:
-        fails.append(f"факты датированы позже сегодняшнего дня ({', '.join(sorted(set(future))[:3])}) — "
+        fails.append(f"факты датированы позже дня охоты ({', '.join(sorted(set(future))[:3])}) — "
                      "дата факта = дата публикации, не проверки (П8)")
     if good < MIN_FACTS:
         fails.append(f"фактов с URL и датой {good} < {MIN_FACTS} (П8)")

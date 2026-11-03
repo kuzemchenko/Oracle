@@ -60,3 +60,20 @@ def base_probability(price, threshold, sigma_daily, days, direction):
     if direction == "below":
         return 1.0 - p_above
     return None
+
+
+def poisson_binomial_sf(k, probs):
+    """P(X ≥ k), X = сумма независимых Бернулли с вероятностями probs (точная динамика, Инв#6).
+    Значимость «метод сбывается чаще шума»: k попаданий против баз шума тех же вопросов."""
+    ps = [float(p) for p in (probs or [])]
+    if any(not 0.0 <= p <= 1.0 for p in ps):
+        return None
+    dist = [1.0]
+    for p in ps:
+        nxt = [0.0] * (len(dist) + 1)
+        for j, q in enumerate(dist):
+            nxt[j] += q * (1.0 - p)
+            nxt[j + 1] += q * p
+        dist = nxt
+    k = max(0, int(k))
+    return float(min(1.0, sum(dist[k:]))) if k < len(dist) else 0.0

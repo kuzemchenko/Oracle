@@ -48,6 +48,9 @@ POLL_TIMEOUT = 25              # long-poll getUpdates, сек
 HTTP_TIMEOUT = POLL_TIMEOUT + 15
 BUDGET_HOUR = int(os.environ.get("BOT_BUDGET_HOUR", "7"))   # час утренней строки (UTC), как cron 07:00
 IDLE_NO_TOKEN = 30             # сон, если токен не задан (без crash-loop)
+# Перепроверка №3 (03.11): охотник стартует 10:17 UTC и ищет 1–2 ч, сервер забирает в :05 — штатная доставка
+# 12–14 UTC; сторож «идея дня пока не готова» в 13:00 будил владельца раньше неё. Теперь 15:00 UTC.
+WATCHDOG_HOUR_UTC = 15
 
 
 def log(*a):
@@ -642,14 +645,17 @@ class Bot:
                     if not update:
                         HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
                     _mark(key + ":bad")
+                    # перепроверка №3: заметки дозора уходят владельцу — только очищенное возражение
+                    why_txt = HC.safe_objection(verdict) or ("пункт рубрики " + str(verdict.get("point") or "?")
+                                                             + "; дословно — в кэше суда на сервере")
                     self._notice_dozor("Идею охотника " + p.name + " отверг суд разных семейств ("
-                                       + str(verdict.get("objection") or "")[:160] + ") — в Telegram "
-                                       "не ушла" + ("" if update else ", записана тенью для проверки права вето") + ".")
+                                       + why_txt + ") — в Telegram не ушла"
+                                       + ("" if update else ", записана тенью для проверки права вето") + ".")
                     continue
                 objection = None
                 if verdict.get("verdict") == "FIX":
                     extra.append(HC.second_check_line(verdict) or "")
-                    objection = str(verdict.get("objection") or "")[:500] or None
+                    objection = HC.safe_objection(verdict)    # перепроверка №3: «Качаем» — тот же фильтр
                 if update:
                     rec, why = None, ("уже запечатано" if HS.idea_sealed(p.name) else
                                       "это исправление уже отправленной записки — новой ставки не делаю")
@@ -661,6 +667,15 @@ class Bot:
                         self._notice_dozor("Идея охотника " + p.name + ": прогноз не запечатан ("
                                            + str(why) + ") — без записи в счёт идея не уходит.")
                         continue
+                    if rec is None:
+                        # перепроверка №3: запечатано прошлой версией (доставка тогда сорвалась) — эта
+                        # версия вправе уйти только с ТОЙ ЖЕ ставкой, иначе «уже записан» соврёт
+                        um = HS.update_bet_mismatch(card, p.name)
+                        if um:
+                            _mark(key + ":bad")
+                            self._notice_dozor("Новая версия идеи охотника " + p.name + " не ушла: " + um
+                                               + ". Новая ставка = новая идея с новой датой.")
+                            continue
                 footers[key] = {"lines": [x for x in extra if x] + HS.footer(rec, why, HS.method_score()),
                                 "asset": asset, "sealed": bool(rec) or why == "уже запечатано",
                                 "objection": objection}
@@ -806,7 +821,7 @@ class Bot:
             return
         now = now or S.now_utc()
         today = now.date().isoformat()
-        if now.hour < 13 or self.state.get("idea_day_delivered") == today \
+        if now.hour < WATCHDOG_HOUR_UTC or self.state.get("idea_day_delivered") == today \
                 or self.state.get("idea_day_watchdog") == today:
             return
         if now.isoweekday() > 5:                 # выходные: охотник работает, но молчание не аварийно
@@ -819,7 +834,7 @@ class Bot:
         if self.tg.send_message(self.chat_id, msg) is None:
             return
         self.state["idea_day_watchdog"] = today
-        self._notice_dozor("Сторож: к 13:00 UTC идея дня не доставлена — проверить охотника "
+        self._notice_dozor(f"Сторож: к {WATCHDOG_HOUR_UTC}:00 UTC идея дня не доставлена — проверить охотника "
                            "(облачный прогон, коммит, git pull, шлагбаум/суд на сервере).")
         self.save()
 
@@ -1585,6 +1600,16 @@ class Bot:
                     self.state["alerts_seen"] = i + 1
                     continue
                 pull_day = day                          # отметка — только после доставки
+                if rec.get("exit") in (10, "10"):
+                    msg = ("🚨 В GitHub пришёл облачный коммит, который меняет лимиты, веса, рубрику суда "
+                           f"или пороги ({rec.get('ts')}). Сам сервер такое не применяет — нужно твоё «ок»: "
+                           "посмотри коммит и, если согласен, обнови сервер вручную командой из CLAUDE.md. "
+                           "До этого идеи охотника и правки кода до сервера не доходят.")
+                    if self.tg.send_message(self.chat_id, msg) is None:
+                        break
+                    self.state["git_pull_alert_day"] = pull_day
+                    self.state["alerts_seen"] = i + 1
+                    continue
                 msg = (f"🚨 Сервер не смог забрать обновления с GitHub (код {rec.get('exit')}, "
                        f"{rec.get('ts')}): идеи охотника и правки кода до сервера не доходят. "
                        "Причина — в journal/cron.log; частая — расхождение веток или облачный "

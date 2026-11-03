@@ -168,8 +168,70 @@ def push_card_mismatch(text, card):
             dd = datetime.date.fromisoformat(rb)
         except ValueError:
             return "в карточке битая дата сверки"
-        if f"{dd.day} {_MONTHS[dd.month - 1]}" not in t and dd.strftime("%d.%m") not in t:
+        # перепроверка №3: подстрокой «5 ноября» находилось внутри «25 ноября» — с границей числа
+        if not (re.search(rf"(?<!\d){dd.day}\s+{_MONTHS[dd.month - 1]}", t)
+                or re.search(rf"(?<!\d)0?{dd.day}\.{dd.month:02d}(?!\d)", t)):
             return f"в тексте нет даты сверки {dd.day} {_MONTHS[dd.month - 1]} из карточки"
+    return _numbers_mismatch(t, card)
+
+
+TOL_TEXT_PP = 2.0               # числа текста против расчёта по ценам карточки: допуск (округление)
+_PCT_RE = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s?%")
+_PLUS_PCT_RE = re.compile(r"\+\s?(\d+(?:[.,]\d+)?)\s?%")
+_MINUS_PCT_RE = re.compile(r"[−–-]\s?(\d+(?:[.,]\d+)?)\s?%")
+_PLUS_USD_RE = re.compile(r"\+\s?\$\s?(\d+(?:[.,]\d+)?)")
+_MINUS_USD_RE = re.compile(r"[−–-]\s?\$\s?(\d+(?:[.,]\d+)?)")
+
+
+def _para(text, head):
+    for block in re.split(r"\n\s*\n", text):
+        if block.strip().lower().startswith(head):
+            return block
+    return None
+
+
+def _f(tok):
+    return float(str(tok).replace(",", "."))
+
+
+def _numbers_mismatch(text, card):
+    """Перепроверка №3 (high): ход с повода, потенциал, риск и итог на $500 в ТЕКСТЕ пишет модель —
+    сверяем их с расчётом КОДА по ценам самой карточки (idea_gate.price_math), допуск — округление.
+    Абзаца нет — сверять нечего (шаблон проверяет линт). → причина | None."""
+    try:
+        from ops import idea_gate as G
+    except ImportError:
+        import idea_gate as G
+    s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+    pm = G.price_math(str(card.get("direction") or "").lower(), s9.get("last_close"),
+                      card.get("trigger_close"), card.get("target_price"), card.get("stop_price"),
+                      card.get("entry_limit"))
+    if pm.get("fails") and pm.get("потенциал") is None:
+        return None                                    # цен нет — это брак шлагбаума, не текста
+    why = _para(text, "почему это ещё не в цене")
+    mv = pm.get("ход_с_повода")
+    if why and mv is not None:
+        m = _PCT_RE.search(why)
+        if m and abs(_f(m.group(1)) - abs(mv)) > TOL_TEXT_PP:
+            return (f"в абзаце «Почему это ещё не в цене» ход {m.group(1)}%, а по ценам карточки "
+                    f"{abs(mv):g}%")
+    money = _para(text, "сколько можно заработать")
+    if money:
+        ups = [v for v in (pm.get("потенциал_от_входа"), pm.get("потенциал")) if v is not None]
+        dns = [v for v in (pm.get("риск_от_входа"), pm.get("риск")) if v is not None]
+        for tok in _PLUS_PCT_RE.findall(money):
+            if ups and all(abs(_f(tok) - u) > TOL_TEXT_PP for u in ups):
+                return f"в тексте потенциал +{tok}%, а по ценам карточки {' или '.join(f'{u:g}%' for u in ups)}"
+        for tok in _MINUS_PCT_RE.findall(money):
+            if dns and all(abs(_f(tok) - d) > TOL_TEXT_PP for d in dns):
+                return f"в тексте риск −{tok}%, а по ценам карточки {' или '.join(f'{d:g}%' for d in dns)}"
+        if "$500" in money or "пятьсот" in money.lower():
+            for tok in _PLUS_USD_RE.findall(money):
+                if ups and all(abs(_f(tok) - 5 * u) > max(5.0, 0.06 * 5 * u) for u in ups):
+                    return f"в тексте +${tok} на $500, а по ценам карточки около ${5 * ups[0]:.0f}"
+            for tok in _MINUS_USD_RE.findall(money):
+                if dns and all(abs(_f(tok) - 5 * d) > max(5.0, 0.06 * 5 * d) for d in dns):
+                    return f"в тексте −${tok} на $500, а по ценам карточки около ${5 * dns[0]:.0f}"
     return None
 
 
@@ -262,12 +324,6 @@ def _server_prices(asset, trigger_date=None, con=None):
             con.close()
 
 
-def _server_last_close(asset, con=None):
-    """Совместимость: только последняя серверная цена → (цена, дата) | (None, None)."""
-    pr = _server_prices(asset, con=con)
-    return (pr["last_close"], pr["last_date"]) if pr else (None, None)
-
-
 def server_check(card, *, idea_file, today=None, last_close_fn=None, prices_fn=None):
     """ШЛАГБАУМ КОДОМ НА СЕРВЕРЕ (ревью 02.11: в облаке он исполнялся на слово LLM). Карточка
     перепроверяется ops/idea_gate.check с СЕРВЕРНОЙ датой; цены (последнее закрытие, закрытие в
@@ -285,6 +341,8 @@ def server_check(card, *, idea_file, today=None, last_close_fn=None, prices_fn=N
     hd = hunt_date_from_name(idea_file)
     if hd is None:
         return False, ["в имени файла нет даты охоты — возраст карточки не проверить"], card
+    if hd > today:                                   # перепроверка №3: будущая дата снимала лаг-гард
+        return False, [f"дата охоты {hd} в имени файла позже сегодняшней {today}"], card
     if (today - hd).days > MAX_SEAL_LAG_DAYS:
         return False, [f"карточка от {hd} старше {MAX_SEAL_LAG_DAYS} дней — задним числом не печатаем"], card
     c2 = copy.deepcopy(card)
@@ -364,6 +422,8 @@ def seal_card(card, *, idea_file=None, predictions_path=None, sealable_fn=None, 
     today = today or datetime.datetime.now(datetime.timezone.utc).date()
     if hd is None:                                  # ревью 02.11: без даты лаг-гард был fail-open
         return None, "в имени карточки нет даты охоты — возраст не проверить, печать отклонена"
+    if hd > today:
+        return None, f"дата охоты {hd} позже сегодняшней — печать отклонена"
     if (today - hd).days > MAX_SEAL_LAG_DAYS:
         return None, (f"карточка от {hd} старше {MAX_SEAL_LAG_DAYS} дней — печать задним числом "
                       "запрещена")
@@ -420,11 +480,17 @@ def method_score(predictions_path=None, outcomes_path=None, kind=KIND):
             if o.get("hash") and o.get("outcome") in (0, 1)}
     pairs = [(p, outs[p["hash"]]) for p in preds if p.get("hash") in outs]
     based = [(p, o) for p, o in pairs if isinstance(p.get("вероятность_база"), (int, float))]
+    ps = [float(p["вероятность_база"]) for p, _o in based]
+    kb = sum(int(o["outcome"]) for _p, o in based)
+    try:
+        from mathlib import base_odds as BO
+        pval = BO.poisson_binomial_sf(kb, ps) if ps else None
+    except Exception:                                  # noqa: BLE001
+        pval = None
     return {"идей": len(preds), "исходов": len(pairs),
             "попаданий": sum(int(o["outcome"]) for _p, o in pairs),
-            "с_базой": len(based),
-            "база_ожидание": round(sum(float(p["вероятность_база"]) for p, _o in based), 2),
-            "попаданий_с_базой": sum(int(o["outcome"]) for _p, o in based)}
+            "с_базой": len(based), "база_ожидание": round(sum(ps), 2),
+            "попаданий_с_базой": kb, "p_шум": pval}
 
 
 def score_line(score):
@@ -434,11 +500,16 @@ def score_line(score):
         return (f"Счёт метода охотника: идей в журнале {total}, сверенных пока нет — "
                 "первые исходы через 3–13 недель.")
     line = f"Счёт метода охотника: сбылось {k} из {n} сверенных"
-    nb, eb = score.get("с_базой", 0), score.get("база_ожидание")
+    nb, eb, kb = score.get("с_базой", 0), score.get("база_ожидание"), score.get("попаданий_с_базой", 0)
     if nb:
-        part = "" if nb == n else f" (из {nb} с посчитанной базой)"
-        line += (f"; от одной обычной качки цен на тех же порогах сбылось бы около {eb:g}{part} — "
-                 "метод полезен, только если заметно чаще")
+        # перепроверка №3: сравниваем ОДНУ популяцию — идеи с посчитанной базой — и говорим словами,
+        # отличимо ли это от шума (хвост Пуассона-биномиального распределения, mathlib/base_odds.py)
+        line += ("; " if nb == n else f"; из {nb} с посчитанной базой сбылось {kb}, а ")
+        line += f"от одной обычной качки цен на тех же порогах сбылось бы около {eb:g}"
+        pv = score.get("p_шум")
+        if nb >= 10 and pv is not None:
+            line += (" — это чаще, чем бывает случайно" if pv < 0.05 and kb > eb else
+                     " — пока не отличить от случайности" if kb > eb else " — пока не лучше шума")
     return line + (" — выборка мала, доверять рано." if n < 30 else ".")
 
 

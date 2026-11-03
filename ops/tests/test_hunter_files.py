@@ -48,3 +48,17 @@ def test_journal_guard_allows_only_proposals_and_md():
                        env={"P": paths, "PATH": "/usr/bin:/bin"})
     assert r.stdout.split() == [sealed, "journal/challenges/a.json", "journal/deep_dive.jsonl",
                                 "journal/sub/y.md"]
+
+
+
+def test_owner_configs_guarded():
+    """Перепроверка №3: облачные правки лимитов/весов/рубрики/порогов safe_pull не применяет."""
+    guard = ROOT / "ops" / "journal_guard.sh"
+    paths = "config/limits.yaml\nconfig/models.yaml\nconfig/weights.yaml\nconfig/rubric.yaml\n" \
+            "config/thresholds.yaml\nconfig/presentation.yaml\n"
+    script = f'. "{guard}"; printf "%s" "$P" | grep -E "$OWNER_CONFIGS"'
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env={"P": paths, "PATH": "/usr/bin:/bin"})
+    assert r.stdout.split() == ["config/limits.yaml", "config/weights.yaml", "config/rubric.yaml",
+                                "config/thresholds.yaml"]
+    assert "exit 10" in (ROOT / "ops" / "safe_pull.sh").read_text()

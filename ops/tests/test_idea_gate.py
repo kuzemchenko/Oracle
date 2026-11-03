@@ -74,7 +74,7 @@ def test_each_hard_criterion_fails_with_reason():
         (_c(trigger_date=None), "нет поля «trigger_date»"),
         (_c(target_price=None), "нет поля «target_price»"),
         (_c(facts=CARD["facts"] + [{"text": "x", "url": "https://a.org/b", "date": "2026-11-05"}]),
-         "позже сегодняшнего"),
+         "позже дня охоты"),
         (_c(spec9={**CARD["spec9"], "threshold": 35.0}), "уже-истинной"),
         (_c(spec9={**CARD["spec9"], "last_close_date": "2026-10-01"}), "устарела"),
         (_c(kill_conditions=[]), "kill_conditions"),
@@ -251,3 +251,55 @@ def test_method_score_shows_noise_base(tmp_path):
     sc = HS.method_score(predictions_path=pred, outcomes_path=outc)
     line = HS.score_line(sc)
     assert "сбылось 0 из 1" in line and "около 0.2" in line and "доверять рано" in line
+
+
+
+def test_push_numbers_checked_against_card_prices():
+    """Перепроверка №3 (high): ход с повода, потенциал, риск и $ на $500 в тексте — сверка с
+    расчётом кода по ценам карточки; дата сверки — с границей числа («5 ноября» ≠ «25 ноября»)."""
+    card = _c(entry_limit=40.30, target_price=47.5, stop_price=35.5, trigger_close=48.89,
+              move_since_trigger_pct=-19.06, upside_pct=20.04, downside_pct=10.29,
+              spec9={**CARD["spec9"], "threshold": 47.5, "resolve_by": "2026-11-25"})
+    txt = ("Идея с триггером — 2 ноября. MP Materials (MP) — добытчик: ставлю на рост.\n\n"
+           "Почему это ещё не в цене. С 23 сентября бумага подешевела на 19%.\n\n"
+           "Сколько можно заработать и чем рискую. На пятьсот долларов на бумаге: прав — около +$90 "
+           "(+18%), неправ — около −$60 (−12%).\n\n"
+           "Что делать. Вход не дороже $40.30. Цель $47.50, стоп $35.50, крайний выход 25 ноября.\n"
+           "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    assert HS.push_card_mismatch(txt, card) is None
+    assert "потенциал" in HS.push_card_mismatch(txt.replace("+18%", "+30%"), card)
+    assert "риск" in HS.push_card_mismatch(txt.replace("−12%", "−5%"), card)
+    assert "$500" in HS.push_card_mismatch(txt.replace("+$90", "+$150"), card)
+    assert "Почему" in HS.push_card_mismatch(txt.replace("на 19%", "на 5%"), card)
+    assert "даты сверки" in HS.push_card_mismatch(txt.replace("25 ноября", "5 ноября"), card)
+
+
+def test_future_hunt_date_and_future_facts_rejected():
+    ok, fails, _ = HS.server_check(CARD, idea_file="idea_2026-11-09_MP.push.txt", today=TODAY,
+                                   prices_fn=_prices())
+    assert not ok and "позже сегодняшней" in fails[0]
+    rec, why = HS.seal_card(CARD, idea_file="idea_2099-01-01_MP.push.txt",
+                            predictions_path=pathlib.Path("/nonexistent/p.jsonl"),
+                            sealable_fn=lambda a: True, today=TODAY)
+    assert rec is None and "позже сегодняшней" in why
+    # факт датирован через 2 дня после охоты 02.11 — брак даже на сервере 05.11
+    late = _c(facts=CARD["facts"] + [{"text": "x", "url": "https://a.org/b", "date": "2026-11-04"}])
+    ok2, f2, _ = HS.server_check(late, idea_file="idea_2026-11-02_MP.push.txt",
+                                 today=datetime.date(2026, 11, 5), prices_fn=_prices(last_date="2026-11-04"))
+    assert not ok2 and any("позже дня охоты" in f for f in f2)
+    # +1 день допустим (охота перешла через полночь UTC)
+    ok3, f3, _ = HS.server_check(_c(facts=CARD["facts"] + [{"text": "x", "url": "https://a.org/b",
+                                                            "date": "2026-11-03"}]),
+                                 idea_file="idea_2026-11-02_MP.push.txt",
+                                 today=datetime.date(2026, 11, 5), prices_fn=_prices(last_date="2026-11-04"))
+    assert ok3, f3
+
+
+def test_score_line_same_population_and_significance(tmp_path):
+    sc = {"идей": 12, "исходов": 12, "попаданий": 9, "с_базой": 12, "база_ожидание": 3.0,
+          "попаданий_с_базой": 9, "p_шум": 0.0004}
+    assert "это чаще, чем бывает случайно" in HS.score_line(sc)
+    sc2 = dict(sc, попаданий=4, попаданий_с_базой=4, p_шум=0.35)
+    assert "пока не отличить от случайности" in HS.score_line(sc2)
+    sc3 = dict(sc, исходов=12, с_базой=8, попаданий_с_базой=2, база_ожидание=2.5, p_шум=0.7)
+    assert "из 8 с посчитанной базой сбылось 2" in HS.score_line(sc3)
