@@ -177,9 +177,14 @@ def test_odds_inside_quotes_blocked_for_hunter():
 
 
 def test_battle_mp_file_passes_hunter_lint():
-    """Боевой файл идеи MP обязан проходить кодовый гейт канала (рамка, без вероятностных
-    слов, правила «Идеи дня») — иначе мост молчит и жалоба владельца 02.11 вернётся."""
-    p = ROOT / "reports" / "ideas" / "idea_2026-11-01_MP.push.txt"
+    """Боевой файл идеи дня (MP, охота v3 02.11) обязан проходить кодовый гейт канала и быть
+    согласован со своей §9-карточкой — иначе мост молчит и жалоба владельца вернётся."""
+    import json as _json
+    from ops import hunter_seal as HS
+    card = _json.loads((ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").read_text("utf-8"))
+    assert HS.push_card_mismatch((ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.push.txt")
+                                 .read_text("utf-8"), card) is None
+    p = ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.push.txt"
     viol = PL.lint_hunter_idea(p.read_text(encoding="utf-8"))
     assert viol == [], viol
 
@@ -454,3 +459,14 @@ def test_second_check_line_is_linted():
     assert HC.second_check_line({"objection": "см. wf_abcdef12 и 1 2 3 4"}) == HC.GENERIC_LINE
     ok = HC.second_check_line({"objection": "спрос на магниты может не подтвердиться отчётом"})
     assert "спрос на магниты" in ok
+
+
+def test_update_of_delivered_idea_skips_seal_window_but_not_court(tmp_path, monkeypatch):
+    """Исправление доставленной идеи через неделю: без шлагбаума новой ставки (печати нет),
+    но через суд разных семейств и сверку с карточкой."""
+    from ops import hunter_seal as HS
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict="PASS")
+    b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
+    monkeypatch.setattr(HS, "server_check", lambda *a, **k: (_ for _ in ()).throw(AssertionError("не нужен")))
+    b._tick_hunter_ideas()
+    assert b.tg.sent and b.tg.sent[0][1].startswith("Обновлённая версия записки")

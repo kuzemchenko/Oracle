@@ -575,12 +575,16 @@ class Bot:
                     self._notice_dozor("Идея охотника " + p.name + ": текст пуша не согласован с §9-карточкой ("
                                        + mismatch + ") — в Telegram не ушла.")
                     continue
-                ok, gfails, card = HS.server_check(card, idea_file=p.name)
-                if not ok:
-                    _mark(key + ":bad")
-                    self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
-                                       + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
-                    continue
+                # шлагбаум (окно катализатора, горизонт, якорь, «задним числом») — про НОВУЮ ставку;
+                # исправление уже доставленной идеи ставки не делает (печати нет), поэтому идёт без
+                # него — иначе честное обновление через неделю («напишу 9 ноября») было бы отклонено
+                if not update:
+                    ok, gfails, card = HS.server_check(card, idea_file=p.name)
+                    if not ok:
+                        _mark(key + ":bad")
+                        self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
+                                           + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
+                        continue
                 ckey = p.name + "#" + hashlib.sha1(_json.dumps(card, sort_keys=True, ensure_ascii=False)
                                                    .encode("utf-8")).hexdigest()[:10]
                 verdict = self._hunter_court(ckey, card)    # кэш по СОДЕРЖИМОМУ карточки, не по тексту
