@@ -381,8 +381,18 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="V5 «Шансы недели»: тезисы/механизмы → §9-вопросы")
     ap.add_argument("--mode", default="auto", choices=["auto", "live", "mock"])
     ap.add_argument("--seal", action="store_true", help="печатать принятые вопросы (иначе сухой прогон)")
+    ap.add_argument("--show", action="store_true",
+                    help="показать текст ровно так, как он уйдёт владельцу в Telegram (ручной прогон испытателя)")
     a = ap.parse_args(argv)
     r = run_week_odds(mode=a.mode, seal=a.seal, move_fn=make_move_fn())
+    if a.show:
+        # 03.11: ручной прогон перед «ок» владельца — показываем подачу, а не только счётчики
+        sys.path.insert(0, str(ROOT / "ops"))
+        import bot_reports as R
+        text, viol = R.format_week_odds(r)
+        print(text if text else "ПОДАЧА НЕ ПРОШЛА ЛИНТ: " + "; ".join(str(v) for v in viol))
+        for b in r.get("брак", [])[:8]:
+            print("  брак:", str(b)[:200])
     print(f"[week_odds] {r['run_id']}: кандидатов {r.get('кандидатов', 0)}, принято {r.get('принято', 0)}, "
           f"запечатано {r.get('запечатано', 0)}, брака {len(r.get('брак', []))}"
           + (f" · ОТКАЗ: {r['ОТКАЗ']}" if r.get("ОТКАЗ") else ""))

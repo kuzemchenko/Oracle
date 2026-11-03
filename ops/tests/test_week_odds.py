@@ -333,3 +333,15 @@ def test_format_unknown_ticker_does_not_kill_issue(tmp_path):
     with um.patch.object(R, "_asset_human", lambda t: (t, "")):
         text, viol = R.format_week_odds(r)
     assert viol == [] and text.count("компанию не опознал") >= 2
+
+
+def test_cli_show_prints_owner_text(tmp_path, monkeypatch, capsys):
+    """03.11: ручной прогон `week_odds.py --show` печатает подачу ровно как в Telegram (без печати)."""
+    monkeypatch.setattr(WO, "make_client", lambda **k: StubClient())
+    monkeypatch.setattr(WO, "THESES", _theses(tmp_path))
+    monkeypatch.setattr(WO, "MECHS", _mechs(tmp_path))
+    monkeypatch.setattr(WO, "OUT_DIR", tmp_path / "wo")
+    monkeypatch.setattr(WO, "make_move_fn", lambda: (lambda *a, **k: None))
+    assert WO.main(["--mode", "mock", "--show"]) == 0
+    out = capsys.readouterr().out
+    assert "[week_odds]" in out and ("не инвестиционная рекомендация" in out or "ПОДАЧА НЕ ПРОШЛА" in out)
