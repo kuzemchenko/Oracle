@@ -129,3 +129,72 @@ def test_lint_blocks_broken_text(tmp_path, monkeypatch):
                          passports_dir=tmp_path / "pass", challenge_fn=_stub_challenge)
     assert r["день1"] == 0 and r["ошибки"] and "линт" in r["ошибки"][0]["ошибка"]
     assert not (tmp_path / "n.jsonl").exists()
+
+
+# ── аудит 03.11: «Качаем» по идее охотника прокачивает ЕЁ карточку, а не старую воронку ──────
+def _hunter_setup(tmp_path, with_card=True):
+    ideas = tmp_path / "ideas"
+    ideas.mkdir()
+    src = ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.card.json"
+    if with_card:
+        (ideas / "idea_2026-11-02_MP.card.json").write_text(src.read_text("utf-8"), encoding="utf-8")
+    q = tmp_path / "deep_dive.jsonl"
+    rows = [{"ts": "2026-10-31T08:00:00+00:00", "run_id": "ef_old", "asset": "LNG.US", "status": "queued"},
+            {"ts": "2026-11-01T07:40:00+00:00", "run_id": "h_2026-11-02_MP", "asset": "MP.US",
+             "status": "queued", "source": "button_deep_dive"}]
+    q.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    return ideas, q
+
+
+def test_hunter_idea_day1_uses_card_candidate_and_goes_first(tmp_path):
+    ideas, q = _hunter_setup(tmp_path)
+    seen = []
+
+    def ch(asset, candidate=None):
+        seen.append((asset, candidate))
+        return _stub_challenge(asset)
+    r = DD.run_deep_dive(now=D1, queue_path=q, notices_path=tmp_path / "n.jsonl",
+                         passports_dir=tmp_path / "pass", challenge_fn=ch, max_per_run=1, ideas_dir=ideas)
+    assert r["день1"] == 1 and not r["ошибки"]
+    asset, cand = seen[0]
+    assert asset == "MP.US" and cand["актив"] == "MP.US" and cand["направление"] == "лонг"
+    assert "47.5" in cand["разрешимость"] and "2026-11-25" in cand["разрешимость"]
+    assert "охотник" in cand["школа"]
+
+
+def test_hunter_idea_without_card_refuses_without_funnel_fallback(tmp_path):
+    ideas, q = _hunter_setup(tmp_path, with_card=False)
+    calls = []
+    r = DD.run_deep_dive(now=D1, queue_path=q, notices_path=tmp_path / "n.jsonl",
+                         passports_dir=tmp_path / "pass", ideas_dir=ideas,
+                         challenge_fn=lambda a, candidate=None: calls.append(a) or _stub_challenge(a))
+    assert any("нет карточки" in e["ошибка"] for e in r["ошибки"])
+    assert calls == ["LNG.US"]                       # MP не ушёл в старую воронку
+    assert "карточки" in (tmp_path / "n.jsonl").read_text("utf-8")
+
+
+def test_hunter_day2_plan_from_card_prices(tmp_path):
+    ideas, q = _hunter_setup(tmp_path)
+    kw = dict(queue_path=q, notices_path=tmp_path / "n.jsonl", passports_dir=tmp_path / "pass",
+              challenge_fn=lambda a, candidate=None: _stub_challenge(a), ideas_dir=ideas)
+    DD.run_deep_dive(now=D1, **kw)
+    r2 = DD.run_deep_dive(now=D2, **kw)
+    assert r2["день2"] >= 1 and not r2["ошибки"]
+    texts = [json.loads(x)["text"] for x in (tmp_path / "n.jsonl").read_text("utf-8").splitlines()]
+    mp = [t for t in texts if "день второй" in t and "MP" in t][0]
+    for need in ("$40.30", "$47.50", "$35.50", "25 ноября", "$500"):
+        assert need in mp, need
+    assert "разбери" not in mp                       # больше не обещаем «разбери» = паспорт
+    passport = (tmp_path / "pass" / "MP_US_20261103.md").read_text("utf-8")
+    assert "$47.50" in passport
+
+
+def test_show_mode_writes_nothing_and_returns_both_days(tmp_path):
+    ideas, q = _hunter_setup(tmp_path)
+    before = q.read_text("utf-8")
+    r = DD.run_deep_dive(now=D1, queue_path=q, notices_path=tmp_path / "n.jsonl",
+                         passports_dir=tmp_path / "pass", max_per_run=1, ideas_dir=ideas, dry=True,
+                         challenge_fn=lambda a, candidate=None: _stub_challenge(a))
+    assert q.read_text("utf-8") == before
+    assert not (tmp_path / "n.jsonl").exists() and not (tmp_path / "pass").exists()
+    assert len(r["тексты"]) == 2 and "день первый" in r["тексты"][0] and "$47.50" in r["тексты"][1]

@@ -210,3 +210,25 @@ def test_tick_theme_batch_weekly(paths, monkeypatch, tmp_path):
     b2 = _bot()
     b2._tick_theme_batch(datetime.datetime(2026, 11, 9, 11, 0, tzinfo=datetime.timezone.utc))
     assert not b2.tg.sent
+
+
+def test_skip_reply_promises_only_what_code_does(paths):
+    """Аудит 03.11: «учитываю» было обещанием без исполнителя. Ответ называет, что сделает охотник
+    с причиной (её читает ops/owner_feedback.py), а без причины — просит её назвать."""
+    b = _bot()
+    b.state["last_idea_day"] = {"run_id": "ef_x", "lead": "GEV.US",
+                                "issued_at": "2026-11-02T09:00:00+00:00", "idx": {}}
+    b._on_callback(_cb("v:m3:ef_x"))
+    t = b.tg.sent[-1][1]
+    assert "учитываю" not in t and "поздно" in t and "цена" in t
+    import owner_feedback as OF
+    items = OF.recent(days=30, path=paths / "decisions_user.jsonl",
+                      today=datetime.date.today())
+    assert items and items[0]["решение"] == "Мимо" and items[0]["причина"] == "поздно"
+    assert "поздно" in OF.summary_text(items)
+    b2 = _bot()
+    b2.state["last_idea_day"] = {"run_id": "ef_y", "lead": "GEV.US",
+                                 "issued_at": "2026-11-02T09:00:00+00:00", "idx": {}}
+    b2._on_callback(_cb("v:m:ef_y"))
+    assert "не понял / не верю / поздно" in b2.tg.sent[-1][1]
+    assert OF.summary_text([]).startswith("Решений владельца")
