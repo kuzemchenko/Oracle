@@ -45,7 +45,12 @@ TRACK = "thesis_event"
 ROLE = "flow_economist"
 MIN_WEEKS, MAX_WEEKS = 3, 13
 P_MIN, P_MAX = 0.05, 0.95
-MAX_QUESTIONS = 8
+MAX_QUESTIONS = 12          # аудит 03.11: при 8 вопросах раз в неделю к 01.02 не набрать 60 печатей/40 исходов
+MAX_PER_MECH = 2            # не больше 2 вопросов на механизм за прогон (иначе трек = один взгляд)
+SHORT_WEEKS = 6             # «короткие» вопросы (3–6 нед) — успевают сверяться до точки Б
+SHORT_SHARE = 0.5           # доля коротких, которую просим у экономиста (факт — в протоколе)
+MIN_SIGMA_MOVE = 0.5        # |ход| < 0.5σ√T — вопрос о шуме, а не о взгляде
+MECH_WINDOW = 14            # механизмов в промпте за прогон (ротация по всей библиотеке)
 TICKER_RE = re.compile(r"^[A-Z0-9]{1,8}\.US$")
 # идентичность ставки трека: один и тот же вопрос не печатаем дважды
 DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
@@ -62,16 +67,34 @@ def load_theses(path=None):
     return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("тезисы") or {}
 
 
-def load_mechanisms(path=None, top=14):
-    """Торгуемые механизмы с прецедентами, компактно для промпта (не весь YAML на 280КБ)."""
+def mechanism_ids(path=None):
+    """id всех торгуемых механизмов библиотеки (сверка mechanism_id экономиста)."""
+    p = pathlib.Path(path or MECHS)
+    if not p.exists():
+        return set()
+    rows = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("механизмы") or []
+    return {str(m.get("id")) for m in rows if m.get("tradeable") and m.get("id")}
+
+
+def load_mechanisms(path=None, top=MECH_WINDOW, rotation=None):
+    """Торгуемые механизмы с прецедентами, компактно для промпта (не весь YAML на 280КБ).
+
+    Аудит 03.11: раньше всегда шли одни и те же 14 «самых документированных» из 48 — трек мерил
+    треть библиотеки. rotation=k (номер прогона) → окно из `top` механизмов по кругу, по id."""
     p = pathlib.Path(path or MECHS)
     if not p.exists():
         return []
     rows = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("механизмы") or []
     rows = [m for m in rows if m.get("tradeable") and (m.get("precedents") or [])]
-    rows.sort(key=lambda m: -len(m.get("precedents") or []))
+    if rotation is None:
+        rows.sort(key=lambda m: -len(m.get("precedents") or []))
+        window = rows[:top]
+    else:
+        rows.sort(key=lambda m: str(m.get("id")))
+        start = (int(rotation) * top) % len(rows) if rows else 0
+        window = (rows[start:] + rows[:start])[:top]
     out = []
-    for m in rows[:top]:
+    for m in window:
         out.append({"mechanism_id": m.get("id"), "rule": m.get("rule"),
                     "trigger": m.get("trigger_class"), "lag_weeks": m.get("lag_weeks"),
                     "watch": m.get("watch_assets"),
@@ -115,7 +138,11 @@ def build_user_prompt(theses, mechs, now=None, prices=None):
             lines.append(f"    следствие: {c}")
     lines += ["", "МЕХАНИЗМЫ БИБЛИОТЕКИ (выдержка):",
               json.dumps(mechs, ensure_ascii=False, indent=1),
-              "", f"Верни до {MAX_QUESTIONS} вопросов JSON-массивом по формату из системного промпта."]
+              "", f"Верни до {MAX_QUESTIONS} вопросов JSON-массивом по формату из системного промпта.",
+              f"Квоты (проверяет код): не меньше половины вопросов сроком {MIN_WEEKS}–{SHORT_WEEKS} недель; "
+              f"не больше {MAX_PER_MECH} вопросов на один механизм; по одной бумаге — один вопрос; где механизм "
+              "допускает падение, ставь и вопросы «below»; thesis_id и mechanism_id — ТОЛЬКО из перечисленных "
+              "выше (выдуманный id — брак); ход в процентах должен быть заметно больше обычных колебаний бумаги."]
     return "\n".join(lines)
 
 
@@ -309,6 +336,80 @@ def annotate_priced_in(spec, amplitudes, move_fn):
     return spec
 
 
+def _closes_from_db(db_path=None):
+    """closes_fn для базы шума: последние 61 закрытие (та же колонка, что у якоря) → (closes, last_date)."""
+    db = pathlib.Path(db_path or ROOT / "storage" / "oracle.db")
+
+    def closes(asset):
+        if not asset or not db.exists():
+            return None
+        try:
+            con = sqlite3.connect(str(db), timeout=10)
+            rows = con.execute(
+                "SELECT date, COALESCE(adjusted_close, close) FROM quotes WHERE symbol=? "
+                "AND COALESCE(adjusted_close, close) IS NOT NULL ORDER BY date DESC LIMIT 61",
+                (asset,)).fetchall()
+            con.close()
+        except sqlite3.Error:
+            return None
+        if len(rows) < 21:
+            return None
+        return [float(r[1]) for r in reversed(rows)], str(rows[0][0])[:10]
+
+    return closes
+
+
+def noise_fields(spec, closes_fn):
+    """База шума (mathlib/base_odds) и мера хода для печати: якорь с датой, ход %, ход в σ√T.
+    → (поля|None, причина|None). Нет истории — честный брак: вопрос нельзя мерить против шума."""
+    import math
+    from mathlib import base_odds as BO
+    got = closes_fn(spec["asset"]) if closes_fn else None
+    if not got:
+        return None, f"нет истории цен {spec['asset']} для базы шума — вопрос не измерим против шума"
+    closes, last_date = got
+    px = closes[-1]
+    sig = BO.daily_sigma(closes)
+    days = BO.trading_days(last_date, spec["resolve_by"][:10])
+    if not sig or not days or px <= 0:
+        return None, f"не посчитать колебания {spec['asset']} — вопрос не измерим против шума"
+    z = math.log(spec["threshold"] / px) / (sig * math.sqrt(days))
+    if abs(z) < MIN_SIGMA_MOVE:
+        return None, (f"ход до порога {abs(z):.2f} обычных колебаний за срок (< {MIN_SIGMA_MOVE}) — "
+                      "вопрос о шуме, а не о взгляде")
+    base = BO.base_probability(px, spec["threshold"], sig, days, spec["direction"])
+    return {"вероятность_база": round(base, 4) if base is not None else None,
+            "якорь_цена": round(px, 4), "якорь_дата": last_date,
+            "ход_проц": round((spec["threshold"] / px - 1) * 100, 2),
+            "ход_в_сигмах": round(z, 3)}, None
+
+
+def _open_weeks(predictions_path=None):
+    """(бумага, ISO-неделя сверки) уже запечатанных вопросов трека — одна бумага на неделю сверки."""
+    p = pathlib.Path(predictions_path or ROOT / "journal" / ("predictions" + ".jsonl"))
+    out = set()
+    try:
+        lines = p.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return out
+    for ln in lines:
+        try:
+            r = json.loads(ln)
+        except ValueError:
+            continue
+        if isinstance(r, dict) and r.get("kind") == KIND and r.get("asset") and r.get("resolve_by"):
+            out.add((r["asset"], _iso_week(r["resolve_by"])))
+    return out
+
+
+def _iso_week(iso):
+    try:
+        y, w, _ = datetime.date.fromisoformat(str(iso)[:10]).isocalendar()
+        return f"{y}-W{w:02d}"
+    except ValueError:
+        return "?"
+
+
 def _last_close_from_db(db_path=None):
     """last_close_fn для якоря порога (§10): последний close из storage/oracle.db quotes,
     не старше 2 недель. Нет БД/символа/протухло → None (валидация честно бракует)."""
@@ -337,7 +438,7 @@ def _last_close_from_db(db_path=None):
 
 def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_path=None,
                   predictions_path=None, out_dir=None, client=None, move_fn=None,
-                  sealable_fn=None, last_close_fn=None):
+                  sealable_fn=None, last_close_fn=None, closes_fn=None):
     """Полный прогон: тезисы+механизмы → экономист → валидация → [«что уже в цене»] →
     [печать] → протокол. move_fn(asset)→реализованный ход % — серверный источник цен;
     в облаке None → аннотации честно нет. sealable_fn/last_close_fn — гарды §9/§10
@@ -345,8 +446,13 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
     now = now or _now()
     run_id = "wo_" + now.strftime("%Y%m%dT%H%M%SZ")
     theses = load_theses(theses_path)
-    mechs = load_mechanisms(mechs_path)
+    _od = pathlib.Path(out_dir or OUT_DIR)
+    rotation = len(list(_od.glob("wo_*.json"))) if _od.exists() else 0      # номер прогона → окно
+    mechs = load_mechanisms(mechs_path, rotation=rotation)
+    known_mechs = mechanism_ids(mechs_path)
     итог = {"run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
+            "печать_запрошена": bool(seal), "ротация": rotation,
+            "механизмы_окна": [m.get("mechanism_id") for m in mechs],
             "тезисов": len(theses), "механизмов_подано": len(mechs),
             "кандидатов": 0, "принято": 0, "запечатано": 0, "брак": [], "вопросы": []}
     if not theses and not mechs:
@@ -398,13 +504,42 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
             sealable_fn = U.is_sealable
         if last_close_fn is None:
             last_close_fn = _last_close_from_db()
+        if closes_fn is None:
+            closes_fn = _closes_from_db()
     cands = parse_candidates(resp.get("text") if isinstance(resp, dict) else resp)
     итог["кандидатов"] = len(cands)
     _amps = _amplitudes(mechs_path) if move_fn is not None else {}
     seen_local = set()
+    per_mech, assets_local = {}, set()
+    open_weeks = _open_weeks(predictions_path) if seal else set()
     for c in cands[:MAX_QUESTIONS * 2]:
         spec, why = validate_candidate(c, now, sealable_fn=sealable_fn,
                                        last_close_fn=last_close_fn)
+        if spec is not None:
+            # аудит 03.11: взгляд обязан быть из библиотеки — "null" и выдуманные id раньше проходили
+            mid, tid = spec.get("mechanism_id"), spec.get("thesis_id")
+            if mid in ("null", "None", ""):
+                mid = spec["mechanism_id"] = None
+            if tid in ("null", "None", ""):
+                tid = spec["thesis_id"] = None
+            if mid and mid not in known_mechs:
+                spec, why = None, f"механизм «{mid}» не из библиотеки — выдуманный взгляд не печатаем"
+            elif tid and tid not in theses:
+                spec, why = None, f"тезис «{tid}» не из реестра владельца — не печатаем"
+            elif not mid and not tid:
+                spec, why = None, "вопрос без взгляда (ни тезиса, ни механизма) — нечего мерить"
+            elif mid and per_mech.get(mid, 0) >= MAX_PER_MECH:
+                spec, why = None, f"квота: уже {MAX_PER_MECH} вопроса по механизму «{mid}» в этом прогоне"
+            elif spec["asset"] in assets_local:
+                spec, why = None, "квота: по этой бумаге уже есть вопрос в прогоне"
+            elif (spec["asset"], _iso_week(spec["resolve_by"])) in open_weeks:
+                spec, why = None, "квота: по этой бумаге уже открыт вопрос с той же неделей сверки"
+        if spec is not None and closes_fn is not None:
+            nf, why = noise_fields(spec, closes_fn)
+            if nf is None:
+                spec = None
+            else:
+                spec.update(nf)
         if spec is None:
             итог["брак"].append({"кандидат": c if isinstance(c, dict) else str(c)[:120], "причина": why})
             continue
@@ -416,6 +551,9 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
         if len(итог["вопросы"]) >= MAX_QUESTIONS:
             break
         spec["run_id"] = run_id
+        if spec.get("mechanism_id"):
+            per_mech[spec["mechanism_id"]] = per_mech.get(spec["mechanism_id"], 0) + 1
+        assets_local.add(spec["asset"])
         annotate_priced_in(spec, _amps, move_fn)
         if seal:
             sealed = SEAL.seal(dict(spec), path=predictions_path, dedup_fields=DEDUP_FIELDS)
@@ -429,7 +567,18 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
     return _write_protocol(итог, out_dir)
 
 
+def _quota_note(итог):
+    qs = итог.get("вопросы") or []
+    if qs:
+        short = sum(1 for q in qs if int(q.get("horizon_weeks") or 99) <= SHORT_WEEKS)
+        below = sum(1 for q in qs if q.get("direction") == "below")
+        итог["квота_сроков"] = {"коротких": short, "всего": len(qs),
+                                "выполнена": short >= SHORT_SHARE * len(qs), "на_снижение": below}
+    return итог
+
+
 def _write_protocol(итог, out_dir=None):
+    _quota_note(итог)
     d = pathlib.Path(out_dir or OUT_DIR)
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{итог['run_id']}.json").write_text(

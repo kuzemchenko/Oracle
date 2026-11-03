@@ -1182,26 +1182,36 @@ class Bot:
         files = sorted(d.glob("wo_*.json"))
         if not files:
             return
-        latest = files[-1]
         sent = self.state.setdefault("week_odds_sent", [])
-        if latest.name in sent:
-            return
         import json as _json
-        try:
-            proto = _json.loads(latest.read_text(encoding="utf-8"))
-        except ValueError:
-            sent.append(latest.name)
-            return
-        # Ре-гейт V0 02.11 (П8): сухой/mock протокол владельцу НЕ уходит — шаблон говорит
-        # «каждый вопрос запечатан», а печати в таких прогонах нет. Пропуск с пометкой.
-        if proto.get("mode") == "mock" or not proto.get("запечатано"):
-            sent.append(latest.name)
-            log("Шансы недели: протокол без печатей (mode/запечатано) — пуш пропущен", latest.name)
-            # Ре-гейт №2 02.11: тик работает только при включённом боевом флаге — пропуск здесь
-            # всегда аномалия (крон потерял --seal / прогон скатился в mock), молчать нельзя.
-            self._notice_dozor("«Шансы недели» (" + latest.name + "): протокол без печатей "
-                               "(mode=" + str(proto.get("mode")) + ", запечатано="
-                               + str(proto.get("запечатано")) + ") — пуш пропущен. Проверить крон/ключ.")
+        latest, proto = None, None
+        for f in files:
+            if f.name in sent:
+                continue
+            try:
+                pr = _json.loads(f.read_text(encoding="utf-8"))
+            except ValueError:
+                sent.append(f.name)
+                continue
+            # аудит 03.11: ручной показ (--show без --seal) — не сбой крона; молча мимо
+            if pr.get("печать_запрошена") is False:
+                sent.append(f.name)
+                log("Шансы недели: сухой прогон без печати — не пушим", f.name)
+                continue
+            # Ре-гейт V0 02.11 (П8): mock/без печатей владельцу НЕ уходит — шаблон говорит
+            # «каждый вопрос запечатан». Печать была запрошена, а её нет — аномалия, в дозор.
+            if pr.get("mode") == "mock" or not pr.get("запечатано"):
+                sent.append(f.name)
+                log("Шансы недели: протокол без печатей (mode/запечатано) — пуш пропущен", f.name)
+                self._notice_dozor("«Шансы недели» (" + f.name + "): протокол без печатей "
+                                   "(mode=" + str(pr.get("mode")) + ", запечатано="
+                                   + str(pr.get("запечатано")) + ") — пуш пропущен. Проверить крон/ключ.")
+                continue
+            if latest is not None:
+                sent.append(latest.name)              # старший запечатанный вытеснен свежим
+            latest, proto = f, pr
+        if latest is None:
+            self.state["week_odds_sent"] = sent[-50:]
             return
         try:                                   # счёт взглядов из журнала (П16: не из файла)
             import forward_score as FS

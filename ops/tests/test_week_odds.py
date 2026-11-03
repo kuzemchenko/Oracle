@@ -67,6 +67,9 @@ def _mechs(tmp_path):
         {"id": "energy_supply_shock", "rule": "r", "trigger_class": "t", "tradeable": True,
          "lag_weeks": "2-8", "watch_assets": "нефть", "amplitude": "+30–130% за 2–10 недель",
          "precedents": [{"year": "2022", "observed": "+35%"}]},
+        {"id": "chokepoint_disruption", "rule": "r", "trigger_class": "t", "tradeable": True,
+         "lag_weeks": "1-6", "watch_assets": "танкеры", "amplitude": "+20–60% за 2–6 недель",
+         "precedents": [{"year": "2024", "observed": "+40%"}]},
     ]}, ensure_ascii=False), encoding="utf-8")
     return p
 
@@ -210,7 +213,9 @@ def test_rerun_dedups_same_bets(tmp_path):
     WO.run_week_odds(client=StubClient(), **kw)
     r2 = WO.run_week_odds(client=StubClient(), **kw)
     assert r2["запечатано"] == 0
-    assert sum("дубль в журнале" in b["причина"] for b in r2["брак"]) == 2
+    # аудит 03.11: повтор ловит уже квота «бумага × неделя сверки» (раньше — только дубль ставки)
+    assert sum(("дубль в журнале" in b["причина"]) or ("уже открыт вопрос" in b["причина"])
+               for b in r2["брак"]) == 2
     rows = preds.read_text("utf-8").splitlines()
     assert len(rows) == 2, "повторный прогон не должен плодить дубли ставок"
 
@@ -264,6 +269,7 @@ def test_bot_pushes_only_behind_flag(tmp_path, monkeypatch):
     f = sorted((tmp_path / "journal" / "week_odds").glob("wo_*.json"))[-1]
     proto = _json.loads(f.read_text("utf-8"))
     proto["mode"], proto["запечатано"] = "live", len(proto.get("вопросы") or [])
+    proto["печать_запрошена"] = True              # аудит 03.11: сухой показ (False) бот пропускает молча
     f.write_text(_json.dumps(proto, ensure_ascii=False), "utf-8")
     monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": True})
     b._tick_week_odds()
@@ -376,3 +382,77 @@ def test_prompt_carries_server_prices_and_named_company_not_flagged(tmp_path):
              "probability": 0.56, "почему": "спрос на мощность"}]}
     text, viol = R.format_week_odds(proto)
     assert text and "не опознал" not in text, viol
+
+
+
+# ── аудит 03.11: перестройка V5 до первой боевой печати ─────────────────────────────────────────
+def test_rotation_quotas_ids_and_noise_base(tmp_path):
+    """Ротация окна механизмов по номеру прогона; выдуманный/«null» id — брак; ≤2 на механизм и
+    одна бумага на прогон; в печать — база шума, якорь с датой, ход в σ; ход меньше шума — брак."""
+    mp = tmp_path / "m.yaml"
+    mp.write_text(json.dumps({"механизмы": [
+        {"id": f"m{i:02d}", "rule": "r", "tradeable": True, "precedents": [{"year": "2020", "observed": "+20%"}]}
+        for i in range(20)]}, ensure_ascii=False), encoding="utf-8")
+    w0 = [m["mechanism_id"] for m in WO.load_mechanisms(mp, top=14, rotation=0)]
+    w1 = [m["mechanism_id"] for m in WO.load_mechanisms(mp, top=14, rotation=1)]
+    assert w0[0] == "m00" and w1[0] == "m14" and set(w0) | set(w1) == {f"m{i:02d}" for i in range(20)}
+
+    def cand(asset, mid, move, weeks=4, tid=None):
+        return {"thesis_id": tid, "mechanism_id": mid, "вопрос": f"{asset} закроется выше",
+                "актив": asset, "направление": "above" if move > 0 else "below", "ход_проц": move,
+                "срок_недель": weeks, "вероятность": 0.4, "почему": "потому что механизм"}
+
+    class C:
+        mode = "mock"
+
+        def complete(self, *a, **k):
+            return {"text": json.dumps([
+                cand("AAA.US", "m01", 12), cand("BBB.US", "m01", 12), cand("CCC.US", "m01", 12),  # 3-й — квота
+                cand("DDD.US", "m99", 12), cand("EEE.US", "null", 12),                           # выдуман / без взгляда
+                cand("FFF.US", "m02", 1.5),                                                      # меньше шума
+                cand("AAA.US", "m03", -12)], ensure_ascii=False)}                                 # бумага повторно
+    closes = [100 * (1.01 if i % 2 else 0.99) for i in range(60)] + [100.0]
+    r = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path), mechs_path=mp,
+                         out_dir=tmp_path / "wo", client=C(), last_close_fn=lambda a: 100.0,
+                         closes_fn=lambda a: (closes, "2026-11-05"))
+    assert [q["asset"] for q in r["вопросы"]] == ["AAA.US", "BBB.US"]
+    why = " | ".join(b["причина"] for b in r["брак"])
+    for need in ("квота: уже 2 вопроса", "не из библиотеки", "без взгляда", "о шуме", "по этой бумаге уже"):
+        assert need in why, need
+    q = r["вопросы"][0]
+    assert q["якорь_цена"] == 100.0 and q["якорь_дата"] == "2026-11-05" and q["ход_проц"] == 12.0
+    assert 0 < q["вероятность_база"] < 0.5 and q["ход_в_сигмах"] > WO.MIN_SIGMA_MOVE
+    assert r["печать_запрошена"] is False and r["квота_сроков"]["выполнена"] is True
+
+
+
+def test_bot_skips_dry_show_silently_and_pushes_latest_sealed(tmp_path, monkeypatch):
+    """Аудит 03.11: ручной --show (печать не запрошена) — не тревога крона; из нескольких
+    неотправленных запечатанных уходит свежий."""
+    import json as _json
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    d = tmp_path / "journal" / "week_odds"
+    d.mkdir(parents=True)
+    base = WO.run_week_odds(mode="mock", seal=False, now=NOW, theses_path=_theses(tmp_path),
+                            mechs_path=_mechs(tmp_path), out_dir=tmp_path / "x", client=StubClient())
+    for name, extra in (("wo_20261103T081000Z.json", {"mode": "live", "запечатано": 2, "печать_запрошена": True}),
+                        ("wo_20261105T081000Z.json", {"mode": "live", "запечатано": 2, "печать_запрошена": True}),
+                        ("wo_20261105T120000Z.json", {"mode": "live", "запечатано": 0, "печать_запрошена": False})):
+        (d / name).write_text(_json.dumps({**base, **extra, "run_id": name[:-5]}, ensure_ascii=False), "utf-8")
+
+    class T:
+        def __init__(self):
+            self.sent = []
+
+        def send_message(self, chat, text, reply_markup=None):
+            self.sent.append(text)
+            return 1
+    b = BOT.Bot(T(), "5", state=S._default_state())
+    notes = []
+    monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": True})
+    b._tick_week_odds()
+    assert len(b.tg.sent) == 1 and not notes
+    assert set(b.state["week_odds_sent"]) == {"wo_20261103T081000Z.json", "wo_20261105T081000Z.json",
+                                              "wo_20261105T120000Z.json"}

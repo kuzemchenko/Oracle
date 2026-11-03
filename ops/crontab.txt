@@ -109,10 +109,11 @@ MAILTO=""
 # Под cron_alert.sh: расхождение веток / сбой pull → алерт в бота (раньше молчал).
 # ops/safe_pull.sh: входящие коммиты в journal/ НЕ пускаются (П16), только --ff-only.
 5 * * * *   cd /home/oracle/oracle && ops/cron_alert.sh git_pull ops/safe_pull.sh >> journal/cron.log 2>&1
-# V5 «Шансы недели» (пятница 08:10 UTC). ВКЛЮЧИТЬ после ручного прогона испытателя и «ок»
+# V5 «Шансы недели» (вторник и четверг 08:10 UTC). ВКЛЮЧИТЬ после ручного прогона испытателя и «ок»
 # владельца (правило внедрения 01.11, ops/roadmap_state.yaml) + week_odds_push: true в presentation.yaml:
 # (03.11: прежняя заготовка не поднимала .env — ключа OpenRouter не было бы, прогон молча ушёл бы в отказ)
-# 10 8 * * 5 cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh week_odds /home/oracle/oracle/.venv/bin/python orchestrator/week_odds.py --mode live --seal >> journal/cron.log 2>&1
+# аудит 03.11: ритм вторник+четверг (раз в неделю к 01.02 не набрать 60 печатей / 40 исходов)
+# 10 8 * * 2,4 cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh week_odds /home/oracle/oracle/.venv/bin/python orchestrator/week_odds.py --mode live --seal >> journal/cron.log 2>&1
 # V3 «качаем 2 дня» (ежедневно 09:40 UTC — продвижение очереди прокачки после кнопки).
 # ВКЛЮЧИТЬ после ручного прогона испытателя и «ок» владельца (правило внедрения 01.11):
 # 40 9 * * * cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh deep_dive /home/oracle/oracle/.venv/bin/python orchestrator/deep_dive.py --mode live >> journal/cron.log 2>&1
