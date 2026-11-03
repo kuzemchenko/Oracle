@@ -223,7 +223,7 @@ def test_push_card_mismatch_sign_by_header_and_numbers():
     assert HS.push_card_mismatch(good, CARD) is None
     assert "заголовок" in HS.push_card_mismatch(flipped, CARD)
     assert "однозначно" in HS.push_card_mismatch(silent, CARD)
-    assert "цель" in HS.push_card_mismatch(good.replace("51.44", "55.00"), CARD)
+    assert "цел" in HS.push_card_mismatch(good.replace("51.44", "55.00"), CARD)
     assert "стоп" in HS.push_card_mismatch(good.replace("35.61", "33.00"), CARD)
     assert "даты сверки" in HS.push_card_mismatch(good.replace("15 декабря", "20 декабря"), CARD)
     down = {**CARD, "direction": "вниз"}
@@ -369,15 +369,21 @@ def test_regate6_bet_side_entry_and_plan_invalid(tmp_path):
             "Что делать. Вход не дороже $40.30. Цель $51.44, стоп $35.61, сверка 15 декабря.\n\n"
             "Это исследовательский инструмент, не инвестиционная рекомендация.")
     assert HS.push_card_mismatch(body, card) is None
-    assert "граница входа" in HS.push_card_mismatch(body.replace("$40.30", "$43.90"), card)
-    assert "цель" in HS.push_card_mismatch(body.replace("51.44", "51.30"), card)        # 0.3% — уже не цель
-    hot = _c(entry_limit=40.30, spec9={**CARD["spec9"], "last_close": 42.0})
+    assert "границ" in HS.push_card_mismatch(body.replace("$40.30", "$43.90"), card)
+    assert "цел" in HS.push_card_mismatch(body.replace("51.44", "51.30"), card)        # 0.3% — уже не цель
+    # прицельная проверка 03.11: граница входа — лимит; рынок далеко (>5%) за ней — новая идея ждёт
     ok, fails, _ = HS.server_check(CARD | {"entry_limit": 40.30}, idea_file=f"idea_{TODAY}_MP.push.txt",
-                                   today=TODAY, prices_fn=_prices(last=42.0))
+                                   today=TODAY, prices_fn=_prices(last=43.5))
     assert not ok and HS.is_transient(fails) and "границей входа" in fails[0]
-    final, probs = HS.prepare_push(body, hot, update=True)
+    # рынок чуть выше границы (лимит ещё может исполниться) — план в силе, исправление не «отменяет» его
+    near = _c(entry_limit=40.30, spec9={**CARD["spec9"], "last_close": 41.0})
+    final0, probs0 = HS.prepare_push(body, near, update=True)
+    assert not probs0 and "план уже не действует" not in final0 and "не дороже $40.30" in final0
+    # цена за стопом — план не действует, черновой вход не остаётся
+    stopped = _c(entry_limit=40.30, spec9={**CARD["spec9"], "last_close": 35.0})
+    final, probs = HS.prepare_push(body, stopped, update=True)
     assert not probs, probs
-    assert "прежний план уже не действует" in final and "не дороже $40.30" not in final
+    assert "прежний план уже не действует: цена уже за стопом" in final and "не дороже $40.30" not in final
     assert "По этому плану сейчас не входить" in final
 
 
@@ -399,3 +405,28 @@ def test_regate6_fact_date_kind_and_promise_lint():
     assert any("обещание сообщения" in v for v in PL.lint_hunter_idea(t))
     assert not any("обещание" in v for v in PL.lint_hunter_idea(t.replace("напишу 9 ноября", "бот напомнит 10 ноября")
                                                                 .replace("Проверю к 9 ноября.", "")))
+
+
+
+def test_targeted_side_entry_update_and_promise_rules(tmp_path):
+    """Прицельная проверка 03.11: «не ставлю на рост, ставлю на снижение» — неоднозначно; граница входа в
+    «Что делать» без entry_limit — брак; исправление не меняет цель/стоп/вход записи; разрешены обещания
+    кода (напоминание/итог) и «проверю к» в «Что меня опровергнет»."""
+    import presentation_lint as PL
+    body = ("Идея дня — 2 ноября. MP Materials (MP) — добытчик: больше не ставлю на рост, ставлю на снижение.\n\n"
+            "Что делать. Цель $51.44, стоп $35.61, сверка 15 декабря.\n\n"
+            "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    assert "однозначно" in HS.push_card_mismatch(body, CARD)
+    ok_body = body.replace("больше не ставлю на рост, ставлю на снижение", "ставлю на рост")
+    assert HS.push_card_mismatch(ok_body, CARD) is None
+    assert "entry_limit" in HS.push_card_mismatch(ok_body.replace("Что делать.", "Что делать. Вход не дороже $43.90."), CARD)
+    pred = tmp_path / "p.jsonl"
+    HS.seal_card(CARD, idea_file=NAME, predictions_path=pred, sealable_fn=lambda a: True)
+    assert "стоп" in HS.update_bet_mismatch(_c(stop_price=33.0), NAME, predictions_path=pred)
+    assert HS.update_bet_mismatch(CARD, NAME, predictions_path=pred) is None
+    t = ("Идея дня. MP (MP) — x: ставлю на рост.\n\nЧто это значит для тебя. 10 ноября пришлю напоминание, "
+         "после 25 ноября сообщу итог.\n\nЧто меня опровергнет. Отчёт 5 ноября — проверю к 6 ноября.\n\n"
+         "Главный риск — и мой ответ. Сверю 9 ноября.\n"
+         "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    v = [x for x in PL.lint_hunter_idea(t) if "обещание" in x]
+    assert v and "сверю" in v[0] and "пришлю" not in v[0] and "проверю" not in v[0]

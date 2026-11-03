@@ -593,11 +593,11 @@ def test_git_pull_alert_dedup_only_after_delivery(tmp_path, monkeypatch):
     real = b.tg.send_message
     monkeypatch.setattr(b.tg, "send_message", lambda *a, **k: None)
     b._tick_alerts()
-    assert not b.state.get("git_pull_alert_day")
+    assert not (b.state.get("git_pull_alert_days") or {}).get("3")
     monkeypatch.setattr(b.tg, "send_message", real)
     b._tick_alerts()
     assert any("не смог забрать обновления" in t for _c, t, _k in b.tg.sent)
-    assert b.state.get("git_pull_alert_day") == "2026-11-03:3"         # дедуп — по дню И коду
+    assert b.state["git_pull_alert_days"]["3"] == "2026-11-03:3"        # дедуп — по дню И коду
 
 
 def test_selfcheck_imports_hunter_modules(capsys):
@@ -746,7 +746,7 @@ def test_final_text_checked_before_seal_nothing_sealed_on_reject(tmp_path, monke
     b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", draft)])
     b._tick_hunter_ideas()
     assert not b.tg.sent and not pred.exists(), "ничего не запечатано"
-    assert any("итогового текста" in n and "цель" in n for n in notes)
+    assert any("итогового текста" in n and "цел" in n for n in notes)
 
 
 def test_environment_error_is_retry_not_bad(tmp_path, monkeypatch):
@@ -827,3 +827,42 @@ def test_git_pull_alerts_dedup_per_exit_code(tmp_path, monkeypatch):
     b._tick_alerts()
     msgs = [t for _c, t, _k in b.tg.sent]
     assert len(msgs) == 2                                        # по одному на код за сутки
+
+
+
+def test_trigger_idea_price_above_entry_limit_still_valid(tmp_path, monkeypatch):
+    """Прицельная проверка 03.11 (регрессия a38fdfd): граница входа — лимит. «Идея с триггером» с рынком
+    чуть выше границы (вход в день развилки) не ждёт и не пишет «план не действует»; далеко (>5%) — ждёт."""
+    import json as _json
+    from ops import hunter_seal as HS
+    card = _json.loads((ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").read_text("utf-8"))
+    text = (ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.push.txt").read_text("utf-8")
+    import datetime as _dt
+    closes = [40.0 * (1.03 if i % 2 else 0.97) for i in range(60)] + [40.9]
+    near = lambda a, td=None: {"last_close": 40.9, "last_date": "2026-11-02", "trigger_close": 48.89,
+                               "trigger_date": td, "closes": closes}
+    ok, fails, c2 = HS.server_check(card, idea_file="idea_2026-11-02_MP.push.txt",
+                                    today=_dt.date(2026, 11, 3), prices_fn=near)
+    assert ok, fails
+    final, probs = HS.prepare_push(text, c2, update=True)
+    assert not probs and "план уже не действует" not in final and "не дороже $40.30" in final
+    far = lambda a, td=None: dict(near(a, td), last_close=43.5)
+    ok2, f2, _ = HS.server_check(card, idea_file="idea_2026-11-02_MP.push.txt",
+                                 today=_dt.date(2026, 11, 3), prices_fn=far)
+    assert not ok2 and HS.is_transient(f2)
+
+
+def test_exact_asymmetry_1_5_renders_and_frame_survives_todo_replace():
+    from ops import hunter_seal as HS
+    from test_idea_gate import CARD
+    x = 3.6022
+    card = {**CARD, "entry_limit": 40.0, "target_price": round(40 + 1.5 * x, 4), "stop_price": round(40 - x, 4)}
+    rend, probs = HS.render_with_problems(card)
+    assert not any("полутора" in p for p in probs) and "в полтора раза" in rend["money"]
+    broken = {**CARD, "spec9": {**CARD["spec9"], "last_close": 35.0}}
+    txt = ("Идея дня — x. MP Materials (MP) — x: ставлю на рост.\n\nЧто это значит для тебя. Ничего.\n\n"
+           "Что делать: вход не дороже $40. Цель $51.44, стоп $35.61, сверка 15 декабря.\n"
+           "Это исследовательский инструмент, не инвестиционная рекомендация.")
+    final, probs2 = HS.prepare_push(txt, broken, update=True)
+    assert "не дороже $40" not in final and "исследовательский инструмент" in final
+    assert not any("рамки" in p for p in probs2), probs2

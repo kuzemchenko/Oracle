@@ -239,7 +239,29 @@ HUNTER_MAX_NUMBERS_TOTAL = 14   # числа ВКЛЮЧАЯ цитаты: пре
 HUNTER_MAX_NUMBERS_OUTSIDE = 8
 
 
-_PROMISE_RE = re.compile(r"(?<![а-яё])(напишу|пришлю|сообщу|проверю\s+к|отпишусь|доложу)(?![а-яё])", re.I)
+_PROMISE_RE = re.compile(r"(?<![а-яё])(напишу|напишем|пришлю|пришлём|пришлем|сообщу|сообщим|отпишусь|отпишу|"
+                         r"доложу|скажу|расскажу|дам\s+знать|вернусь|обновлю|допишу|досчитаю|перепроверю|"
+                         r"проверю|сверю|жди(?:те)?\s+сообщени)(?![а-яё])", re.I)
+_CHECK_VERBS = ("проверю", "сверю", "перепроверю")
+
+
+def _promises(text):
+    """Обещания без исполнителя (прицельная проверка 03.11): класс глаголов «сообщу/проверю…».
+    Разрешены: (а) предложение про сообщения, которые шлёт КОД — «напоминание» / «итог»; (б) «проверю
+    к <дате>» внутри «Что меня опровергнет» — шаблон требует там даты проверки стоп-условий."""
+    out = set()
+    for block in re.split(r"\n\s*\n", str(text or "")):
+        in_kill = block.strip().lower().startswith("что меня опровергнет")
+        for sent in re.split(r"(?<=[.!?])\s+", block):
+            low = sent.lower()
+            if "напомина" in low or "напомн" in low or "итог" in low:
+                continue
+            for m in _PROMISE_RE.finditer(sent):
+                w = m.group(0).lower()
+                if in_kill and w.split()[0] in _CHECK_VERBS:
+                    continue
+                out.add(w)
+    return out
 
 
 def lint_hunter_idea(text):
@@ -256,7 +278,7 @@ def lint_hunter_idea(text):
     bad = sorted(odds_markers(text, include_quotes=True))
     if bad:
         viol.append("вероятностные слова без расчёта и печати §9 (Инв#6/П16): " + ", ".join(bad))
-    promises = sorted({m.group(0).lower() for m in _PROMISE_RE.finditer(str(text or ""))})
+    promises = sorted(_promises(text))
     if promises:
         # перепроверка №6: обещать можно только то, что шлёт код (напоминание в день развилки, итог)
         viol.append("обещание сообщения без исполнителя в коде: " + ", ".join(promises))

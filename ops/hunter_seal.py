@@ -112,6 +112,8 @@ def _bet_side(header):
     """Сторона ставки по ЗАГОЛОВКУ: «ставлю на <слово>» → 'вверх'|'вниз'|None; без фразы — по
     словам-маркерам, только если они однозначны (перепроверка №2: поиск подстрок по всему тексту
     находил «рост» в «роста»/«просто» и пропускал перевёрнутый заголовок)."""
+    if len(_BET_RE.findall(header)) > 1 or re.search(r"(?<![а-яё])не\s+ставлю", header, re.I):
+        return None                                    # прицельная 03.11: «не ставлю на рост, ставлю на …»
     m = _BET_RE.search(header)
     if m:
         w = m.group(1)
@@ -165,9 +167,20 @@ def push_card_mismatch(text, card, require_prices=True):
     if d in ("вверх", "вниз") and side != d:
         return f"карточка «{d}», а заголовок — ставка «{side}»"
     # перепроверка №6: и граница входа — деньги в абзаце кода считаются от неё
-    for key, what in (("target_price", "цель"), ("stop_price", "стоп"), ("entry_limit", "граница входа")):
+    for key, what in (("target_price", "цели"), ("stop_price", "стопа"), ("entry_limit", "границы входа")):
         if require_prices and card.get(key) is not None and not _has_number(t, card.get(key)):
             return f"в тексте нет {what} {card.get(key)} из карточки"
+    if require_prices:
+        # прицельная проверка 03.11: граница входа в «Что делать» обязана совпадать с карточкой —
+        # деньги в абзаце кода считаются от неё; без entry_limit в карточке граница в тексте — брак
+        todo = next((b for b in re.split(r"\n\s*\n", t) if _norm_head(b).startswith("что делать")), "")
+        el = card.get("entry_limit")
+        for m in re.finditer(r"не\s+(?:дороже|дешевле)\s+\$?\s?(\d+(?:[.,]\d+)?)", todo, re.I):
+            x = float(m.group(1).replace(",", "."))
+            if el is None:
+                return f"в «Что делать» граница входа {m.group(1)}, а в карточке её нет (entry_limit)"
+            if abs(x - float(el)) > max(0.01, 0.001 * float(el)):
+                return f"в «Что делать» граница входа {m.group(1)}, а в карточке {el}"
     s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
     rb = str(s9.get("resolve_by") or "")[:10]
     if rb:
@@ -204,7 +217,7 @@ def _ratio_words(r):
     names = {1.5: "в полтора раза", 2.0: "вдвое", 2.5: "в два с половиной раза", 3.0: "втрое",
              3.5: "в три с половиной раза", 4.0: "вчетверо", 5.0: "впятеро"}
     for k, w in names.items():
-        if k - 1e-9 <= r <= k + 0.05:                  # перепроверка №6: 1.46 — не «в полтора раза»
+        if k - 1e-6 <= r <= k + 0.05:                  # допуск как у шлагбаума; 1.46 — не «в полтора раза»
             return w
     below = [k for k in names if k < r]
     if not below:
@@ -271,19 +284,18 @@ def render_with_problems(card, update=False):
             problems.append(f"звено уже отыграно ({verdict}) — новая идея не уходит")
         out["why"] = f"{WHY_HEAD} {since} бумага {verb} по ценам закрытия" + (f": {phase}." if phase else ".")
     g, l = pm.get("потенциал_от_входа"), pm.get("риск_от_входа")
-    ratio = (g / l) if (g is not None and l is not None and l > 0) else None
+    # прицельная проверка 03.11: отношение — НЕокруглённое, ровно как в шлагбауме (асимметрия 1.5
+    # проходила шлагбаум и бракoвалась рендером по округлённым процентам)
+    ratio = pm.get("асимметрия")
     sentence = _ratio_sentence(ratio) if ratio is not None else None
     broken = [f for f in pm.get("fails") or []]
-    px, el = G._num(s9.get("last_close")), G._num(card.get("entry_limit"))
-    beyond = bool(px and el and ((d == "вверх" and px > el) or (d == "вниз" and px < el)))
-    if beyond and not update:
-        # перепроверка №6: рынок уже за границей входа — план сейчас не исполним (TRANSIENT в шлагбауме)
-        problems.append(f"цена {px:g} уже за границей входа {el:g} — план входа сейчас не исполним")
-    if broken or sentence is None or (beyond and update):
+    # прицельная проверка 03.11: граница входа — ЛИМИТ («не дороже $X»), а не вход сейчас; рынок выше
+    # границы план не ломает (особенно у «Идеи с триггером», где вход в день развилки) — ломают план
+    # только стоп, взятая цель и асимметрия < 1.5 от границы. Большой отрыв ждёт в server_check.
+    if broken or sentence is None:
         if update:
             why_not = ("цена уже за стопом" if any("за стопом" in f for f in broken) else
                        "цель уже достигнута" if any("достигнута" in f for f in broken) else
-                       "цена ушла за границу входа из плана" if beyond else
                        "возможный выигрыш больше не превышает возможную потерю в полтора раза")
             out["money"] = (f"{MONEY_HEAD} По последней цене закрытия прежний план уже не действует: "
                             f"{why_not}.")
@@ -314,7 +326,7 @@ def apply_rendered(text, rendered, drop_unrendered=True):
     blocks = re.split(r"\n\s*\n", str(text).strip())
     heads = {"why": _norm_head(WHY_HEAD)[:20], "money": _norm_head(MONEY_HEAD)[:20]}
     if "todo" in rendered:                             # «план не действует»: черновой план не остаётся
-        heads["todo"] = _norm_head(TODO_HEAD)
+        heads["todo"] = "что делать"                   # любой вариант заголовка («Что делать:», «— …»)
     done, keep = set(), []
     for b in blocks:
         nb = _norm_head(b)
@@ -322,9 +334,13 @@ def apply_rendered(text, rendered, drop_unrendered=True):
         if hit is None:
             keep.append(b)
         elif hit in rendered:
+            # строки-рамка «исследовательский инструмент…» в заменяемом абзаце сохраняются (§16)
+            frame = [ln for ln in b.split("\n") if "исследовательский инструмент" in ln]
             if hit not in done:                        # дубль заголовка после подстановки — выбрасываем
-                keep.append(rendered[hit])
+                keep.append(rendered[hit] + ("\n" + "\n".join(frame) if frame else ""))
                 done.add(hit)
+            elif frame:
+                keep.append("\n".join(frame))
         elif not drop_unrendered:
             keep.append(b)
     blocks = keep
@@ -390,6 +406,17 @@ def update_bet_mismatch(card, idea_file, predictions_path=None):
     if side != str(rec.get("direction") or "").lower():
         return (f"исправление меняет сторону идеи: в журнале {rec.get('direction')}, "
                 f"в карточке «{card.get('direction')}»")
+    # прицельная проверка 03.11: и цена плана (цель, стоп, граница входа) — как в записи печати
+    for ck, rk, what in (("target_price", "цель", "цель"), ("stop_price", "стоп", "стоп"),
+                         ("entry_limit", "вход_не_хуже", "границу входа")):
+        a, b = card.get(ck), rec.get(rk)
+        if b is None:
+            continue
+        try:
+            if a is None or abs(float(a) - float(b)) > max(0.01, 0.001 * abs(float(b))):
+                return f"исправление меняет {what}: в журнале {b}, в карточке {a}"
+        except (TypeError, ValueError):
+            return f"исправление меняет {what}: в журнале {b}, в карточке {a}"
     if abs(float(spec["threshold"]) - float(rec.get("threshold") or 0)) > 1e-9:
         return f"исправление меняет порог: в журнале {rec.get('threshold')}, в карточке {spec['threshold']}"
     if str(spec["resolve_by"])[:10] != str(rec.get("resolve_by") or "")[:10]:
@@ -407,6 +434,7 @@ def idea_sealed(idea_file, predictions_path=None, kind=KIND):
 
 TRANSIENT = "ПОВТОР: "          # префикс причины временного сбоя: не брак, повторить позже
 MAX_TRIGGER_CLOSE_DIFF = 0.03   # цена в день повода в карточке против котировок сервера: допуск 3%
+ENTRY_GAP = 0.05                # рынок дальше 5% за границей входа — новая идея ждёт (лимит не исполним)
 
 
 def is_transient(fails):
@@ -485,10 +513,11 @@ def server_check(card, *, idea_file, today=None, last_close_fn=None, prices_fn=N
     s9c = c2.get("spec9") if isinstance(c2.get("spec9"), dict) else {}
     px, el = G._num(s9c.get("last_close")), G._num(c2.get("entry_limit"))
     dd = str(c2.get("direction") or "").strip().lower()
-    if px and el and ((dd == "вверх" and px > el) or (dd == "вниз" and px < el)):
-        # перепроверка №6: рынок уже за границей входа — «худший вход» лучше рынка, план сейчас не
-        # исполним; цена может вернуться — повтор (окно печати 3 дня ограничит ожидание само)
-        return False, [TRANSIENT + f"цена {px:g} за границей входа {el:g} — жду, пока план станет исполним"], c2
+    if px and el and ((dd == "вверх" and px > el * (1 + ENTRY_GAP)) or (dd == "вниз" and px < el * (1 - ENTRY_GAP))):
+        # перепроверка №6 + прицельная 03.11: рынок далеко (>5%) за границей входа — лимит вряд ли
+        # исполнится и §9-вопрос от рынка мерил бы не то, что показано; цена может вернуться — повтор
+        # (окно печати 3 дня ограничит ожидание). Небольшой отрыв — норма лимитного входа.
+        return False, [TRANSIENT + f"цена {px:g} далеко за границей входа {el:g} — жду, пока план станет исполним"], c2
     res = G.check(c2, today=today, horizon_from=hd)
     return res["pass"], res["fails"], c2
 

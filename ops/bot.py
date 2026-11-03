@@ -890,8 +890,12 @@ class Bot:
                     pass
                 try:
                     rows = _json.loads(p.read_bytes().decode("utf-8", "replace"))
-                except (OSError, ValueError):
-                    rows = []
+                except OSError:                         # прицельная 03.11: сбой чтения — повтор, не потеря
+                    sretry[p.name] = (_now + _dt.timedelta(minutes=60)).isoformat(timespec="seconds")
+                    self.save()
+                    continue
+                except ValueError:
+                    rows = []                           # битый JSON — данных нет
                 rows = rows if isinstance(rows, list) else [rows]
                 wait = False
                 for card in rows:
@@ -1751,7 +1755,10 @@ class Bot:
                 # ежечасная протяжка: повторный сбой в те же сутки — одним алертом, не 24-мя
                 day = str(rec.get("ts") or "")[:10] + ":" + str(rec.get("exit"))
                 days = self.state.setdefault("git_pull_alert_days", {})   # перепроверка №6: по коду
-                if days.get(str(rec.get("exit"))) == day or self.state.get("git_pull_alert_day") == day:
+                legacy = self.state.pop("git_pull_alert_day", None)      # старая отметка «день:код» → в словарь
+                if isinstance(legacy, str) and ":" in legacy:
+                    days.setdefault(legacy.rsplit(":", 1)[1], legacy)
+                if days.get(str(rec.get("exit"))) == day:
                     self.state["alerts_seen"] = i + 1
                     continue
                 pull_day = day                          # отметка — только после доставки
@@ -1767,7 +1774,6 @@ class Bot:
                            "идеи охотника и правки кода до сервера не доходят.")
                     if self.tg.send_message(self.chat_id, msg) is None:
                         break
-                    self.state["git_pull_alert_day"] = pull_day
                     self.state.setdefault("git_pull_alert_days", {})[str(rec.get("exit"))] = pull_day
                     self.state["alerts_seen"] = i + 1
                     continue
@@ -1782,7 +1788,6 @@ class Bot:
             if self.tg.send_message(self.chat_id, msg) is None:
                 break                                  # не дошло — ретрай со следующего tick
             if pull_day:
-                self.state["git_pull_alert_day"] = pull_day
                 self.state.setdefault("git_pull_alert_days", {})[str(rec.get("exit"))] = pull_day
             self.state["alerts_seen"] = i + 1
             log("пуш алерта cron", rec.get("label"), rec.get("exit"))
