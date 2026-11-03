@@ -80,6 +80,8 @@ SCHEDULED_JOBS = (
     ("deep_dive_auto", "deep_dive", ("orchestrator/deep_dive.py", "--mode", "live"), (1, 2, 3, 4, 5, 6, 7), (9, 40)),
     ("week_odds_auto", "week_odds", ("orchestrator/week_odds.py", "--mode", "live", "--seal"), (2, 4), (8, 10)),
     ("point_b_auto", "point_b", ("ops/point_b.py", "--write"), (5,), (17, 30)),
+    # снимок серверных закрытий для облачного охотника — до чекпоинта 22:00 (без LLM, только чтение базы)
+    ("price_snapshot_auto", "price_snapshot", ("ops/price_snapshot.py", "write"), (1, 2, 3, 4, 5, 6, 7), (21, 30)),
 )
 CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,
