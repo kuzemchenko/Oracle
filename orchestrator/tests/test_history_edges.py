@@ -198,3 +198,24 @@ def test_rank_for_forward_limits_and_order():
     assert keys[0] == ("B", "T0") and ("E", "Y") not in keys + [(x["from"], x["to"]) for x in rest]
     assert sum(1 for k in keys if k[0] == "A") <= 3 and sum(1 for k in keys if k[1] == "T0") <= 2
     assert len(pick) == 5 and ("D", "X") in [(x["from"], x["to"]) for x in rest + pick]
+
+
+def test_parallel_branches_are_not_paired_and_weekend_base_is_refused():
+    ep, _ = HE.validate_episode(_ep(), TODAY)
+    fan = dict(ep)
+    extra = dict(ep["links"][1], today_symbol="ALT", then_symbol="ALT", role_tag="other_branch")
+    fan["links"] = [ep["links"][0], ep["links"][1], extra, ep["links"][2]]   # два звена порядка 1 → веер
+    keys = {(p["from"], p["to"]) for p in HE.episode_pairs(fan)}
+    assert ("TNK", "RND") not in keys and ("ALT", "RND") not in keys          # соседние ветки — не связь
+    assert {("OIL", "TNK"), ("OIL", "ALT"), ("OIL", "RND")} <= keys
+    ds = ["2020-03-06", "2020-03-08", "2020-03-09", "2020-03-10", "2020-03-11", "2020-03-12", "2020-03-13",
+          "2020-03-16", "2020-03-17"]
+    bad = HE.price_link({"then_symbol": "GC=F", "direction": "up", "lag_days_guess": 0}, "2020-03-09",
+                        lambda s: (ds, [1.0 + i / 100 for i in range(len(ds))]))
+    assert not bad["есть"] and "выходном" in bad["причина"]
+
+
+def test_cli_append_is_disabled(monkeypatch, tmp_path):
+    monkeypatch.setattr(HE, "load_library", lambda: [])
+    monkeypatch.setattr(HE, "REPORTS", tmp_path)
+    assert HE.main(["pairs", "--append", "--today", "2026-11-03"]) == 2

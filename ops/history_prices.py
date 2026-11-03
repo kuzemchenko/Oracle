@@ -22,6 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 CACHE = ROOT / ".cache" / "history"
 UA = "Mozilla/5.0 (oracle research)"
+PARSER = 2            # версия разбора; кэш другой версии перекачивается (ревью 03.11: GC=F/NG=F со сдвигом дат)
 _LAST = [0.0]
 
 
@@ -80,8 +81,8 @@ def _yahoo(sym):
     try:
         from zoneinfo import ZoneInfo
         tz = ZoneInfo(meta.get("exchangeTimezoneName") or "America/New_York")
-    except Exception:                                    # noqa: BLE001 — без базы поясов: Нью-Йорк ≈ UTC−5
-        tz = datetime.timezone(datetime.timedelta(hours=-5))
+    except Exception as e:                               # noqa: BLE001 — П8: дату торгового дня не угадываем
+        raise LookupError(f"нет базы часовых поясов ({type(e).__name__}) — дату торгового дня не определить")
     rows = []
     for t, c in zip(ts, col or []):
         if c is None:
@@ -118,7 +119,9 @@ def fetch(sym, refresh=False, cache=CACHE):
     f = cache / (s.replace(":", "_").replace("/", "_").replace("^", "IDX_") + ".json")
     if f.exists() and not refresh:
         try:
-            return json.loads(f.read_text(encoding="utf-8"))
+            d = json.loads(f.read_text(encoding="utf-8"))
+            if d.get("парсер") == PARSER:
+                return d
         except ValueError:
             pass
     try:
@@ -130,7 +133,7 @@ def fetch(sym, refresh=False, cache=CACHE):
             src = "Yahoo Finance " + s
     except (OSError, LookupError, ValueError) as e:
         return {"symbol": s, "ошибка": str(e)[:200]}
-    out = {"symbol": s, "rows": rows, "колонка": col, "источник": src,
+    out = {"symbol": s, "rows": rows, "колонка": col, "источник": src, "парсер": PARSER,
            "скачано": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")}
     cache.mkdir(parents=True, exist_ok=True)
     tmp = f.with_suffix(".tmp")

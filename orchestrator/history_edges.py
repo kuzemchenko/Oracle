@@ -158,12 +158,19 @@ def _specific(e):
     return {L["then_symbol"] for L in e["links"] if L.get("then_symbol")} - _BROAD
 
 
+def _all_syms(e):
+    return {L.get("today_symbol") or L.get("then_symbol") for L in e["links"]
+            if L.get("today_symbol") or L.get("then_symbol")}
+
+
 def merge_duplicates(eps, days=14):
     """Склейка ОДНОГО И ТОГО ЖЕ эпизода от разных сборщиков. Разные цепочки одного повода (24.02.2022:
     зерно, удобрения, дизель, танкеры) — это разные сюжеты, их не склеиваем: иначе теряются звенья.
-    Дубль = тот же id; или даты ближе 3 дней и ≥50% специфичных тикеров меньшего эпизода общие; или
-    даты ближе `days` и ≥80% общих (широкие индексы/золото не в счёт). Остаётся эпизод с бОльшим
-    числом звеньев, id остальных — в merged_from. → (уникальные, склеено)."""
+    Кандидат в дубли = тот же id; или даты ближе 3 дней и ≥50% специфичных тикеров меньшего эпизода
+    общие; или даты ближе `days` и ≥80% общих (широкие индексы/золото не в счёт). Склеиваем, только если
+    у кандидата НЕТ своих бумаг сверх «близнеца» (ревью 03.11: иначе терялись звенья — трансформаторы,
+    танкеры плавучего хранения); id склеенных — в merged_from. Тот же id с другим содержимым — суффикс
+    «__2». → (уникальные, склеено)."""
     out, merged = [], 0
     for e in sorted(eps, key=lambda x: (-len(x.get("links") or []), x["trigger_date"], x["id"])):
         se = _specific(e)
@@ -180,12 +187,15 @@ def merge_duplicates(eps, days=14):
             if (dd <= 3 and share >= 0.5) or (dd <= days and share >= 0.8):
                 twin = o
                 break
-        if twin is None:
-            out.append(e)
+        if twin is not None and _all_syms(e) <= _all_syms(twin):
+            merged += 1
+            twin["merged_from"] = sorted(set((twin.get("merged_from") or []) + [e["id"]]
+                                             + (e.get("merged_from") or [])) - {twin["id"]})
             continue
-        merged += 1
-        twin["merged_from"] = sorted(set((twin.get("merged_from") or []) + [e["id"]] + (e.get("merged_from") or []))
-                                     - {twin["id"]})
+        if twin is not None and twin["id"] == e["id"]:
+            k = 1 + sum(1 for o in out if o["id"] == e["id"] or o["id"].startswith(e["id"] + "__"))
+            e = {**e, "id": f"{e['id']}__{k}"}
+        out.append(e)                     # склейка потеряла бы звенья — эпизод остаётся отдельным сюжетом
     return out, merged
 
 
@@ -220,6 +230,13 @@ def price_link(L, trigger_date, series_fn):
     m = ES.episode_move(s[0], s[1], trigger_date)
     if not m or not m["ходы"].get(5):
         return {"есть": False, "причина": f"история {sym} не покрывает дату повода"}
+    try:
+        weekend = datetime.date.fromisoformat(m["база_дата"]).isoweekday() > 5
+    except ValueError:
+        weekend = True
+    if weekend and not sym.endswith("-USD"):
+        return {"есть": False, "причина": f"база {sym} на выходном ({m['база_дата']}) — сдвиг дат в данных, "
+                                          "числа не считаю (П8)"}
     want = 1 if L["direction"] == "up" else -1
     out = {"есть": True, "тикер": sym, "база_дата": m["база_дата"], "σ_дн": _round(m["σ_дн"], 5)}
     if sym.endswith("=F"):
@@ -293,32 +310,47 @@ def load_library(path=LIBRARY):
 
 # ── 2. pairs ─────────────────────────────────────────────────────────────────────────────────────
 def episode_pairs(ep):
-    """Пары внутри эпизода на СЕГОДНЯШНИХ бумагах: каждое звено порядка k ← звенья порядка k−1, плюс
-    сам шок (order 0) → звенья порядка ≥2. Знак = совпадение направлений; горизонт — из разницы лагов."""
-    links = [L for L in ep.get("links") or [] if L.get("today_symbol")]
+    """Пары внутри эпизода на СЕГОДНЯШНИХ бумагах. Звенья — веер волн без указателя на родителя, поэтому
+    (ревью 03.11) пары только такие: (1) сам шок (order 0) → каждое звено k≥1; (2) k−1 → k, только если в
+    слое k−1 эпизода ровно одно звено (цепь однозначна; иначе это соседняя ветка, а не связь). Знак —
+    совпадение направлений; горизонт — из разницы лагов. Кэп режет по приоритету: прямые связи цепи,
+    затем неочевидные цели, а не по порядку обхода (иначе срезались именно дальние волны)."""
+    all_links = ep.get("links") or []
+    n_at = collections.Counter(int(L["order"]) for L in all_links)
+    links = [L for L in all_links if L.get("today_symbol")]
     by_order = collections.defaultdict(list)
     for L in links:
         by_order[int(L["order"])].append(L)
     out = []
     for L in links:
         k = int(L["order"])
-        parents = list(by_order.get(k - 1, [])) if k >= 1 else []
-        if k >= 2:
-            parents += [P for P in by_order.get(0, []) if P not in parents]
-        for P in parents:
+        if k < 1:
+            continue
+        parents = [(P, "шок") for P in by_order.get(0, [])]
+        if k >= 2 and n_at[k - 1] == 1:
+            parents = [(P, "цепь") for P in by_order.get(k - 1, [])] + parents
+        for P, kind in parents:
             a, b = P["today_symbol"], L["today_symbol"]
             if a == b:
                 continue
-            out.append({"from": a, "to": b,
+            out.append({"from": a, "to": b, "связь": kind,
                         "src_dir": 1 if P["direction"] == "up" else -1,
                         "sign": 1 if P["direction"] == L["direction"] else -1,
                         "horizon": ES.horizon_bucket(int(L.get("lag_days_guess") or 0)
                                                      - int(P.get("lag_days_guess") or 0)),
-                        "episode": ep["id"], "mechanism": ep.get("mechanism_id"),
+                        "episode": ep["id"], "trigger_date": ep.get("trigger_date"),
+                        "mechanism": ep.get("mechanism_id"),
                         "why": L.get("why_ru"), "role_from": P.get("role_tag"), "role_to": L.get("role_tag"),
                         "non_obvious": bool(L.get("non_obvious")),
                         "source": (ep.get("sources") or [{}])[0].get("url")})
-    return out[:MAX_PAIRS_PER_EPISODE]
+    seen = collections.Counter()
+    keyed = []
+    for i, pr in enumerate(out):
+        r = seen[pr["to"]]
+        seen[pr["to"]] += 1
+        keyed.append(((r, pr["связь"] != "цепь", not pr["non_obvious"], i), pr))
+    keyed.sort(key=lambda kv: kv[0])
+    return [pr for _k, pr in keyed][:MAX_PAIRS_PER_EPISODE]
 
 
 def test_pairs(episodes, *, series_fn=None, server=None):
@@ -356,7 +388,9 @@ def test_pairs(episodes, *, series_fn=None, server=None):
             rec.update({"вердикт": "нет истории", "причина": f"нет цен {a if not sa else b}"})
             results.append(rec)
             continue
-        st = ES.follow_stats(sa, sb, rec["знак"], horizon=horizon, src_dir=sd)
+        own = sorted({p.get("trigger_date") for p in prs if p.get("trigger_date")})
+        rec["даты_эпизодов"] = own
+        st = ES.follow_stats(sa, sb, rec["знак"], horizon=horizon, src_dir=sd, exclude=own)
         cs, rho, n = ES.corr_sign(sa, sb)
         st.pop("события", None)
         rec.update({"счёт": st, "вердикт": st["вердикт"], "ρ": rho, "знак_корреляции": cs})
@@ -367,8 +401,10 @@ def test_pairs(episodes, *, series_fn=None, server=None):
             mm = dict(zip(*mk))
             rel = [(d, c / mm[d]) for d, c in zip(*sb) if d in mm and mm[d] > 0]
             if rel:
-                sr = ES.follow_stats(sa, ES.clean_series(rel), rec["знак"], horizon=horizon, src_dir=sd)
-                rec["сверх_рынка"] = {k: sr.get(k) for k in ("вердикт", "событий", "пошло", "доля", "база", "p")}
+                sr = ES.follow_stats(sa, ES.clean_series(rel), rec["знак"], horizon=horizon, src_dir=sd,
+                                     exclude=own)
+                rec["сверх_рынка"] = {k: sr.get(k) for k in ("вердикт", "событий", "крупных_ходов", "пошло",
+                                                             "ожидание_по_знаку", "p")}
         results.append(rec)
     ps = [(i, r["счёт"]["p"]) for i, r in enumerate(results) if (r.get("счёт") or {}).get("p") is not None]
     if ps:
@@ -394,12 +430,13 @@ def aggregate(results):
     """Сводка по всей библиотеке: сколько раз второе звено пошло следом против ожидания от базы.
     События разных пар пересекаются (общие шоки) — это описание, не тест значимости."""
     P = [r for r in results if (r.get("счёт") or {}).get("p") is not None]
-    n = sum(r["счёт"]["событий"] for r in P)
+    n = sum(r["счёт"]["крупных_ходов"] for r in P)
     h = sum(r["счёт"]["пошло"] for r in P)
-    e = sum(r["счёт"]["ожидание_базы"] for r in P)
-    return {"пар_с_счётом": len(P), "событий": n, "пошло": h, "ожидание_базы": round(e, 1),
+    e = sum(r["счёт"]["ожидание_по_знаку"] for r in P)
+    return {"пар_с_счётом": len(P), "крупных_ходов": n, "пошло": h, "ожидание_по_знаку": round(e, 1),
             "доля": round(h / n, 4) if n else None, "база": round(e / n, 4) if n else None,
-            "пар_выше_базы": sum(1 for r in P if r["счёт"]["доля"] > r["счёт"]["база"])}
+            "пар_выше_базы": sum(1 for r in P if r["счёт"]["пошло"] > r["счёт"]["ожидание_по_знаку"]),
+            "пар_доказано": sum(1 for r in results if r.get("вердикт") == "подтверждена")}
 
 
 def eligible(r):
@@ -501,29 +538,34 @@ def append_candidates(results, *, registry=None, sens_path=None, now_dt=None, to
 def render_md(results, lib_summary=None, today=None):
     cnt = collections.Counter(r["вердикт"] for r in results)
     el = [r for r in results if eligible(r)[0]]
-    pick, _rest = rank_for_forward(results)
     ag = aggregate(results)
     L = [f"# Исторические каскады: счёт пар — {today or _now().date().isoformat()}", "",
          "Что это значит для продукта: из истории взяты эпизоды сильных движений с волнами второго-третьего "
-         "порядка. Для каждой пары «звено → следующее звено» код прошёл ВСЮ историю цен, нашёл все резкие "
-         "движения первого звена в ту же сторону, что в эпизоде, и посчитал, как часто второе звено потом "
-         "шло следом сильнее своей обычной качки, — и сравнил с тем, как часто оно ходит так само по себе. "
-         "Пары, которые история опровергла, в форвард не идут; остальные ставятся под счёт вперёд.", "",
+         "порядка. Для каждой пары «звено → следующее звено» код прошёл ВСЮ историю цен (без самого эпизода, "
+         "ради которого пару выбрали), нашёл все резкие движения первого звена в ту же сторону, что в "
+         "эпизоде, и спросил: когда второе звено после этого заметно двигалось, чаще ли оно шло в сторону "
+         "механизма, чем его заметные движения вообще? (Просто «сильно качнулось» не считается: после шоков "
+         "качается всё — это не механизм.) Поправка на множественность — Бенджамини–Хохберг.", "",
          "Вердикты: " + ", ".join(f"{k} — {v}" for k, v in cnt.most_common()), "",
-         f"В сумме по {ag['пар_с_счётом']} парам: после {ag['событий']} резких движений первого звена второе пошло "
-         f"следом {ag['пошло']} раз при {ag['ожидание_базы']} ожидаемых от обычной качки (доля {ag['доля']} против "
-         f"базы {ag['база']}); выше базы — {ag['пар_выше_базы']} пар из {ag['пар_с_счётом']}. События пар "
-         "пересекаются, поэтому это описание, а не доказательство.", "",
-         f"Годны в форвард-тест: {len(el)}; в этот заход идут {len(pick)} (сильнее история, не больше "
-         f"{PER_FROM} от одного источника и {PER_TO} к одной бумаге), остальные — запас.", "",
-         "| Пара | Шоки | Знак | Горизонт | Событий/лет | Пошло | База | p | q | Вердикт | Сверх рынка | Эпизоды |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+         f"В сумме по {ag['пар_с_счётом']} парам: из {ag['крупных_ходов']} заметных ходов второго звена после "
+         f"шоков в сторону механизма ушло {ag['пошло']} при {ag['ожидание_по_знаку']} ожидаемых по обычной "
+         f"доле ходов в эту сторону (доля {ag['доля']} против {ag['база']}); выше ожидания — "
+         f"{ag['пар_выше_базы']} пар из {ag['пар_с_счётом']}, доказано после поправки — {ag['пар_доказано']}. "
+         "События пар пересекаются, поэтому сводка — описание, а не тест.", "",
+         f"Не опровергнуты историей и годны по форме для наблюдения вперёд: {len(el)}. В серверный форвард-тест "
+         "B4 они НЕ подаются: B4 проверяет другую гипотезу (шоки в обе стороны, 5 дней, знак ставки — по "
+         "корреляции), а история проверяла направленную волну на своём горизонте (ревью 03.11). Нужен "
+         "отдельный направленный трекер — решение владельца.", "",
+         "| Пара | Шоки | Знак | Горизонт | Событий/лет | Крупных ходов | В сторону механизма | Ожидание | p | q "
+         "| Вердикт | Сверх рынка | Эпизоды |",
+         "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     order = {"подтверждена": 0, "намёк": 1, "мало данных": 2, "история против": 3}
     for r in sorted(results, key=lambda r: (order.get(r["вердикт"], 9), r["from"], r["to"])):
         st = r.get("счёт") or {}
         L.append(f"| {r['from']}→{r['to']} | {r['шоки_источника']} | "
                  f"{'+' if r.get('знак') == 1 else '−' if r.get('знак') == -1 else '?'} | {r.get('горизонт')} | "
-                 f"{st.get('событий', '—')}/{st.get('лет', '—')} | {st.get('доля', '—')} | {st.get('база', '—')} | "
+                 f"{st.get('событий', '—')}/{st.get('лет', '—')} | {st.get('крупных_ходов', '—')} | "
+                 f"{st.get('пошло', '—')} | {st.get('ожидание_по_знаку', '—')} | "
                  f"{st.get('p', '—')} | {r.get('q', '—')} | {r['вердикт']} | "
                  f"{(r.get('сверх_рынка') or {}).get('вердикт', '—')} | {', '.join(r['эпизоды'][:3])} |")
     L += ["", "Это исследовательский инструмент, не инвестиционная рекомендация."]
@@ -536,7 +578,8 @@ def main(argv=None):
     b = sub.add_parser("build", help="эпизоды воркфлоу → knowledge/cascade_history.yaml (цены — код)")
     b.add_argument("inputs", nargs="+", help="файлы/шаблоны ver_*.json")
     p = sub.add_parser("pairs", help="счёт пар по истории → reports/history/")
-    p.add_argument("--append", action="store_true", help="годные пары → knowledge/edge_candidates.jsonl")
+    p.add_argument("--append", action="store_true",
+                   help="ОТКЛЮЧЕНО (ревью 03.11): B4 проверяет другую гипотезу; нужен направленный трекер")
     p.add_argument("--today")
     a = ap.parse_args(argv)
     if a.cmd == "build":
@@ -557,7 +600,12 @@ def main(argv=None):
                    ensure_ascii=False, indent=1), encoding="utf-8")
     print(md[:3000])
     if a.append:
-        print(json.dumps(append_candidates(res), ensure_ascii=False))
+        # ревью 03.11 (находки 2/4/5/7/14): серверный B4 ставит по β на шоки ЛЮБОГО знака от 0.5σ с горизонтом
+        # 5 дней, а история проверяла направленную волну от 2σ на 5/20/60 днях — в журнал честности ушли бы
+        # прогнозы гипотезы, которую история не проверяла (а для части пар — опровергла). Не подаём.
+        print("append отключён: форвард-тест B4 проверяет другую гипотезу; нужен направленный трекер "
+              "(решение владельца). Реестр knowledge/edge_candidates.jsonl не тронут.")
+        return 2
     return 0
 
 

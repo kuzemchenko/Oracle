@@ -153,7 +153,8 @@ def _follow(R, e, horizon, want, sigma_window, frac):
     r = _logret(c[e], c[j])
     if not sd or r is None:
         return None
-    return (r * want > 0 and abs(r) >= frac * sd * math.sqrt(horizon)), r
+    big = abs(r) >= frac * sd * math.sqrt(horizon)
+    return (r * want > 0 and big), r, big
 
 
 def base_rates(closes, horizon, sigma_window=SIGMA_WINDOW, frac=FOLLOW_FRAC, step=1):
@@ -188,22 +189,33 @@ def _wilson(k, n, z=1.96):
     return [round(max(0.0, c - h), 4), round(min(1.0, c + h), 4)]
 
 
+MIN_BIG = 6           # крупных ходов dst после шоков меньше — знаковый тест не о чем
+
+
 def follow_stats(src, dst, sign, horizon=20, window=WINDOW, k=SHOCK_K, sigma_window=SIGMA_WINDOW,
-                 gap=GAP, frac=FOLLOW_FRAC, min_events=MIN_EVENTS, min_years=MIN_YEARS, src_dir=None):
+                 gap=GAP, frac=FOLLOW_FRAC, min_events=MIN_EVENTS, min_years=MIN_YEARS, src_dir=None,
+                 exclude=()):
     """Пара «звено src → звено dst» с механизмом sign (+1: dst идёт туда же, куда src; −1: обратно).
-    src/dst — (dates, closes). src_dir (+1/−1) — считать только шоки src в эту сторону (механизм
-    эпизода направленный: «нефть ВВЕРХ → танкеры вверх» не то же, что «нефть вниз → танкеры вниз»);
-    None — шоки в обе стороны. → словарь счёта с вердиктом:
-      «мало данных»   — событий < min_events или лет с событиями < min_years;
-      «история против» — после шоков dst шло в сторону механизма НЕ чаще базы;
-      «намёк»          — чаще базы, но незначимо (p > 0.05);
-      «подтверждена»   — чаще базы, p ≤ 0.05 (до поправки на множественность — её делает вызывающий BH).
+    src/dst — (dates, closes). src_dir (+1/−1) — считать только шоки src в эту сторону (механизм эпизода
+    направленный: «нефть ВВЕРХ → танкеры вверх» не то же, что «нефть вниз → танкеры вниз»); None — обе.
+    exclude — даты поводов эпизодов, ради которых пару выбрали: их события из счёта ВЫКИДЫВАЮТСЯ (иначе
+    пара подтверждает сама себя — отбор по исходу, ревью 03.11).
+
+    ТЕСТ — УСЛОВНЫЙ ЗНАКОВЫЙ (ревью 03.11): после шока src качка dst растёт, и «крупный ход» случается
+    чаще в ОБЕ стороны — безусловная база это засчитывала как «пошло следом» при любом знаке механизма
+    (на синтетике с общей волатильностью p≤0.05 в 15% тестов вместо 5%). Поэтому значимость и вердикт —
+    только среди КРУПНЫХ ходов dst: чаще ли они в сторону механизма, чем крупные ходы dst вообще
+    (база_по_знаку = доля крупных ходов в эту сторону среди всех крупных, по всей истории). Безусловные
+    «доля»/«база» остаются диагностикой. Вердикты:
+      «мало данных»    — событий < min_events, лет < min_years или крупных ходов < MIN_BIG;
+      «история против» — в сторону механизма не чаще, чем по базе знака;
+      «намёк»          — чаще, но незначимо (p > 0.05);
+      «подтверждена»   — чаще, p ≤ 0.05 (поправку на множественность делает вызывающий — BH).
     """
     sign = 1 if sign >= 0 else -1
     ds, ca, cb = align(src, dst)
     res = {"горизонт": horizon, "знак": sign, "шоки": {1: "вверх", -1: "вниз"}.get(src_dir, "обе стороны"),
-           "общих_дней": len(ds),
-           "с": ds[0] if ds else None, "по": ds[-1] if ds else None}
+           "общих_дней": len(ds), "с": ds[0] if ds else None, "по": ds[-1] if ds else None}
     if len(ds) < sigma_window + window + horizon + 30:
         return {**res, "событий": 0, "вердикт": "мало данных", "причина": "короткая общая история"}
     # события не перекрываются ни окнами шока, ни окнами отклика: иначе соседние исходы зависимы и
@@ -211,9 +223,20 @@ def follow_stats(src, dst, sign, horizon=20, window=WINDOW, k=SHOCK_K, sigma_win
     ev = shock_events(ca, window=window, k=k, sigma_window=sigma_window, gap=max(gap, horizon + window), dates=ds)
     if src_dir in (1, -1):
         ev = [x for x in ev if x["ход"] * src_dir > 0]
+    n_ex = 0
+    if exclude:
+        idx = [bisect.bisect_left(ds, str(t)[:10]) for t in exclude if t]
+        pad = window + horizon + 5
+        keep = []
+        for x in ev:
+            if any(abs(x["e"] - i) <= pad for i in idx):
+                n_ex += 1
+                continue
+            keep.append(x)
+        ev = keep
     RB = _Roll(cb)
     br = base_rates(RB, horizon, sigma_window=sigma_window, frac=frac)
-    hits, probs, years, rows, sync = 0, [], set(), [], 0
+    hits, probs, cprobs, years, rows, sync = 0, [], [], set(), [], 0
     for x in ev:
         want = sign * (1 if x["ход"] > 0 else -1)
         f = _follow(RB, x["e"], horizon, want, sigma_window, frac)
@@ -223,24 +246,30 @@ def follow_stats(src, dst, sign, horizon=20, window=WINDOW, k=SHOCK_K, sigma_win
         probs.append(p0)
         hits += int(f[0])
         years.add(ds[x["e"]][:4])
+        tot = br["вверх"] + br["вниз"]
+        if f[2] and tot > 0:
+            cprobs.append(p0 / tot)
         # диагностика «уже в цене»: dst в окне шока уже ушло в сторону механизма
         rs = _logret(cb[x["e"] - window], cb[x["e"]])
         if rs is not None and rs * want > 0:
             sync += 1
         rows.append({"дата": ds[x["e"]], "шок_z": round(x["z"], 2), "ход_dst": round(f[1], 4),
-                     "пошло": bool(f[0])})
-    n = len(probs)
-    exp = sum(probs)
-    res.update({"событий": n, "лет": len(years), "пошло": hits,
-                "доля": round(hits / n, 4) if n else None, "доля_ci95": _wilson(hits, n),
-                "база": round(exp / n, 4) if n else None, "ожидание_базы": round(exp, 2),
-                "синхронно_в_окне": sync, "события": rows})
-    if n < min_events or len(years) < min_years:
+                     "пошло": bool(f[0]), "крупный": bool(f[2])})
+    n, nb = len(probs), len(cprobs)
+    exp, cexp = sum(probs), sum(cprobs)
+    res.update({"событий": n, "лет": len(years), "исключено_эпизодов": n_ex, "пошло": hits,
+                "крупных_ходов": nb, "доля_по_знаку": round(hits / nb, 4) if nb else None,
+                "база_по_знаку": round(cexp / nb, 4) if nb else None, "ожидание_по_знаку": round(cexp, 2),
+                "доля_ci95": _wilson(hits, nb),
+                "доля": round(hits / n, 4) if n else None, "база": round(exp / n, 4) if n else None,
+                "ожидание_базы": round(exp, 2), "синхронно_в_окне": sync, "события": rows})
+    if n < min_events or len(years) < min_years or nb < MIN_BIG:
         return {**res, "p": None, "вердикт": "мало данных",
-                "причина": f"событий {n} (нужно ≥{min_events}), лет {len(years)} (нужно ≥{min_years})"}
-    p = BO.poisson_binomial_sf(hits, probs)
+                "причина": f"событий {n} (нужно ≥{min_events}), лет {len(years)} (нужно ≥{min_years}), "
+                           f"крупных ходов {nb} (нужно ≥{MIN_BIG})"}
+    p = BO.poisson_binomial_sf(hits, cprobs)
     res["p"] = round(p, 5) if p is not None else None
-    if hits <= exp:
+    if hits <= cexp:
         res["вердикт"] = "история против"
     elif p is not None and p <= 0.05:
         res["вердикт"] = "подтверждена"

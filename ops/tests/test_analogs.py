@@ -37,10 +37,11 @@ def test_score_and_ranking_are_deterministic():
 def test_render_shows_code_moves_roles_and_counter_case():
     txt = AN.render(AN.find("танкеры", episodes=EPS),
                     {("USO", "AXS", 1): {"эпизоды": ["1987_tanker_war"], "вердикт": "намёк", "шоки_источника": "вверх",
-                                          "счёт": {"пошло": 9, "событий": 20, "база": 0.3}}})
-    assert "код: 5д +5%, 20д +2%, 60д -10%" in txt
+                                          "счёт": {"пошло": 9, "крупных_ходов": 14, "ожидание_по_знаку": 6.5}}})
+    assert "код: 5д +5%, 20д +2%, 60д -10%" in txt                       # exp(x)−1, округление
+    assert AN._move(-1.25) == "-71%" and AN._move(0.6931) == "+100%"
     assert "сегодня AXS" in txt and "(неочевидно)" in txt
-    assert "история пары USO→AXS (шоки вверх): намёк — пошло следом 9 из 20" in txt
+    assert "история пары USO→AXS (шоки вверх): намёк — из 14 крупных ходов в сторону механизма 9 при ожидании по знаку 6.5" in txt
     assert "провальный аналог: 2019" in txt
     assert "Похожих эпизодов" in AN.render([])
 

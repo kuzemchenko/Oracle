@@ -136,3 +136,42 @@ def test_corr_sign_and_horizon_bucket():
     neg = (ds, [1.0 / x for x in a])
     assert ES.corr_sign(src, src)[0] == 1 and ES.corr_sign(src, neg)[0] == -1
     assert [ES.horizon_bucket(x) for x in (0, 7, 8, 30, 31, None)] == [5, 5, 20, 20, 60, 5]
+
+
+def _garch_pair(seed, n=2600):
+    """Общий режим качки (GARCH(1,1)), знаки двух рядов независимы — направленной связи НЕТ."""
+    rnd = random.Random(seed)
+    ds = _dates(n)
+    h, e_prev = 1e-4, 0.0
+    a, b = [100.0], [100.0]
+    for _ in range(1, n):
+        h = 1e-6 + 0.09 * e_prev ** 2 + 0.90 * h
+        s = math.sqrt(h)
+        ea, eb = rnd.gauss(0, s), rnd.gauss(0, s)
+        e_prev = ea
+        a.append(a[-1] * math.exp(ea))
+        b.append(b[-1] * math.exp(eb))
+    return (ds, a), (ds, b)
+
+
+def test_conditional_test_is_not_fooled_by_shared_volatility():
+    # ревью 03.11: безусловная база давала p≤0.05 в ~15% таких тестов; условный знаковый — на уровне номинала
+    pv, n = 0, 0
+    for seed in range(30):
+        src, dst = _garch_pair(seed)
+        for sign in (1, -1):
+            for d in (1, -1):
+                r = ES.follow_stats(src, dst, sign, horizon=5, src_dir=d)
+                if r.get("p") is not None:
+                    n += 1
+                    pv += r["p"] <= 0.05
+    assert n >= 60 and pv / n <= 0.10
+
+
+def test_episode_window_is_excluded_from_its_own_score():
+    src, dst = _pair(True)
+    full = ES.follow_stats(src, dst, +1, horizon=5)
+    first = full["события"][0]["дата"]
+    ex = ES.follow_stats(src, dst, +1, horizon=5, exclude=[first])
+    assert ex["исключено_эпизодов"] >= 1 and ex["событий"] == full["событий"] - ex["исключено_эпизодов"]
+    assert first not in [x["дата"] for x in ex["события"]]

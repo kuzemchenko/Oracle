@@ -16,6 +16,7 @@
 import argparse
 import glob
 import json
+import math
 import pathlib
 import re
 import sys
@@ -89,18 +90,24 @@ def _pct(x):
     return "—" if x is None else f"{x * 100:+.0f}%"
 
 
+def _move(x):
+    """ход_h в библиотеке — логдоходность; печатаем изменение цены exp(x)−1 (ревью 03.11: −125% лог ≠ −125%)."""
+    return "—" if x is None else f"{math.expm1(x) * 100:+.0f}%"
+
+
 def render(found, pairs=None):
     pairs = pairs or {}
     if not found:
         return "Похожих эпизодов в библиотеке нет (или библиотека не собрана) — аналогии не будет; это нормально."
-    out = ["ПОХОЖИЕ ИСТОРИЧЕСКИЕ КАСКАДЫ (аналогия — гипотеза о РОЛИ, не доказательство; числа — код по ценам):"]
+    out = ["ПОХОЖИЕ ИСТОРИЧЕСКИЕ КАСКАДЫ (аналогия — гипотеза о РОЛИ, не доказательство; числа — код по ценам, "
+           "изменение цены от закрытия до повода):"]
     for s, e in found:
         out.append(f"\n■ {e.get('trigger_date')} — {e.get('title_ru')} [механизм {e.get('mechanism_id')}, "
                    f"похожесть {s:g}]")
         out.append(f"  что было: {e.get('what_ru')}")
         for L in e.get("links") or []:
             p = L.get("prices") or {}
-            moves = (f"код: 5д {_pct(p.get('ход_5'))}, 20д {_pct(p.get('ход_20'))}, 60д {_pct(p.get('ход_60'))}"
+            moves = (f"код: 5д {_move(p.get('ход_5'))}, 20д {_move(p.get('ход_20'))}, 60д {_move(p.get('ход_60'))}"
                      if p.get("есть") else f"код: {p.get('причина') or 'цены нет'}")
             out.append(f"  {L.get('order')}) {L.get('role_ru')} [{L.get('role_tag')}] — тогда {L.get('then_symbol') or 'нет'}, "
                        f"сегодня {L.get('today_symbol') or 'нет'}; {'вверх' if L.get('direction') == 'up' else 'вниз'}"
@@ -110,8 +117,9 @@ def render(found, pairs=None):
                 if b == L.get("today_symbol") and e.get("id") in (r.get("эпизоды") or []):
                     st = r.get("счёт") or {}
                     out.append(f"  история пары {a}→{b} (шоки {r.get('шоки_источника')}): {r.get('вердикт')}"
-                               + (f" — пошло следом {st.get('пошло')} из {st.get('событий')} при базе "
-                                  f"{_pct(st.get('база'))[1:]}" if st.get("событий") else ""))
+                               + (f" — из {st.get('крупных_ходов')} крупных ходов в сторону механизма "
+                                  f"{st.get('пошло')} при ожидании по знаку {st.get('ожидание_по_знаку')}"
+                                  if st.get("крупных_ходов") else ""))
         out.append(f"  провальный аналог: {e.get('counter_case_ru')}")
         out.append(f"  правило переноса: {e.get('analog_rule_ru')}")
         src = (e.get("sources") or [{}])[0].get("url")
