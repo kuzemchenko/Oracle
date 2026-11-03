@@ -32,4 +32,9 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
             continue
         monkeypatch.setattr(st, "STATE_PATH", tmp_path / "guard_bot_state.json")
         monkeypatch.setattr(st, "DECISIONS_PATH", tmp_path / "guard_decisions.jsonl")
+    # аудит 03.11: журнал доставок бота — тоже мимо рабочей копии
+    for name in ("ops.bot", "bot"):
+        mod = sys.modules.get(name)
+        if mod is not None and hasattr(mod, "DELIVERIES_PATH"):
+            monkeypatch.setattr(mod, "DELIVERIES_PATH", tmp_path / "guard_deliveries.jsonl")
     yield

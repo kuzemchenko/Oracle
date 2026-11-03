@@ -254,6 +254,8 @@ def hunter_card(run_id, ideas_dir=None):
     d = pathlib.Path(ideas_dir or IDEAS)
     stem = "idea_" + rid[2:]
     p = d / (stem + ".card.json")
+    if not p.exists() and (d / "alt" / (stem + ".card.json")).exists():
+        p = d / "alt" / (stem + ".card.json")         # доставлена запасная идея дня
     if not p.exists():
         found = sorted(d.glob(stem + "*.card.json"))   # бот режет id до 40 знаков — префикс
         p = found[0] if len(found) == 1 else None

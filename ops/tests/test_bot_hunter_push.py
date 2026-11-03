@@ -888,3 +888,90 @@ def test_second_check_line_answers_itself():
     line = HC.second_check_line({"objection": "вход может быть задержкой текста",
                                  "answer": "тогда продаю на ближайшем закрытии"})
     assert "Мой ответ: «тогда продаю на ближайшем закрытии»" in line and "сверь" not in line
+
+
+def test_delivery_journal_records_what_reached_owner(tmp_path, monkeypatch):
+    """Аудит 03.11 (P0): journal/deliveries.jsonl — что РЕАЛЬНО ушло владельцу (вид, файл, хеш
+    текста, кнопки), тихий день и суточное «бот жив»; по нему считаются дни с идеей точки Б."""
+    import datetime as _dt
+    import json as _json
+    dl = tmp_path / "deliv.jsonl"
+    monkeypatch.setattr(BOT, "DELIVERIES_PATH", dl)
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
+    b._tick_hunter_ideas()
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    b.state["idea_day_delivered"] = None
+    b._tick_idea_day_watchdog(_dt.datetime(2026, 11, 3, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc))
+    day = _dt.datetime(2026, 11, 3, 16, 0, tzinfo=_dt.timezone.utc)
+    b._tick_heartbeat(day)
+    b._tick_heartbeat(day)                                      # раз в сутки
+    rows = [_json.loads(x) for x in dl.read_text("utf-8").splitlines()]
+    kinds = [r["kind"] for r in rows]
+    assert kinds == ["идея охотника", "тихий день", "бот жив"]
+    idea = rows[0]
+    assert idea["ref"] == "idea_2026-11-01_MP.push.txt" and idea["buttons"] is True
+    assert idea["lint_ok"] is True and len(idea["sha256"]) == 64 and idea["message_id"]
+
+
+def test_backup_idea_goes_only_after_leader_is_rejected(tmp_path, monkeypatch):
+    """Аудит 03.11 (P0): запасная (reports/ideas/alt/) уходит тем же путём, но только когда лидер
+    даты окончательно отбракован; при доставленном лидере — молчит."""
+    import json as _json
+    from test_idea_gate import CARD
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_BAD.push.txt", "Жаргон: каскад и edge 🚀")])
+    alt = tmp_path / "reports" / "ideas" / "alt"
+    alt.mkdir()
+    (alt / "idea_2026-11-01_MP.push.txt").write_text(GOOD, encoding="utf-8")
+    (alt / "idea_2026-11-01_MP.md").write_text(MD, encoding="utf-8")
+    (alt / "idea_2026-11-01_MP.card.json").write_text(_json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()                              # лидер бракуется
+    assert not b.tg.sent
+    b._tick_hunter_ideas()                              # следующий тик — запасная
+    sent = [t for _c, t, _k in b.tg.sent]
+    assert len(sent) == 1 and "проверочная идея" in sent[0]
+    lid = b.state["hunter_lids"]["h_2026-11-01_MP"]
+    assert lid["idea_file"] == "alt/idea_2026-11-01_MP.push.txt" and lid.get("backup")
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1                          # одна запасная на дату, без повторов
+    from orchestrator import deep_dive as DD             # «Качаем» по запасной находит её карточку
+    assert DD.hunter_card("h_2026-11-01_MP", tmp_path / "reports" / "ideas")["ticker"] == CARD["ticker"]
+
+
+def test_backup_silent_when_leader_delivered(tmp_path, monkeypatch):
+    import json as _json
+    from test_idea_gate import CARD
+    b, _n = _setup(tmp_path, monkeypatch, [("idea_2026-11-01_MP.push.txt", GOOD)])
+    alt = tmp_path / "reports" / "ideas" / "alt"
+    alt.mkdir()
+    (alt / "idea_2026-11-01_ZZ.push.txt").write_text(GOOD, encoding="utf-8")
+    (alt / "idea_2026-11-01_ZZ.md").write_text(MD, encoding="utf-8")
+    (alt / "idea_2026-11-01_ZZ.card.json").write_text(_json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1 and "h_2026-11-01_ZZ" not in (b.state.get("hunter_lids") or {})
+
+
+def test_honest_zero_delivered_even_on_weekend_and_linted(tmp_path, monkeypatch):
+    import datetime as _dt
+    import json as _json
+    b, notes = _setup(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    sat = _dt.datetime(2026, 11, 7, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc)
+    f = tmp_path / "reports" / "ideas" / "idea_2026-11-07_none.json"
+    f.write_text(_json.dumps({"checked": 7, "reasons": [
+        "у трёх бумаг повод уже отыгран ценой", "у остальных не нашлось подтверждённой даты события"],
+        "best_candidate": {"name": "Cal-Maine Foods", "ticker": "CALM.US",
+                           "what_missing": "нет даты решения регулятора",
+                           "becomes_idea_if": "регулятор назначит дату слушаний до конца ноября"}},
+        ensure_ascii=False), encoding="utf-8")
+    b._tick_idea_day_watchdog(sat)
+    msg = b.tg.sent[-1][1]
+    assert "готов защищать, нет" in msg and "Cal-Maine Foods (CALM)" in msg and "Станет идеей, если" in msg
+    assert "Проверил кандидатов: 7" in msg
+    b2, notes2 = _setup(tmp_path / "x", monkeypatch, [])
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    f2 = tmp_path / "x" / "reports" / "ideas" / "idea_2026-11-09_none.json"
+    f2.write_text(_json.dumps({"reasons": ["шанс 60% мал"]}, ensure_ascii=False), encoding="utf-8")
+    mon = _dt.datetime(2026, 11, 9, BOT.WATCHDOG_HOUR_UTC, 5, tzinfo=_dt.timezone.utc)
+    b2._tick_idea_day_watchdog(mon)
+    assert "пока не готова" in b2.tg.sent[-1][1] and any("Честный ноль" in n for n in notes2)

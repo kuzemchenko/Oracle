@@ -59,6 +59,9 @@ def log(*a):
 
 
 # ── тонкий Telegram-клиент ──────────────────────────────────────────────────────────
+DELIVERIES_PATH = None      # журнал доставок; None = ROOT/journal/deliveries.jsonl (тесты подменяют)
+
+
 class Telegram:
     def __init__(self, token, session=None):
         self.base = f"https://api.telegram.org/bot{token}"
@@ -802,8 +805,11 @@ class Bot:
             # перепроверка №2: у каждой идеи охотника — свои кнопки (решение одно на идею): исправление
             # не воскрешает уже нажатые и не отнимает кнопки у текущей идеи дня
             kb = None if prev.get("action") else self._idea_kb(rid)
-            if self._send_card(out, kb) is None:
+            _mid = self._send_card(out, kb)
+            if _mid is None:
                 return "stop"                                  # сеть — ретрай; доставленные уже отмечены
+            self._log_delivery("обновление идеи" if update else "идея охотника", ref=p.name, text=out,
+                               mid=_mid, buttons=kb is not None, lint_ok=True)
             lid = prev if update and prev else {
                 "run_id": rid, "lead": asset, "idx": {},
                 "issued_at": S.now_utc().isoformat(timespec="seconds"), "source": "hunter"}
@@ -813,7 +819,9 @@ class Bot:
             for k in ("name", "catalyst_date", "header", "todo"):
                 if foot.get(k):
                     lid[k] = foot[k]
-            lid["idea_file"] = p.name
+            lid["idea_file"] = str(p.relative_to(d)) if p.parent != d else p.name   # запасная — alt/…
+            if p.parent != d:
+                lid["backup"] = True
             lids[rid] = lid
             for old in sorted(lids)[:-30]:              # держим последние 30 идей
                 lids.pop(old, None)
@@ -827,7 +835,34 @@ class Bot:
             _mark(key)
             log("идея охотника доставлена:", p.name)
 
-        for p in sorted(d.glob("idea_*.push.txt")):
+        # аудит 03.11 (P0): ЗАПАСНАЯ идея дня — reports/ideas/alt/idea_<дата>_<ТИКЕР>.* (второй по силе
+        # защищаемый кандидат охоты). Тем же путём (шлагбаум, итоговый текст, суд, печать), но ТОЛЬКО
+        # если ни одна идея этой даты не доставлена и все лидеры окончательно отбракованы (или их нет).
+        def _leaders_dead(day):
+            if any(k.startswith(f"idea_{day}_") for k in delivered):
+                return False
+            for lp in sorted(d.glob(f"idea_{day}_*.push.txt")):
+                try:
+                    lkey = _version(lp, lp.read_text(encoding="utf-8").strip())[0]
+                except (OSError, ValueError):
+                    return False                     # не читается — не решаем за лидера
+                if lkey + ":bad" not in seen:
+                    return False                     # лидер жив или ещё ждёт (котировки, суд, .md)
+            return True
+
+        _alts = []
+        if (d / "alt").is_dir():
+            for pa in sorted((d / "alt").glob("idea_*.push.txt")):
+                day = pa.name[len("idea_"):len("idea_") + 10]
+                if (d / pa.name).exists() or not _leaders_dead(day):
+                    continue
+                _alts.append(pa)
+
+        for p in sorted(d.glob("idea_*.push.txt")) + _alts:
+            if p.parent != d:
+                _day = p.name[len("idea_"):len("idea_") + 10]
+                if not _leaders_dead(_day):          # первая запасная этой даты уже ушла в этом же тике
+                    continue
             try:
                 if _one(p) == "stop":
                     return                              # сеть — ретрай; доставленные уже отмечены
@@ -951,8 +986,11 @@ class Bot:
             return
         score = HS.method_score()
         for o in fresh:
-            if self.tg.send_message(self.chat_id, HS.outcome_message(o, score)) is None:
+            _txt = HS.outcome_message(o, score)
+            _mid = self.tg.send_message(self.chat_id, _txt)
+            if _mid is None:
                 return                                   # сеть — ретрай следующим тиком
+            self._log_delivery("итог сверки", ref=str(o.get("hash"))[:16], text=_txt, mid=_mid)
             sent.add(o["hash"])
             self.state["hunter_outcomes_sent"] = sorted(sent)
             self.save()
@@ -982,12 +1020,58 @@ class Bot:
             parts.append("Выполнилось ли условие — по первоисточникам из исследования; «Качаем» под "
                          "запиской покажет, на чём стоит идея. Это исследовательский инструмент, "
                          "не инвестиционная рекомендация.")
-            if self.tg.send_message(self.chat_id, "\n\n".join(parts)) is None:
+            _txt = "\n\n".join(parts)
+            _mid = self.tg.send_message(self.chat_id, _txt)
+            if _mid is None:
                 return
+            self._log_delivery("напоминание развилки", ref=rid, text=_txt, mid=_mid)
             lid["fork_reminded"] = today
             lids[rid] = lid
             self.state["hunter_lids"] = lids
             self.save()
+
+    def _honest_zero_text(self, day):
+        """Честный ноль охотника (reports/ideas/idea_<дата>_none.json): почему сегодня нет идеи, которую
+        система готова защищать, и при каком условии ближайший кандидат станет идеей. Текст модели —
+        под линтом (вероятности, тех.id, тикеры без имён, жаргон); не прошёл — None (общий текст сторожа)."""
+        import json as _json
+        try:
+            from ops import presentation_lint as PL
+        except ImportError:
+            import presentation_lint as PL
+        f = ROOT / "reports" / "ideas" / f"idea_{day}_none.json"
+        try:
+            rec = _json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(rec, dict):
+            return None
+        reasons = [" ".join(str(x).split()) for x in (rec.get("reasons") or []) if str(x).strip()][:2]
+        if not reasons:
+            return None
+        parts = ["Сегодня идеи, которую я готов защищать, нет — говорю честно, а не выдаю слабую."]
+        n = rec.get("checked")
+        parts.append((f"Проверил кандидатов: {int(n)}. " if isinstance(n, int) and n > 0 else "")
+                     + "Почему не прошли: " + "; ".join(r.rstrip(".") for r in reasons) + ".")
+        bc = rec.get("best_candidate") if isinstance(rec.get("best_candidate"), dict) else {}
+        if bc.get("name") and bc.get("becomes_idea_if"):
+            tk = str(bc.get("ticker") or "").split(".")[0]
+            who = f"{bc['name']} ({tk})" if tk else str(bc["name"])
+            parts.append(f"Ближе всех — {who}: " + " ".join(str(bc.get("what_missing") or "").split()).rstrip(".")
+                         + (". " if bc.get("what_missing") else "") + "Станет идеей, если "
+                         + " ".join(str(bc["becomes_idea_if"]).split()).rstrip(".") + ".")
+        parts.append("Завтра охотник ищет снова. Это " + PL.RESEARCH_FRAME + ".")
+        text = "\n\n".join(parts)
+        viol = PL.lint_for_user(text, max_len=1500)
+        if PL.odds_markers(text, include_quotes=True):
+            viol.append("вероятности в честном ноле")
+        if PL._TECH_ID_RE.search(text) or PL._bare_tickers(text):
+            viol.append("тех.id или тикер без имени")
+        if viol:
+            self._notice_dozor("Честный ноль охотника за " + day + " не прошёл проверку подачи ("
+                               + "; ".join(str(v) for v in viol[:2]) + ") — ушло общее сообщение сторожа.")
+            return None
+        return text
 
     def _tick_idea_day_watchdog(self, now=None):
         """Ревью 02.11 (тихий день): утреннее «наблюдение» сервера глушится в пользу идеи охотника —
@@ -1000,6 +1084,15 @@ class Bot:
         if now.hour < WATCHDOG_HOUR_UTC or self.state.get("idea_day_delivered") == today \
                 or self.state.get("idea_day_watchdog") == today:
             return
+        zero = self._honest_zero_text(today)
+        if zero:                                 # аудит 03.11: честный ноль охотника — и в выходные тоже
+            _mid = self.tg.send_message(self.chat_id, zero)
+            if _mid is None:
+                return
+            self._log_delivery("честный ноль", ref=f"idea_{today}_none.json", text=zero, mid=_mid, lint_ok=True)
+            self.state["idea_day_watchdog"] = today
+            self.save()
+            return
         if now.isoweekday() > 5:                 # выходные: охотник работает, но молчание не аварийно
             return
         # перепроверка №2: без обещаний, которые бот не контролирует (идея могла и не пройти)
@@ -1007,8 +1100,10 @@ class Bot:
                "разных моделей не закончены, либо проверка её не пропустила. Если пройдёт сегодня — "
                "пришлю сразу; причина задержки записана для разбора. «Что ещё было» покажет, что "
                "видит утренний конвейер.")
-        if self.tg.send_message(self.chat_id, msg) is None:
+        _mid = self.tg.send_message(self.chat_id, msg)
+        if _mid is None:
             return
+        self._log_delivery("тихий день", ref=today, text=msg, mid=_mid)
         self.state["idea_day_watchdog"] = today
         self._notice_dozor(f"Сторож: к {WATCHDOG_HOUR_UTC}:00 UTC идея дня не доставлена — проверить охотника "
                            "(облачный прогон, коммит, git pull, шлагбаум/суд на сервере).")
@@ -1088,8 +1183,10 @@ class Bot:
                                "а вопросы уже запечатаны. Нужен разбор машинистом.")
             sent.append(latest.name)          # битый/пустой протокол не ретраим вечно
             return
-        if self._send_card(text, None) is None:
+        _mid = self._send_card(text, None)
+        if _mid is None:
             return                             # сеть — ретрай следующим tick
+        self._log_delivery("Шансы недели", ref=latest.name, text=text, mid=_mid, lint_ok=True)
         sent.append(latest.name)
         self.state["week_odds_sent"] = sent[-50:]
         log("пуш «Шансы недели»", latest.name)
@@ -1153,6 +1250,33 @@ class Bot:
         self._send_card(text, None)
         self.state["last_top3"] = {"run_id": lid["run_id"], "idx": (meta or {}).get("idx") or {}}
         self.save()
+
+    def _log_delivery(self, kind, ref=None, text=None, mid=None, buttons=False, lint_ok=None):
+        """Аудит 03.11 (P0): журнал доставок journal/deliveries.jsonl (append-only, не §16) — что
+        РЕАЛЬНО ушло владельцу: вид, ссылка (файл/id), sha256 текста, кнопки, message_id. По нему
+        считаются «дни с идеей» точки Б и здоровье доставки у машиниста. Сбой записи не роняет пуш."""
+        import json as _json
+        import hashlib as _hl
+        rec = {"ts": S.now_utc().isoformat(timespec="seconds"), "kind": kind, "ref": ref,
+               "sha256": _hl.sha256(text.encode("utf-8")).hexdigest() if text else None,
+               "chars": len(text) if text else 0, "buttons": bool(buttons), "lint_ok": lint_ok,
+               "message_id": mid}
+        try:
+            path = DELIVERIES_PATH or (ROOT / "journal" / "deliveries.jsonl")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+        except OSError as e:
+            log("журнал доставок не записан", repr(e))
+        return rec
+
+    def _tick_heartbeat(self, now=None):
+        """Суточная строка «бот жив» в журнале доставок — тишина в нём = бот лежит (не «идей нет»)."""
+        today = (now or S.now_utc()).date().isoformat()
+        if self.state.get("heartbeat_day") == today:
+            return
+        self._log_delivery("бот жив", ref=today)
+        self.state["heartbeat_day"] = today
 
     def _notice_dozor(self, text):
         """Заметка в дозор §25 (journal/notices.jsonl, тот же канал, что auto_review): бот сам пушит её
@@ -1751,6 +1875,10 @@ class Bot:
             self._tick_week_odds()
         except Exception as e:                                   # noqa: BLE001
             log("tick week_odds ошибка", repr(e))
+        try:
+            self._tick_heartbeat(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick heartbeat ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):
@@ -1827,8 +1955,13 @@ class Bot:
                 self.state["notices_seen"] = i + 1     # битую строку не перечитываем вечно
                 continue
             text = str(rec.get("text") or "").strip()
-            if text and self._send_card(text, None) is None:   # None = часть не дошла (ретрай)
+            _mid = self._send_card(text, None) if text else None
+            if text and _mid is None:                  # None = часть не дошла (ретрай)
                 break                                  # не дошло — ретрай со следующего tick
+            if text:
+                _src = str(rec.get("source") or "дозор")
+                self._log_delivery({"deep_dive": "день прокачки", "auto_review": "пятничный разбор"}.get(_src, "заметка: " + _src),
+                                   ref=f"notices#{i}", text=text, mid=_mid)
             self.state["notices_seen"] = i + 1
             log("пуш заметки §25", (text[:60] or "<пусто>"))
 
