@@ -90,7 +90,7 @@ def test_build_writes_library_with_code_prices(tmp_path):
     f.write_text(json.dumps([_ep(), _ep(id="2019_test"), _ep(id="x", trigger_date="bad")]), encoding="utf-8")
     out = tmp_path / "lib.yaml"
     s = HE.build([str(f)], out=out, series_fn=_series_bank(), today=TODAY, mechs={"chokepoint_disruption"})
-    assert s["эпизодов"] == 1 and len(s["отклонено"]) == 2
+    assert s["эпизодов"] == 1 and len(s["отклонено"]) == 1 and s["склеено_дублей"] == 1   # тот же id — склейка
     doc = yaml.safe_load(out.read_text(encoding="utf-8"))
     L0 = doc["эпизоды"][0]["links"][0]
     assert L0["prices"]["есть"] and L0["prices"]["тикер"] == "OLDOIL"
@@ -172,9 +172,13 @@ def test_edge_library_rotation_is_deterministic_and_keeps_library_first(tmp_path
 
 def test_merge_duplicates_across_collectors():
     a, _ = HE.validate_episode(_ep(id="2019_a"), TODAY)
-    b, _ = HE.validate_episode(_ep(id="2019_b", trigger_date="2019-06-20"), TODAY)
+    b, _ = HE.validate_episode(_ep(id="2019_b", trigger_date="2019-06-14"), TODAY)
     c, _ = HE.validate_episode(_ep(id="2019_c", trigger_date="2019-09-14"), TODAY)
+    same_id, _ = HE.validate_episode(_ep(id="2019_c", trigger_date="2019-09-16"), TODAY)
     b["links"] = b["links"][:2]
-    out, n = HE.merge_duplicates([b, a, c])
-    assert n == 1 and sorted(e["id"] for e in out) == ["2019_a", "2019_c"]
+    other, _ = HE.validate_episode(_ep(id="2019_other_chain", trigger_date="2019-06-14"), TODAY)
+    other["links"] = [dict(other["links"][0]), dict(other["links"][2], then_symbol="ZZZ")]
+    other["links"][0]["then_symbol"] = "QQQ1"
+    out, n = HE.merge_duplicates([b, a, c, same_id, other])
+    assert n == 2 and sorted(e["id"] for e in out) == ["2019_a", "2019_c", "2019_other_chain"]
     assert [e for e in out if e["id"] == "2019_a"][0]["merged_from"] == ["2019_b"]

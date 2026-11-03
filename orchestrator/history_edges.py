@@ -153,25 +153,38 @@ def validate_episode(e, today, mechs=None):
 _BROAD = {"SPY", "^GSPC", "^VIX", "^TNX", "^DJI", "^IXIC", "QQQ", "GC=F", "GLD", "TLT", "DX-Y.NYB", "UUP"}
 
 
+def _specific(e):
+    return {L["then_symbol"] for L in e["links"] if L.get("then_symbol")} - _BROAD
+
+
 def merge_duplicates(eps, days=14):
-    """Один и тот же эпизод от разных сборщиков (например, 24.02.2022 в «санкциях», «газе» и «обороне»):
-    даты ближе `days` и общий специфичный тикер того времени (широкие индексы/золото не в счёт) —
-    оставляем эпизод с бОльшим числом звеньев, остальные id — в merged_from. → (уникальные, склеено)."""
+    """Склейка ОДНОГО И ТОГО ЖЕ эпизода от разных сборщиков. Разные цепочки одного повода (24.02.2022:
+    зерно, удобрения, дизель, танкеры) — это разные сюжеты, их не склеиваем: иначе теряются звенья.
+    Дубль = тот же id; или даты ближе 3 дней и ≥50% специфичных тикеров меньшего эпизода общие; или
+    даты ближе `days` и ≥80% общих (широкие индексы/золото не в счёт). Остаётся эпизод с бОльшим
+    числом звеньев, id остальных — в merged_from. → (уникальные, склеено)."""
     out, merged = [], 0
     for e in sorted(eps, key=lambda x: (-len(x.get("links") or []), x["trigger_date"], x["id"])):
-        syms = {L["then_symbol"] for L in e["links"] if L.get("then_symbol")} - _BROAD
+        se = _specific(e)
         d = datetime.date.fromisoformat(e["trigger_date"])
         twin = None
         for o in out:
-            if abs((datetime.date.fromisoformat(o["trigger_date"]) - d).days) <= days and \
-                    syms & ({L["then_symbol"] for L in o["links"] if L.get("then_symbol")} - _BROAD):
+            if o["id"] == e["id"]:
+                twin = o
+                break
+            so = _specific(o)
+            small = min(len(se), len(so)) or 1
+            share = len(se & so) / small
+            dd = abs((datetime.date.fromisoformat(o["trigger_date"]) - d).days)
+            if (dd <= 3 and share >= 0.5) or (dd <= days and share >= 0.8):
                 twin = o
                 break
         if twin is None:
             out.append(e)
             continue
         merged += 1
-        twin["merged_from"] = sorted(set((twin.get("merged_from") or []) + [e["id"]] + (e.get("merged_from") or [])))
+        twin["merged_from"] = sorted(set((twin.get("merged_from") or []) + [e["id"]] + (e.get("merged_from") or []))
+                                     - {twin["id"]})
     return out, merged
 
 
@@ -231,17 +244,13 @@ def build(patterns, *, out=LIBRARY, series_fn=None, today=None, mechs=None, now_
     today = today or _now().date()
     mechs = mechanism_ids() if mechs is None else mechs
     raw = load_inputs(patterns)
-    kept, rejected, ids = [], [], set()
+    kept, rejected = [], []
     for e in raw:
         ep, why = validate_episode(e, today, mechs)
         if not ep:
             rejected.append({"id": e.get("id"), "файл": e.get("_file"), "причины": why})
             continue
-        if ep["id"] in ids:
-            rejected.append({"id": ep["id"], "файл": e.get("_file"), "причины": ["дубль id"]})
-            continue
-        ids.add(ep["id"])
-        kept.append(ep)
+        kept.append(ep)                                  # дубли id склеивает merge_duplicates
     kept, n_merged = merge_duplicates(kept)
     for ep in kept:
         for L in ep["links"]:
