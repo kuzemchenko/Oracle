@@ -314,6 +314,7 @@ def test_tick_skips_unsealed_and_notices_lint_fail(tmp_path, monkeypatch):
     b = _bot()
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    monkeypatch.setattr(b, "_notice_owner", lambda t: notes.append(t))      # аудит 03.11: владельцу
     monkeypatch.setattr(R, "load_presentation", lambda path=None: {"week_odds_push": True})
     d = tmp_path / "journal" / "week_odds"
     d.mkdir(parents=True)
@@ -451,6 +452,7 @@ def test_bot_skips_dry_show_silently_and_pushes_latest_sealed(tmp_path, monkeypa
     b = BOT.Bot(T(), "5", state=S._default_state())
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    monkeypatch.setattr(b, "_notice_owner", lambda t: notes.append(t))      # аудит 03.11: владельцу
     monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"week_odds_push": True})
     b._tick_week_odds()
     assert len(b.tg.sent) == 1 and not notes

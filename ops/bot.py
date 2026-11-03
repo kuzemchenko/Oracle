@@ -1073,6 +1073,35 @@ class Bot:
             return "идеи охотника при этом доходят отдельно — снимком из GitHub"
         return "идеи охотника тоже не доходят, пока протяжка не пройдёт"
 
+    def _delay_reason(self, day):
+        """Причина задержки идеи дня одной человеческой фразой — по служебным заметкам дозора за день
+        (аудит 03.11, P1 №13: одно сообщение владельцу вместо человеческого + технического)."""
+        import json as _json
+        try:
+            lines = (ROOT / "journal" / "notices.jsonl").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lines = []
+        last = ""
+        for ln in lines:
+            try:
+                r = _json.loads(ln)
+            except ValueError:
+                continue
+            t = str(r.get("text") or "")
+            if r.get("silent") and str(r.get("ts") or "")[:10] == day and "охотника" in t:
+                last = t
+        rules = (("ждёт серверных котировок", "Сервер ещё не получил свежие цены, чтобы пересчитать её цифры."),
+                 ("суд разных семейств сейчас недоступен", "Вторая проверка (модели других разработчиков) сейчас недоступна — непроверенное не шлю."),
+                 ("отверг суд", "Вторая проверка нашла улику против идеи — такую не защищаю."),
+                 ("серверный шлагбаум", "Сервер пересчитал цены по своим котировкам, и идея перестала проходить планку."),
+                 ("итогового текста", "Текст записки не прошёл проверку подачи."),
+                 ("не запечатан", "Прогноз не удалось записать в счёт — без записи идею не шлю."),
+                 ("без файла исследования", "Не пришло исследование с источниками — без него идею не шлю."))
+        for key, why in rules:
+            if key in last:
+                return why
+        return "Охотник её ещё не прислал — поиск или проверка не закончены."
+
     def _honest_zero_text(self, day):
         """Честный ноль охотника (reports/ideas/idea_<дата>_none.json): почему сегодня нет идеи, которую
         система готова защищать, и при каком условии ближайший кандидат станет идеей. Текст модели —
@@ -1139,10 +1168,8 @@ class Bot:
         if now.isoweekday() > 5:                 # выходные: охотник работает, но молчание не аварийно
             return
         # перепроверка №2: без обещаний, которые бот не контролирует (идея могла и не пройти)
-        msg = ("Идея дня сегодня пока не готова: охотник её не доставил — поиск, проверка или суд "
-               "разных моделей не закончены, либо проверка её не пропустила. Если пройдёт сегодня — "
-               "пришлю сразу; причина задержки записана для разбора. «Что ещё было» покажет, что "
-               "видит утренний конвейер.")
+        msg = ("Идея дня сегодня пока не готова. " + self._delay_reason(today) + " Если пройдёт "
+               "сегодня — пришлю сразу.")
         _mid = self.tg.send_message(self.chat_id, msg)
         if _mid is None:
             return
@@ -1212,7 +1239,7 @@ class Bot:
             if pr.get("mode") == "mock" or not pr.get("запечатано"):
                 sent.append(f.name)
                 log("Шансы недели: протокол без печатей (mode/запечатано) — пуш пропущен", f.name)
-                self._notice_dozor("«Шансы недели» (" + f.name + "): протокол без печатей "
+                self._notice_owner("«Шансы недели» (" + f.name + "): протокол без печатей "
                                    "(mode=" + str(pr.get("mode")) + ", запечатано="
                                    + str(pr.get("запечатано")) + ") — пуш пропущен. Проверить крон/ключ.")
                 continue
@@ -1231,7 +1258,7 @@ class Bot:
         if text is None:
             # Ре-гейт V0 02.11: молчание — нарушение правила этапа; заметка в дозор как у V0
             log("Шансы недели: пуш не ушёл", latest.name, viol[:2])
-            self._notice_dozor("«Шансы недели» (" + latest.name + ") не прошли проверку подачи ("
+            self._notice_owner("«Шансы недели» (" + latest.name + ") не прошли проверку подачи ("
                                + "; ".join(str(v) for v in (viol or [])[:2]) + ") — пуш не ушёл, "
                                "а вопросы уже запечатаны. Нужен разбор машинистом.")
             sent.append(latest.name)          # битый/пустой протокол не ретраим вечно
@@ -1422,17 +1449,30 @@ class Bot:
         self.state["heartbeat_day"] = today
 
     def _notice_dozor(self, text):
-        """Заметка в дозор §25 (journal/notices.jsonl, тот же канал, что auto_review): бот сам пушит её
-        следующим tick'ом владельцу. Используется V0, когда «Идея дня» не прошла линт."""
+        """Служебная заметка дозора (silent) — см. _write_notice."""
+        self._write_notice(text, owner=False)
+
+    def _write_notice(self, text, owner=False):
+        """Заметка в дозор (journal/notices.jsonl). Аудит 03.11 (P1 №13, шум): по умолчанию СЛУЖЕБНАЯ —
+        пишется с silent=true, её читают машинист/испытатель, а владельцу в Telegram не уходит (он
+        получает одно человеческое сообщение сторожа с причиной). owner=True — редкое и важное для
+        владельца (см. _notice_owner)."""
         import json as _json
         import datetime as _dt
         path = ROOT / "journal" / "notices.jsonl"
+        rec = {"ts": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"), "text": text}
+        if not owner:
+            rec["silent"] = True
+            rec["source"] = "дозор"
         try:
             with open(path, "a", encoding="utf-8") as f:
-                f.write(_json.dumps({"ts": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
-                                     "text": text}, ensure_ascii=False) + "\n")
+                f.write(_json.dumps(rec, ensure_ascii=False) + "\n")
         except OSError as e:
             log("заметка дозора не записана", repr(e))
+
+    def _notice_owner(self, text):
+        """Заметка, которую бот пушит ВЛАДЕЛЬЦУ (редкое и требующее его внимания)."""
+        self._write_notice(text, owner=True)
 
     def _voice_text(self, chat, msg):
         """Голосовое сообщение → распознанный текст (или None + человеческое объяснение в чат).
@@ -2105,6 +2145,8 @@ class Bot:
                 self.state["notices_seen"] = i + 1     # битую строку не перечитываем вечно
                 continue
             text = str(rec.get("text") or "").strip()
+            if rec.get("silent"):                      # служебная заметка — не владельцу (P1 №13)
+                text = ""
             _mid = self._send_card(text, None) if text else None
             if text and _mid is None:                  # None = часть не дошла (ретрай)
                 break                                  # не дошло — ретрай со следующего tick
@@ -2373,7 +2415,9 @@ class Bot:
     def _tick_budget(self, now):
         today = now.date().isoformat()
         # Утренняя строка §15 — раз в сутки после BUDGET_HOUR.
-        if now.hour >= BUDGET_HOUR and self.state.get("last_budget_line_date") != today:
+        # аудит 03.11 (P1 №13, шум): строка «сколько стоит система» — раз в неделю, по пятницам;
+        # алерт о потолках ниже — по-прежнему в день срабатывания
+        if now.hour >= BUDGET_HOUR and now.isoweekday() == 5 and self.state.get("last_budget_line_date") != today:
             self.tg.send_message(self.chat_id, R.format_budget_line(self._budget_one_liner(with_key=True)))
             self.state["last_budget_line_date"] = today
             log("утренняя строка бюджета", today)
@@ -2474,7 +2518,7 @@ class Bot:
         if bad:
             if self.state.get("bad_code_sig") != sig:
                 self.state["bad_code_sig"] = sig
-                self._notice_dozor("Сервер забрал новый код, но он не компилируется (" + "; ".join(bad[:2])
+                self._notice_owner("Сервер забрал новый код, но он не компилируется (" + "; ".join(bad[:2])
                                    + ") — бот остаётся на прежнем коде до починки.")
                 self.save()
             return False

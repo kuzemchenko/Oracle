@@ -78,6 +78,7 @@ def _setup(tmp_path, monkeypatch, files, no_md=(), no_card=(), verdict="PASS"):
     b = _bot()
     notes = []
     monkeypatch.setattr(b, "_notice_dozor", lambda t: notes.append(t))
+    monkeypatch.setattr(b, "_notice_owner", lambda t: notes.append(t))      # аудит 03.11: владельцу
     b._test_prices = prices                                     # тест может «уронить» котировки
     return b, notes
 
@@ -1034,3 +1035,31 @@ def test_scheduled_jobs_run_behind_flags_once_per_day(tmp_path, monkeypatch):
         pr.done = True
     b._tick_scheduled_jobs(wed, popen=P)                       # завершился → в среду только deep_dive
     assert [c[1] for c in started[2:]] == ["deep_dive"]
+
+
+def test_silent_dozor_not_pushed_and_watchdog_says_why(tmp_path, monkeypatch):
+    """Аудит 03.11 (P1 №13): служебные заметки охотника владельцу не уходят; сторож шлёт ОДНО
+    сообщение с причиной простыми словами."""
+    import datetime as _dt
+    import json as _json
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    (tmp_path / "journal").mkdir()
+    b = _bot()
+    b._notice_dozor("Идея охотника idea_x.push.txt не прошла серверный шлагбаум (ход 3%) — в Telegram не ушла.")
+    b._notice_owner("Сервер забрал новый код, но он не компилируется.")
+    rows = [_json.loads(x) for x in (tmp_path / "journal" / "notices.jsonl").read_text("utf-8").splitlines()]
+    assert rows[0]["silent"] is True and "silent" not in rows[1]
+    b._tick_notices()
+    sent = [t for _c, t, _k in b.tg.sent]
+    assert sent == ["Сервер забрал новый код, но он не компилируется."]
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
+    day = rows[0]["ts"][:10]
+    d = _dt.datetime.fromisoformat(day + "T15:05:00+00:00")
+    if d.isoweekday() > 5:
+        d = d - _dt.timedelta(days=d.isoweekday() - 5)
+        (tmp_path / "journal" / "notices.jsonl").write_text(
+            _json.dumps({**rows[0], "ts": d.date().isoformat() + "T10:00:00+00:00"}, ensure_ascii=False) + "\n",
+            encoding="utf-8")
+    b._tick_idea_day_watchdog(d)
+    msg = b.tg.sent[-1][1]
+    assert "перестала проходить планку" in msg and len(b.tg.sent) == 2
