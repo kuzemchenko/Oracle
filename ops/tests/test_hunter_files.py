@@ -55,10 +55,14 @@ def test_owner_configs_guarded():
     """Перепроверка №3: облачные правки лимитов/весов/рубрики/порогов safe_pull не применяет."""
     guard = ROOT / "ops" / "journal_guard.sh"
     paths = "config/limits.yaml\nconfig/models.yaml\nconfig/weights.yaml\nconfig/rubric.yaml\n" \
-            "config/thresholds.yaml\nconfig/presentation.yaml\n"
+            "config/thresholds.yaml\nconfig/presentation.yaml\nknowledge/idea_bar.yaml\n" \
+            "agents/prompts/hunter_court.md\nops/journal_guard.sh\nops/bot.py\nreports/ideas/x.md\n"
     script = f'. "{guard}"; printf "%s" "$P" | grep -E "$OWNER_CONFIGS"'
     r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
                        env={"P": paths, "PATH": "/usr/bin:/bin"})
     assert r.stdout.split() == ["config/limits.yaml", "config/weights.yaml", "config/rubric.yaml",
-                                "config/thresholds.yaml"]
+                                "config/thresholds.yaml", "config/presentation.yaml",
+                                "knowledge/idea_bar.yaml", "agents/prompts/hunter_court.md",
+                                "ops/journal_guard.sh"]
+    assert "--no-renames" in guard.read_text()
     assert "exit 10" in (ROOT / "ops" / "safe_pull.sh").read_text()

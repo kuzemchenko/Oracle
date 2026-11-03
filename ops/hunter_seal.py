@@ -172,67 +172,111 @@ def push_card_mismatch(text, card):
         if not (re.search(rf"(?<!\d){dd.day}\s+{_MONTHS[dd.month - 1]}", t)
                 or re.search(rf"(?<!\d)0?{dd.day}\.{dd.month:02d}(?!\d)", t)):
             return f"в тексте нет даты сверки {dd.day} {_MONTHS[dd.month - 1]} из карточки"
-    return _numbers_mismatch(t, card)
-
-
-TOL_TEXT_PP = 2.0               # числа текста против расчёта по ценам карточки: допуск (округление)
-_PCT_RE = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s?%")
-_PLUS_PCT_RE = re.compile(r"\+\s?(\d+(?:[.,]\d+)?)\s?%")
-_MINUS_PCT_RE = re.compile(r"[−–-]\s?(\d+(?:[.,]\d+)?)\s?%")
-_PLUS_USD_RE = re.compile(r"\+\s?\$\s?(\d+(?:[.,]\d+)?)")
-_MINUS_USD_RE = re.compile(r"[−–-]\s?\$\s?(\d+(?:[.,]\d+)?)")
-
-
-def _para(text, head):
-    for block in re.split(r"\n\s*\n", text):
-        if block.strip().lower().startswith(head):
-            return block
     return None
 
 
-def _f(tok):
-    return float(str(tok).replace(",", "."))
+# ── Абзацы с ДЕНЬГАМИ пишет КОД (перепроверка №4) ─────────────────────────────────────────────
+# Раньше: модель писала ход с повода и «±$ на $500», а код пытался их разобрать и сверить —
+# хрупко в обе стороны (первый % абзаца мог быть прецедентом, тире диапазона читалось минусом,
+# перевёрнутый знак проходил) и сверялось с ценами LLM, а не сервера. Теперь абзацы «Почему это
+# ещё не в цене» и «Сколько можно заработать и чем рискую» бот ЗАМЕНЯЕТ текстом из расчёта кода
+# по серверным ценам (Инв#6); модель пишет механизм и аргументы, код — цифры.
+WHY_HEAD = "Почему это ещё не в цене."
+MONEY_HEAD = "Сколько можно заработать и чем рискую."
 
 
-def _numbers_mismatch(text, card):
-    """Перепроверка №3 (high): ход с повода, потенциал, риск и итог на $500 в ТЕКСТЕ пишет модель —
-    сверяем их с расчётом КОДА по ценам самой карточки (idea_gate.price_math), допуск — округление.
-    Абзаца нет — сверять нечего (шаблон проверяет линт). → причина | None."""
+def _norm_head(t):
+    return re.sub(r"\s+", " ", str(t or "").strip().lower().replace("ё", "е"))
+
+
+def _ratio_words(r):
+    for lo, hi, w in ((1.45, 1.55, "в полтора раза"), (1.9, 2.1, "вдвое"), (2.4, 2.6, "в два с половиной раза"),
+                      (2.9, 3.1, "втрое"), (3.9, 4.1, "вчетверо")):
+        if lo <= r <= hi:
+            return w
+    return f"в {r:.1f} раза".replace(".", ",")
+
+
+def _round5(x):
+    return int(5 * round(float(x) / 5.0))
+
+
+def render_numbers(card):
+    """Карточка с пересчитанными ценами (после reprice) → {'why': абзац, 'money': абзац} | {}.
+    Каждый абзац — столько же чисел, сколько требует шаблон (1 и 4), без вероятностей."""
     try:
         from ops import idea_gate as G
     except ImportError:
         import idea_gate as G
+    from mathlib import priced_in as PI
     s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
-    pm = G.price_math(str(card.get("direction") or "").lower(), s9.get("last_close"),
-                      card.get("trigger_close"), card.get("target_price"), card.get("stop_price"),
-                      card.get("entry_limit"))
-    if pm.get("fails") and pm.get("потенциал") is None:
-        return None                                    # цен нет — это брак шлагбаума, не текста
-    why = _para(text, "почему это ещё не в цене")
+    d = str(card.get("direction") or "").lower()
+    pm = G.price_math(d, s9.get("last_close"), card.get("trigger_close"), card.get("target_price"),
+                      card.get("stop_price"), card.get("entry_limit"))
+    out = {}
     mv = pm.get("ход_с_повода")
-    if why and mv is not None:
-        m = _PCT_RE.search(why)
-        if m and abs(_f(m.group(1)) - abs(mv)) > TOL_TEXT_PP:
-            return (f"в абзаце «Почему это ещё не в цене» ход {m.group(1)}%, а по ценам карточки "
-                    f"{abs(mv):g}%")
-    money = _para(text, "сколько можно заработать")
-    if money:
-        ups = [v for v in (pm.get("потенциал_от_входа"), pm.get("потенциал")) if v is not None]
-        dns = [v for v in (pm.get("риск_от_входа"), pm.get("риск")) if v is not None]
-        for tok in _PLUS_PCT_RE.findall(money):
-            if ups and all(abs(_f(tok) - u) > TOL_TEXT_PP for u in ups):
-                return f"в тексте потенциал +{tok}%, а по ценам карточки {' или '.join(f'{u:g}%' for u in ups)}"
-        for tok in _MINUS_PCT_RE.findall(money):
-            if dns and all(abs(_f(tok) - d) > TOL_TEXT_PP for d in dns):
-                return f"в тексте риск −{tok}%, а по ценам карточки {' или '.join(f'{d:g}%' for d in dns)}"
-        if "$500" in money or "пятьсот" in money.lower():
-            for tok in _PLUS_USD_RE.findall(money):
-                if ups and all(abs(_f(tok) - 5 * u) > max(5.0, 0.06 * 5 * u) for u in ups):
-                    return f"в тексте +${tok} на $500, а по ценам карточки около ${5 * ups[0]:.0f}"
-            for tok in _MINUS_USD_RE.findall(money):
-                if dns and all(abs(_f(tok) - 5 * d) > max(5.0, 0.06 * 5 * d) for d in dns):
-                    return f"в тексте −${tok} на $500, а по ценам карточки около ${5 * dns[0]:.0f}"
-    return None
+    td = G._date(card.get("trigger_date"))
+    if mv is not None and td is not None:
+        verb = ("почти не сдвинулась" if abs(mv) < 0.5 else
+                "подешевела на" if mv < 0 else "подорожала на")
+        num = "" if abs(mv) < 0.5 else f" {abs(mv):.0f}%"
+        what = str(card.get("trigger_what") or "").strip().rstrip(".")
+        since = f"С {what} {td.day} {_MONTHS[td.month - 1]}" if what else f"С {td.day} {_MONTHS[td.month - 1]}"
+        phase = ""
+        ranges = PI.parse_amplitude(str((card.get("precedent") or {}).get("amplitude") or ""))
+        if ranges and d in ("вверх", "вниз"):
+            lo, hi = sorted((abs(ranges[0]["низ"]), abs(ranges[0]["верх"])))
+            pf = PI.played_fraction(mv if d == "вверх" else -mv, f"+{lo:g}–{hi:g}%" if lo != hi else f"+{hi:g}%")
+            phase = {PI.ПРОТИВ: "цена пока шла против механизма — ход, как в похожем случае, ещё не начался",
+                     PI.РАНО: "из хода, как в похожем случае, пройдена малая часть",
+                     PI.В_ПУТИ: "часть хода, как в похожем случае, уже пройдена"}.get(pf.get("вердикт"), "")
+        out["why"] = f"{WHY_HEAD} {since} бумага {verb}{num} по ценам закрытия" + (f": {phase}." if phase else ".")
+    g, l = pm.get("потенциал_от_входа"), pm.get("риск_от_входа")
+    if g is not None and l is not None and l > 0:
+        basis = "при худшем входе из плана" if card.get("entry_limit") else "от последней цены закрытия"
+        out["money"] = (f"{MONEY_HEAD} На пятьсот долларов на бумаге {basis}: прав — около +${_round5(5 * g)} "
+                        f"(+{g:.0f}%), неправ — около −${_round5(5 * l)} (−{l:.0f}%). Выигрыш "
+                        f"{_ratio_words(g / l)} больше.")
+    return out
+
+
+def apply_rendered(text, rendered):
+    """Заменить абзацы «Почему это ещё не в цене» и «Сколько можно заработать» текстом кода;
+    нет такого абзаца — вставить перед «Кто продаёт…» (или перед «Что делать», или в конец до рамки)."""
+    if not rendered:
+        return text
+    blocks = re.split(r"\n\s*\n", str(text).strip())
+    heads = {"why": _norm_head(WHY_HEAD)[:20], "money": _norm_head(MONEY_HEAD)[:20]}
+    done = set()
+    for i, b in enumerate(blocks):
+        nb = _norm_head(b)
+        for k, h in heads.items():
+            if k in rendered and k not in done and nb.startswith(h):
+                blocks[i] = rendered[k]
+                done.add(k)
+    missing = [rendered[k] for k in ("why", "money") if k in rendered and k not in done]
+    if missing:
+        anchor = next((i for i, b in enumerate(blocks) if _norm_head(b).startswith("кто продает")), None)
+        if anchor is None:
+            anchor = next((i for i, b in enumerate(blocks) if _norm_head(b).startswith("что делать")), len(blocks))
+        blocks[anchor:anchor] = missing
+    return "\n\n".join(blocks)
+
+
+def preview(stem, today=None):
+    """Облако и сервер видят ОДНО и то же: сверка пуша с карточкой + подстановка абзацев кода +
+    линт итогового текста (перепроверка №4: брак находился только на сервере, без обратной связи).
+    stem = reports/ideas/idea_<дата>_<ТИКЕР>. → {'mismatch', 'lint', 'text'}."""
+    try:
+        from ops import presentation_lint as PL
+    except ImportError:
+        import presentation_lint as PL
+    text = pathlib.Path(str(stem) + ".push.txt").read_text(encoding="utf-8").strip()
+    card = json.loads(pathlib.Path(str(stem) + ".card.json").read_text(encoding="utf-8"))
+    mm = push_card_mismatch(text, card)
+    final = apply_rendered(text, render_numbers(card))
+    return {"mismatch": mm, "lint": PL.lint_hunter_idea(final), "lint_source": PL.lint_hunter_idea(text),
+            "text": final}
 
 
 def sealed_record(idea_file, predictions_path=None, kind=KIND):
@@ -345,47 +389,64 @@ def server_check(card, *, idea_file, today=None, last_close_fn=None, prices_fn=N
         return False, [f"дата охоты {hd} в имени файла позже сегодняшней {today}"], card
     if (today - hd).days > MAX_SEAL_LAG_DAYS:
         return False, [f"карточка от {hd} старше {MAX_SEAL_LAG_DAYS} дней — задним числом не печатаем"], card
-    c2 = copy.deepcopy(card)
-    s = c2.get("spec9") if isinstance(c2.get("spec9"), dict) else None
-    if s is not None:
-        asset = str(s.get("asset") or c2.get("ticker") or "").upper()
-        if prices_fn is None and last_close_fn is not None:   # тесты: только цена закрытия
-            px, pxd = last_close_fn(asset)
-            pr = None if px is None else {"last_close": px, "last_date": pxd, "closes": None,
-                                          "trigger_close": c2.get("trigger_close"),
-                                          "trigger_date": c2.get("trigger_date")}
-        else:
-            pr = (prices_fn or _server_prices)(asset, c2.get("trigger_date"))
-        if not pr or pr.get("last_close") is None:
-            # без серверной цены якорь/сторону/свежесть проверить нечем — цена со слов LLM не основание
-            # для печати (Инв#6); но это СБОЙ ДАННЫХ, а не брак идеи — повтор позже
-            return False, [TRANSIENT + f"нет серверной цены закрытия {asset} — якорь порога не проверить"], c2
-        px, pxd = float(pr["last_close"]), str(pr["last_date"])[:10]
-        age = (today - datetime.date.fromisoformat(pxd)).days
-        if age > G.MAX_PRICE_AGE_DAYS:
-            return False, [TRANSIENT + f"серверная цена {asset} от {pxd} устарела ({age} дн) — котировки "
-                           "не обновились"], c2
-        s["last_close"], s["last_close_date"] = px, pxd
-        s["цена_источник"] = "серверные котировки EODHD"
-        if c2.get("trigger_date"):
-            tcs = pr.get("trigger_close")
-            if tcs is None:
-                return False, [TRANSIENT + f"нет серверного закрытия {asset} на дату повода "
-                               f"{c2.get('trigger_date')}"], c2
-            tcc = G._num(c2.get("trigger_close"))
-            if tcc and abs(tcc / float(tcs) - 1) > MAX_TRIGGER_CLOSE_DIFF:
-                return False, [f"цена в день повода в карточке {tcc:g}, а по котировкам сервера "
-                               f"{float(tcs):g} — автор ошибся в исходной цене"], c2
-            c2["trigger_close"] = float(tcs)
-        pm = G.price_math(str(c2.get("direction") or "").lower(), px, c2.get("trigger_close"),
-                          c2.get("target_price"), c2.get("stop_price"), c2.get("entry_limit"))
-        for key, calc in (("move_since_trigger_pct", "ход_с_повода"), ("upside_pct", "потенциал"),
-                          ("downside_pct", "риск")):
-            if pm.get(calc) is not None:
-                c2[key] = pm[calc]
-        s["base_probability"] = _base_probability(s, pr.get("closes"), pxd)
+    c2, fails = reprice(card, today=today, last_close_fn=last_close_fn, prices_fn=prices_fn)
+    if fails:
+        return False, fails, c2
     res = G.check(c2, today=today, horizon_from=hd)
     return res["pass"], res["fails"], c2
+
+
+def reprice(card, *, today=None, last_close_fn=None, prices_fn=None):
+    """Карточка → (копия с СЕРВЕРНЫМИ ценами и пересчитанными кодом процентами, причины отказа).
+    Общая часть шлагбаума новой идеи и пути «исправление доставленной» (перепроверка №4: числа,
+    которые видит владелец, обязаны быть серверными и в исправлениях). Нет/устарели котировки →
+    причина с префиксом TRANSIENT; цена в день повода в карточке ≠ котировкам (>3%) — брак."""
+    import copy
+    try:
+        from ops import idea_gate as G
+    except ImportError:
+        import idea_gate as G
+    today = today or datetime.datetime.now(datetime.timezone.utc).date()
+    c2 = copy.deepcopy(card)
+    s = c2.get("spec9") if isinstance(c2.get("spec9"), dict) else None
+    if s is None:
+        return c2, ["в карточке нет §9-спеки объектом"]
+    asset = str(s.get("asset") or c2.get("ticker") or "").upper()
+    if prices_fn is None and last_close_fn is not None:   # тесты: только цена закрытия
+        px, pxd = last_close_fn(asset)
+        pr = None if px is None else {"last_close": px, "last_date": pxd, "closes": None,
+                                      "trigger_close": c2.get("trigger_close"),
+                                      "trigger_date": c2.get("trigger_date")}
+    else:
+        pr = (prices_fn or _server_prices)(asset, c2.get("trigger_date"))
+    if not pr or pr.get("last_close") is None:
+        # без серверной цены якорь/сторону/свежесть проверить нечем — цена со слов LLM не основание
+        # для печати (Инв#6); но это СБОЙ ДАННЫХ, а не брак идеи — повтор позже
+        return c2, [TRANSIENT + f"нет серверной цены закрытия {asset} — якорь порога не проверить"]
+    px, pxd = float(pr["last_close"]), str(pr["last_date"])[:10]
+    age = (today - datetime.date.fromisoformat(pxd)).days
+    if age > G.MAX_PRICE_AGE_DAYS:
+        return c2, [TRANSIENT + f"серверная цена {asset} от {pxd} устарела ({age} дн) — котировки "
+                    "не обновились"]
+    s["last_close"], s["last_close_date"] = px, pxd
+    s["цена_источник"] = "серверные котировки EODHD"
+    if c2.get("trigger_date"):
+        tcs = pr.get("trigger_close")
+        if tcs is None:
+            return c2, [TRANSIENT + f"нет серверного закрытия {asset} на дату повода {c2.get('trigger_date')}"]
+        tcc = G._num(c2.get("trigger_close"))
+        if tcc and abs(tcc / float(tcs) - 1) > MAX_TRIGGER_CLOSE_DIFF:
+            return c2, [f"цена в день повода в карточке {tcc:g}, а по котировкам сервера "
+                        f"{float(tcs):g} — автор ошибся в исходной цене"]
+        c2["trigger_close"] = float(tcs)
+    pm = G.price_math(str(c2.get("direction") or "").lower(), px, c2.get("trigger_close"),
+                      c2.get("target_price"), c2.get("stop_price"), c2.get("entry_limit"))
+    for key, calc in (("move_since_trigger_pct", "ход_с_повода"), ("upside_pct", "потенциал"),
+                      ("downside_pct", "риск")):
+        if pm.get(calc) is not None:
+            c2[key] = pm[calc]
+    s["base_probability"] = _base_probability(s, pr.get("closes"), pxd)
+    return c2, []
 
 
 def _base_probability(spec, closes, last_date):
@@ -507,7 +568,7 @@ def score_line(score):
         line += ("; " if nb == n else f"; из {nb} с посчитанной базой сбылось {kb}, а ")
         line += f"от одной обычной качки цен на тех же порогах сбылось бы около {eb:g}"
         pv = score.get("p_шум")
-        if nb >= 10 and pv is not None:
+        if nb >= 30 and pv is not None:                 # §10: выводы — от N≥30
             line += (" — это чаще, чем бывает случайно" if pv < 0.05 and kb > eb else
                      " — пока не отличить от случайности" if kb > eb else " — пока не лучше шума")
     return line + (" — выборка мала, доверять рано." if n < 30 else ".")
@@ -529,7 +590,7 @@ def footer(rec, why, score):
         # он или нет, по условию или нет) — говорим это прямо, чтобы счёт и деньги не путались
         lines.append(f"Записал в журнал проверку: закроется ли {base} {side} {rec['threshold']:g} "
                      f"к {_human_date(rec['resolve_by'])}. Это проверка взгляда метода на бумагу, "
-                     "а не твоей сделки: в этот день сверю по цене закрытия и пришлю итог сюда — "
+                     "а не твоей сделки: после этой даты сверю по цене закрытия и пришлю итог сюда — "
                      "да или нет; запись задним числом не правится.")
     elif why == "уже запечатано":
         lines.append("Проверяемый прогноз по этой идее уже записан в журнал раньше — сверю в срок.")
@@ -552,3 +613,15 @@ def outcome_message(outcome, score):
     return (f"Итог идеи: проверял, закроется ли {base} {side} {float(outcome.get('threshold')):g} "
             f"к {when}. Закрытие — {obs_txt}: {'сбылось' if ok else 'не сбылось'}.\n"
             + score_line(score))
+
+
+
+if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(description="Предпросмотр пуша охотника так, как его отправит бот")
+    ap.add_argument("cmd", choices=["preview"])
+    ap.add_argument("stem", help="reports/ideas/idea_<дата>_<ТИКЕР> (без расширения)")
+    a = ap.parse_args()
+    res = preview(a.stem)
+    print(json.dumps(res, ensure_ascii=False, indent=1))
+    sys.exit(0 if res["mismatch"] is None and not res["lint"] else 1)

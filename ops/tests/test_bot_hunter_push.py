@@ -597,7 +597,7 @@ def test_git_pull_alert_dedup_only_after_delivery(tmp_path, monkeypatch):
     monkeypatch.setattr(b.tg, "send_message", real)
     b._tick_alerts()
     assert any("не смог забрать обновления" in t for _c, t, _k in b.tg.sent)
-    assert b.state.get("git_pull_alert_day") == "2026-11-03"
+    assert b.state.get("git_pull_alert_day") == "2026-11-03:3"         # дедуп — по дню И коду
 
 
 def test_selfcheck_imports_hunter_modules(capsys):
@@ -647,3 +647,87 @@ def test_new_version_after_failed_delivery_must_keep_sealed_bet(tmp_path, monkey
     monkeypatch.setattr(b, "_send_card", lambda text, kb: sent.append(text) or 1)
     b._tick_hunter_ideas()
     assert not sent and any("меняет порог" in n for n in notes)
+
+
+def test_delivered_text_has_code_money_paragraphs(tmp_path, monkeypatch):
+    """Перепроверка №4: абзацы с деньгами в ДОСТАВЛЕННОМ пуше — текст кода по серверным ценам."""
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    b._test_prices["last_close"] = 39.57
+    b._tick_hunter_ideas()
+    text = b.tg.sent[-1][1]
+    assert "Сколько можно заработать и чем рискую. На пятьсот долларов" in text
+    assert "+$150 (+30%)" in text and "−$50 (−10%)" in text and "втрое" in text
+    assert text.index("Сколько можно заработать") < text.index("Что делать")
+
+
+def test_kachaem_for_hunter_shows_dossier_not_old_funnel(tmp_path, monkeypatch):
+    """Перепроверка №4: «Качаем» под идеей охотника не гонит её в старую воронку со старым судом
+    («зарезали» прямо под идеей) — показывает досье из карточки; фрагменты с шансами отброшены."""
+    import json as _json
+    import bot_state as S
+    from test_idea_gate import CARD
+    monkeypatch.setattr(S, "DECISIONS_PATH", tmp_path / "decisions_user.jsonl")
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    card = {**CARD, "facts": CARD["facts"] + [{"text": "шанс продления 70%", "url": "https://x.org/a",
+                                                "date": "2026-10-30"}]}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(card, ensure_ascii=False), encoding="utf-8")
+    called = []
+    monkeypatch.setattr(b, "_cmd_check_idea", lambda chat, lead: called.append(lead))
+    b._tick_hunter_ideas()
+    n = len(b.tg.sent)
+    b._on_callback({"id": "c", "data": "v:q:h_2026-11-02_MP",
+                    "message": {"message_id": 5, "chat": {"id": 555}}})
+    after = " ".join(t for _c, t, _k in b.tg.sent[n:])
+    assert not called, "старая воронка под идеей охотника не запускается"
+    assert "вот на чём стоит идея" in after and "Факты с источниками" in after
+    assert "jonesday.com" in after and "70%" not in after
+    assert "не инвестиционная рекомендация" in after
+
+
+def test_broken_card_does_not_block_following_ideas(tmp_path, monkeypatch):
+    """Перепроверка №4: карточка со spec9-строкой роняла весь тик — следующие идеи не шли никогда."""
+    import json as _json
+    from test_idea_gate import CARD
+    b, notes = _setup(tmp_path, monkeypatch, [
+        ("idea_2026-11-01_ZZ.push.txt", GOOD.replace("MP Materials (MP)", "Zeta (ZZ) и MP")),
+        ("idea_2026-11-02_MP.push.txt", GOOD)])
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-01_ZZ.card.json").write_text(
+        _json.dumps({**CARD, "ticker": "ZZ.US", "spec9": "битая"}, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert any("проверочная идея" in t and "Zeta" not in t for _c, t, _k in b.tg.sent)
+    assert any("ZZ" in n for n in notes)
+
+
+def test_fork_reminder_on_catalyst_day_once(tmp_path, monkeypatch):
+    """Перепроверка №4: в день катализатора код сам напоминает условие и план из записки (обещание
+    «напишу перед открытием» больше не висит без исполнителя); один раз; «Мимо» — без напоминания."""
+    import datetime as _dt
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    b.state["hunter_lids"] = {
+        "h_2026-11-02_MP": {"run_id": "h_2026-11-02_MP", "lead": "MP.US", "source": "hunter",
+                            "sealed": True, "name": "MP Materials", "catalyst_date": "2026-11-10",
+                            "header": "Идея с триггером — … ставлю на рост, если Пекин не продлит.",
+                            "todo": "Что делать. Вход не дороже $40.30."},
+        "h_2026-11-03_X": {"run_id": "h_2026-11-03_X", "lead": "X.US", "source": "hunter",
+                           "sealed": True, "catalyst_date": "2026-11-10", "action": "skip"}}
+    early = _dt.datetime(2026, 11, 10, 9, 0, tzinfo=_dt.timezone.utc)
+    b._tick_hunter_fork_reminders(early)
+    assert not b.tg.sent
+    noon = _dt.datetime(2026, 11, 10, 12, 30, tzinfo=_dt.timezone.utc)
+    b._tick_hunter_fork_reminders(noon)
+    b._tick_hunter_fork_reminders(noon)
+    msgs = [t for _c, t, _k in b.tg.sent]
+    assert len(msgs) == 1 and "день развилки по идее MP Materials" in msgs[0]
+    assert "Вход не дороже $40.30" in msgs[0] and "не инвестиционная рекомендация" in msgs[0]
+
+
+def test_update_repriced_by_server_and_waits_on_missing_prices(tmp_path, monkeypatch):
+    """Перепроверка №4: исправление доставленной идеи — цифры по серверным ценам; нет котировок —
+    повтор, не брак."""
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    b.state["hunter_delivered"] = ["idea_2026-11-02_MP.push.txt@0000000000"]
+    b._test_prices["last_close"] = None
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and any("ждёт серверных котировок" in n for n in notes)
+    assert not any(k.endswith(":bad") for k in b.state.get("hunter_pushed") or [])

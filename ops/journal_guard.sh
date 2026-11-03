@@ -11,15 +11,19 @@
 JOURNAL_CLOUD_ALLOWED='^journal/(proposals/|[^/]+\.md$)'
 
 incoming_journal_changes() {
-  git diff --name-only "$1" -- journal/ | grep -Ev "$JOURNAL_CLOUD_ALLOWED" | head -5
+  # --no-renames: перенос защищённого журнала в journal/proposals/ иначе виден только новым путём
+  git diff --no-renames --name-only "$1" -- journal/ | grep -Ev "$JOURNAL_CLOUD_ALLOWED" | head -5
 }
 
 # Перепроверка №3 (03.11): ежечасная протяжка + тихий перезапуск бота применяли бы облачные правки
 # лимитов и kill-критериев (Инв#4/#5), весов скоринга и рубрики суда (меняются только с согласия
 # владельца) без его «ок». Такие входящие коммиты safe_pull НЕ применяет (код 10 → алерт владельцу);
 # применить их можно только ручной протяжкой владельца (команда в CLAUDE.md).
-OWNER_CONFIGS='^config/(limits|weights|rubric|thresholds)\.yaml$'
+# Перепроверка №4: + флаги подачи (config/presentation.yaml — правило владельца «флаги только после
+# «ок»»), планка и рубрика суда охотника (критерии меняются с согласия владельца) и САМИ охранные
+# скрипты (иначе облако ослабило бы охрану одним коммитом). --no-renames: переименование не обход.
+OWNER_CONFIGS='^(config/(limits|weights|rubric|thresholds|presentation)\.yaml|knowledge/idea_bar\.yaml|agents/prompts/hunter_court\.md|ops/(journal_guard|safe_pull|checkpoint)\.sh)$'
 
 incoming_owner_config_changes() {
-  git diff --name-only "$1" -- config/ | grep -E "$OWNER_CONFIGS" | head -5
+  git diff --no-renames --name-only "$1" | grep -E "$OWNER_CONFIGS" | head -5
 }

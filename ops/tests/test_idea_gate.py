@@ -254,24 +254,42 @@ def test_method_score_shows_noise_base(tmp_path):
 
 
 
-def test_push_numbers_checked_against_card_prices():
-    """Перепроверка №3 (high): ход с повода, потенциал, риск и $ на $500 в тексте — сверка с
-    расчётом кода по ценам карточки; дата сверки — с границей числа («5 ноября» ≠ «25 ноября»)."""
+def test_money_paragraphs_written_by_code_from_prices():
+    """Перепроверка №4: абзацы «Почему это ещё не в цене» и «Сколько можно заработать» ПИШЕТ КОД по
+    ценам карточки (после reprice — серверным): неверные числа модели заменяются, а не разбираются
+    хрупким парсером (прецедент первым, тире диапазона, перевёрнутый знак — больше не брак и не
+    лазейка). Дата сверки — с границей числа («5 ноября» ≠ «25 ноября»)."""
     card = _c(entry_limit=40.30, target_price=47.5, stop_price=35.5, trigger_close=48.89,
+              trigger_what="объявления продления перемирия", trigger_date="2026-09-23",
               move_since_trigger_pct=-19.06, upside_pct=20.04, downside_pct=10.29,
+              precedent={**CARD["precedent"], "amplitude": "+8–31%"},
               spec9={**CARD["spec9"], "threshold": 47.5, "resolve_by": "2026-11-25"})
     txt = ("Идея с триггером — 2 ноября. MP Materials (MP) — добытчик: ставлю на рост.\n\n"
-           "Почему это ещё не в цене. С 23 сентября бумага подешевела на 19%.\n\n"
-           "Сколько можно заработать и чем рискую. На пятьсот долларов на бумаге: прав — около +$90 "
-           "(+18%), неправ — около −$60 (−12%).\n\n"
-           "Что делать. Вход не дороже $40.30. Цель $47.50, стоп $35.50, крайний выход 25 ноября.\n"
+           "Почему это ещё не в цене. В похожем случае ход был 31.5%, а бумага подорожала на 5%.\n\n"
+           "Похожий случай. «8–31% за две сессии».\n\n"
+           "Сколько можно заработать и чем рискую. Потенциал из прецедента +31%, риск −2%.\n\n"
+           "Кто продаёт и почему он ошибается. Принявшие слова за документ.\n\n"
+           "Что делать. Вход не дороже $40.30. Цель $47.50, стоп $35.50, крайний выход 25 ноября.\n\n"
            "Это исследовательский инструмент, не инвестиционная рекомендация.")
-    assert HS.push_card_mismatch(txt, card) is None
-    assert "потенциал" in HS.push_card_mismatch(txt.replace("+18%", "+30%"), card)
-    assert "риск" in HS.push_card_mismatch(txt.replace("−12%", "−5%"), card)
-    assert "$500" in HS.push_card_mismatch(txt.replace("+$90", "+$150"), card)
-    assert "Почему" in HS.push_card_mismatch(txt.replace("на 19%", "на 5%"), card)
+    assert HS.push_card_mismatch(txt, card) is None             # черновые числа — не повод для брака
+    out = HS.apply_rendered(txt, HS.render_numbers(card))
+    assert "подешевела на 19% по ценам закрытия" in out and "объявления продления перемирия 23 сентября" in out
+    assert "+$90 (+18%)" in out and "−$60 (−12%)" in out and "в полтора раза" in out
+    assert "подорожала на 5%" not in out and "+31%, риск −2%" not in out
+    assert "ход, как в похожем случае, ещё не начался" in out
+    # абзацев нет — вставляются перед «Кто продаёт»
+    bare = txt.replace("Почему это ещё не в цене. В похожем случае ход был 31.5%, а бумага подорожала на 5%.\n\n", "")
+    out2 = HS.apply_rendered(bare, HS.render_numbers(card))
+    assert out2.index("Почему это ещё не в цене") < out2.index("Кто продаёт")
     assert "даты сверки" in HS.push_card_mismatch(txt.replace("25 ноября", "5 ноября"), card)
+
+
+def test_preview_cli_matches_bot(tmp_path):
+    """Облако гоняет тот же предпросмотр, что применит бот: сверка + подстановка + линт итога."""
+    stem = ROOT / "reports" / "ideas" / "idea_2026-11-02_MP"
+    res = HS.preview(stem)
+    assert res["mismatch"] is None and res["lint"] == [], res
+    assert "подешевела на 19% по ценам закрытия" in res["text"]
 
 
 def test_future_hunt_date_and_future_facts_rejected():
@@ -296,10 +314,13 @@ def test_future_hunt_date_and_future_facts_rejected():
 
 
 def test_score_line_same_population_and_significance(tmp_path):
-    sc = {"идей": 12, "исходов": 12, "попаданий": 9, "с_базой": 12, "база_ожидание": 3.0,
-          "попаданий_с_базой": 9, "p_шум": 0.0004}
+    small = {"идей": 12, "исходов": 12, "попаданий": 9, "с_базой": 12, "база_ожидание": 3.0,
+             "попаданий_с_базой": 9, "p_шум": 0.0004}
+    assert "случайно" not in HS.score_line(small)                 # §10: вывод о значимости — с N≥30
+    sc = {"идей": 40, "исходов": 40, "попаданий": 20, "с_базой": 40, "база_ожидание": 10.0,
+          "попаданий_с_базой": 20, "p_шум": 0.0004}
     assert "это чаще, чем бывает случайно" in HS.score_line(sc)
-    sc2 = dict(sc, попаданий=4, попаданий_с_базой=4, p_шум=0.35)
+    sc2 = dict(sc, попаданий=12, попаданий_с_базой=12, p_шум=0.35)
     assert "пока не отличить от случайности" in HS.score_line(sc2)
     sc3 = dict(sc, исходов=12, с_базой=8, попаданий_с_базой=2, база_ожидание=2.5, p_шум=0.7)
     assert "из 8 с посчитанной базой сбылось 2" in HS.score_line(sc3)

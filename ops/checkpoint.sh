@@ -47,7 +47,9 @@ if ! git push -q origin master; then
   if [ -n "$(incoming_journal_changes HEAD...origin/master)" ]; then
     echo "[checkpoint] входящие облачные коммиты трогают journal/ — пересадку не делаю (П16)"; exit 7
   fi
-  if git pull -q --rebase --autostash origin master && git push -q origin master; then
+  # перепроверка №4 (TOCTOU): пересаживаем на ТОТ снимок origin/master, который только что проверили,
+  # без второго fetch внутри pull
+  if git rebase -q --autostash origin/master && git push -q origin master; then
     echo "[checkpoint] push прошёл после пересадки поверх облачных коммитов"
   else
     git rebase --abort 2>/dev/null
