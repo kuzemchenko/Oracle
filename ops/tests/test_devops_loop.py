@@ -45,7 +45,7 @@ def test_generate_proposals_flags_dominant_gate_and_dead_chain():
 
 def test_generate_proposals_graduation_when_calibrated():
     props = D.generate_proposals({"доля_отсева": {}, "цепочки_активаций": {}},
-                                 {"провизорный": {"исходов": 35, "brier": 0.18}})
+                                 {"провизорный": {"исходов": 35, "brier": 0.18, "сбылось": 17}})
     assert any("ВЫПУСК" in p["предложение"] for p in props)          # §R3: выпуск по N≥30
 
 
@@ -58,5 +58,9 @@ def test_generate_proposals_empty_when_clean():
 def test_no_graduation_when_worse_than_coin():
     """Аудит 03.11: Brier 0.2565 (хуже монетки 0.25) — выпуск в денежный трек не предлагается."""
     props = D.generate_proposals({"доля_отсева": {}, "цепочки_активаций": {}},
-                                 {"провизорный": {"исходов": 1932, "brier": 0.2565}})
+                                 {"провизорный": {"исходов": 1932, "brier": 0.2565, "сбылось": 933}})
     assert not any("ВЫПУСК" in p["предложение"] for p in props)
+    # ре-гейт 03.11: ухудшение попаданий при постоянной p (Brier 0.238 при частоте 30%) — НЕ выпуск
+    worse = D.generate_proposals({"доля_отсева": {}, "цепочки_активаций": {}},
+                                 {"провизорный": {"исходов": 1000, "brier": 0.238, "сбылось": 300}})
+    assert not any("ВЫПУСК" in p["предложение"] for p in worse)
