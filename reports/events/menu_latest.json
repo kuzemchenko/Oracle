@@ -1,0 +1,997 @@
+{
+ "собрано": "2026-11-04T21:00:11+00:00",
+ "gdelt": {
+  "источник": "GDELT 2.0, файлы событий каждые 15 минут (data.gdeltproject.org)",
+  "до": "20261104210000",
+  "часов": 24,
+  "файлов_прочитано": 191,
+  "файлов_нет": 1,
+  "больше_всего_пишут": [
+   {
+    "что": "страна: United States",
+    "статей_сутки": 201244,
+    "статей_прошлые_сутки": 182525,
+    "рост_раз": 1.1,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://magic981.iheart.com/content/2026-11-03-gas-prices-at-highest-levels-ever-on-election-day/",
+     "https://www.somersetcountygazette.co.uk/news/national/26696820.democrats-win-control-us-senate-midterms-trump-branded-lame-duck/",
+     "https://katu.com/news/connect-to-congress/live-polls-begin-closing-as-americans-cast-ballots-to-decide-control-of-congress-election-day-midterms-democrats-republicans"
+    ]
+   },
+   {
+    "что": "страна: United Kingdom",
+    "статей_сутки": 36511,
+    "статей_прошлые_сутки": 35613,
+    "рост_раз": 1.03,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.surreycomet.co.uk/news/national/26698222.m-s-boss-accuses-labour-one-biggest-tax-grabs-history/",
+     "https://www.eastlothiancourier.com/news/national/26696552.swinney-backs-rules-people-limited-leave-remain-standing-election/",
+     "https://www.thurrockgazette.co.uk/news/national/26698727.giving-scotlands-energy-assets-critical-status-must-priority---tories/"
+    ]
+   },
+   {
+    "что": "страна: India",
+    "статей_сутки": 28895,
+    "статей_прошлые_сутки": 34196,
+    "рост_раз": 0.85,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.legallyindia.com/convos/topic/500848-sr-mum-stipend",
+     "https://indiankanoon.org/doc/179098302/",
+     "https://www.rediff.com/business/report/razorpay-gets-sebi-nod-for-ipo-eyes-usd-5-billion-valuation/20261104.htm"
+    ]
+   },
+   {
+    "что": "страна: Israel",
+    "статей_сутки": 21730,
+    "статей_прошлые_сутки": 16679,
+    "рост_раз": 1.3,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.yorkpress.co.uk/news/national/26698028.arrests-made-supreme-court-begins-hearing-appeal-palestine-action-ban/",
+     "https://foxreno.com/news/nation-world/democrats-divide-widens-over-support-for-israel-abdul-el-sayed-democrat-nominee",
+     "https://news.crossmap.com/2026/11/04/pope-leo-xiv-appoints-youngest-bishop-in-france/"
+    ]
+   },
+   {
+    "что": "страна: Iran",
+    "статей_сутки": 17296,
+    "статей_прошлые_сутки": 18337,
+    "рост_раз": 0.94,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.rutland-times.co.uk/national/burnham-says-us-voters-want-to-see-world-focus-on-cost-of-living-after-midterms-173860/",
+     "https://www.surreycomet.co.uk/news/national/26698222.m-s-boss-accuses-labour-one-biggest-tax-grabs-history/",
+     "https://www.wncw.org/2026-11-04/democrat-abdul-el-sayed-defeats-republican-mike-rogers-in-key-michigan-senate-race"
+    ]
+   },
+   {
+    "что": "страна: Canada",
+    "статей_сутки": 17275,
+    "статей_прошлые_сутки": 16273,
+    "рост_раз": 1.06,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.thurrockgazette.co.uk/news/national/26698727.giving-scotlands-energy-assets-critical-status-must-priority---tories/",
+     "https://torontosun.com/news/local-news/uncooked-chicken-strip-fast-food-decline",
+     "https://calgarysun.com/news/politics/alberta-to-set-standards-for-post-secondary-institutional-neutrality/wcm/3d09242a-198d-454e-b82b-86885338945e"
+    ]
+   },
+   {
+    "что": "страна: Nigeria",
+    "статей_сутки": 16856,
+    "статей_прошлые_сутки": 14628,
+    "рост_раз": 1.15,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.newvision.co.ug/category/news/we-will-produce-many-ugandan-pilots-uganda-ai-NV_243570_112026",
+     "https://dailypost.ng/2026/11/04/2027-election-police-warn-politicians-supporters-against-destroying-campaign-posters-billboards/",
+     "https://thesun.ng/2027-sbm-holds-solidarity-walk-for-apm-candidates-in-oyo/"
+    ]
+   },
+   {
+    "что": "страна: China",
+    "статей_сутки": 16675,
+    "статей_прошлые_сутки": 15965,
+    "рост_раз": 1.04,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "http://www.haitisun.com/news/279411618/visitors-captivated-by-chinese-tradition-modernity-at-london-travel-expo",
+     "https://english.news.cn/20261104/901f7597436242fca87f989b140e523f/c.html",
+     "https://www.thurrockgazette.co.uk/news/national/26698727.giving-scotlands-energy-assets-critical-status-must-priority---tories/"
+    ]
+   },
+   {
+    "что": "страна: Australia",
+    "статей_сутки": 13948,
+    "статей_прошлые_сутки": 13114,
+    "рост_раз": 1.06,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.merimbulanewsweekly.com.au/story/9386163/fears-new-trust-tax-changes-will-smash-small-businesses/",
+     "https://www.theadvocate.com.au/story/9386164/faith-leaders-accused-of-spreading-hate-against-muslims/",
+     "https://www.wellingtontimes.com.au/story/9386170/whale-snot-scientist-in-line-for-aussie-of-the-year/"
+    ]
+   },
+   {
+    "что": "страна: Russia",
+    "статей_сутки": 12001,
+    "статей_прошлые_сутки": 16825,
+    "рост_раз": 0.71,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.thurrockgazette.co.uk/news/national/26698727.giving-scotlands-energy-assets-critical-status-must-priority---tories/",
+     "https://www.thenorthernecho.co.uk/news/national/26698776.burnham-says-us-voters-want-see-world-focus-cost-living-midterms/",
+     "https://www.marinelink.com/news/one-three-russian-tankers-remains-course-544153"
+    ]
+   },
+   {
+    "что": "страна: Ukraine",
+    "статей_сутки": 9938,
+    "статей_прошлые_сутки": 15291,
+    "рост_раз": 0.65,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.whtimes.co.uk/news/national/26698725.russian-strikes-disrupt-water-power-kyiv-rescuers-continue-searches/",
+     "https://www.newsshopper.co.uk/news/national/26698725.russian-strikes-disrupt-water-power-kyiv-rescuers-continue-searches/",
+     "https://www.wemu.org/npr-national-news/2026-11-04/the-world-is-reacting-to-the-democrats-midterm-elections-victory"
+    ]
+   },
+   {
+    "что": "страна: France",
+    "статей_сутки": 7494,
+    "статей_прошлые_сутки": 10194,
+    "рост_раз": 0.74,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.leaderlive.co.uk/news/national/26700361.scottish-parliament-votes-reform-push-burka-ban/",
+     "https://calgarysun.com/news/politics/alberta-to-set-standards-for-post-secondary-institutional-neutrality/wcm/3d09242a-198d-454e-b82b-86885338945e",
+     "https://torontosun.com/opinion/columnists/hackers-turned-up-heat-europes-grocers-canada-ready"
+    ]
+   },
+   {
+    "что": "страна: South Africa",
+    "статей_сутки": 7110,
+    "статей_прошлые_сутки": 7578,
+    "рост_раз": 0.94,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.ecr.co.za/news/news/durban-voters-turn-out-late-as-iec-prepares-to-close/",
+     "https://english.news.cn/africa/20261104/acb549e8d30645859d48b00b95223c3c/c.html",
+     "https://english.news.cn/20261104/c0e599f2e9044af39667a2763c3d07c3/c.html"
+    ]
+   },
+   {
+    "что": "страна: Pakistan",
+    "статей_сутки": 6869,
+    "статей_прошлые_сутки": 6856,
+    "рост_раз": 1.0,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://slguardian.org/how-china-accidentally-broke-the-wests-monopoly-over-the-weapons-trade/",
+     "http://www.bignewsnetwork.com/news/279410164/us-iran-tensions-persist-as-midterms-unfold-regional-mediation-continues",
+     "https://www.eurasiareview.com/04112026-kartarpur-closure-deepens-sikh-religious-alienation-oped/"
+    ]
+   },
+   {
+    "что": "THE US",
+    "статей_сутки": 6335,
+    "статей_прошлые_сутки": 6673,
+    "рост_раз": 0.95,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.somersetcountygazette.co.uk/news/national/26696820.democrats-win-control-us-senate-midterms-trump-branded-lame-duck/",
+     "https://www.euronews.com/2026/11/04/live-updates-on-the-2026-midterm-elections-in-the-us",
+     "https://www.enfieldindependent.co.uk/news/national/26696776.democrats-secure-major-wins-campaign-wrestle-control-us-congress/"
+    ]
+   },
+   {
+    "что": "AMERICAN",
+    "статей_сутки": 6011,
+    "статей_прошлые_сутки": 4977,
+    "рост_раз": 1.21,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://magic981.iheart.com/content/2026-11-03-gas-prices-at-highest-levels-ever-on-election-day/",
+     "https://katu.com/news/connect-to-congress/live-polls-begin-closing-as-americans-cast-ballots-to-decide-control-of-congress-election-day-midterms-democrats-republicans",
+     "https://cbs6albany.com/news/connect-to-congress/live-polls-begin-closing-as-americans-cast-ballots-to-decide-control-of-congress-election-day-midterms-democrats-republicans"
+    ]
+   },
+   {
+    "что": "страна: Germany",
+    "статей_сутки": 6002,
+    "статей_прошлые_сутки": 7900,
+    "рост_раз": 0.76,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.prnewswire.com/news-releases/pearson-and-westermann-collaborate-to-help-learners-in-germany-build-the-english-language-skills-they-need-to-succeed-in-study-and-work-302928065.html",
+     "http://www.strategypage.com/%5Chtmw%5Chtiw%5Carticles%5C20261031100038.aspx",
+     "https://www.finanzen.ch/nachrichten/aktien/eqs-news-heidelberg-pharma-to-present-new-clinical-data-on-its-atac-candidates-at-the-ash-annual-meeting-2026-1036715325"
+    ]
+   },
+   {
+    "что": "страна: Ireland",
+    "статей_сутки": 5946,
+    "статей_прошлые_сутки": 6165,
+    "рост_раз": 0.96,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wimbledonguardian.co.uk/news/national/26696677.two-ryanair-flights-dublin-searched-potential-bomb-threats/",
+     "https://www.redditchadvertiser.co.uk/news/national/26696677.two-ryanair-flights-dublin-searched-potential-bomb-threats/",
+     "https://www.brandonsun.com/national/2026/11/04/summit-season-has-carney-planning-trips-to-ireland-philippines-cambodia-and-china"
+    ]
+   },
+   {
+    "что": "AFRICA",
+    "статей_сутки": 5710,
+    "статей_прошлые_сутки": 6460,
+    "рост_раз": 0.88,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://thebftonline.com/article/asa-savings-and-loans-screens-105-women-for-breast-cancer",
+     "https://www.zerohedge.com/energy/africa-launches-its-own-oil-bank-western-lenders-retreat",
+     "https://english.news.cn/africa/20261104/acb549e8d30645859d48b00b95223c3c/c.html"
+    ]
+   },
+   {
+    "что": "WASHINGTON",
+    "статей_сутки": 4924,
+    "статей_прошлые_сутки": 4493,
+    "рост_раз": 1.1,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://katu.com/news/connect-to-congress/live-polls-begin-closing-as-americans-cast-ballots-to-decide-control-of-congress-election-day-midterms-democrats-republicans",
+     "https://foxreno.com/news/nation-world/democrats-divide-widens-over-support-for-israel-abdul-el-sayed-democrat-nominee",
+     "https://katu.com/news/nation-world/washington-and-ottawa-attempt-trade-truce-with-renewed-talks-mark-carney-president-donald-trump"
+    ]
+   },
+   {
+    "что": "страна: Philippines",
+    "статей_сутки": 4781,
+    "статей_прошлые_сутки": 3951,
+    "рост_раз": 1.21,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.herefordtimes.com/news/national/26699312.harry-meghan-visit-brussels-wake-allegations-facing-duchess-father/",
+     "https://www.bicesteradvertiser.net/news/national/26699312.harry-meghan-visit-brussels-wake-allegations-facing-duchess-father/",
+     "https://www.positivelyfilipino.com/magazine/tag/OFWs"
+    ]
+   },
+   {
+    "что": "страна: Japan",
+    "статей_сутки": 4218,
+    "статей_прошлые_сутки": 3879,
+    "рост_раз": 1.09,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://deadline.com/print-article/1237212894/",
+     "https://www.dailypolitical.com/2026/11/04/mirae-asset-global-investments-co-ltd-makes-new-16-07-million-investment-in-aflac-incorporated-afl.html",
+     "https://www.aol.co.uk/articles/sali-hughes-beauty-eye-creams-100003000.html"
+    ]
+   },
+   {
+    "что": "страна: Italy",
+    "статей_сутки": 3444,
+    "статей_прошлые_сутки": 3798,
+    "рост_раз": 0.91,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.irishmirror.ie/lifestyle/travel/two-ryanair-flights-dublin-searched-37840236",
+     "http://usa.chinadaily.com.cn/a/202611/04/WS6aeaa688e4b06d4aa056700c.html",
+     "https://www.redditchadvertiser.co.uk/news/national/26696677.two-ryanair-flights-dublin-searched-potential-bomb-threats/"
+    ]
+   },
+   {
+    "что": "страна: Saudi Arabia",
+    "статей_сутки": 3423,
+    "статей_прошлые_сутки": 4248,
+    "рост_раз": 0.81,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://gulfnews.com/uae/middle-east-war-8-things-uae-residents-need-to-know-tonight-november-4-1.500736088",
+     "http://www.dailyadvance.com/news/national/iranians-celebrate-setback-for-trump-in-us-election-and-other-mideast-news/article_37ade963-4cc1-563f-9f60-dc1722ebf309.html",
+     "https://tradearabia.com:443/News/489191/Al-Majdiah-reports-$691.7m-in-9M-2026-revenue"
+    ]
+   },
+   {
+    "что": "страна: Turkey",
+    "статей_сутки": 3319,
+    "статей_прошлые_сутки": 4363,
+    "рост_раз": 0.76,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.mitchellrepublic.com/news/national/war-widens-in-the-black-sea-in-a-test-of-nato-red-lines",
+     "https://www.illawarramercury.com.au/story/9386107/no-leverage-by-afp-as-accused-crime-boss-deported/",
+     "https://www.miragenews.com/human-rights-key-to-climate-action-at-cop31-1772042/"
+    ]
+   }
+  ],
+  "резко_выросло": [
+   {
+    "что": "SCOTTISH",
+    "статей_сутки": 1992,
+    "статей_прошлые_сутки": 770,
+    "рост_раз": 2.55,
+    "типы": [
+     "неодобрение",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.leaderlive.co.uk/news/national/26700361.scottish-parliament-votes-reform-push-burka-ban/",
+     "https://www.eastlothiancourier.com/news/national/26696552.swinney-backs-rules-people-limited-leave-remain-standing-election/",
+     "https://www.countytimes.co.uk/news/national/26696552.swinney-backs-rules-people-limited-leave-remain-standing-election/"
+    ]
+   },
+   {
+    "что": "страна: Jordan",
+    "статей_сутки": 2149,
+    "статей_прошлые_сутки": 904,
+    "рост_раз": 2.35,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.yorkpress.co.uk/news/national/26698028.arrests-made-supreme-court-begins-hearing-appeal-palestine-action-ban/",
+     "https://www.desiblitz.com/content/british-airways-restarts-dubai-flights-but-uk-travellers-face-a-warning",
+     "https://www.mynbc5.com/article/rutland-voters-approve-new-reserve-fund-for-city-schools/74331034"
+    ]
+   },
+   {
+    "что": "THE ASSOCIATED PRESS",
+    "статей_сутки": 1575,
+    "статей_прошлые_сутки": 663,
+    "рост_раз": 2.34,
+    "типы": [
+     "заявления",
+     "призывы"
+    ],
+    "примеры": [
+     "https://www.ktvu.com/news/iowa-elections-democrats-flip-seats-see-who-won-key-races",
+     "https://www.winnipegfreepress.com/world/2026/11/04/which-senate-governors-races-are-still-uncalled-by-the-associated-press",
+     "https://www.canberratimes.com.au/story/9385555/greenland-approves-security-deal-with-denmark-and-us/"
+    ]
+   },
+   {
+    "что": "страна: Cambodia",
+    "статей_сутки": 1115,
+    "статей_прошлые_сутки": 358,
+    "рост_раз": 3.0,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.brandonsun.com/national/2026/11/04/summit-season-has-carney-planning-trips-to-ireland-philippines-cambodia-and-china",
+     "http://www.bignewsnetwork.com/news/279411010/chinese-cambodian-thai-foreign-ministers-discuss-cooperation-regional-stability-over-tea-in-beijing",
+     "https://english.news.cn/20261104/b7b33f0d048e4c1a8681d26966db9022/c.html"
+    ]
+   },
+   {
+    "что": "страна: Madagascar",
+    "статей_сутки": 338,
+    "статей_прошлые_сутки": 4,
+    "рост_раз": 14.92,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.africom.mil/article/37097/us-and-madagascar-advance-maritime-security-cooperation",
+     "https://www.africa-newsroom.com/press/kenya-spearheads-regional-maritime-security-strategy-to-safeguard-shared-waters",
+     "https://www.mod.go.ke/news/kenya-spearheads-regional-maritime-security-strategy-to-safeguard-shared-waters/"
+    ]
+   },
+   {
+    "что": "THAI",
+    "статей_сутки": 663,
+    "статей_прошлые_сутки": 154,
+    "рост_раз": 3.93,
+    "типы": [
+     "переговоры",
+     "принуждение"
+    ],
+    "примеры": [
+     "https://www.ksat.com/news/world/2026/11/04/2-uyghur-men-held-in-thailand-plead-not-be-sent-back-to-china/",
+     "http://www.bignewsnetwork.com/news/279411010/chinese-cambodian-thai-foreign-ministers-discuss-cooperation-regional-stability-over-tea-in-beijing",
+     "https://en.people.cn/n3/2026/1104/c90000-20515414.html"
+    ]
+   },
+   {
+    "что": "HOUSE OF REPRESENTATIVES",
+    "статей_сутки": 1072,
+    "статей_прошлые_сутки": 488,
+    "рост_раз": 2.15,
+    "типы": [
+     "боевые действия",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.wbur.org/news/2026/11/03/massachusetts-2026-election-results-governors-council",
+     "https://news.crossmap.com/2026/11/04/democrat-troy-jackson-unseats-susan-collins-in-maine-u-s-senate-race/",
+     "https://1190kex.iheart.com/content/2026-11-04-kotek-claims-win-drazan-waits/"
+    ]
+   },
+   {
+    "что": "ABBOT",
+    "статей_сутки": 782,
+    "статей_прошлые_сутки": 275,
+    "рост_раз": 2.72,
+    "типы": [
+     "уступки",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://talk1200boston.iheart.com/content/2026-11-04-hinojosa-wins-texas-gov-race/",
+     "https://www.kclu.org/politics/2026-11-03/democrat-gina-hinojosa-wins-race-for-texas-governor-ousting-greg-abbott",
+     "https://www.wmtv15news.com/2026/11/04/voters-deliver-rebuke-trump-by-flipping-several-gop-held-senate-seats/"
+    ]
+   },
+   {
+    "что": "страна: Benin",
+    "статей_сутки": 550,
+    "статей_прошлые_сутки": 121,
+    "рост_раз": 4.04,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.zerohedge.com/energy/africa-launches-its-own-oil-bank-western-lenders-retreat",
+     "https://punchng.com/reps-urge-fg-to-fix-failed-benin-okene-highway/",
+     "https://punchng.com/ndlea-seeks-traditional-rulers-support-against-drug-abuse/"
+    ]
+   },
+   {
+    "что": "CONGRESSMAN",
+    "статей_сутки": 769,
+    "статей_прошлые_сутки": 273,
+    "рост_раз": 2.69,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.wknofm.org/politics-npr-news/2026-11-03/republican-rep-don-bacon-on-what-a-potential-blue-wave-could-mean-for-the-gop",
+     "https://abc13.com/post/live-wisconsin-election-results-follow-2026-midterm-updates-wi-governor-race-1st-3rd-congressional-districts/20012728/",
+     "http://www.washingtonexaminer.com/news/campaigns/congressional/4772882/henry-cuellar-tano-tijerina-texas-race/"
+    ]
+   },
+   {
+    "что": "DUBLIN",
+    "статей_сутки": 1082,
+    "статей_прошлые_сутки": 530,
+    "рост_раз": 2.0,
+    "типы": [
+     "расследования",
+     "угрозы"
+    ],
+    "примеры": [
+     "https://www.wimbledonguardian.co.uk/news/national/26696677.two-ryanair-flights-dublin-searched-potential-bomb-threats/",
+     "https://www.redditchadvertiser.co.uk/news/national/26696677.two-ryanair-flights-dublin-searched-potential-bomb-threats/",
+     "https://www.irishmirror.ie/lifestyle/travel/two-ryanair-flights-dublin-searched-37840236"
+    ]
+   },
+   {
+    "что": "страна: Turkmenistan",
+    "статей_сутки": 996,
+    "статей_прошлые_сутки": 476,
+    "рост_раз": 2.05,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://tdh.gov.tm/index.php/en/post/50295/international-forum-dedicated-development-construction-and-industrial-complex",
+     "https://tdh.gov.tm/index.php/en/post/50294/meeting-state-security-council-turkmenistan-48",
+     "https://tdh.gov.tm/index.php/en/post/50293/tenth-issue-electronic-magazine-arkadagly-yaslar-has-been-published"
+    ]
+   },
+   {
+    "что": "SERIAL KILLER",
+    "статей_сутки": 297,
+    "статей_прошлые_сутки": 10,
+    "рост_раз": 10.57,
+    "типы": [
+     "переговоры",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://torontosun.com/news/local-news/uncooked-chicken-strip-fast-food-decline",
+     "https://torontosun.com/news/provincial/suspected-serial-killer-snow-heading-to-trial",
+     "https://www.soapoperadigest.com/content/did-general-hospital-just-soft-launch-a-cassadine-recast/"
+    ]
+   },
+   {
+    "что": "PRESIDENTIAL CANDIDATE",
+    "статей_сутки": 607,
+    "статей_прошлые_сутки": 184,
+    "рост_раз": 3.07,
+    "типы": [
+     "переговоры",
+     "неодобрение"
+    ],
+    "примеры": [
+     "https://deadline.com/2026/11/red-white-royal-blue-author-reacts-texas-going-blue-binder-1237213148/",
+     "https://www.vanguardngr.com/2026/11/2027-sokotoll-deliver-massive-votes-for-atiku-adc-candidate/",
+     "https://www.vanguardngr.com/2026/11/photos-atiku-oyegun-najaatu-dino-melaye-arrive-sokoto-for-adc-campaign/"
+    ]
+   },
+   {
+    "что": "страна: Burkina Faso",
+    "статей_сутки": 388,
+    "статей_прошлые_сутки": 65,
+    "рост_раз": 4.8,
+    "типы": [
+     "боевые действия",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.miragenews.com/islamist-armed-group-targets-civilians-in-1771651/",
+     "https://theheraldghana.com/eu-envoy-urges-african-countries-to-embrace-competition-under-afcfta/",
+     "https://allafrica.com/view/group/main/main/id/00098702.html"
+    ]
+   },
+   {
+    "что": "страна: Aruba",
+    "статей_сутки": 288,
+    "статей_прошлые_сутки": 22,
+    "рост_раз": 7.33,
+    "типы": [
+     "переговоры",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://pagesix.com/2026/11/04/entertainment/natalee-holloways-grieving-mother-details-moment-she-confronted-killer/",
+     "https://www.oxygen.com/crime-news/where-is-joran-van-der-sloot-now-after-confessing-to-killing-natalee-holloway",
+     "https://thetab.com/2026/11/04/netflix-series-examines-case-of-18-year-old-missing-girl-with-links-to-amy-bradley"
+    ]
+   },
+   {
+    "что": "GREEK",
+    "статей_сутки": 562,
+    "статей_прошлые_сутки": 193,
+    "рост_раз": 2.73,
+    "типы": [
+     "помощь",
+     "материальное сотрудничество"
+    ],
+    "примеры": [
+     "https://www.romaniapress.com/news=197720",
+     "https://www.romaniapress.com/news=197710",
+     "https://www.bankingnews.gr/speculator/articles/909066/perks-cut-for-space-by-ministry-of-culture-for-archaeological-sites-following-bn-revelations"
+    ]
+   },
+   {
+    "что": "страна: South Sudan",
+    "статей_сутки": 717,
+    "статей_прошлые_сутки": 318,
+    "рост_раз": 2.18,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.jpost.com/health-and-wellness/article-913833",
+     "https://eyeradio.org/from-the-archives-once-there-is-corruption-there-is-insecurity-kiirs-2014-address-bahir-dar-ethiopia-april-2014/",
+     "https://eyeradio.org/university-of-juba-warns-students-against-submitting-forged-tuition-fee-payment-receipts/"
+    ]
+   },
+   {
+    "что": "DUBAI",
+    "статей_сутки": 756,
+    "статей_прошлые_сутки": 368,
+    "рост_раз": 2.0,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.middleeastevents.com/news/page/dr-hassan-elhais-named-iconic-legal-consultant-of-the-year-2026/36771",
+     "https://www.desiblitz.com/content/british-airways-restarts-dubai-flights-but-uk-travellers-face-a-warning",
+     "https://gulfnews.com/business/aviation/british-airways-restores-dubaiheathrow-route-but-other-options-stay-paused-1.500735937"
+    ]
+   },
+   {
+    "что": "SECRET POLICE",
+    "статей_сутки": 212,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 11.6,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.politico.eu/article/hungary-releases-secret-police-files-from-communist-era/",
+     "https://www.the-star.co.ke/news/world/2026-11-04-secret-police-files-released-in-hungary-47-years-after-fall-of-communism",
+     "https://www.thisdaylive.com/2026/11/04/dss-orders-probe-into-atikus-allegation-of-planned-protests-in-sokoto/"
+    ]
+   },
+   {
+    "что": "MARK CARNEY",
+    "статей_сутки": 467,
+    "статей_прошлые_сутки": 149,
+    "рост_раз": 2.88,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://katu.com/news/nation-world/washington-and-ottawa-attempt-trade-truce-with-renewed-talks-mark-carney-president-donald-trump",
+     "https://foxsanantonio.com/news/nation-world/washington-and-ottawa-attempt-trade-truce-with-renewed-talks-mark-carney-president-donald-trump",
+     "https://www.brandonsun.com/national/2026/11/04/summit-season-has-carney-planning-trips-to-ireland-philippines-cambodia-and-china"
+    ]
+   },
+   {
+    "что": "HOUSE SPEAKER",
+    "статей_сутки": 343,
+    "статей_прошлые_сутки": 66,
+    "рост_раз": 4.22,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "http://www.leadertelegram.com/news/nation-world/democrats-usher-in-a-new-era-with-their-resounding-sweep-of-the-house-and-the/article_52077728-92cd-5adf-a051-a376d180cda1.html",
+     "https://www.nzherald.co.nz/world/republican-us-house-speaker-to-step-down-after-midterm-rout/2EERLZQBJNECXFPIVIHU2GJWHI/",
+     "https://cyprus-mail.com/2026/11/04/mps-probe-secrecy-labels-after-presidential-limousine-document-leak"
+    ]
+   },
+   {
+    "что": "NEW HAMPSHIRE",
+    "статей_сутки": 524,
+    "статей_прошлые_сутки": 197,
+    "рост_раз": 2.51,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.mtpr.org/2026-11-03/as-polls-close-democrats-win-senate-seats-in-ga-and-n-c-heres-what-else-to-know",
+     "https://komonews.com/news/nation-world/democrat-chris-pappas-wins-new-hampshires-open-us-senate-seat-john-e-sununu-election-day-midterms-midterm-elections-politics-vote-voting-voters-taxpayers-polls-ballots-congress-president-donald-trump",
+     "https://www.washingtonblade.com/2026/11/03/chris-pappas-elected-to-u-s-senate/"
+    ]
+   },
+   {
+    "что": "страна: Panama",
+    "статей_сутки": 533,
+    "статей_прошлые_сутки": 224,
+    "рост_раз": 2.27,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.miragenews.com/human-rights-key-to-climate-action-at-cop31-1772042/",
+     "https://www.dw.com/en/germanys-celebrated-childrens-author-janosch-has-died/a-79851600",
+     "https://www.riotimesonline.com/peru-alicorp-flora-food-latin-america-deal-panama-2026/"
+    ]
+   },
+   {
+    "что": "UYGHUR",
+    "статей_сутки": 219,
+    "статей_прошлые_сутки": 13,
+    "рост_раз": 7.24,
+    "типы": [
+     "принуждение",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.ksat.com/news/world/2026/11/04/2-uyghur-men-held-in-thailand-plead-not-be-sent-back-to-china/",
+     "https://www.wsbradio.com/news/world/china-must-make/GE4NZI6CNU5TNBAOZ7Y3PMMTFU/",
+     "https://whbl.com/2026/11/04/china-seeks-extradition-of-five-uyghurs-from-thailand/"
+    ]
+   }
+  ]
+ },
+ "wiki": {
+  "источник": "просмотры Википедии (Wikimedia), en",
+  "день": "2026-11-03",
+  "резко_выросло": [
+   {
+    "статья": "Jesús de Miguel",
+    "просмотров_вчера": 585060,
+    "позавчера": 0,
+    "рост_раз": 586.06
+   },
+   {
+    "статья": "Jesús Owono",
+    "просмотров_вчера": 297789,
+    "позавчера": 0,
+    "рост_раз": 298.79
+   },
+   {
+    "статья": "Jeffery Simmons",
+    "просмотров_вчера": 111232,
+    "позавчера": 0,
+    "рост_раз": 112.23
+   },
+   {
+    "статья": "2026 United States elections",
+    "просмотров_вчера": 455194,
+    "позавчера": 201102,
+    "рост_раз": 2.26
+   },
+   {
+    "статья": "Dancing with the Stars (American TV series) season 35",
+    "просмотров_вчера": 135810,
+    "позавчера": 13183,
+    "рост_раз": 9.65
+   },
+   {
+    "статья": "CD Tenerife",
+    "просмотров_вчера": 70752,
+    "позавчера": 0,
+    "рост_раз": 71.75
+   },
+   {
+    "статья": "Scott Parker",
+    "просмотров_вчера": 65446,
+    "позавчера": 0,
+    "рост_раз": 66.45
+   },
+   {
+    "статья": "Jenna Dewan",
+    "просмотров_вчера": 64103,
+    "позавчера": 0,
+    "рост_раз": 65.1
+   },
+   {
+    "статья": "Mike Santana",
+    "просмотров_вчера": 61576,
+    "позавчера": 0,
+    "рост_раз": 62.58
+   },
+   {
+    "статья": "David Walliams",
+    "просмотров_вчера": 110365,
+    "позавчера": 10910,
+    "рост_раз": 9.35
+   },
+   {
+    "статья": "Callum Turner",
+    "просмотров_вчера": 70043,
+    "позавчера": 33135,
+    "рост_раз": 2.08
+   },
+   {
+    "статья": "2026 United States House of Representatives elections",
+    "просмотров_вчера": 50307,
+    "позавчера": 22748,
+    "рост_раз": 2.16
+   }
+  ]
+ },
+ "newsapi": {
+  "источник": "NewsAPI.ai (EventRegistry), крупнейшие события суток",
+  "события": [
+   {
+    "событие": "Andorra's Jesus Owono says days after Jesus de Miguel death have been 'hardest of my life'",
+    "статей": 2649,
+    "дата": "2026-11-03",
+    "uri": "eng-12152708"
+   },
+   {
+    "событие": "Trump says Republicans harmed by Iran war, inability to 'transfer the love' for him",
+    "статей": 1709,
+    "дата": "2026-11-03",
+    "uri": "fra-1360006"
+   },
+   {
+    "событие": "Alaska's map is complicated. Here's what we're watching for.",
+    "статей": 1654,
+    "дата": "2026-11-03",
+    "uri": "eng-12155091"
+   },
+   {
+    "событие": "US midterm results a 'victory' for Canadians hopeful of tariff relief",
+    "статей": 1631,
+    "дата": "2026-11-03",
+    "uri": "deu-2193877"
+   },
+   {
+    "событие": "How a Blue Wave Became a Red Wipeout",
+    "статей": 1198,
+    "дата": "2026-11-03",
+    "uri": "eng-12157638"
+   },
+   {
+    "событие": "For Israelis, U.S. Midterms Show How Far Their Star Has Fallen in America",
+    "статей": 848,
+    "дата": "2026-11-03",
+    "uri": "eng-12155571"
+   },
+   {
+    "событие": "Bomb Threats Disrupt Several Flights Across Europe",
+    "статей": 703,
+    "дата": "2026-11-03",
+    "uri": "eng-12154739"
+   },
+   {
+    "событие": "Talarico Wins Texas Senate Race, Ending a Three-Decade Drought for Democrats",
+    "статей": 691,
+    "дата": "2026-11-03",
+    "uri": "eng-12156796"
+   },
+   {
+    "событие": "AEK Athens 2-3 Real Madrid: Federico Valverde scores late winner as Real Madrid complete comeback",
+    "статей": 457,
+    "дата": "2026-11-04",
+    "uri": "spa-4403123"
+   },
+   {
+    "событие": "Democrat Wins Georgia Governor's Race, a Breakthrough for Black Women",
+    "статей": 455,
+    "дата": "2026-11-03",
+    "uri": "eng-12154107"
+   },
+   {
+    "событие": "Canadian prime minister says Russian athletes won't compete for their country at World Juniors",
+    "статей": 437,
+    "дата": "2026-11-03",
+    "uri": "eng-12154973"
+   },
+   {
+    "событие": "Two helicopters collide near Mount Everest during rescue flight, killing one, injuring others",
+    "статей": 435,
+    "дата": "2026-11-03",
+    "uri": "eng-12154048"
+   },
+   {
+    "событие": "Pope Leo submitted mail ballot for midterm elections, Vatican confirms",
+    "статей": 421,
+    "дата": "2026-11-03",
+    "uri": "spa-4398678"
+   },
+   {
+    "событие": "Binance Says Hackers Plotted $6.3 Billion Crypto Heist for Months",
+    "статей": 408,
+    "дата": "2026-11-03",
+    "uri": "eng-12153921"
+   },
+   {
+    "событие": "10 Candidates Who Could Make History in the Midterms",
+    "статей": 382,
+    "дата": "2026-11-03",
+    "uri": "eng-12156574"
+   },
+   {
+    "событие": "Rafael Nadal: Tennis legend set to join Real Madrid board of directors",
+    "статей": 379,
+    "дата": "2026-11-04",
+    "uri": "eng-12158706"
+   },
+   {
+    "событие": "Trump Says U.S. Will Not Strike Iran Again Before Midterms as Military Draws Up New Plans",
+    "статей": 359,
+    "дата": "2026-11-03",
+    "uri": "eng-12078290"
+   },
+   {
+    "событие": "Musk Faces Setback as SpaceX and Tesla Stocks Tumble on Midterm Election Results",
+    "статей": 357,
+    "дата": "2026-11-04",
+    "uri": "eng-12158791"
+   },
+   {
+    "событие": "Bruno Fernandes Breaks Silence On Alleged Rift With Michael Carrick: 'A Lot Of Lies'",
+    "статей": 355,
+    "дата": "2026-11-03",
+    "uri": "spa-4402680"
+   },
+   {
+    "событие": "Atletico Madrid 0-2 Bayern Munich: Karl Lennart and Konrad Laimer goals give visitors win",
+    "статей": 344,
+    "дата": "2026-11-03",
+    "uri": "spa-4403386"
+   },
+   {
+    "событие": "'Don't get confused!' - Lamine Yamal's father reveals the truth about the Barcelona star's REAL name",
+    "статей": 329,
+    "дата": "2026-11-03",
+    "uri": "spa-4403047"
+   },
+   {
+    "событие": "Tinto Brass, director of Caligula and maestro of Euro erotica, dies aged 93",
+    "статей": 327,
+    "дата": "2026-11-04",
+    "uri": "ita-962934"
+   },
+   {
+    "событие": "Lenskart Q2 profit doubles to Rs 232 cr",
+    "статей": 326,
+    "дата": "2026-11-03",
+    "uri": "eng-12154092"
+   },
+   {
+    "событие": "Byron Donalds, Staunch Trump Supporter, Wins Florida Governor's Race Against David Jolly",
+    "статей": 314,
+    "дата": "2026-11-03",
+    "uri": "eng-12151956"
+   },
+   {
+    "событие": "Jon Ossoff Wins Georgia Senate Race Against Mike Collins",
+    "статей": 273,
+    "дата": "2026-11-03",
+    "uri": "eng-12157124"
+   }
+  ]
+ }
+}
