@@ -73,7 +73,7 @@ class OwnerOAuth:
 <label>Пароль подключения Oracle <input type="password" name="password" autocomplete="current-password" required></label>
 <button type="submit">Разрешить чтение</button></form>
 <p>Это отдельный пароль Oracle, созданный на сервере. Не вводите пароль ChatGPT или ключи поставщиков данных.</p>'''
-        response=HTMLResponse(body,headers={'Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",'Referrer-Policy':'no-referrer'})
+        response=HTMLResponse(body,headers={'Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",'Referrer-Policy':'same-origin'})
         response.set_cookie('oracle_csrf',item['csrf'],secure=True,httponly=True,samesite='lax',max_age=600,path='/owner')
         return response
 
