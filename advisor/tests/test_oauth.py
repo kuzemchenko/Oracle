@@ -87,3 +87,16 @@ class OAuthTests(unittest.TestCase):
     def test_rate_limit(self):
         for i in range(120):self.client.get('/missing')
         self.assertEqual(self.client.get('/missing').status_code,429)
+
+    def test_confidential_client_secret_is_verified(self):
+        payload={'redirect_uris':[self.callback], 'token_endpoint_auth_method':'client_secret_post',
+            'grant_types':['authorization_code','refresh_token'],'response_types':['code'],'scope':'oracle.read'}
+        r=self.client.post('/register',json=payload)
+        self.assertEqual(r.status_code,201,r.text)
+        client=r.json();cid=client['client_id']
+        r=self.authorize(cid);code=parse_qs(urlsplit(r.headers['location']).query)['code'][0]
+        self.assertEqual(self.token(cid,code).status_code,401)
+        r=self.client.post('/token',data={'grant_type':'authorization_code','client_id':cid,
+            'client_secret':client['client_secret'],'code':code,'code_verifier':self.verifier,
+            'redirect_uri':self.callback,'resource':self.origin+'/mcp'})
+        self.assertEqual(r.status_code,200,r.text)
