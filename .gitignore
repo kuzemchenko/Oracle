@@ -47,3 +47,7 @@ journal/pull_refused.txt
 storage/advisor.sqlite3*
 
 .venv-advisor/
+
+# Local pilot runtime binary and temporary endpoint
+bin/cloudflared*
+storage/public_url.txt
