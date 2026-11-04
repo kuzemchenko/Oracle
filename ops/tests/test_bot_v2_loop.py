@@ -135,7 +135,7 @@ def test_more_ideas_button_routes(paths, monkeypatch):
     b.state["last_idea_day"] = {"run_id": "ef_x", "lead": "GEV.US",
                                 "issued_at": "2026-11-02T09:00:00+00:00", "idx": {}}
     shown = []
-    monkeypatch.setattr(BOT.Bot, "_cmd_more_ideas", lambda self, chat: shown.append(chat))
+    monkeypatch.setattr(BOT.Bot, "_cmd_more_ideas", lambda self, chat, lid=None: shown.append(chat))
     b._on_callback(_cb("v:w:ef_x"))
     assert shown, "кнопка «Что ещё было» не показала Топ-3"
     assert not (paths / "decisions_user.jsonl").exists(), "показ списка — не решение, в §12 не пишем"

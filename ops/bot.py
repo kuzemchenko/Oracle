@@ -417,7 +417,7 @@ class Bot:
         issued_at = lid.get("issued_at")
         if code == "w":
             self.tg.answer_callback(cb_id)
-            self._cmd_more_ideas(chat)
+            self._cmd_more_ideas(chat, lid)              # ревью 04.11: «что ещё было» — про охоту ЭТОЙ записки
             return
         _motives = {"m1": "не понял", "m2": "не верю", "m3": "поздно"}
         if code not in ("q", "m", "p", *_motives) or not lead:
@@ -689,39 +689,117 @@ class Bot:
             name = str(card.get("name") or "").strip() if isinstance(card, dict) else ""
             return f"{name} ({tk})" if name else tk
 
-        def _show(p, key, card, body, reason):
+        def _shown_any(p):
+            """Показана ли эта идея (ЛЮБАЯ версия файла) — ревью 04.11: правка показанной записки не
+            должна уходить второй полной запиской со второй клавиатурой."""
+            return any(k.startswith(p.name + "@") and k.endswith(":shown") for k in seen)
+
+        def _plain_gate(fails):
+            """Причины шлагбаума владельцу — человеческими словами (ревью 04.11: сырые строки кода несли
+            «сырая вероятность», «асимметрия 0.86 < 1.5», «§9: …»). Дословно — только в дозор."""
+            out = []
+            for f in fails[:4]:
+                t = str(f)
+                if "асимметри" in t or "порог требует хода" in t or "потенциал" in t:
+                    out.append("по свежим ценам сервера возможный выигрыш до цели стал мал против риска до стопа")
+                elif "отыгран" in t or "в цене" in t or "перелёт" in t.lower():
+                    out.append("по свежим ценам рынок уже прошёл почти весь ожидаемый ход")
+                elif "старше" in t or "задним числом" in t:
+                    out.append("идея пролежала дольше трёх дней с охоты — задним числом в счёт не пишу")
+                elif "не сход" in t or "день повода" in t or "цена" in t:
+                    out.append("цифры записки не сошлись с ценами сервера")
+                elif "катализатор" in t or "горизонт" in t or "сверк" in t or "срок" in t:
+                    out.append("сроки плана не укладываются в правила честной проверки")
+                elif "факт" in t or "источник" in t:
+                    out.append("не хватает подтверждённых фактов с датой и ссылкой")
+            out = list(dict.fromkeys(out))
+            return "; ".join(out) or "план не прошёл проверку сервера по свежим ценам"
+
+        def _held_body(text, card):
+            """Тело показанной записки — только с числами, посчитанными КОДОМ по серверным ценам.
+            (1) Итоговый текст prepare_push без проблем — он и уходит. (2) Иначе — черновик, из которого
+            выкинуты абзацы модели с деньгами (apply_rendered), если он проходит линт и сверку с карточкой.
+            (3) Иначе — только заголовок (о чём идея и в какую сторону), если он сам не спорит с карточкой
+            (сторона ставки, тикер) и проходит линт. (4) Иначе None."""
+            try:
+                fin, pp = HS.prepare_push(text, card)
+                if not pp:
+                    return fin
+                rendered, _rp = HS.render_with_problems(card)
+                draft = HS.apply_rendered(text, rendered)
+            except Exception as e:                       # noqa: BLE001 — показ не роняет доставку
+                log("показ: тело не собралось", repr(e))
+                draft = ""
+            if draft and not PL.lint_hunter_idea(draft) and not HS.push_card_mismatch(draft, card, require_prices=False):
+                return draft
+            head = (draft or str(text)).split("\n\n")[0].strip()
+            if head and not PL.lint_hunter_idea(head + "\n\n" + PL.RESEARCH_FRAME) \
+                    and not HS.push_card_mismatch(head, card, require_prices=False):
+                return head
+            return None
+
+        def _show(p, key, card, body, reason, wait=None):
             """Владелец 04.11: «если бот придерживает идею — всё равно покажи: может, отменю, а может,
             покопаем вместе; ты советник, а не тот, кто всё посчитал и спрятал». Идея, которую сервер не
             записал в счёт (вход пока невозможен, шлагбаум, вторая проверка против), уходит владельцу
-            С ЧЕСТНОЙ ПОМЕТКОЙ почему и с кнопками. Один раз на версию (метка :shown). В журнал прогнозов
-            такое НЕ пишется (П16 — счёт ведётся только по записанным). → True (ушло/уже) | False (сеть)."""
-            if key + ":shown" in seen:
+            С ЧЕСТНОЙ ПОМЕТКОЙ почему и с кнопками. Один раз на ИДЕЮ (любая версия файла). В журнал
+            прогнозов такое НЕ пишется (П16). Доставка — отдельным видом «идея для обсуждения» (замер точки Б
+            по подписанным 03.11 определениям её не считает; что считать — решает владелец).
+            → True (ушло/уже) | False (сеть)."""
+            if key + ":shown" in seen or _shown_any(p):
                 return True
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
             head = (_who(p, card) + " — показываю для обсуждения, в счёт пока не записал: "
                     + str(reason).strip().rstrip(".") + ".")
-            out = head + ("\n\n" + body if body else "\n\nПолный текст записки ещё дорабатываю — "
-                          "спроси «разбери " + _who(p, card).split("(")[-1].rstrip(")") + "», если хочешь копнуть сразу.")
+            tail = ("\n\nПолный текст записки не прошёл мою проверку подачи — его не показываю, чтобы не ввести "
+                    "в заблуждение. Хочешь копнуть — нажми «Качаем»: покажу, на чём стоит идея.")
+            out = head + ("\n\n" + body if body else tail)
+            if body and PL.RESEARCH_FRAME not in out:
+                out += "\n\n" + PL.RESEARCH_FRAME
+            elif not body:
+                out += "\n\n" + PL.RESEARCH_FRAME
             lids = self.state.setdefault("hunter_lids", {})
             prev = lids.get(rid) or {}
             kb = None if prev.get("action") else self._idea_kb(rid)
             _mid = self._send_card(out, kb)
             if _mid is None:
                 return False
-            self._log_delivery("идея охотника", ref=p.name, text=out, mid=_mid, buttons=kb is not None,
+            self._log_delivery("идея для обсуждения", ref=p.name, text=out, mid=_mid, buttons=kb is not None,
                                lint_ok=bool(body), extra={"записана_в_счёт": False, "причина": str(reason)[:300]})
             _s9 = card.get("spec9") if isinstance(card, dict) and isinstance(card.get("spec9"), dict) else {}
             lid = prev or {"run_id": rid, "idx": {}, "issued_at": S.now_utc().isoformat(timespec="seconds"),
                            "source": "hunter"}
             lid.update({"lead": str(_s9.get("asset") or "").upper() or None, "sealed": False,
-                        "unrecorded": str(reason)[:300],
+                        "unrecorded": str(reason)[:300], "shown_body": bool(body), "wait": wait,
                         "idea_file": str(p.relative_to(d)) if p.parent != d else p.name})
             if isinstance(card, dict) and card.get("name"):
                 lid["name"] = str(card.get("name"))
+            if body:
+                # ревью 04.11: обещанное запиской напоминание в день развилки работает и для показанной идеи
+                _bl = body.split("\n\n")
+                _cat = card.get("catalyst") if isinstance(card, dict) and isinstance(card.get("catalyst"), dict) else {}
+                lid.update({"catalyst_date": str(_cat.get("date") or "")[:10], "header": _bl[0],
+                            "todo": next((x for x in _bl if x.strip().startswith("Что делать")), "")})
             lids[rid] = lid
+            cur = self.state.get("last_idea_day") or {}
+            if not cur or str(cur.get("issued_at") or "") <= str(lid.get("issued_at") or ""):
+                self.state["last_idea_day"] = lid          # «Что ещё было» — про ЭТУ охоту
             _mark(key + ":shown")
             log("идея охотника показана без записи:", p.name, str(reason)[:80])
             return True
+
+        def _drop_shown(p, card, why_plain):
+            """Показанная «для обсуждения» идея сорвалась на пути в счёт — одна строка владельцу (обещали
+            написать). Идею за владельца не закрываем: обсуждать и копать её можно и дальше."""
+            if not _shown_any(p):
+                return
+            mark = p.name + ":dropnote"
+            if mark in seen:
+                return
+            self._notice_owner(_who(p, card) + ": в счёт эту идею не записал — " + str(why_plain).strip().rstrip(".")
+                               + ". Записка, что я присылал, остаётся для обсуждения: не согласен или хочешь "
+                               "копнуть — нажми под ней «Качаем».")
+            _mark(mark)
 
         def _one(p):
             try:
@@ -805,10 +883,13 @@ class Bot:
                     # шлагбаум (окно катализатора, горизонт, якорь, «задним числом») — про НОВУЮ ставку
                     ok, gfails, card = HS.server_check(card, idea_file=p.name)
                     if not ok:
+                        waits = self.state.setdefault("hunter_wait", {})   # почему ждали (для честной строки)
                         if HS.is_transient(gfails):
+                            entry_wait = "за границей входа" in str(gfails[0])
+                            waits[p.name] = "entry" if entry_wait else "data"
                             _later(key, "Идея охотника " + p.name + " ждёт серверных котировок ("
                                    + str(gfails[0])[len(HS.TRANSIENT):][:160] + ") — повторю через час.")
-                            if "за границей входа" in str(gfails[0]):
+                            if entry_wait:
                                 # владелец 04.11: придержанная идея всё равно показывается сразу
                                 _s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
 
@@ -818,25 +899,33 @@ class Bot:
                                     except (TypeError, ValueError):
                                         return "?"
                                 _down = str(card.get("direction") or "").strip().lower() == "вниз"
-                                _fin, _pp = HS.prepare_push(text, card)
-                                if not _show(p, key, card, None if _pp else _fin,
+                                if not _show(p, key, card, _held_body(text, card),
                                              f"по плану вход {'не дешевле' if _down else 'не дороже'} "
                                              f"{_usd(card.get('entry_limit'))}, а бумага сейчас "
-                                             f"{_usd(_s9.get('last_close'))} — входить пока рано. Если цена подойдёт "
-                                             f"к входу в ближайшие {HS.MAX_SEAL_LAG_DAYS} дня, запишу проверку в счёт "
-                                             "и напишу тебе; не подойдёт — сниму идею"):
+                                             f"{_usd(_s9.get('last_close'))} — входить пока рано. В счёт запишу, только "
+                                             f"если цена подойдёт к входу за {HS.MAX_SEAL_LAG_DAYS} дня с охоты (правило "
+                                             "честного счёта); не подойдёт — в счёт она не попадёт, но обсуждать и "
+                                             "копать её можно и дальше", wait="entry"):
                                     return "stop"
                             return None
-                        if key + ":shown" in seen:
-                            # уже показана как «вход пока невозможен» — закрываем её одной строкой
-                            self._notice_owner(_who(p, card) + ": цена так и не подошла к входу за отведённые дни — "
-                                               "идею снимаю, в счёт её не записал. Хочешь вернуться к ней — "
-                                               "скажи, переразберу с новыми ценами.")
-                        else:
-                            _fin, _pp = HS.prepare_push(text, card)
-                            if not _show(p, key, card, None if _pp else _fin,
-                                         "проверка сервера не пропустила её в счёт ("
-                                         + "; ".join(str(f) for f in gfails[:2])[:260] + ")"):
+                        _hd = HS.hunt_date_from_name(p.name)
+                        _fresh = _hd is not None and 0 <= (now.date() - _hd).days <= HS.MAX_SEAL_LAG_DAYS
+                        if _shown_any(p):
+                            stale = "старше" in str(gfails[0])
+                            if stale and waits.get(p.name) == "entry":
+                                why_end = (f"окно записи в счёт закрылось — за {HS.MAX_SEAL_LAG_DAYS} дня с охоты "
+                                           "цена не подошла к входу")
+                            elif stale:
+                                why_end = "за отведённые дни не успел довести проверку (котировки или вторая проверка)"
+                            else:
+                                why_end = "проверка сервера по свежим ценам не пропустила: " + _plain_gate(gfails)
+                            _drop_shown(p, card, why_end)
+                        elif _fresh:
+                            # ревью 04.11: тело — только по ЦЕЛИКОМ сверенным сервером ценам; карточка старше
+                            # окна (запасная после снятия лидера) не показывается — её цены не пересчитаны
+                            _rc, _rf = HS.reprice(card)
+                            if not _show(p, key, _rc if not _rf else card, _held_body(text, _rc) if not _rf else None,
+                                         "проверка сервера не пропустила её в счёт: " + _plain_gate(gfails)):
                                 return "stop"           # сеть — показ повторим со следующего тика
                         _mark(key + ":bad")
                         self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
@@ -846,10 +935,16 @@ class Bot:
                 # карточкой и линт по тому, что реально уйдёт владельцу (одна функция с облачным preview)
                 final, pproblems = HS.prepare_push(text, card, update=update)
                 if pproblems:
-                    _mark(key + ":bad")
                     # ре-гейт 03.11: срыв ИСПРАВЛЕНИЯ уже доставленной идеи владелец видит (сторож его не ловит)
                     _tech = ("Идея охотника " + p.name + " не прошла проверку итогового текста ("
                              + "; ".join(str(x) for x in pproblems[:2]) + ") — в Telegram не ушла.")
+                    if not update:
+                        if _shown_any(p):
+                            _drop_shown(p, card, "итоговый текст по свежим ценам не прошёл проверку подачи")
+                        elif not _show(p, key, card, _held_body(text, card),
+                                       "текст записки по свежим ценам не прошёл мою проверку подачи"):
+                            return "stop"
+                    _mark(key + ":bad")
                     if update:
                         self._update_failed(p, "текст новой версии не прошёл проверку подачи", _tech)
                     else:
@@ -869,10 +964,14 @@ class Bot:
                                                              + "; дословно — в кэше суда на сервере")
                     _tech = ("Идею охотника " + p.name + " отверг суд разных семейств (" + why_txt
                              + ") — в Telegram не ушла" + ("" if update else ", записана тенью для проверки права вето") + ".")
-                    if not update and not _show(p, key, card, final, "вторая проверка (модели других "
-                                                "разработчиков) нашла довод против: " + why_txt
-                                                + ". Не согласен — нажми «Качаем», разберём вместе"):
-                        return "stop"               # владелец 04.11: не прячем; сеть — повтор показа
+                    _plain_why = HC.safe_objection(verdict) or "подробности — по кнопке «Качаем»"
+                    if not update:
+                        if _shown_any(p):
+                            _drop_shown(p, card, "вторая проверка (модели других разработчиков) нашла довод против: "
+                                        + _plain_why)
+                        elif not _show(p, key, card, final, "вторая проверка (модели других разработчиков) нашла "
+                                       "довод против: " + _plain_why + ". Не согласен — нажми «Качаем», разберём вместе"):
+                            return "stop"           # владелец 04.11: не прячем; сеть — повтор показа
                     _mark(key + ":bad")
                     if update:
                         self._update_failed(p, "вторая проверка (модели других разработчиков) нашла улику против новой версии", _tech)
@@ -889,7 +988,13 @@ class Bot:
                 else:
                     rec, why = HS.seal_card(card, idea_file=p.name)
                     if rec is None and why != "уже запечатано":
-                        # П16: новая идея без печати не уходит (порядок «печать до доставки»)
+                        # П16: новая идея без печати не уходит как записанная (порядок «печать до доставки»);
+                        # владелец 04.11 — но показывается «для обсуждения» с причиной
+                        _why_seal = "записать проверку в счёт не вышло (" + str(why)[:140] + ")"
+                        if _shown_any(p):
+                            _drop_shown(p, card, _why_seal)
+                        elif not _show(p, key, card, final, _why_seal):
+                            return "stop"
                         _mark(key + ":bad")
                         self._notice_dozor("Идея охотника " + p.name + ": прогноз не запечатан ("
                                            + str(why) + ") — без записи в счёт идея не уходит.")
@@ -899,6 +1004,7 @@ class Bot:
                         # версия вправе уйти только с ТОЙ ЖЕ ставкой, иначе «уже записан» соврёт
                         um = HS.update_bet_mismatch(card, p.name)
                         if um:
+                            _drop_shown(p, card, "план новой версии разошёлся с уже записанной ставкой")
                             _mark(key + ":bad")
                             self._notice_dozor("Новая версия идеи охотника " + p.name + " не ушла: " + um
                                                + ". Новая ставка = новая идея с новой датой.")
@@ -950,20 +1056,30 @@ class Bot:
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
             lids = self.state.setdefault("hunter_lids", {})
             prev = lids.get(rid) or {}
-            shown_before = (key + ":shown") in seen and not update
+            was_shown = _shown_any(p) and not update
+            shown_before = was_shown and bool(prev.get("shown_body"))
+            if was_shown and not shown_before:
+                # при показе записки не было (только заголовок) — теперь присылаем её целиком; кнопки уже есть
+                out = (_who(p, {"name": foot.get("name")}) + ": записал проверку в счёт — вот полная записка, "
+                       "в прошлый раз её не было.\n\n" + out)
             if shown_before:
-                # владелец уже видел эту записку (с пометкой «в счёт пока не записал») — не повторяем её
-                out = "\n".join([_who(p, {"name": foot.get("name")}) + ": цена подошла к входу — записал "
-                                  "проверку в счёт. План прежний, из той записки.", ""] + list(foot["lines"]))
+                # владелец уже видел записку (с пометкой «в счёт пока не записал») — не повторяем её
+                _why_ok = ("цена подошла к входу в пределах правила (не дальше 5% от границы)"
+                           if prev.get("wait") == "entry" else "проверка по свежим ценам теперь прошла")
+                out = "\n".join([_who(p, {"name": foot.get("name")}) + ": " + _why_ok + " — записал проверку в "
+                                  "счёт. План и условия входа — прежние, из той записки: входить только на его "
+                                  "условиях.", ""] + list(foot["lines"]))
             # перепроверка №2: у каждой идеи охотника — свои кнопки (решение одно на идею): исправление
             # не воскрешает уже нажатые и не отнимает кнопки у текущей идеи дня
-            kb = None if (prev.get("action") or shown_before) else self._idea_kb(rid)
+            kb = None if (prev.get("action") or was_shown) else self._idea_kb(rid)
             _mid = self._send_card(out, kb)
             if _mid is None:
                 return "stop"                                  # сеть — ретрай; доставленные уже отмечены
-            self._log_delivery("обновление идеи" if update else ("идея записана" if shown_before else "идея охотника"),
-                               ref=p.name, text=out, mid=_mid, buttons=kb is not None, lint_ok=True)
-            lid = prev if update and prev else {
+            # ревью 04.11: показанная раньше и теперь записанная идея считается доставленной ОДИН раз — сейчас
+            self._log_delivery("обновление идеи" if update else "идея охотника", ref=p.name, text=out, mid=_mid,
+                               buttons=kb is not None, lint_ok=True, extra={"показана_раньше": True} if was_shown else None)
+            # ревью 04.11: запись показанной идеи сохраняет нажатие владельца и время показа
+            lid = prev if (update or was_shown) and prev else {
                 "run_id": rid, "lead": asset, "idx": {},
                 "issued_at": S.now_utc().isoformat(timespec="seconds"), "source": "hunter"}
             lid["sealed"] = bool(foot.get("sealed")) or bool(lid.get("sealed"))
@@ -1180,11 +1296,14 @@ class Bot:
         for rid, lid in sorted(lids.items()):
             if lid.get("catalyst_date") != today or lid.get("fork_reminded") == today:
                 continue
-            if not lid.get("sealed") or lid.get("action") == "skip":
+            if not (lid.get("sealed") or lid.get("unrecorded")) or lid.get("action") == "skip":
                 continue                                 # «Мимо» — не напоминаем
             base = str(lid.get("lead") or "").split(".")[0]
             parts = [f"Сегодня день развилки по идее {lid.get('name') or base} ({base}) — напоминание "
                      "кода по дате из записки."]
+            if not lid.get("sealed"):
+                # владелец 04.11: показанная «для обсуждения» идея тоже получает обещанное напоминание
+                parts.append("В счёт эта идея не записана — напоминаю, потому что ты её видел.")
             if lid.get("header"):
                 parts.append("Условие из записки: «" + str(lid["header"]).strip() + "»")
             if lid.get("todo"):
@@ -1474,9 +1593,10 @@ class Bot:
         return any(k in t for k in ("что ещё было", "что еще было", "ещё идеи", "еще идеи",
                                     "остальные идеи", "другие идеи"))
 
-    def _cmd_more_ideas(self, chat):
-        """Остальные идеи дня = «Топ-3» того же прогона, из готового суда, через линт стиль-контракта."""
-        lid = self.state.get("last_idea_day") or self.state.get("last_top3")
+    def _cmd_more_ideas(self, chat, lid=None):
+        """Остальные идеи дня = «Топ-3» того же прогона, из готового суда, через линт стиль-контракта.
+        lid — идея, под которой нажата кнопка (иначе — последняя идея дня)."""
+        lid = lid or self.state.get("last_idea_day") or self.state.get("last_top3")
         # аудит 03.11: под идеей охотника «что ещё было» = кандидаты ЭТОЙ охоты (hunt_log.jsonl),
         # а не Топ-3 старого конвейера; журнала за дату нет — прежний фолбэк на Топ-3 сервера
         if lid and str(lid.get("run_id") or "").startswith("h_"):

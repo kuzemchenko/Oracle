@@ -99,9 +99,11 @@ def test_hunter_push_delivers_once_and_lints(tmp_path, monkeypatch):
     n = len(b.tg.sent)
     b._tick_hunter_ideas()                       # повтор — дедуп (по имени+хешу содержимого)
     assert len(b.tg.sent) == n
-    assert sorted(k.split("@")[0] for k in b.state["hunter_pushed"]) == [
+    assert sorted({k.split("@")[0] for k in b.state["hunter_pushed"]}) == [
         "idea_2026-11-01_MP.push.txt", "idea_2026-11-02_BAD.push.txt",
         "idea_2026-11-03_ODDS.push.txt"]
+    # владелец 04.11: брак не прячется — показан «для обсуждения» без битого текста
+    assert sum("показываю для обсуждения" in t for t in sent) == 2
 
 
 def test_hunter_fixed_file_redelivered(tmp_path, monkeypatch):
@@ -109,11 +111,13 @@ def test_hunter_fixed_file_redelivered(tmp_path, monkeypatch):
     доставляется; доставленная версия повторно не уходит."""
     b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_F.push.txt", "Жаргон: каскад")])
     b._tick_hunter_ideas()
-    assert not b.tg.sent and notes
+    assert notes and len(b.tg.sent) == 1 and "показываю для обсуждения" in b.tg.sent[0][1]
+    assert "каскад" not in b.tg.sent[0][1]                        # битый текст не уходит
     f = tmp_path / "reports" / "ideas" / "idea_2026-11-02_F.push.txt"
     f.write_text(GOOD, encoding="utf-8")
     b._tick_hunter_ideas()
-    assert any("проверочная идея" in t for _c, t, _k in b.tg.sent)
+    assert any("проверочная идея" in t and "вот полная записка" in t for _c, t, _k in b.tg.sent)
+    assert b.tg.sent[-1][2] is None                               # кнопки уже под первым показом
     n = len(b.tg.sent)
     b._tick_hunter_ideas()
     assert len(b.tg.sent) == n
@@ -148,11 +152,12 @@ def test_hunter_network_failure_keeps_delivered_marks(tmp_path, monkeypatch):
 
     monkeypatch.setattr(b, "_send_card", flaky)
     b._tick_hunter_ideas()
-    assert sorted(k.split("@")[0] for k in b.state["hunter_pushed"]) == [
+    assert sorted({k.split("@")[0] for k in b.state["hunter_pushed"]}) == [
         "idea_2026-11-01_A.push.txt", "idea_2026-11-02_BAD.push.txt"]
     assert len(notes) == 1
     b._tick_hunter_ideas()                       # «сеть починилась» — но наш стаб всё ещё падает
-    assert calls["n"] == 3, "ретрай только недоставленного файла B (A не дублируется)"
+    # A один раз, показ брака BAD один раз (владелец 04.11), B — дважды (ретрай)
+    assert calls["n"] == 4, "ретрай только недоставленного файла B (A и показ BAD не дублируются)"
     assert len(notes) == 1, "заметка о том же битом файле не спамится в дозор"
 
 
@@ -475,7 +480,9 @@ def test_nocard_noted_once_and_unsealable_new_idea_not_sent(tmp_path, monkeypatc
     b2, notes2 = _setup(tmp_path / "u", monkeypatch, [("idea_2026-11-02_B.push.txt", GOOD)])
     monkeypatch.setattr(U, "is_sealable", lambda a, **k: False)
     b2._tick_hunter_ideas()
-    assert not b2.tg.sent and any("не запечатан" in n for n in notes2)
+    assert any("не запечатан" in n for n in notes2)
+    # владелец 04.11: показана «для обсуждения», в счёт не записана
+    assert len(b2.tg.sent) == 1 and "в счёт пока не записал: записать проверку в счёт не вышло" in b2.tg.sent[0][1]
 
 
 def test_second_check_line_is_linted():
@@ -523,7 +530,10 @@ def test_flipped_header_not_sent(tmp_path, monkeypatch):
     flipped = GOOD.replace("ставлю на рост", "ставлю на снижение")
     b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", flipped)])
     b._tick_hunter_ideas()
-    assert not b.tg.sent and any("заголовок" in n for n in notes)
+    assert any("заголовок" in n for n in notes)
+    # показана без заголовка, спорящего с карточкой: перевёрнутая сторона владельцу не уходит
+    assert len(b.tg.sent) == 1 and "ставлю на снижение" not in b.tg.sent[0][1]
+    assert "показываю для обсуждения" in b.tg.sent[0][1]
 
 
 def test_update_changing_sealed_bet_blocked(tmp_path, monkeypatch):
@@ -759,7 +769,9 @@ def test_final_text_checked_before_seal_nothing_sealed_on_reject(tmp_path, monke
                          "Что делать. Ждать до 15 декабря. Решение за тобой.")
     b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", draft)])
     b._tick_hunter_ideas()
-    assert not b.tg.sent and not pred.exists(), "ничего не запечатано"
+    assert not pred.exists(), "ничего не запечатано"
+    assert len(b.tg.sent) == 1 and "показываю для обсуждения" in b.tg.sent[0][1]
+    assert "$51.44" not in b.tg.sent[0][1]                         # числа модели владельцу не уходят
     assert any("итогового текста" in n and "цел" in n for n in notes)
 
 
@@ -968,15 +980,15 @@ def test_backup_idea_goes_only_after_leader_is_rejected(tmp_path, monkeypatch):
     (alt / "idea_2026-11-01_MP.push.txt").write_text(GOOD, encoding="utf-8")
     (alt / "idea_2026-11-01_MP.md").write_text(MD, encoding="utf-8")
     (alt / "idea_2026-11-01_MP.card.json").write_text(_json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
-    b._tick_hunter_ideas()                              # лидер бракуется
-    assert not b.tg.sent
+    b._tick_hunter_ideas()                              # лидер бракуется — показан «для обсуждения»
+    assert len(b.tg.sent) == 1 and "показываю для обсуждения" in b.tg.sent[0][1]
     b._tick_hunter_ideas()                              # следующий тик — запасная
     sent = [t for _c, t, _k in b.tg.sent]
-    assert len(sent) == 1 and "проверочная идея" in sent[0]
+    assert len(sent) == 2 and "проверочная идея" in sent[1]
     lid = b.state["hunter_lids"]["h_2026-11-01_MP"]
     assert lid["idea_file"] == "alt/idea_2026-11-01_MP.push.txt" and lid.get("backup")
     b._tick_hunter_ideas()
-    assert len(b.tg.sent) == 1                          # одна запасная на дату, без повторов
+    assert len(b.tg.sent) == 2                          # одна запасная на дату, без повторов
     from orchestrator import deep_dive as DD             # «Качаем» по запасной находит её карточку
     assert DD.hunter_card("h_2026-11-01_MP", tmp_path / "reports" / "ideas")["ticker"] == CARD["ticker"]
 
@@ -1224,7 +1236,113 @@ def test_held_idea_is_shown_now_and_recorded_later_with_short_note(tmp_path, mon
     b._tick_hunter_ideas()
     assert len(b.tg.sent) == 2, b.tg.sent[-1][1][:300]
     _c2, text2, kb2 = b.tg.sent[1]
-    assert "цена подошла к входу — записал проверку в счёт" in text2 and kb2 is None
+    assert "цена подошла к входу в пределах правила" in text2 and "записал проверку в счёт" in text2
+    assert kb2 is None and "входить только на его условиях" in text2
     assert len(text2) < len(text1)
     rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
     assert any(r["kind"] == "hunter_idea" for r in rows)
+
+
+def _held_setup(tmp_path, monkeypatch, verdict="PASS"):
+    """Реальная записка MP (вход по условию) + серверные цены по желанию теста."""
+    import json as _json
+    import datetime as _dt
+    from ops import hunter_seal as HS
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    src = ROOT / "reports" / "ideas"
+    text = (src / "idea_2026-11-02_MP.push.txt").read_text("utf-8")
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", text)], verdict=verdict)
+    card = _json.loads((src / "idea_2026-11-02_MP.card.json").read_text("utf-8"))
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(card, ensure_ascii=False), encoding="utf-8")
+    lim = float(card["entry_limit"])
+    last = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
+    closes = [lim * (1.03 if i % 2 else 0.97) for i in range(60)]
+
+    def at(px):
+        monkeypatch.setattr(HS, "_server_prices", lambda a, td=None, con=None: {
+            "last_close": px, "last_date": last, "trigger_close": card["trigger_close"], "trigger_date": td,
+            "closes": closes + [px]})
+    return b, notes, at, lim, pred
+
+
+def test_shown_held_idea_later_killed_by_court_gets_one_owner_line(tmp_path, monkeypatch):
+    """Ревью 04.11 (high): показанную «вход пока рано» идею потом отверг суд — владельцу одна строка,
+    а не тишина; повторов нет."""
+    b, notes, at, lim, pred = _held_setup(tmp_path, monkeypatch, verdict="FATAL")
+    at(round(lim * 1.08, 2))
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1
+    at(round(lim * 1.01, 2))
+    b.state["hunter_retry"] = {}
+    b._tick_hunter_ideas()
+    b._tick_hunter_ideas()
+    owner = [n for n in notes if "в счёт эту идею не записал" in n]
+    assert len(b.tg.sent) == 1 and len(owner) == 1 and "нашла довод против" in owner[0]
+    assert "так и не подошла" not in owner[0]
+
+
+def test_skip_on_shown_idea_survives_recording_and_blocks_reminder(tmp_path, monkeypatch):
+    """Ревью 04.11: «Мимо» под показанной идеей не теряется при её записи в счёт; напоминания нет."""
+    import datetime as _dt
+    b, _notes, at, lim, _pred = _held_setup(tmp_path, monkeypatch)
+    at(round(lim * 1.08, 2))
+    b._tick_hunter_ideas()
+    rid = "h_2026-11-02_MP"
+    b.state["hunter_lids"][rid]["action"] = "skip"
+    at(round(lim * 1.01, 2))
+    b.state["hunter_retry"] = {}
+    b._tick_hunter_ideas()
+    lid = b.state["hunter_lids"][rid]
+    assert lid.get("action") == "skip" and lid.get("sealed")
+    n = len(b.tg.sent)
+    day = lid.get("catalyst_date")
+    if day:
+        b._tick_hunter_fork_reminders(_dt.datetime.fromisoformat(day + "T12:30:00+00:00"))
+    assert len(b.tg.sent) == n
+
+
+def test_shown_unrecorded_idea_still_gets_fork_reminder_and_is_logged_apart(tmp_path, monkeypatch):
+    """Ревью 04.11: обещанное запиской напоминание в день развилки приходит и по показанной (не записанной)
+    идее — с пометкой; доставка показа — отдельным видом, замер точки Б её как идею охотника не считает."""
+    import datetime as _dt
+    import json as _json
+    b, _notes, at, lim, _pred = _held_setup(tmp_path, monkeypatch)
+    log_path = tmp_path / "deliv.jsonl"
+    monkeypatch.setattr(BOT, "DELIVERIES_PATH", log_path)
+    at(round(lim * 1.08, 2))
+    b._tick_hunter_ideas()
+    kinds = [_json.loads(x)["kind"] for x in log_path.read_text("utf-8").splitlines()]
+    assert kinds == ["идея для обсуждения"]
+    lid = b.state["hunter_lids"]["h_2026-11-02_MP"]
+    assert lid.get("unrecorded") and lid.get("catalyst_date")
+    b._tick_hunter_fork_reminders(_dt.datetime.fromisoformat(lid["catalyst_date"] + "T12:30:00+00:00"))
+    assert "В счёт эта идея не записана" in b.tg.sent[-1][1]
+
+
+def test_gate_reasons_reach_owner_in_plain_words(tmp_path, monkeypatch):
+    """Ревью 04.11 (high): сырые строки шлагбаума («асимметрия 0.86 < 1.5», «сырая вероятность», «§9»)
+    владельцу не уходят — только человеческие слова."""
+    import json as _json
+    from test_idea_gate import CARD
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)])
+    bad = {**CARD, "target_price": 41.0, "spec9": {**CARD["spec9"], "probability": 0.99}}
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(bad, ensure_ascii=False), encoding="utf-8")
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1
+    t = b.tg.sent[0][1]
+    assert "показываю для обсуждения" in t
+    for raw in ("асимметрия", "вероятност", "§9", "< 1.5", ".push.txt"):
+        assert raw not in t, raw
+
+
+def test_card_older_than_window_is_not_shown(tmp_path, monkeypatch):
+    """Ревью 04.11: карточка старше окна печати (запасная после снятия лидера) с непересчитанными ценами
+    «для обсуждения» не показывается."""
+    from ops import hunter_seal as HS
+    b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-10-20_MP.push.txt", GOOD)])
+    monkeypatch.setattr(HS, "MAX_SEAL_LAG_DAYS", 3)
+    b._tick_hunter_ideas()
+    assert not b.tg.sent and any("шлагбаум" in n for n in notes)
