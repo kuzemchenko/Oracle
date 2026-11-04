@@ -7,7 +7,7 @@ Telegram history remains available through the existing ChatGPT Telegram plugin.
 
 ## Current status
 
-15 local tests pass, including the complete OAuth authorization-code/PKCE exchange,
+16 local tests pass, including the complete OAuth authorization-code/PKCE exchange,
 protected MCP call, refresh rotation, revocation, wrong password/origin, expired
 codes, code replay, cross-client access, payload and rate limits. Live provider
 credentials and actual ChatGPT end-to-end connectivity have NOT been verified.
@@ -37,7 +37,7 @@ enabled at boot and will not automatically restart. Streamable HTTP JSON respons
 are used; this does not depend on SSE support in Quick Tunnels.
 
 In ChatGPT choose Server URL, paste the printed URL, and choose OAuth. Select dynamic
-client registration/public client (`none`) if advanced setup asks. The scope is
+client registration if advanced setup asks; public and client-secret authentication are supported. The scope is
 `oracle.read`. Approve reading in the Oracle login page using the separate locally
 generated password, NOT your ChatGPT password or provider API keys. Retrieve it only
 locally when needed (do not send it in chat or screenshots):
