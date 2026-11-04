@@ -90,6 +90,8 @@ SCHEDULED_JOBS = (
     ("point_b_auto", "point_b", ("ops/point_b.py", "--write"), (5,), (17, 30)),
     # снимок серверных закрытий для облачного охотника — до чекпоинта 22:00 (без LLM, только чтение базы)
     ("price_snapshot_auto", "price_snapshot", ("ops/price_snapshot.py", "write"), (1, 2, 3, 4, 5, 6, 7), (21, 30)),
+    # меню событий для режима «Круги на воде» (04.11): GDELT по файлам + Википедия + NewsAPI.ai — до чекпоинта
+    ("event_menu_auto", "event_menu", ("ops/event_menu.py", "write"), (1, 2, 3, 4, 5, 6, 7), (21, 0)),
 )
 CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,

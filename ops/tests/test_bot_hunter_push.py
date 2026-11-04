@@ -1130,6 +1130,7 @@ def test_job_flags_survive_real_yaml_load_and_format_save(tmp_path):
     assert BOT.R.load_presentation(p)["price_snapshot_auto"] is True
     real = BOT.R.load_presentation(ROOT / "config" / "presentation.yaml")
     assert real["price_snapshot_auto"] is True                 # боевой конфиг: снимок цен включён
+    assert real["event_menu_auto"] is True                     # 04.11: меню событий включено владельцем
 
 
 def test_honest_zero_goes_in_the_morning_and_snapshot_exact_date(tmp_path, monkeypatch):

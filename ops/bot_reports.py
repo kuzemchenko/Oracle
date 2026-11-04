@@ -559,7 +559,7 @@ field_help = {
 EMPTY_MARK = "[поле пустое]"   # П8: пусто → честно, ничего не выдумываем
 
 
-JOB_FLAGS = ("deep_dive_auto", "week_odds_auto", "point_b_auto", "price_snapshot_auto")
+JOB_FLAGS = ("deep_dive_auto", "week_odds_auto", "point_b_auto", "price_snapshot_auto", "event_menu_auto")
 
 
 def load_presentation(path=None):
