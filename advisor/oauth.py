@@ -44,8 +44,6 @@ class OwnerOAuth:
             u=urlsplit(str(uri))
             if u.scheme!='https' or u.hostname not in self.callback_hosts or u.port not in (None,443) or u.username or u.password or u.fragment:
                 raise RegistrationError('invalid_redirect_uri','Only configured ChatGPT callback hosts are permitted')
-        if client_info.token_endpoint_auth_method != 'none':
-            raise RegistrationError('invalid_client_metadata','Use public client authentication (none) with PKCE')
         self.clients[client_info.client_id]=client_info
 
     async def authorize(self, client, params):
