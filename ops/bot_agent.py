@@ -697,10 +697,13 @@ def hunter_ideas_brief(n=5):
     return "\n".join(rows)
 
 
-def log_turn(question, trace, files, cost, ok=True, error=None, path=None):
+def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply=None):
     """Строка журнала разговора: вопрос (начало), вызванные инструменты, файлы, стоимость. Ключей нет —
     аргументы уже вычищены redact(). Нужен, чтобы видеть с GitHub, работает ли агент вживую (bot.log туда не идёт)."""
-    rec = {"ts": _now(), "ok": ok, "question": redact(str(question))[:300],
+    # 04.11 владелец: «можешь смотреть в Telegram?» — журнал хранит и вопрос, и ответ целиком (до 6000 симв.),
+    # чтобы разговор был виден в облачной сессии после вечерней выгрузки в GitHub
+    rec = {"ts": _now(), "ok": ok, "question": redact(str(question))[:2000],
+           "reply": redact(str(reply))[:6000] if reply else None,
            "tools": [{"tool": t.get("tool"), "args": t.get("args"), "chars": t.get("chars")} for t in (trace or [])][:40],
            "files": [f[0] for f in (files or [])], "cost_usd": cost, "error": redact(str(error))[:300] if error else None}
     p = pathlib.Path(path or CHAT_LOG)
@@ -735,5 +738,5 @@ def answer(user_text, history=None, actions=None, agent=None):
     except Exception as e:                                       # noqa: BLE001
         log_turn(user_text, ag.trace, list(ag.tools.files), round(ag.cost, 4), ok=False, error=e)
         raise
-    log_turn(user_text, ag.trace, files, cost)
+    log_turn(user_text, ag.trace, files, cost, reply=text)
     return text, files, cost

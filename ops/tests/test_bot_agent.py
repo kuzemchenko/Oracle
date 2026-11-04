@@ -243,6 +243,7 @@ def test_answer_logs_turn_with_tools(monkeypatch, tmp_path):
     text, files, cost = A.answer("цены DHT", history=[], agent=ag)
     rec = json.loads(log.read_text().splitlines()[-1])
     assert rec["ok"] and rec["tools"][0]["tool"] == "eodhd" and SECRET not in log.read_text()
+    assert rec["question"] == "цены DHT" and rec["reply"] == "ок"
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     try:
         A.answer("без ключа")
