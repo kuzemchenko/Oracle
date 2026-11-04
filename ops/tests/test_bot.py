@@ -509,7 +509,7 @@ def test_resolve_runs_and_reports(paths, monkeypatch):
     assert "Сверяю с настоящими ценами" in joined           # ack
     # владелец 04.11: человеческим языком — без «Brier», «band», «п.п.», «ворот 270»
     assert "сегодня 16, ещё 222 ждут" in joined and "сбылось 12 из 24" in joined and "хуже, чем подбрасывать монетку" in joined
-    assert "пока он не наберёт 270" in joined and "Идеи охотника" in joined
+    assert "пока он не наберёт 270" in joined and "Идей охотника, записанных в счёт" in joined
     for raw in ("Brier", "band", "п.п.", "ворот 270"):
         assert raw not in joined, raw
 

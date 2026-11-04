@@ -220,3 +220,14 @@ def test_bot_routes_free_text_to_agent_and_sends_files(tmp_path, monkeypatch):
     assert tg.docs and tg.docs[0][0] == "DHT.csv"
     assert any("Вот выгрузка DHT." in t for _c, t in tg.sent)
     assert b.state["chat_history"][-1]["text"] == "Вот выгрузка DHT."
+
+
+def test_resolve_summary_names_waiting_hunter_ideas():
+    """04.11 владелец: «/resolve опять пишет, что не запущен» — сводка называет, ЧТО ждёт и до какой даты."""
+    import bot as BOT
+    s = {"сверено_сейчас": 0, "ещё_pending": 222, "всего_исходов": 3676, "hunter_трек": {"исходов": 0},
+         "hunter_ждут": [{"asset": "MP.US", "resolve_by": "2026-11-25", "threshold": 47.5, "direction": "above"}]}
+    t = BOT.resolve_summary_text(s)
+    assert "MP — цена выше $47.5, проверка 25.11" in t and "срок ещё не наступил" in t
+    t0 = BOT.resolve_summary_text({"hunter_трек": {"исходов": 0}})
+    assert "для обсуждения" in t0

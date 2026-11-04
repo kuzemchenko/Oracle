@@ -124,7 +124,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     resolve_allowed = pred_anchor_ok and outcomes_ok
 
     con = sqlite3.connect(DB, timeout=30) if DB.exists() else None
-    newly, still_pending, errors = [], 0, []
+    newly, still_pending, errors, hunter_wait = [], 0, [], []
     if not pred_anchor_ok:
         errors.append({"error": f"якорь predictions.jsonl: {pred_anchor_why} — сверка остановлена (П16)"})
     if not out_chain_ok:
@@ -160,6 +160,9 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
                 errors.append({"hash": h[:12], "asset": asset, "error": res.get("error")})
             else:
                 still_pending += 1
+                if p.get("kind") in HUNTER_KINDS:      # 04.11: владелец видит, ЧТО именно ждёт и когда
+                    hunter_wait.append({"asset": asset, "resolve_by": resolve_by[:10],
+                                        "threshold": p.get("threshold"), "direction": p.get("direction")})
     finally:
         if con is not None:
             con.close()
@@ -242,6 +245,7 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
                               "brier": (None if ef_brier is None else round(ef_brier, 4))},  # НЕ в §11
         "thesis_event_трек": {"исходов": len(te_out),                          # V5 карты v3: «Шансы недели»,
                               "brier": (None if te_brier is None else round(te_brier, 4))},  # НЕ в §11
+        "hunter_ждут": sorted(hunter_wait, key=lambda r: r["resolve_by"]),
         "hunter_трек": {"исходов": len(hu_out),                                # охота 02.11, НЕ в §11
                         "brier": (None if hu_brier is None else round(hu_brier, 4)),
                         "сбылось": sum(int(o["outcome"]) for o in hu_out if o.get("outcome") in (0, 1))},

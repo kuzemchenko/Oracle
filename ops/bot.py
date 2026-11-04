@@ -201,9 +201,21 @@ def resolve_summary_text(s):
     if hu.get("исходов"):
         lines.append(f"• Идеи охотника (те, что приходят тебе запиской): сверено {hu['исходов']}, сбылось "
                      f"{hu.get('сбылось', 0)}.")
-    else:
-        lines.append("• Идеи охотника (те, что приходят тебе запиской): ни одна ещё не дошла до даты проверки — "
-                     "счёт появится, когда наступят их сроки.")
+    wait = s.get("hunter_ждут") or []
+    if wait:
+        # 04.11 (владелец: «пишет, что не запущен»): вместо безликого «ни одна не дошла» — ЧТО именно ждёт и когда
+        items = []
+        for w in wait[:6]:
+            d = str(w.get("resolve_by") or "")
+            dd = f"{d[8:10]}.{d[5:7]}" if len(d) >= 10 else d
+            thr, way = w.get("threshold"), {"above": "выше", "below": "ниже"}.get(w.get("direction"), "")
+            cond = f" — цена {way} ${thr:g}" if isinstance(thr, (int, float)) and way else ""
+            items.append(f"{str(w.get('asset') or '?').split('.')[0]}{cond}, проверка {dd}")
+        lines.append("• Идеи охотника, записанные в счёт, ждут своих дат: " + "; ".join(items) + ". "
+                     "Сверка работает — просто их срок ещё не наступил; запускать её до даты бесполезно.")
+    elif not hu.get("исходов"):
+        lines.append("• Идей охотника, записанных в счёт и ждущих проверки, сейчас нет (идеи «для обсуждения» "
+                     "в счёт не идут).")
     mo = s.get("денежный_трек") or {}
     n, k = mo.get("исходов"), mo.get("сбылось")
     gate = mo.get("ворота") or (n + int(s.get("до_ворот_270") or 0) if n is not None else None)
