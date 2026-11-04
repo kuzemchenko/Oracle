@@ -831,7 +831,30 @@ def test_git_pull_alerts_dedup_per_exit_code(tmp_path, monkeypatch):
     (j / "alerts.jsonl").write_text("\n".join(_json.dumps(r) for r in rows) + "\n", encoding="utf-8")
     b._tick_alerts()
     msgs = [t for _c, t, _k in b.tg.sent]
-    assert len(msgs) == 2                                        # по одному на код за сутки
+    assert len(msgs) == 1                                        # код 10 — раз за сутки; код 2 (2 сбоя) — молча
+
+
+def test_git_pull_network_glitch_is_silent_until_three_in_a_row(tmp_path, monkeypatch):
+    """Владелец 04.11: разовый «нет связи с GitHub» — шум (сервер сам повторяет каждый час). Пишем,
+    только если сбой связи 3 раза подряд за 3.5 часа, и один раз за сутки."""
+    import json as _json
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    j = tmp_path / "journal"
+    j.mkdir(exist_ok=True)
+    f = j / "alerts.jsonl"
+    f.write_text(_json.dumps({"label": "git_pull", "exit": 2, "ts": "2026-11-04T10:05:07Z"}) + "\n", encoding="utf-8")
+    b._tick_alerts()
+    assert b.tg.sent == []                                       # один сбой — молча
+    with open(f, "a", encoding="utf-8") as fh:
+        fh.write(_json.dumps({"label": "git_pull", "exit": 2, "ts": "2026-11-04T15:05:07Z"}) + "\n")
+    b._tick_alerts()
+    assert b.tg.sent == []                                       # второй через 5 часов — не подряд, молча
+    with open(f, "a", encoding="utf-8") as fh:
+        for h in (16, 17):
+            fh.write(_json.dumps({"label": "git_pull", "exit": 2, "ts": f"2026-11-04T{h}:05:07Z"}) + "\n")
+    b._tick_alerts()
+    msgs = [t for _c, t, _k in b.tg.sent]
+    assert len(msgs) == 1 and "три часа подряд" in msgs[0] and "githubstatus.com" in msgs[0]
 
 
 

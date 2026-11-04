@@ -70,8 +70,11 @@ HUNT_ON_REQUEST = ("Охота за идеей теперь идёт по тво
 OWNER_PULL_CMD = ("sudo systemctl stop oracle-bot && cd /home/oracle/oracle && sudo -u oracle git pull "
                   "--rebase --autostash origin master && crontab -u oracle ops/crontab.txt && "
                   "sudo systemctl start oracle-bot")
+NET_FAIL_STREAK, NET_FAIL_WINDOW_H = 3, 3.5   # код 2: писать владельцу, только если ≥3 сбоя за 3.5 ч
 PULL_CODES = {   # ops/safe_pull.sh
-    "2": ("нет связи с GitHub", "ничего — повторю через час; если так весь день, проверь сеть сервера"),
+    "2": ("GitHub не отвечает серверу уже три часа подряд",
+          "обычно это сбой самого GitHub (githubstatus.com) — сервер сам повторяет каждый час; если так до "
+          "вечера — проверь сеть сервера"),
     "3": ("ветки сервера и GitHub разошлись", "одна ручная протяжка: " + OWNER_PULL_CMD),
     "8": ("git был занят другой операцией дольше 15 минут", "ничего — повторю через час"),
     "9": ("облачный коммит тронул журналы честности — сервер его не пускает (так и задумано)",
@@ -2203,6 +2206,32 @@ class Bot:
                     self.state["alerts_seen"] = i + 1
                     continue
                 pull_day = day                          # отметка — только после доставки
+                if rec.get("exit") in (2, "2"):
+                    import datetime as _dt
+                    # владелец 04.11 («что за мусор»): разовый сбой связи с GitHub (у GitHub бывают
+                    # перебои, сервер сам повторяет каждый час) — не повод писать. Пишем, только если
+                    # протяжка не связалась NET_FAIL_STREAK раз за последние NET_FAIL_WINDOW_H часов.
+                    ts = str(rec.get("ts") or "")
+                    try:
+                        t_now = _dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    except ValueError:
+                        t_now = None
+                    fails = [x for x in self.state.get("git_pull_net_fails", []) if isinstance(x, str)]
+                    if t_now is not None:
+                        lo = t_now - _dt.timedelta(hours=NET_FAIL_WINDOW_H)
+                        keep = []
+                        for x in fails + [ts]:
+                            try:
+                                if _dt.datetime.fromisoformat(x.replace("Z", "+00:00")) >= lo:
+                                    keep.append(x)
+                            except ValueError:
+                                continue
+                        fails = sorted(set(keep))
+                    self.state["git_pull_net_fails"] = fails[-10:]
+                    if len(fails) < NET_FAIL_STREAK:
+                        self.state["alerts_seen"] = i + 1
+                        log("сбой связи протяжки — молча, подряд", len(fails))
+                        continue
                 if rec.get("exit") in (10, "10"):
                     try:
                         paths = (ROOT / "journal" / "pull_refused.txt").read_text(encoding="utf-8").split()
