@@ -231,3 +231,22 @@ def test_resolve_summary_names_waiting_hunter_ideas():
     assert "MP — цена выше $47.5, проверка 25.11" in t and "срок ещё не наступил" in t
     t0 = BOT.resolve_summary_text({"hunter_трек": {"исходов": 0}})
     assert "для обсуждения" in t0
+
+
+def test_answer_logs_turn_with_tools(monkeypatch, tmp_path):
+    """Журнал разговора: видно с GitHub, какие инструменты агент реально вызвал; ключей в нём нет."""
+    monkeypatch.setenv("EODHD_API_KEY", SECRET)
+    log = tmp_path / "chat.jsonl"
+    monkeypatch.setattr(A, "CHAT_LOG", log)
+    ag, _llm = _agent([_msg(calls=[("eodhd", {"endpoint": "eod/DHT.US", "params": {"api_token": SECRET}})]),
+                       _msg("ок")], A.Tools(http_get=_eod_http([])))
+    text, files, cost = A.answer("цены DHT", history=[], agent=ag)
+    rec = json.loads(log.read_text().splitlines()[-1])
+    assert rec["ok"] and rec["tools"][0]["tool"] == "eodhd" and SECRET not in log.read_text()
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    try:
+        A.answer("без ключа")
+        raise AssertionError("должно упасть")
+    except RuntimeError:
+        pass
+    assert json.loads(log.read_text().splitlines()[-1])["ok"] is False

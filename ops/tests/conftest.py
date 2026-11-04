@@ -37,4 +37,11 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         mod = sys.modules.get(name)
         if mod is not None and hasattr(mod, "DELIVERIES_PATH"):
             monkeypatch.setattr(mod, "DELIVERIES_PATH", tmp_path / "guard_deliveries.jsonl")
+    # 04.11: журнал разговоров агента диалога и журнал трат — тоже мимо рабочей копии
+    for name in ("ops.bot_agent", "bot_agent"):
+        try:
+            ag = importlib.import_module(name)
+        except ImportError:
+            continue
+        monkeypatch.setattr(ag, "CHAT_LOG", tmp_path / "guard_chat_agent.jsonl")
     yield

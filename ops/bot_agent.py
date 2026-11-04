@@ -51,6 +51,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 EODHD = "https://eodhd.com/api"
 NEWSAPI = "https://eventregistry.org/api/v1"
 DB = ROOT / "storage" / "oracle.db"
+CHAT_LOG = ROOT / "journal" / "chat_agent.jsonl"   # что спросили, какие инструменты, сколько стоило
 
 ROLE = "partner_chat"
 MAX_STEPS = 18                 # кругов «модель → инструменты» на один ответ
@@ -696,6 +697,21 @@ def hunter_ideas_brief(n=5):
     return "\n".join(rows)
 
 
+def log_turn(question, trace, files, cost, ok=True, error=None, path=None):
+    """Строка журнала разговора: вопрос (начало), вызванные инструменты, файлы, стоимость. Ключей нет —
+    аргументы уже вычищены redact(). Нужен, чтобы видеть с GitHub, работает ли агент вживую (bot.log туда не идёт)."""
+    rec = {"ts": _now(), "ok": ok, "question": redact(str(question))[:300],
+           "tools": [{"tool": t.get("tool"), "args": t.get("args"), "chars": t.get("chars")} for t in (trace or [])][:40],
+           "files": [f[0] for f in (files or [])], "cost_usd": cost, "error": redact(str(error))[:300] if error else None}
+    p = pathlib.Path(path or CHAT_LOG)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def answer(user_text, history=None, actions=None, agent=None):
     """Точка входа для bot.py. → (текст, файлы, стоимость)."""
     try:
@@ -709,5 +725,15 @@ def answer(user_text, history=None, actions=None, agent=None):
             brief += "\n\nПОСЛЕДНИЕ ИДЕИ ОХОТНИКА (их ты защищаешь; аргументы — в карточках):\n" + hb
     except Exception:                                            # noqa: BLE001
         pass
-    ag = agent or Agent(tools=Tools(actions=actions))
-    return ag.run(user_text, history=history, brief=brief)
+    try:
+        ag = agent or Agent(tools=Tools(actions=actions))
+    except Exception as e:                                       # noqa: BLE001
+        log_turn(user_text, [], [], None, ok=False, error=e)
+        raise
+    try:
+        text, files, cost = ag.run(user_text, history=history, brief=brief)
+    except Exception as e:                                       # noqa: BLE001
+        log_turn(user_text, ag.trace, list(ag.tools.files), round(ag.cost, 4), ok=False, error=e)
+        raise
+    log_turn(user_text, ag.trace, files, cost)
+    return text, files, cost
