@@ -498,14 +498,19 @@ def test_only_one_heavy_job_at_a_time(paths, monkeypatch):
 def test_resolve_runs_and_reports(paths, monkeypatch):
     import orchestrator.resolve as RES
     monkeypatch.setattr(RES, "run_resolve", lambda write=True: {
-        "сверено_сейчас": 2, "ещё_pending": 5, "всего_исходов": 20, "brier": 0.21,
-        "калибровка_band_пп": 7, "до_ворот_270": 250, "ошибок": 0})
+        "сверено_сейчас": 16, "ещё_pending": 222, "всего_исходов": 3676, "brier": 0.304,
+        "калибровка_band_пп": 34.61, "до_ворот_270": 246, "ошибок": 0,
+        "денежный_трек": {"исходов": 24, "сбылось": 12, "ворота": 270}, "hunter_трек": {"исходов": 0}})
     bot = _fresh_bot()
     bot._cmd_resolve(555)
     bot._job.join(timeout=5)
     joined = "\n".join(s[1] for s in bot.tg.sent)
-    assert "Сверяю созревшие" in joined                     # ack
-    assert "Сверка готова" in joined and "до ворот 270 осталось 250" in joined
+    assert "Сверяю с настоящими ценами" in joined           # ack
+    # владелец 04.11: человеческим языком — без «Brier», «band», «п.п.», «ворот 270»
+    assert "сегодня 16, ещё 222 ждут" in joined and "сбылось 12 из 24" in joined and "хуже, чем подбрасывать монетку" in joined
+    assert "пока он не наберёт 270" in joined and "Идеи охотника" in joined
+    for raw in ("Brier", "band", "п.п.", "ворот 270"):
+        assert raw not in joined, raw
 
 
 def test_help_lists_new_run_commands():

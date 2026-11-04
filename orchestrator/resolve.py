@@ -232,6 +232,8 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         # иначе ворота «созревают» на неизмеримых прогнозах (probability=None в гейт шёл, в Brier нет).
         "до_ворот_270": max(0, gate_n - len(m_probs)),                         # только измеримые денежные → §11
         "KILL_проверка": kill,                                                  # F2#22: детерминир. KILL §11 (калибровка); edge — прокси-диагностика, не §11
+        "денежный_трек": {"исходов": len(m_probs), "сбылось": int(sum(m_outs)) if m_probs else 0,   # 04.11: для
+                          "ворота": gate_n},                                                      # человеческой сводки
         "провизорный_трек": {"исходов": len(prov_out),                         # отдельный Brier, НЕ в §11
                              "brier": (None if prov_brier is None else round(prov_brier, 4)),
                              "сбылось": int(sum(p_outs)) if p_probs else 0,      # ре-гейт 03.11: база трека
