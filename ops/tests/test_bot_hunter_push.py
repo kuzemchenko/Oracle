@@ -360,16 +360,23 @@ def test_stale_card_not_sealed_retroactively(tmp_path):
 
 
 def test_court_fatal_blocks_and_shadows(tmp_path, monkeypatch):
-    """П10 (ревью 02.11): суд разных семейств FATAL → идея не уходит, пишется тенью, дозор."""
+    """П10 (ревью 02.11): суд разных семейств FATAL → в СЧЁТ идея не идёт (только тенью), дозор.
+    Владелец 04.11 («не прячь — покажи, решу сам»): записка уходит ОДИН раз с доводом против и кнопками."""
     import json as _json
     from ops import hunter_seal as HS
     pred = tmp_path / "pred.jsonl"
     monkeypatch.setattr(HS, "PRED", pred)
     b, notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", GOOD)], verdict="FATAL")
     b._tick_hunter_ideas()
-    assert not b.tg.sent and any("отверг суд разных семейств" in n for n in notes)
+    assert any("отверг суд разных семейств" in n for n in notes)
     rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
-    assert rows and rows[0]["kind"] == "hunter_killed"
+    assert rows and rows[0]["kind"] == "hunter_killed" and all(r["kind"] != "hunter_idea" for r in rows)
+    assert len(b.tg.sent) == 1
+    _c, text, kb = b.tg.sent[0]
+    assert "показываю для обсуждения, в счёт пока не записал" in text and "нашла довод против" in text
+    assert kb and "v:q:h_2026-11-02_MP" in _json.dumps(kb)
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1                                   # повторно не шлём
 
 
 def test_court_unavailable_fail_closed_retry_hourly(tmp_path, monkeypatch):
@@ -398,8 +405,10 @@ def test_new_idea_without_card_or_failing_server_gate_not_sent(tmp_path, monkeyp
     (tmp_path / "reports" / "ideas" / "idea_2026-11-02_B.card.json").write_text(
         _json.dumps(bad, ensure_ascii=False), encoding="utf-8")
     b._tick_hunter_ideas()
-    assert not b.tg.sent
     assert any("без §9-карточки" in n for n in notes) and any("серверный шлагбаум" in n for n in notes)
+    # владелец 04.11: брак шлагбаума не прячется — идея B показана с причиной (без карточки A — нет)
+    assert len(b.tg.sent) == 1 and "показываю для обсуждения" in b.tg.sent[0][1]
+    assert "проверка сервера не пропустила её в счёт" in b.tg.sent[0][1] and "_B" in str(b.tg.sent[0][2])
 
 
 def test_more_ideas_under_hunter_uses_server_top3(tmp_path, monkeypatch):
@@ -1177,3 +1186,45 @@ def test_regate2_on_demand_retry_and_one_idea_per_day(tmp_path, monkeypatch):
     (ideas / "idea_2026-11-01_MP.card.json").write_text(_json.dumps(CARD, ensure_ascii=False), encoding="utf-8")
     b2._tick_hunter_ideas()
     assert not b2.tg.sent
+
+
+
+def test_held_idea_is_shown_now_and_recorded_later_with_short_note(tmp_path, monkeypatch):
+    """Владелец 04.11: DHT сервер придержал (рынок далеко за границей входа) и молчал. Теперь: записка
+    уходит СРАЗУ с пометкой «в счёт пока не записал, входить рано»; когда цена подошла — запись в
+    счёт и КОРОТКОЕ сообщение без повтора записки и без вторых кнопок."""
+    import json as _json
+    import datetime as _dt
+    from ops import hunter_seal as HS
+    pred = tmp_path / "pred.jsonl"
+    monkeypatch.setattr(HS, "PRED", pred)
+    src = ROOT / "reports" / "ideas"
+    text = (src / "idea_2026-11-02_MP.push.txt").read_text("utf-8")
+    b, _notes = _setup(tmp_path, monkeypatch, [("idea_2026-11-02_MP.push.txt", text)])
+    card = _json.loads((src / "idea_2026-11-02_MP.card.json").read_text("utf-8"))
+    (tmp_path / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").write_text(
+        _json.dumps(card, ensure_ascii=False), encoding="utf-8")
+    lim = float(card["entry_limit"])
+    last = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
+    closes = [lim * (1.03 if i % 2 else 0.97) for i in range(60)]
+
+    def prices(px):
+        return lambda a, td=None, con=None: {"last_close": px, "last_date": last, "trigger_close": card["trigger_close"],
+                                              "trigger_date": td, "closes": closes + [px]}
+    monkeypatch.setattr(HS, "_server_prices", prices(round(lim * 1.08, 2)))
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1
+    _c, text1, kb = b.tg.sent[0]
+    assert "в счёт пока не записал" in text1 and "входить пока рано" in text1 and kb
+    assert not pred.exists() or all(_json.loads(x)["kind"] != "hunter_idea" for x in pred.read_text("utf-8").splitlines())
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 1                                   # показана один раз
+    monkeypatch.setattr(HS, "_server_prices", prices(round(lim * 1.01, 2)))
+    b.state["hunter_retry"] = {}                                  # час повтора наступил
+    b._tick_hunter_ideas()
+    assert len(b.tg.sent) == 2, b.tg.sent[-1][1][:300]
+    _c2, text2, kb2 = b.tg.sent[1]
+    assert "цена подошла к входу — записал проверку в счёт" in text2 and kb2 is None
+    assert len(text2) < len(text1)
+    rows = [_json.loads(x) for x in pred.read_text("utf-8").splitlines()]
+    assert any(r["kind"] == "hunter_idea" for r in rows)

@@ -684,6 +684,45 @@ class Bot:
                 card_raw = ""
             return p.name + "@" + hashlib.sha1((text + "\0" + card_raw).encode("utf-8")).hexdigest()[:10], card_raw
 
+        def _who(p, card):
+            tk = p.name[len("idea_") + 11:-len(".push.txt")].split(".")[0] if p.name.startswith("idea_") else p.name
+            name = str(card.get("name") or "").strip() if isinstance(card, dict) else ""
+            return f"{name} ({tk})" if name else tk
+
+        def _show(p, key, card, body, reason):
+            """Владелец 04.11: «если бот придерживает идею — всё равно покажи: может, отменю, а может,
+            покопаем вместе; ты советник, а не тот, кто всё посчитал и спрятал». Идея, которую сервер не
+            записал в счёт (вход пока невозможен, шлагбаум, вторая проверка против), уходит владельцу
+            С ЧЕСТНОЙ ПОМЕТКОЙ почему и с кнопками. Один раз на версию (метка :shown). В журнал прогнозов
+            такое НЕ пишется (П16 — счёт ведётся только по записанным). → True (ушло/уже) | False (сеть)."""
+            if key + ":shown" in seen:
+                return True
+            rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
+            head = (_who(p, card) + " — показываю для обсуждения, в счёт пока не записал: "
+                    + str(reason).strip().rstrip(".") + ".")
+            out = head + ("\n\n" + body if body else "\n\nПолный текст записки ещё дорабатываю — "
+                          "спроси «разбери " + _who(p, card).split("(")[-1].rstrip(")") + "», если хочешь копнуть сразу.")
+            lids = self.state.setdefault("hunter_lids", {})
+            prev = lids.get(rid) or {}
+            kb = None if prev.get("action") else self._idea_kb(rid)
+            _mid = self._send_card(out, kb)
+            if _mid is None:
+                return False
+            self._log_delivery("идея охотника", ref=p.name, text=out, mid=_mid, buttons=kb is not None,
+                               lint_ok=bool(body), extra={"записана_в_счёт": False, "причина": str(reason)[:300]})
+            _s9 = card.get("spec9") if isinstance(card, dict) and isinstance(card.get("spec9"), dict) else {}
+            lid = prev or {"run_id": rid, "idx": {}, "issued_at": S.now_utc().isoformat(timespec="seconds"),
+                           "source": "hunter"}
+            lid.update({"lead": str(_s9.get("asset") or "").upper() or None, "sealed": False,
+                        "unrecorded": str(reason)[:300],
+                        "idea_file": str(p.relative_to(d)) if p.parent != d else p.name})
+            if isinstance(card, dict) and card.get("name"):
+                lid["name"] = str(card.get("name"))
+            lids[rid] = lid
+            _mark(key + ":shown")
+            log("идея охотника показана без записи:", p.name, str(reason)[:80])
+            return True
+
         def _one(p):
             try:
                 text = p.read_text(encoding="utf-8").strip()
@@ -769,7 +808,36 @@ class Bot:
                         if HS.is_transient(gfails):
                             _later(key, "Идея охотника " + p.name + " ждёт серверных котировок ("
                                    + str(gfails[0])[len(HS.TRANSIENT):][:160] + ") — повторю через час.")
+                            if "за границей входа" in str(gfails[0]):
+                                # владелец 04.11: придержанная идея всё равно показывается сразу
+                                _s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+
+                                def _usd(x):
+                                    try:
+                                        return f"${float(x):.2f}"
+                                    except (TypeError, ValueError):
+                                        return "?"
+                                _down = str(card.get("direction") or "").strip().lower() == "вниз"
+                                _fin, _pp = HS.prepare_push(text, card)
+                                if not _show(p, key, card, None if _pp else _fin,
+                                             f"по плану вход {'не дешевле' if _down else 'не дороже'} "
+                                             f"{_usd(card.get('entry_limit'))}, а бумага сейчас "
+                                             f"{_usd(_s9.get('last_close'))} — входить пока рано. Если цена подойдёт "
+                                             f"к входу в ближайшие {HS.MAX_SEAL_LAG_DAYS} дня, запишу проверку в счёт "
+                                             "и напишу тебе; не подойдёт — сниму идею"):
+                                    return "stop"
                             return None
+                        if key + ":shown" in seen:
+                            # уже показана как «вход пока невозможен» — закрываем её одной строкой
+                            self._notice_owner(_who(p, card) + ": цена так и не подошла к входу за отведённые дни — "
+                                               "идею снимаю, в счёт её не записал. Хочешь вернуться к ней — "
+                                               "скажи, переразберу с новыми ценами.")
+                        else:
+                            _fin, _pp = HS.prepare_push(text, card)
+                            if not _show(p, key, card, None if _pp else _fin,
+                                         "проверка сервера не пропустила её в счёт ("
+                                         + "; ".join(str(f) for f in gfails[:2])[:260] + ")"):
+                                return "stop"           # сеть — показ повторим со следующего тика
                         _mark(key + ":bad")
                         self._notice_dozor("Идея охотника " + p.name + " не прошла серверный шлагбаум ("
                                            + "; ".join(str(f) for f in gfails[:2]) + ") — в Telegram не ушла.")
@@ -795,13 +863,17 @@ class Bot:
                     return None                            # непроверенное не шлём
                 if verdict.get("verdict") == "FATAL":
                     if not update:
-                        HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)
-                    _mark(key + ":bad")
+                        HS.seal_card(card, idea_file=p.name, kind=HS.SHADOW_KIND)   # дедуп ставки — повтор безопасен
                     # перепроверка №3: заметки дозора уходят владельцу — только очищенное возражение
                     why_txt = HC.safe_objection(verdict) or ("пункт рубрики " + str(verdict.get("point") or "?")
                                                              + "; дословно — в кэше суда на сервере")
                     _tech = ("Идею охотника " + p.name + " отверг суд разных семейств (" + why_txt
                              + ") — в Telegram не ушла" + ("" if update else ", записана тенью для проверки права вето") + ".")
+                    if not update and not _show(p, key, card, final, "вторая проверка (модели других "
+                                                "разработчиков) нашла довод против: " + why_txt
+                                                + ". Не согласен — нажми «Качаем», разберём вместе"):
+                        return "stop"               # владелец 04.11: не прячем; сеть — повтор показа
+                    _mark(key + ":bad")
                     if update:
                         self._update_failed(p, "вторая проверка (модели других разработчиков) нашла улику против новой версии", _tech)
                     else:
@@ -878,18 +950,24 @@ class Bot:
             rid = "h_" + p.name[len("idea_"):-len(".push.txt")][:40]
             lids = self.state.setdefault("hunter_lids", {})
             prev = lids.get(rid) or {}
+            shown_before = (key + ":shown") in seen and not update
+            if shown_before:
+                # владелец уже видел эту записку (с пометкой «в счёт пока не записал») — не повторяем её
+                out = "\n".join([_who(p, {"name": foot.get("name")}) + ": цена подошла к входу — записал "
+                                  "проверку в счёт. План прежний, из той записки.", ""] + list(foot["lines"]))
             # перепроверка №2: у каждой идеи охотника — свои кнопки (решение одно на идею): исправление
             # не воскрешает уже нажатые и не отнимает кнопки у текущей идеи дня
-            kb = None if prev.get("action") else self._idea_kb(rid)
+            kb = None if (prev.get("action") or shown_before) else self._idea_kb(rid)
             _mid = self._send_card(out, kb)
             if _mid is None:
                 return "stop"                                  # сеть — ретрай; доставленные уже отмечены
-            self._log_delivery("обновление идеи" if update else "идея охотника", ref=p.name, text=out,
-                               mid=_mid, buttons=kb is not None, lint_ok=True)
+            self._log_delivery("обновление идеи" if update else ("идея записана" if shown_before else "идея охотника"),
+                               ref=p.name, text=out, mid=_mid, buttons=kb is not None, lint_ok=True)
             lid = prev if update and prev else {
                 "run_id": rid, "lead": asset, "idx": {},
                 "issued_at": S.now_utc().isoformat(timespec="seconds"), "source": "hunter"}
             lid["sealed"] = bool(foot.get("sealed")) or bool(lid.get("sealed"))
+            lid.pop("unrecorded", None) if lid.get("sealed") else None
             if foot.get("objection"):
                 lid["court_objection"] = foot["objection"]
             for k in ("name", "catalyst_date", "header", "todo"):
@@ -1479,7 +1557,7 @@ class Bot:
             return None
         return text
 
-    def _log_delivery(self, kind, ref=None, text=None, mid=None, buttons=False, lint_ok=None):
+    def _log_delivery(self, kind, ref=None, text=None, mid=None, buttons=False, lint_ok=None, extra=None):
         """Аудит 03.11 (P0): журнал доставок journal/deliveries.jsonl (append-only, не §16) — что
         РЕАЛЬНО ушло владельцу: вид, ссылка (файл/id), sha256 текста, кнопки, message_id. По нему
         считаются «дни с идеей» точки Б и здоровье доставки у машиниста. Сбой записи не роняет пуш."""
@@ -1489,6 +1567,8 @@ class Bot:
                "sha256": _hl.sha256(text.encode("utf-8")).hexdigest() if text else None,
                "chars": len(text) if text else 0, "buttons": bool(buttons), "lint_ok": lint_ok,
                "message_id": mid}
+        if extra:
+            rec.update(extra)
         try:
             path = DELIVERIES_PATH or (ROOT / "journal" / "deliveries.jsonl")
             path.parent.mkdir(parents=True, exist_ok=True)

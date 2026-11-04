@@ -454,7 +454,7 @@ def test_preview_flags_entry_far_from_market_like_server():
     far = {"direction": "вверх", "entry_limit": 22.6, "spec9": {"last_close": 23.86}}
     near = {"direction": "вверх", "entry_limit": 23.0, "spec9": {"last_close": 23.86}}
     down = {"direction": "вниз", "entry_limit": 30.0, "spec9": {"last_close": 27.0}}
-    assert "придержит" in HS.entry_gap_problem(far)
+    assert "для обсуждения" in HS.entry_gap_problem(far)
     assert HS.entry_gap_problem(near) is None
-    assert "придержит" in HS.entry_gap_problem(down)
+    assert "для обсуждения" in HS.entry_gap_problem(down)
     assert HS.entry_gap_problem({"direction": "вверх"}) is None

@@ -416,15 +416,15 @@ def preview(stem, today=None):
     card = json.loads(pathlib.Path(str(stem) + ".card.json").read_text(encoding="utf-8"))
     final, problems = prepare_push(text, card)
     gap = entry_gap_problem(card)
-    if gap:
-        problems = list(problems) + [gap]
-    return {"problems": problems, "text": final}
+    # владелец 04.11: придержанную идею бот всё равно показывает («для обсуждения, в счёт пока не
+    # записал») — это ПРЕДУПРЕЖДЕНИЕ, а не брак: облако знает, как идея придёт, но коммит не блокирует
+    return {"problems": problems, "warnings": [gap] if gap else [], "text": final}
 
 
 def entry_gap_problem(card):
     """Облачная проверка того же правила, что server_check (ENTRY_GAP): рынок дальше 5% за границей
-    входа — сервер придержит идею (повтор раз в час) и после MAX_SEAL_LAG_DAYS дней откажет. 03.11 DHT
-    прошёл preview, а на сервере застрял: «цена 23.86 далеко за границей входа 22.6». → причина | None."""
+    входа — сервер покажет идею владельцу «для обсуждения, в счёт пока не записал» и запишет её, только
+    если цена подойдёт к входу за MAX_SEAL_LAG_DAYS дня (03.11 DHT застрял молча). → предупреждение | None."""
     s9 = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
     try:
         px, el = float(s9.get("last_close")), float(card.get("entry_limit"))
@@ -434,9 +434,9 @@ def entry_gap_problem(card):
         return None
     dd = str(card.get("direction") or "").strip().lower()
     if (dd == "вверх" and px > el * (1 + ENTRY_GAP)) or (dd == "вниз" and px < el * (1 - ENTRY_GAP)):
-        return (f"граница входа {el:g} дальше {ENTRY_GAP:.0%} от последнего закрытия {px:g}: сервер придержит "
-                f"идею и доставит, только если рынок подойдёт к входу в течение {MAX_SEAL_LAG_DAYS} дней с "
-                "охоты, иначе откажет — сдвинь вход к цене или дай идею, исполнимую сейчас")
+        return (f"граница входа {el:g} дальше {ENTRY_GAP:.0%} от последнего закрытия {px:g}: владелец получит "
+                f"идею сразу, но «для обсуждения, в счёт пока не записана»; в счёт она попадёт, только если "
+                f"рынок подойдёт к входу за {MAX_SEAL_LAG_DAYS} дня с охоты")
     return None
 
 
