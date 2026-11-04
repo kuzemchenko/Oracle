@@ -49,3 +49,21 @@ def test_measure_counts_from_journals_only(tmp_path):
     assert m["событийный_трек"]["умение"]["verdict"] == "данных мало"
     md = PB.render_md(m)
     assert "| Б1 | дни с идеей" in md and "данных мало" in md and "не инвестиционная рекомендация" in md
+
+
+
+def test_discussion_idea_closes_request_but_is_not_a_recorded_hunter_push(tmp_path):
+    """Поправка владельца 04.11: идея «для обсуждения» закрывает запрос «найди идею», но в критерий
+    «идеи охотника доставлены» (записанные в счёт) не входит."""
+    import json
+    from ops import point_b as PB
+    (tmp_path / "journal").mkdir()
+    (tmp_path / "reports" / "ideas" / "claims").mkdir(parents=True)
+    (tmp_path / "reports" / "ideas" / "claims" / "2026-11-03.txt").write_text("x", encoding="utf-8")
+    (tmp_path / "journal" / "deliveries.jsonl").write_text(json.dumps(
+        {"ts": "2026-11-04T16:10:00+00:00", "kind": "идея для обсуждения", "ref": "idea_2026-11-03_DHT.push.txt"},
+        ensure_ascii=False) + "\n", encoding="utf-8")
+    m = PB.measure(today="2026-11-04", root=tmp_path)
+    assert m["запросы"] == {"всего": 1, "закрыто": 1, "незакрытые": []}
+    hunter = [c for c in m["критерии"] if c["что"].startswith("идеи охотника доставлены")][0]
+    assert hunter["сейчас"] == 0
