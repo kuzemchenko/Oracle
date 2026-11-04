@@ -39,3 +39,13 @@ def test_notice_appends_json_line(tmp_path):
     NI._notice("вторая", path=p)
     rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines()]
     assert [r["text"] for r in rows] == ["проверка", "вторая"] and all("ts" in r for r in rows)
+
+
+
+def test_source_health_notice_is_silent(tmp_path):
+    """Владелец 04.11 («что за мусор и зачем?»): здоровье источников — в журнал, не в Telegram."""
+    import json
+    f = tmp_path / "n.jsonl"
+    NI._notice("⚠ Google Trends: отбито лимитом 23 из 41 ключей", f)
+    rec = json.loads(f.read_text(encoding="utf-8").splitlines()[0])
+    assert rec["silent"] is True and rec["source"] == "дозор"

@@ -97,6 +97,7 @@ def test_watch_дедуп_состояний(tmp_path, monkeypatch):
     assert r1["засуха_дней"] == 11
     lines = notices.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1 and "ДЕНЕЖНОЙ" in json.loads(lines[0])["text"]
+    assert json.loads(lines[0]).get("silent") is True          # владелец 04.11: служебное — не в Telegram
     r2 = AR.run_watch(notices_path=notices, state_path=state, now=NOW, push_age_days=None, **j)  # повтор — дедуп
     assert len(notices.read_text(encoding="utf-8").splitlines()) == 1
     assert r2["fired"] == []

@@ -63,8 +63,10 @@ def source_health_notices(gdelt_res=None, trends_res=None):
 
 
 def _notice(text, path=None):
+    """Здоровье источников — СЛУЖЕБНАЯ заметка (владелец 04.11: «что за мусор и зачем?»): в журнал для
+    машиниста и пятничного разбора, в Telegram не уходит (бот пропускает silent)."""
     path = pathlib.Path(path) if path else NOTICES
-    rec = {"ts": nc.now_utc_iso(), "text": text}
+    rec = {"ts": nc.now_utc_iso(), "text": text, "silent": True, "source": "дозор"}
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return rec

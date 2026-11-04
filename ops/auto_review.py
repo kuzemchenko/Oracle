@@ -53,12 +53,16 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def _notice(text, notices_path=None):
-    """Заметка владельцу: строка в journal/notices.jsonl — бот пушит новые по курсору
-    (тот же канал доставки, что alerts: доставка/ретраи на стороне бота)."""
+def _notice(text, notices_path=None, silent=False):
+    """Заметка в journal/notices.jsonl — бот пушит новые по курсору (тот же канал доставки, что alerts).
+    silent=True — СЛУЖЕБНАЯ: пишется в журнал (её читают машинист и пятничный разбор), но владельцу в
+    Telegram не уходит. Владелец 04.11 про «суд разбил 5/5»: «что за мусор и зачем?» — ему идут только
+    заметки, где нужно его слово или действие."""
     path = pathlib.Path(notices_path) if notices_path else NOTICES
     path.parent.mkdir(parents=True, exist_ok=True)
     rec = {"ts": _now().isoformat(timespec="seconds"), "text": text}
+    if silent:
+        rec.update({"silent": True, "source": "дозор"})
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return rec
@@ -540,7 +544,7 @@ def run_watch(predictions_path=None, outcomes_path=None, funnel_glob=None,
                 f"Идеи в money-кандидаты попадают, но слепой суд их валит — счёт к воротам-270 "
                 f"стоит. Это ждёт форвард-промоушена (B4) либо решения по рубрике (слой Б, "
                 f"подпись). Детали: еженедельный авторазбор в reports/auto_review/.",
-                notices_path))
+                notices_path, silent=True))
             st["drought_step"] = step
     else:
         st.pop("drought_step", None)
@@ -554,7 +558,7 @@ def run_watch(predictions_path=None, outcomes_path=None, funnel_glob=None,
                 f"🩺 Дозор §25: слепой суд за 7 дней разбил {суд['разбито']}/{суд['судов']} "
                 f"денежных кандидатов (100%). Либо кандидаты системно слабые (r²≈0, ход ниже "
                 f"шума), либо планка/данные суда несправедливы к ним — тема для /review-week.",
-                notices_path))
+                notices_path, silent=True))
             st["court_alert_key"] = key
 
     # 3) корректировка доступна: свежий отчёт промоушена с рёбрами, прошедшими §10-гейт
