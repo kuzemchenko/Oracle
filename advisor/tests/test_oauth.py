@@ -34,6 +34,7 @@ class OAuthTests(unittest.TestCase):
             'resource':self.origin+'/mcp','state':'state-123'},follow_redirects=False)
         self.assertEqual(r.status_code,302,r.text)
         page=self.client.get(r.headers['location'])
+        self.assertEqual(page.headers['referrer-policy'],'same-origin')
         key=re.search('name="request" value="([^"]+)"',page.text).group(1)
         csrf=re.search('name="csrf" value="([^"]+)"',page.text).group(1)
         return self.client.post('/owner',data={'request':key,'csrf':csrf,'password':password or self.password},
@@ -67,6 +68,7 @@ class OAuthTests(unittest.TestCase):
         cid=self.register().json()['client_id']
         self.assertEqual(self.authorize(cid,password='wrong').status_code,403)
         self.assertEqual(self.authorize(cid,origin='https://evil.example').status_code,403)
+        self.assertEqual(self.authorize(cid,origin='null').status_code,403)
         self.assertEqual(len(self.oauth.codes),0)
     def test_reject_untrusted_redirect_and_missing_resource(self):
         self.assertEqual(self.register('https://evil.example/callback').status_code,400)
