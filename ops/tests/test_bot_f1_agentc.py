@@ -56,14 +56,12 @@ def _fresh_bot(chat="555"):
 
 
 # ── #15: распознавание «разбери ТИКЕР» / «копни ТИКЕР» / «разбери компанию X» ─────────
-def test_intent_check_idea_matches_bare_ticker():
-    out = BOT.Bot._intent_check_idea("разбери CLF")
-    assert out and INTRO._ticker(out) == "CLF.US"
-
-
-def test_intent_check_idea_matches_kopni_and_company():
-    assert INTRO._ticker(BOT.Bot._intent_check_idea("копни NUE")) == "NUE.US"
-    assert INTRO._ticker(BOT.Bot._intent_check_idea("разбери компанию CLF — сталь")) == "CLF.US"
+def test_intent_check_idea_bare_ticker_goes_to_agent():
+    # 04.11 «сними рельсы»: «разбери CLF», «копни NUE», «разбери компанию X» — разговор с агентом диалога
+    # (данные + спор); суд разных семейств агент запускает сам инструментом court_check
+    assert BOT.Bot._intent_check_idea("разбери CLF") is None
+    assert BOT.Bot._intent_check_idea("копни NUE") is None
+    assert BOT.Bot._intent_check_idea("разбери компанию CLF — сталь") is None
 
 
 def test_intent_check_idea_legacy_idea_still_matches():

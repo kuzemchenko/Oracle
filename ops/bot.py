@@ -143,6 +143,23 @@ class Telegram:
         res = self._call("sendMessage", p)
         return (res or {}).get("message_id")
 
+    def send_document(self, chat_id, filename, data, caption=None):
+        """Файл владельцу (выгрузки агента диалога: CSV/JSON). multipart — не через _call(json)."""
+        p = {"chat_id": chat_id}
+        if caption:
+            p["caption"] = caption[:1000]
+        try:
+            r = self.s.post(f"{self.base}/sendDocument", data=p,
+                            files={"document": (filename, data)}, timeout=HTTP_TIMEOUT * 2)
+            res = r.json()
+        except (requests.RequestException, ValueError) as e:
+            log("telegram ошибка sendDocument", repr(e))
+            return None
+        if not res.get("ok"):
+            log("telegram !ok sendDocument", res.get("description"))
+            return None
+        return (res.get("result") or {}).get("message_id")
+
     def edit_reply_markup(self, chat_id, message_id, reply_markup):
         return self._call("editMessageReplyMarkup",
                           {"chat_id": chat_id, "message_id": message_id,
@@ -356,9 +373,6 @@ class Bot:
             return
         # Намерение в свободной речи: «сделай прогон», «найди идеи» → боевой прогон (узкий
         # вайтлист, чтобы не перехватывать настоящие вопросы). Прочее — диалог с Дирижёром.
-        if self._intent_hunt(text):
-            self.tg.send_message(chat, HUNT_ON_REQUEST)
-            return
         if self._intent_run_funnel(text):
             self._cmd_run_funnel(chat)
             return
@@ -1877,13 +1891,13 @@ class Bot:
                 t = t[len(pre):].strip()
         if len(t) > 60:                       # длинная фраза — почти наверняка вопрос, не команда
             return False
+        # 04.11 (владелец: «сними рельсы»): «найди идею» больше не запускает старый конвейер — это
+        # разговор «круги на воде» с агентом диалога; старый серверный прогон — только словом «прогон»
         exact = {"прогон", "прогон воронки", "сделай прогон", "сделай прогон воронки",
-                 "запусти прогон", "запусти воронку", "давай прогон", "новый прогон",
-                 "найди идеи", "найди идею", "найди мне идеи", "поищи идеи", "ищи идеи"}
+                 "запусти прогон", "запусти воронку", "давай прогон", "новый прогон"}
         if t in exact:
             return True
-        return (t.startswith(("сделай прогон", "запусти прогон", "прогон воронки", "запусти воронку"))
-                or t.startswith(("найди иде", "поищи иде", "найди мне иде")))
+        return t.startswith(("сделай прогон", "запусти прогон", "прогон воронки", "запусти воронку"))
 
     @staticmethod
     def _intent_check_idea(text):
@@ -1903,20 +1917,9 @@ class Bot:
                     "разбери идею", "проверь идею:"):
             if low.startswith(pre):
                 return body[len(pre):].lstrip(" :—-").strip() or None
-        # — класс 2a: явный объект «компанию/тикер/бумагу» — намерение однозначно —
-        for pre in ("разбери компанию", "разбери тикер", "разбери бумагу",
-                    "оцени компанию", "оцени тикер", "оцени бумагу",
-                    "проверь компанию", "проверь тикер", "проверь бумагу",
-                    "копни компанию", "копни тикер", "копни бумагу"):
-            if low.startswith(pre):
-                return body[len(pre):].lstrip(" :—-").strip() or None
-        # — класс 2б: голые «разбери/копни <ТИКЕР>» — только при тикер-образном токене —
-        for pre in ("разбери", "копни"):
-            if low.startswith(pre):
-                rest = body[len(pre):].lstrip(" :—-").strip()
-                if rest and re.search(r"\b[A-Z]{2,5}\b", rest):
-                    return rest
-                return None
+        # 04.11 (владелец: «сними рельсы»): «разбери/копни DHT», «разбери компанию X» больше НЕ перехватываются
+        # в тяжёлый контур — это разговор с агентом диалога (данные EODHD/новости/история); суд разных
+        # семейств агент запускает сам инструментом court_check, когда спор упёрся в «кто прав»
         return None
 
     def _cmd_check_idea(self, chat, idea_text):
@@ -2306,7 +2309,10 @@ class Bot:
             self.tg.send_message(chat, text[i:i + C.MAX_REPLY_CHUNK])
 
     def _chat(self, chat, text):
-        """Вопрос пользователя → ответ Дирижёра (роль conductor). Уважает бюджет §11 и П8."""
+        """Свободный текст → агент диалога с инструментами (ops/bot_agent: EODHD, NewsAPI.ai, GDELT, база,
+        файлы проекта, веб, наши скрипты, выгрузки файлом, суд). Решение владельца 04.11: «без рельсов, как
+        в разговоре с тобой». Уважает месячный лимит §11 (Инв#5) и П8. Агент ходит за данными минутами —
+        в боевом боте он работает в своём потоке, чтобы кнопки и пуши не ждали."""
         # Денежные ворота §11: при превышении месячного потолка не жжём токены на диалог.
         try:
             if self._budget_status().get("exit_code") == 3:
@@ -2317,27 +2323,75 @@ class Bot:
                 return
         except Exception as e:                                   # noqa: BLE001
             log("chat budget check ошибка", repr(e))
+        if not isinstance(self.tg, Telegram):                    # тесты и сухие прогоны — синхронно
+            self._chat_now(chat, text)
+            return
+        import threading
+        if not hasattr(self, "_chat_lock"):
+            self._chat_lock, self._chat_q, self._chat_thread = threading.Lock(), [], None
+        with self._chat_lock:
+            self._chat_q.append((chat, text))
+            busy = self._chat_thread is not None and self._chat_thread.is_alive()
+            if not busy:
+                self._chat_thread = threading.Thread(target=self._chat_worker, daemon=True)
+                self._chat_thread.start()
+        if busy:
+            self.tg.send_message(chat, "Принял — отвечу следом, как закончу с прошлым вопросом.")
+
+    def _chat_worker(self):
+        while True:
+            with self._chat_lock:
+                if not self._chat_q:
+                    return
+                chat, text = self._chat_q.pop(0)
+            try:
+                self._chat_now(chat, text)
+            except Exception as e:                               # noqa: BLE001
+                log("chat поток ошибка", repr(e))
+
+    def _chat_now(self, chat, text):
         if hasattr(self.tg, "send_chat_action"):
             self.tg.send_chat_action(chat, "typing")
+        import bot_agent as A
         import bot_chat as C
         hist = self.state.setdefault("chat_history", [])
+        files, cost = [], None
+        actions = {"court_check": lambda idea: self._cmd_check_idea(chat, idea),
+                   "progress": (lambda: self.tg.send_chat_action(chat, "typing"))
+                   if hasattr(self.tg, "send_chat_action") else None}
         try:
-            reply, _cost = C.answer(text, history=hist)
+            reply, files, cost = A.answer(text, history=list(hist), actions=actions)
         except Exception as e:                                   # noqa: BLE001
-            log("chat ошибка", repr(e))
-            self.tg.send_message(
-                chat, "Не смог ответить (модель недоступна или ключ OpenRouter не задан). "
-                      "Попробуй позже или задай вопрос иначе.")
-            return
-        if not reply:
+            log("агент диалога ошибка → простой ответ", repr(e))
+            try:
+                reply, cost = C.answer(text, history=hist)
+            except Exception as e2:                              # noqa: BLE001
+                log("chat ошибка", repr(e2))
+                self.tg.send_message(
+                    chat, "Не смог ответить (модель недоступна или ключ OpenRouter не задан). "
+                          "Попробуй позже или задай вопрос иначе.")
+                return
+        if not reply and not files:
             self.tg.send_message(chat, "Пустой ответ модели — попробуй переформулировать.")
             return
+        sent_files = 0
+        for name, blob, cap in files or []:
+            if hasattr(self.tg, "send_document") and self.tg.send_document(chat, name, blob, cap) is not None:
+                sent_files += 1
+        if files and sent_files < len(files):
+            reply = (reply + "\n\n" if reply else "") + (
+                f"⚠ Не смог отправить файлов: {len(files) - sent_files} из {len(files)} (Telegram не принял) — "
+                f"повтори запрос.")
         hist.append({"role": "user", "text": text})
-        hist.append({"role": "assistant", "text": reply})
-        self.state["chat_history"] = hist[-2 * C.MAX_HISTORY_TURNS:]
+        hist.append({"role": "assistant", "text": reply or f"(отправил файлов: {sent_files})"})
+        self.state["chat_history"] = hist[-2 * A.MAX_HISTORY_TURNS:]
         self._send_long(chat, reply)
-        self.save()
-        log("диалог: ответ отправлен,", len(reply), "симв")
+        try:
+            self.save()
+        except Exception as e:                                   # noqa: BLE001
+            log("chat save ошибка", repr(e))
+        log("диалог: ответ отправлен,", len(reply or ""), "симв, файлов", sent_files,
+            "стоимость", cost)
 
     # ── бюджет ────────────────────────────────────────────────────────────────────
     def _budget_status(self):
