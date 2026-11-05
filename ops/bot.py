@@ -346,6 +346,11 @@ class Bot:
         # молча отбрасывались здесь пустым text (владелец наговаривал — бот не реагировал).
         if not text and (msg.get("voice") or msg.get("audio")):
             text = self._voice_text(chat, msg) or ""
+        # 05.11: PDF (презентация брокера, отчёт) → агент диалога читает сам. Подпись к файлу = вопрос.
+        doc = msg.get("document") or {}
+        if doc:
+            self._on_document(chat, msg, doc)
+            return
         if not text:
             return
         # Ожидаем мотив к последнему решению?
@@ -2320,7 +2325,34 @@ class Bot:
         for i in range(0, len(text), C.MAX_REPLY_CHUNK):
             self.tg.send_message(chat, text[i:i + C.MAX_REPLY_CHUNK])
 
-    def _chat(self, chat, text):
+    DOC_KEEP_S = 3600       # последний PDF прикладывается и к уточняющим вопросам в течение часа
+
+    def _on_document(self, chat, msg, doc):
+        import bot_agent as A
+        name = doc.get("file_name") or "document.pdf"
+        is_pdf = (doc.get("mime_type") == "application/pdf") or name.lower().endswith(".pdf")
+        if not is_pdf:
+            self.tg.send_message(chat, "Пока читаю только PDF. Пришли документ в PDF или вставь текст сообщением.")
+            return
+        if int(doc.get("file_size") or 0) > A.MAX_DOC_BYTES:
+            self.tg.send_message(chat, "Файл больше 15 МБ — Telegram не даст мне его скачать. Пришли версию полегче.")
+            return
+        blob = None
+        try:
+            meta = self.tg.get_file(doc.get("file_id")) or {}
+            if meta.get("file_path"):
+                blob = self.tg.download_file(meta["file_path"])
+        except Exception as e:                                   # noqa: BLE001
+            log("документ: скачивание ошибка", repr(e))
+        if not blob:
+            self.tg.send_message(chat, "Не смог скачать файл из Telegram — пришли ещё раз.")
+            return
+        self._last_doc = (name, blob, time.time())
+        q = (msg.get("caption") or "").strip() or (
+            "Разбери присланный документ как аналитик: что предлагают, стоит ли входить и почему, риски и вопросы продавцу.")
+        self._chat(chat, f"[прислал документ «{name}»] {q}", attachments=[(name, blob)])
+
+    def _chat(self, chat, text, attachments=None):
         """Свободный текст → агент диалога с инструментами (ops/bot_agent: EODHD, NewsAPI.ai, GDELT, база,
         файлы проекта, веб, наши скрипты, выгрузки файлом, суд). Решение владельца 04.11: «без рельсов, как
         в разговоре с тобой». Уважает месячный лимит §11 (Инв#5) и П8. Агент ходит за данными минутами —
@@ -2335,14 +2367,18 @@ class Bot:
                 return
         except Exception as e:                                   # noqa: BLE001
             log("chat budget check ошибка", repr(e))
+        if attachments is None:                                   # уточнение по недавнему PDF — приложить снова
+            last = getattr(self, "_last_doc", None)
+            if last and time.time() - last[2] < self.DOC_KEEP_S:
+                attachments = [(last[0], last[1])]
         if not isinstance(self.tg, Telegram):                    # тесты и сухие прогоны — синхронно
-            self._chat_now(chat, text)
+            self._chat_now(chat, text, attachments)
             return
         import threading
         if not hasattr(self, "_chat_lock"):
             self._chat_lock, self._chat_q, self._chat_thread = threading.Lock(), [], None
         with self._chat_lock:
-            self._chat_q.append((chat, text))
+            self._chat_q.append((chat, text, attachments))
             busy = self._chat_thread is not None and self._chat_thread.is_alive()
             if not busy:
                 self._chat_thread = threading.Thread(target=self._chat_worker, daemon=True)
@@ -2355,13 +2391,13 @@ class Bot:
             with self._chat_lock:
                 if not self._chat_q:
                     return
-                chat, text = self._chat_q.pop(0)
+                chat, text, att = self._chat_q.pop(0)
             try:
-                self._chat_now(chat, text)
+                self._chat_now(chat, text, att)
             except Exception as e:                               # noqa: BLE001
                 log("chat поток ошибка", repr(e))
 
-    def _chat_now(self, chat, text):
+    def _chat_now(self, chat, text, attachments=None):
         if hasattr(self.tg, "send_chat_action"):
             self.tg.send_chat_action(chat, "typing")
         import bot_agent as A
@@ -2372,7 +2408,7 @@ class Bot:
                    "progress": (lambda: self.tg.send_chat_action(chat, "typing"))
                    if hasattr(self.tg, "send_chat_action") else None}
         try:
-            reply, files, cost = A.answer(text, history=list(hist), actions=actions)
+            reply, files, cost = A.answer(text, history=list(hist), actions=actions, attachments=attachments)
         except Exception as e:                                   # noqa: BLE001
             log("агент диалога ошибка → простой ответ", repr(e))
             try:

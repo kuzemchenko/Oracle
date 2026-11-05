@@ -210,7 +210,7 @@ def test_bot_routes_free_text_to_agent_and_sends_files(tmp_path, monkeypatch):
     monkeypatch.setattr(b, "_budget_status", lambda: {"exit_code": 0})
     seen = {}
 
-    def fake_answer(text, history=None, actions=None):
+    def fake_answer(text, history=None, actions=None, attachments=None):
         seen["text"], seen["actions"] = text, actions
         return "Вот выгрузка DHT.", [("DHT.csv", b"date,close\n", "DHT.csv: EODHD")], 0.05
     monkeypatch.setattr(A, "answer", fake_answer)
@@ -282,3 +282,69 @@ def test_prompt_cache_marks_and_fallback_on_400():
     assert isinstance(bodies[2]["messages"][0]["content"], str)              # повтор — без меток, строкой
     assert "cache_control" not in json.dumps(bodies[2])
     assert ag.cache_on is False and ag.cache_write == 900 and ag.cache_read == 800
+
+
+def test_plain_text_strips_markdown():
+    t = A.plain_text("**PDF как файл** я прочитать могу\n### Итог\n* пункт\n`код`")
+    assert t == "PDF как файл я прочитать могу\nИтог\n• пункт\nкод"
+
+
+def test_pdf_attachment_goes_to_model_and_survives_cache_fallback():
+    """05.11: присланный PDF уходит модели частью type=file; откат без меток кэша файл не теряет."""
+    class HTTP400(Exception):
+        response = type("R", (), {"status_code": 400})()
+    bodies = []
+
+    def post(body):
+        bodies.append(json.loads(json.dumps(body)))
+        if len(bodies) == 1:
+            raise HTTP400("no cache here")
+        return {"choices": [{"message": {"content": "**Мимо** по цене"}}], "usage": {"cost": 0.02}}
+    ag = A.Agent(post=post, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    text, _f, _c = A.answer("разбери", history=[], agent=ag, attachments=[("deck.pdf", b"%PDF-1.7 x")])
+    assert text == "Мимо по цене"                                   # звёздочки вычищены
+    for b in bodies:
+        parts = b["messages"][-1]["content"]
+        f = [pt for pt in parts if pt.get("type") == "file"]
+        assert f and f[0]["file"]["filename"] == "deck.pdf"
+        assert f[0]["file"]["file_data"].startswith("data:application/pdf;base64,")
+    assert "cache_control" not in json.dumps(bodies[1])
+
+
+def test_bot_reads_pdf_document_and_reattaches_for_followup(tmp_path, monkeypatch):
+    import bot_state as S
+    import bot as BOT
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+
+    class TG:
+        def __init__(self):
+            self.sent = []
+
+        def send_message(self, chat, text, reply_markup=None):
+            self.sent.append(text)
+            return 1
+
+        def get_file(self, fid):
+            return {"file_path": "docs/x.pdf"}
+
+        def download_file(self, path):
+            return b"%PDF-1.7 deck"
+
+    b = BOT.Bot(TG(), "555", state=S._default_state())
+    monkeypatch.setattr(b, "_budget_status", lambda: {"exit_code": 0})
+    calls = []
+
+    def fake_answer(text, history=None, actions=None, attachments=None):
+        calls.append((text, attachments))
+        return "разобрал", [], 0.1
+    monkeypatch.setattr(A, "answer", fake_answer)
+    b._on_message({"chat": {"id": 555}, "caption": "стоит ли входить?",
+                   "document": {"file_id": "f1", "file_name": "Revolut_Pre_IPO.pdf", "mime_type": "application/pdf",
+                                "file_size": 850475}})
+    assert calls[0][0].startswith("[прислал документ «Revolut_Pre_IPO.pdf»] стоит ли входить?")
+    assert calls[0][1] == [("Revolut_Pre_IPO.pdf", b"%PDF-1.7 deck")]
+    b._on_message({"chat": {"id": 555}, "text": "а что с комиссиями?"})
+    assert calls[1][1] == [("Revolut_Pre_IPO.pdf", b"%PDF-1.7 deck")]     # уточнение — с тем же документом
+    b._on_message({"chat": {"id": 555}, "document": {"file_id": "f2", "file_name": "x.docx",
+                                                     "mime_type": "application/msword"}})
+    assert "только PDF" in b.tg.sent[-1] and len(calls) == 2
