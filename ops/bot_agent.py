@@ -555,8 +555,10 @@ SYSTEM_PROMPT = """Ты — инвест-аналитик владельца с�
 
 
 def _messages(user_text, history, brief):
-    sys_txt = SYSTEM_PROMPT + f"\n\nСейчас {_now()} UTC.\n\nСОСТОЯНИЕ СИСТЕМЫ (из журналов):\n{brief}"
-    msgs = [{"role": "system", "content": sys_txt}]
+    # две части: постоянная персона (кэшируется между вопросами) + изменчивое состояние системы
+    dyn = f"Сейчас {_now()} UTC.\n\nСОСТОЯНИЕ СИСТЕМЫ (из журналов):\n{brief}"
+    msgs = [{"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT},
+                                           {"type": "text", "text": dyn}]}]
     for h in (history or [])[-2 * MAX_HISTORY_TURNS:]:
         role = "user" if h.get("role") == "user" else "assistant"
         msgs.append({"role": role, "content": str(h.get("text") or "")[:6000]})
@@ -580,6 +582,9 @@ class Agent:
         self.sleep = sleep
         self.cost = 0.0
         self.trace = []
+        self.cache_on = True
+        self.cache_read = self.cache_write = 0
+        self.cache_error = None
 
     def _post(self, body):
         if not self.api_key:
@@ -592,21 +597,64 @@ class Agent:
         r.raise_for_status()
         return r.json()
 
-    def _complete(self, messages):
+    # Кэш подсказки (владелец 05.11 «сделай сейчас»): в цикле инструментов каждый шаг заново шлёт модели всё
+    # собранное (11k → 35k → 37k токенов, ~$1.09 за вопрос). Метки cache_control (Anthropic через OpenRouter)
+    # ставятся на постоянную персону, на конец состояния и на последнее сообщение — повторно отправленное
+    # читается из кэша по ~0.1 цены. Провайдер отверг метки (HTTP 400) → тот же запрос без них и кэш выключен
+    # до конца ответа: агент не ломается из-за оптимизации.
+    @staticmethod
+    def _with_cache(messages):
+        out = [dict(m) for m in messages]
+        marks = 0
+        sysm = out[0] if out and out[0].get("role") == "system" else None
+        if sysm and isinstance(sysm.get("content"), list):
+            parts = [dict(pt) for pt in sysm["content"]]
+            for pt in parts[:2]:
+                pt["cache_control"] = {"type": "ephemeral"}
+                marks += 1
+            sysm["content"] = parts
+        last = out[-1] if len(out) > 1 else None
+        if last is not None and marks < 4:
+            c = last.get("content")
+            if isinstance(c, str) and c:
+                last["content"] = [{"type": "text", "text": c, "cache_control": {"type": "ephemeral"}}]
+        return out
+
+    @staticmethod
+    def _plain(messages):
+        """Без меток кэша: системные части склеиваются обратно в строку (самый совместимый формат)."""
+        out = []
+        for m in messages:
+            m = dict(m)
+            if isinstance(m.get("content"), list):
+                m["content"] = "\n\n".join(pt.get("text", "") for pt in m["content"] if isinstance(pt, dict))
+            out.append(m)
+        return out
+
+    def _call(self, messages, tool_choice="auto", max_tokens=6000):
         role_cfg = self.OR.resolve_role(ROLE, self.models)
         chain = self.OR.filtered_chain(role_cfg, None, self.models)
         last = None
         for model in chain:
-            for attempt in range(2):
-                body = {"model": model, "messages": messages, "tools": TOOL_SPECS, "tool_choice": "auto",
+            attempt = 0
+            while attempt < 3:
+                cached = self.cache_on and str(model).startswith("anthropic/")
+                body = {"model": model, "messages": self._with_cache(messages) if cached else self._plain(messages),
+                        "tools": TOOL_SPECS, "tool_choice": tool_choice,
                         "temperature": role_cfg.get("temperature", 0.5), "usage": {"include": True},
-                        "max_tokens": 6000}
+                        "max_tokens": max_tokens}
                 try:
                     data = self.post(body)
                 except Exception as e:                           # noqa: BLE001
                     last = e
                     self.log_cost("live", "bot_agent", model, None, None, ok=False, run_id="bot_agent")
+                    code = getattr(getattr(e, "response", None), "status_code", None)
+                    if cached and isinstance(code, int) and 400 <= code < 500 and code != 429:
+                        self.cache_on = False
+                        self.cache_error = str(e)[:200]
+                        continue                                  # тот же запрос без меток кэша
                     if "transient" in str(e) and attempt == 0:
+                        attempt += 1
                         self.sleep(3)
                         continue
                     break
@@ -616,10 +664,16 @@ class Agent:
                     break
                 usage = data.get("usage") or {}
                 cost = usage.get("cost")
+                det = usage.get("prompt_tokens_details") or {}
+                self.cache_read += int(det.get("cached_tokens") or 0)
+                self.cache_write += int(det.get("cache_write_tokens") or 0)
                 self.log_cost("live", "bot_agent", model, usage, cost, ok=True, run_id="bot_agent")
                 self.cost += float(cost or 0.0)
                 return ch[0].get("message") or {}, model
         raise RuntimeError(f"модели роли {ROLE} недоступны: {last}")
+
+    def _complete(self, messages):
+        return self._call(messages, "auto", 6000)
 
     def run(self, user_text, history=None, brief=""):
         """→ (текст ответа, [(имя_файла, байты, подпись)], стоимость_usd)."""
@@ -665,19 +719,11 @@ class Agent:
         return redact((text or "").strip()), list(self.tools.files), round(self.cost, 4)
 
     def _complete_no_tools(self, msgs):
-        role_cfg = self.OR.resolve_role(ROLE, self.models)
-        for model in self.OR.filtered_chain(role_cfg, None, self.models):
-            try:
-                data = self.post({"model": model, "messages": msgs, "tools": TOOL_SPECS, "tool_choice": "none",
-                                  "usage": {"include": True}, "max_tokens": 4000})
-            except Exception:                                    # noqa: BLE001
-                continue
-            usage = data.get("usage") or {}
-            self.log_cost("live", "bot_agent", model, usage, usage.get("cost"), ok=True, run_id="bot_agent")
-            self.cost += float(usage.get("cost") or 0.0)
-            ch = data.get("choices") or [{}]
-            return (ch[0].get("message") or {}).get("content") or "", model
-        return "Не успел собрать ответ — модели недоступны.", None
+        try:
+            msg, model = self._call(msgs, "none", 4000)
+        except RuntimeError:
+            return "Не успел собрать ответ — модели недоступны.", None
+        return msg.get("content") or "", model
 
 
 def hunter_ideas_brief(n=5):
@@ -697,7 +743,7 @@ def hunter_ideas_brief(n=5):
     return "\n".join(rows)
 
 
-def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply=None):
+def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply=None, cache=None):
     """Строка журнала разговора: вопрос (начало), вызванные инструменты, файлы, стоимость. Ключей нет —
     аргументы уже вычищены redact(). Нужен, чтобы видеть с GitHub, работает ли агент вживую (bot.log туда не идёт)."""
     # 04.11 владелец: «можешь смотреть в Telegram?» — журнал хранит и вопрос, и ответ целиком (до 6000 симв.),
@@ -705,7 +751,7 @@ def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply
     rec = {"ts": _now(), "ok": ok, "question": redact(str(question))[:2000],
            "reply": redact(str(reply))[:6000] if reply else None,
            "tools": [{"tool": t.get("tool"), "args": t.get("args"), "chars": t.get("chars")} for t in (trace or [])][:40],
-           "files": [f[0] for f in (files or [])], "cost_usd": cost, "error": redact(str(error))[:300] if error else None}
+           "files": [f[0] for f in (files or [])], "cost_usd": cost, "cache": cache, "error": redact(str(error))[:300] if error else None}
     p = pathlib.Path(path or CHAT_LOG)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -738,5 +784,7 @@ def answer(user_text, history=None, actions=None, agent=None):
     except Exception as e:                                       # noqa: BLE001
         log_turn(user_text, ag.trace, list(ag.tools.files), round(ag.cost, 4), ok=False, error=e)
         raise
-    log_turn(user_text, ag.trace, files, cost, reply=text)
+    log_turn(user_text, ag.trace, files, cost, reply=text,
+             cache={"read_tokens": ag.cache_read, "write_tokens": ag.cache_write, "on": ag.cache_on,
+                    "error": ag.cache_error})
     return text, files, cost

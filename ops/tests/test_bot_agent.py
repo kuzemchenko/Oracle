@@ -251,3 +251,34 @@ def test_answer_logs_turn_with_tools(monkeypatch, tmp_path):
     except RuntimeError:
         pass
     assert json.loads(log.read_text().splitlines()[-1])["ok"] is False
+
+
+def test_prompt_cache_marks_and_fallback_on_400():
+    """05.11: кэш подсказки — метки на персоне, состоянии и последнем сообщении; провайдер отверг (400) →
+    тот же запрос без меток, ответ всё равно приходит, кэш до конца ответа выключен."""
+    class HTTP400(Exception):
+        response = type("R", (), {"status_code": 400})()
+
+    bodies = []
+
+    def post(body):
+        bodies.append(json.loads(json.dumps(body)))
+        if len(bodies) == 1:
+            return {"choices": [{"message": {"content": None, "tool_calls": [
+                {"id": "a", "function": {"name": "list_files", "arguments": '{"pattern": "CLAUDE.md"}'}}]}}],
+                    "usage": {"cost": 0.01, "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 900}}}
+        if len(bodies) == 2:
+            raise HTTP400("bad cache_control")
+        return {"choices": [{"message": {"content": "готово"}}],
+                "usage": {"cost": 0.01, "prompt_tokens_details": {"cached_tokens": 800}}}
+
+    ag = A.Agent(post=post, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    text, _f, _c = ag.run("q", brief="b")
+    assert text == "готово"
+    sysc = bodies[0]["messages"][0]["content"]
+    assert isinstance(sysc, list) and all(pt.get("cache_control") for pt in sysc)
+    assert bodies[0]["messages"][-1]["content"][0]["cache_control"]["type"] == "ephemeral"
+    assert bodies[1]["messages"][-1]["content"][0].get("cache_control")        # второй шаг — с меткой, отвергнут
+    assert isinstance(bodies[2]["messages"][0]["content"], str)              # повтор — без меток, строкой
+    assert "cache_control" not in json.dumps(bodies[2])
+    assert ag.cache_on is False and ag.cache_write == 900 and ag.cache_read == 800
