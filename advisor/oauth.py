@@ -3,6 +3,8 @@
 SDK handles protocol validation, redirect matching and PKCE. The owner must
 approve each authorization using a separate random local password.
 """
+from collections import OrderedDict
+import logging
 import hashlib
 import html
 import secrets
@@ -13,6 +15,7 @@ from mcp.shared.auth import OAuthToken
 from starlette.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 
 SCOPE = 'oracle.read'
+log = logging.getLogger(__name__)
 
 class OwnerOAuth:
     def __init__(self, origin, password, callback_hosts=('chatgpt.com','chat.openai.com')):
@@ -27,12 +30,39 @@ class OwnerOAuth:
         self.callback_hosts=set(callback_hosts)
         self.clients={}; self.pending={}; self.codes={}; self.access={}; self.refresh={}
 
+        # Retain only a bounded digest and outcome, never credentials or OAuth parameters.
+        self.recent_requests = OrderedDict()
+
+    def finish_request(self, key, outcome):
+        self.pending.pop(key)
+        digest = hashlib.sha256(key.encode()).digest()
+        self.recent_requests[digest] = outcome
+        if len(self.recent_requests) > 512:
+            self.recent_requests.popitem(last=False)
+
+    def unavailable(self, key):
+        reason = "missing_id" if not key else self.recent_requests.get(
+            hashlib.sha256(key.encode()).digest(), "unknown_id")
+        log.warning("Oracle consent unavailable: %s", reason)
+        messages = {
+            "missing_id": "Форма отправлена без номера запроса.",
+            "expired": "Истекли 10 минут, отведённые на вход.",
+            "approved": "Oracle уже принял пароль и выдал код для возврата в ChatGPT.",
+            "wrong_password": "Попытка входа завершена после неверного пароля.",
+            "unknown_id": "Сервер не распознал номер запроса.",
+        }
+        return PlainTextResponse(messages[reason], status_code=400, headers={"Cache-Control": "no-store"})
+
     def cleanup(self):
         now=time.time()
         for mapping in (self.pending,self.codes,self.access,self.refresh):
             for key, item in list(mapping.items()):
                 expiry=item['expires_at'] if isinstance(item,dict) else item.expires_at
-                if expiry is not None and expiry<now: mapping.pop(key,None)
+                if expiry is not None and expiry<now:
+                    if mapping is self.pending:
+                        self.finish_request(key, "expired")
+                    else:
+                        mapping.pop(key,None)
 
     async def get_client(self, client_id):
         return self.clients.get(client_id)
@@ -61,8 +91,9 @@ class OwnerOAuth:
         self.cleanup()
         key=request.query_params.get('request','')
         item=self.pending.get(key)
-        if not item:return PlainTextResponse('Request expired. Reconnect from ChatGPT.',status_code=400)
+        if not item:return self.unavailable(key)
         callback=html.escape(str(item['params'].redirect_uri),quote=True)
+        callback_host = urlsplit(str(item['params'].redirect_uri)).hostname
         body=f'''<!doctype html><meta charset="utf-8"><title>Oracle — разрешить доступ</title>
 <h1>Подключить Oracle к ChatGPT</h1>
 <p>Разрешить чтение идей, рыночных данных и новостей. Запросы используют квоты ваших подписок.</p>
@@ -73,7 +104,7 @@ class OwnerOAuth:
 <label>Пароль подключения Oracle <input type="password" name="password" autocomplete="current-password" required></label>
 <button type="submit">Разрешить чтение</button></form>
 <p>Это отдельный пароль Oracle, созданный на сервере. Не вводите пароль ChatGPT или ключи поставщиков данных.</p>'''
-        response=HTMLResponse(body,headers={'Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",'Referrer-Policy':'same-origin'})
+        response=HTMLResponse(body,headers={'Cache-Control':'no-store','Content-Security-Policy':f"default-src 'none'; form-action 'self' https://{callback_host}; frame-ancestors 'none'; base-uri 'none'",'Referrer-Policy':'same-origin'})
         response.set_cookie('oracle_csrf',item['csrf'],secure=True,httponly=True,samesite='lax',max_age=600,path='/owner')
         return response
 
@@ -83,16 +114,16 @@ class OwnerOAuth:
             return PlainTextResponse('Invalid origin',status_code=403)
         form=await request.form()
         key=str(form.get('request','')); item=self.pending.get(key)
-        if not item:return PlainTextResponse('Request expired',status_code=400)
+        if not item:return self.unavailable(key)
         csrf=item['csrf']
         if not secrets.compare_digest(str(form.get('csrf','')),csrf) or not secrets.compare_digest(request.cookies.get('oracle_csrf',''),csrf):
             return PlainTextResponse('Invalid form',status_code=403)
         supplied=str(form.get('password',''))
         if not secrets.compare_digest(hashlib.sha256(supplied.encode()).digest(),self.password_digest):
             # One password attempt per authorization request.
-            self.pending.pop(key,None)
+            self.finish_request(key, "wrong_password")
             return PlainTextResponse('Invalid password. Start again from ChatGPT.',status_code=403)
-        self.pending.pop(key,None)
+        self.finish_request(key, "approved")
         p=item['params']; code=secrets.token_urlsafe(32)
         self.codes[code]=AuthorizationCode(code=code,scopes=[SCOPE],expires_at=time.time()+120,
             client_id=item['client_id'],code_challenge=p.code_challenge,redirect_uri=p.redirect_uri,
