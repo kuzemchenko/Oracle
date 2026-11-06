@@ -8,3 +8,5 @@
 {"ts": "2026-11-04T22:11:49+00:00", "kind": "идея охотника", "ref": "idea_2026-11-03_DHT.push.txt", "sha256": "1d26e08f484aaba03d0077c256158f839f30c0b8a9e35115633caeb5e7a9a558", "chars": 857, "buttons": false, "lint_ok": true, "message_id": 797, "показана_раньше": true}
 {"ts": "2026-11-05T00:00:24+00:00", "kind": "бот жив", "ref": "2026-11-05", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
 {"ts": "2026-11-05T21:15:08+00:00", "kind": "заметка: дозор", "ref": "notices#138", "sha256": "56279389d1e437fe8665e9509f5785a6f9c034e053d0fa3ccba51c7fcd8bd62e", "chars": 290, "buttons": false, "lint_ok": null, "message_id": 801}
+{"ts": "2026-11-06T00:00:17+00:00", "kind": "бот жив", "ref": "2026-11-06", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
+{"ts": "2026-11-06T18:00:14+00:00", "kind": "заметка: дозор", "ref": "notices#140", "sha256": "38bffd3ab31c0c315ab49aef36b6137f74a613960b78250fc464b54c9d56eaf5", "chars": 959, "buttons": false, "lint_ok": null, "message_id": 805}

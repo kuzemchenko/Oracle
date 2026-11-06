@@ -1,71 +1,71 @@
-# Меню событий — 2026-11-05T21:00:24+00:00
+# Меню событий — 2026-11-06T21:00:12+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 189, нет 3)
-- HELSINKI: 751 статей (было 12, ×24.09); угрозы, переговоры; https://www.somersetcountygazette.co.uk/news/national/uk-today/26701264.uk-flight-among-planes-diverted-following-bomb-threats/
-- ROME: 1882 статей (было 549, ×3.34); переговоры, угрозы; https://whoradio.iheart.com/content/2026-11-05-bomb-threats-disrupt-flights-across-europe/
-- FIRST LADY: 1314 статей (было 491, ×2.61); переговоры, дипломатическое сотрудничество; https://www.somersetcountygazette.co.uk/news/national/26703782.putin-special-envoy-speaks-white-house-ceasefire-brokered-melania-trump/
-- страна: Hong Kong: 1701 статей (было 806, ×2.08); заявления, переговоры; http://www.bruneinews.net/news/279412042/hong-kong-pro-democracy-activist-joshua-wong-sentenced-to-10-years-in-prison
-- страна: Mauritius: 757 статей (было 184, ×3.81); переговоры, неодобрение; https://www.aol.co.uk/articles/andy-burnham-wants-progress-chagos-131538000.html
-- страна: Czech Republic: 1081 статей (было 442, ×2.38); переговоры, заявления; http://www.bignewsnetwork.com/news/279412836/roundup-bomb-threats-affect-multiple-flights-across-europe
-- MAURITIAN: 320 статей (было 0, ×17.0); переговоры, заявления; https://www.aol.co.uk/articles/andy-burnham-wants-progress-chagos-131538000.html
-- страна: Paraguay: 775 статей (было 228, ×3.21); уступки, призывы; https://www.aol.com/articles/explainer-ueno-bank-did-trigger-193038000.html
-- LANDLORD: 801 статей (было 254, ×3.0); ухудшение отношений (санкции, разрыв), переговоры; https://www.macleayargus.com.au/story/9386160/david-jones-collapses-after-188-years-hopes-for-reset/
-- MILAN: 479 статей (было 116, ×3.67); переговоры, угрозы; https://www.thepeterboroughexaminer.com/business/bomb-threat-forces-aer-lingus-dublin-rome-flight-to-divert-to-a-french-military-air-base/article_2965fe65-5571-555e-9e7d-29bd2fa2221b.html
-- GUNMAN: 443 статей (было 95, ×4.03); боевые действия, расследования; https://hallelujah955.iheart.com/content/2026-11-04-man-with-rifle-crashes-car-into-florida-business-complex-kills-woman-in-targeted-attack/
-- MORMON: 236 статей (было 0, ×12.8); переговоры, принуждение; https://katu.com/news/entertainment/secret-lives-of-mormon-wives-star-jen-affleck-files-for-divorce-from-husband-zac-affleck
-- страна: Bolivia: 364 статей (было 54, ×5.19); переговоры, принуждение; https://www.riotimesonline.com/bolivia-top-judge-saucedo-leaves-country-arrest-order-2026/
-- REGIMENT: 417 статей (было 84, ×4.2); переговоры, намерения сотрудничать; https://www.aol.co.uk/articles/nigel-farages-tough-defence-chief-163400000.html
-- PRAGUE: 367 статей (было 62, ×4.72); переговоры, заявления; https://www.express.co.uk/news/world/2263682/terrifying-bomb-threat-airports-europe
+## GDELT: резко выросло за 24 ч (файлов 191, нет 1)
+- страна: Liberia: 1515 статей (было 147, ×9.19); переговоры, заявления; https://www.business-standard.com/external-affairs-defence-security/news/india-calls-for-stronger-protection-of-un-peacekeepers-amid-rising-threats-126110600521_1.html
+- страна: Uruguay: 1296 статей (было 225, ×5.37); переговоры, намерения сотрудничать; https://www.caledonianrecord.com/news/national/after-cancer-surgery-pope-leo-embarks-on-latin-america-trip-with-a-first-stop-in/article_a671d320-9654-59fa-b28b-cd2f74e02b5f.html
+- страна: Tanzania: 2010 статей (было 823, ×2.41); принуждение, переговоры; https://news.crossmap.com/2026/11/05/2-in-3-churchgoers-fail-bible-literacy-quiz-survey-says/
+- страна: Paraguay: 1731 статей (было 834, ×2.05); уступки, неодобрение; https://news.crossmap.com/2026/11/06/nigerian-government-lacks-political-will-to-end-attacks-in-benue-state-catholic-bishop-says/
+- IRISH: 1346 статей (было 524, ×2.51); переговоры, дипломатическое сотрудничество; https://www.oxfordmail.co.uk/news/national/26705710.nicola-coughlan-says-filming-helen-intense-wanted-quit/
+- CONSTABLE: 739 статей (было 157, ×4.29); переговоры, заявления; https://www.thecomet.net/news/national/26706081.taoiseach-attends-psni-passing-event-historic-first-irish-premier/
+- ABU DHABI: 1074 статей (было 452, ×2.32); переговоры, намерения сотрудничать; http://www.iraqsun.com/news/279416004/nahyan-bin-mubarak-opens-middle-east-first-outdoor-children-biennale-at-umm-al-emarat-park
+- CEBU: 611 статей (было 142, ×3.9); переговоры, расследования; https://mix973wheeling.iheart.com/content/2026-11-06-meghan-markles-father-arrested-in-florida-on-child-abuse-material-charges/
+- страна: Macau: 390 статей (было 38, ×7.07); переговоры, принуждение; http://www.thegazette.com/news/world/former-pro-democracy-lawmaker-sentenced-to-12-years-in-macao-s-first-national-security-case/article_4be7c093-c699-5169-8f6e-4b6b56e7cf1c.html
+- TAMPA: 670 статей (было 214, ×2.95); переговоры, боевые действия; https://www.wesh.com/article/gunman-citibank-shooting-debt-collection-court-case-florida/74350303
+- THE POPE: 778 статей (было 309, ×2.43); переговоры, намерения сотрудничать; https://cyprusnews.eu/cnn-kosmos/pope-leo-proud-to-be-an-american-and-vote-in-us-midterms/
+- DANISH: 506 статей (было 122, ×3.7); неодобрение, переговоры; https://abcnews.com/International/wireStory/european-air-traffic-targeted-new-threats-3-incidents-137904728
+- CHARLOTTE: 571 статей (было 182, ×2.93); расследования, переговоры; https://koacolorado.iheart.com/content/2026-11-06-man-sues-openai-alleging-chatgpt-helped-wife-form-plot-to-poison-him/
+- NATIONALS: 525 статей (было 164, ×2.96); намерения сотрудничать, уступки; https://www.moreechampion.com.au/story/9386882/michelle-grattan-matt-canavan-nationals-mps-facing-wipeout-in-state-federal-elections/
+- страна: Luxembourg: 432 статей (было 102, ×3.7); переговоры, заявления; https://www.chronicle.lu/category/luxembourg/64481-police-report-two-arrests-following-shoplifting-break-in-incidents
 
 ## GDELT: больше всего пишут
-- страна: United States: 157445 статей; переговоры, заявления
-- страна: United Kingdom: 35104 статей; переговоры, заявления
-- страна: India: 27439 статей; переговоры, заявления
-- страна: Canada: 18244 статей; переговоры, заявления
-- страна: Australia: 15765 статей; переговоры, заявления
-- страна: Israel: 15649 статей; переговоры, заявления
-- страна: Iran: 14933 статей; переговоры, заявления
-- страна: Nigeria: 14924 статей; заявления, переговоры
-- страна: China: 13527 статей; переговоры, заявления
-- страна: Russia: 12809 статей; переговоры, заявления
-- страна: France: 10898 статей; переговоры, заявления
-- страна: Ukraine: 10769 статей; переговоры, дипломатическое сотрудничество
-- страна: Pakistan: 6972 статей; переговоры, заявления
-- страна: South Africa: 6495 статей; заявления, переговоры
-- страна: Ireland: 6413 статей; переговоры, заявления
+- страна: United States: 163764 статей; переговоры, заявления
+- страна: United Kingdom: 33464 статей; переговоры, заявления
+- страна: India: 26687 статей; переговоры, заявления
+- страна: Canada: 16807 статей; переговоры, заявления
+- страна: Nigeria: 15838 статей; заявления, переговоры
+- страна: Australia: 15422 статей; переговоры, заявления
+- страна: China: 14405 статей; переговоры, заявления
+- страна: Russia: 14114 статей; переговоры, заявления
+- страна: Israel: 13703 статей; переговоры, заявления
+- страна: Iran: 12815 статей; переговоры, заявления
+- страна: Ukraine: 12384 статей; переговоры, намерения сотрудничать
+- страна: France: 8475 статей; переговоры, заявления
+- страна: Ireland: 7879 статей; переговоры, заявления
+- страна: Pakistan: 6525 статей; переговоры, заявления
+- страна: South Africa: 5830 статей; переговоры, заявления
 
 ## Википедия: интерес вырос
-- Gina Hinojosa: 1242354 просмотров (позавчера 25636, ×46.68)
-- James Talarico: 1256040 просмотров (позавчера 105766, ×11.77)
-- Abdul El-Sayed: 1413749 просмотров (позавчера 271285, ×5.2)
-- Jon Ossoff: 611863 просмотров (позавчера 46502, ×12.9)
-- Dan Osborn: 273151 просмотров (позавчера 0, ×274.15)
-- Keisha Lance Bottoms: 431379 просмотров (позавчера 15059, ×26.92)
-- 2026 United States elections: 1153444 просмотров (позавчера 455194, ×2.53)
-- Chris Pappas (American politician): 194250 просмотров (позавчера 0, ×195.25)
-- Byron Donalds: 362265 просмотров (позавчера 22813, ×15.25)
-- Greg Abbott: 327943 просмотров (позавчера 15347, ×20.12)
-- Scott Colom: 171635 просмотров (позавчера 0, ×172.63)
-- 2026 United States Senate elections: 493851 просмотров (позавчера 90787, ×5.39)
-- Gilberto Hinojosa: 146352 просмотров (позавчера 0, ×147.35)
-- 2026 United States Senate election in Mississippi: 141842 просмотров (позавчера 0, ×142.84)
-- 2028 United States Senate elections: 244552 просмотров (позавчера 14885, ×15.46)
+- Russell Brand: 571124 просмотров (позавчера 12055, ×43.82)
+- Ramayana: Part 1: 609307 просмотров (позавчера 103372, ×5.85)
+- Katy Perry: 67378 просмотров (позавчера 0, ×68.38)
+- TamilRockers: 65944 просмотров (позавчера 0, ×66.94)
+- Kimmarie Johnson: 62844 просмотров (позавчера 0, ×63.84)
+- Guy Fawkes Night: 136878 просмотров (позавчера 20473, ×6.42)
+- Kirsty Gallacher: 59057 просмотров (позавчера 0, ×60.06)
+- Guy Fawkes: 133874 просмотров (позавчера 21842, ×5.9)
+- Marco Pierre White: 55779 просмотров (позавчера 0, ×56.78)
+- Alan Jones (racing driver): 55506 просмотров (позавчера 0, ×56.51)
+- Nithya Raman: 197142 просмотров (позавчера 78504, ×2.49)
+- Cristiano Ronaldo: 100332 просмотров (позавчера 17536, ×5.47)
+- Joran van der Sloot: 116017 просмотров (позавчера 54916, ×2.09)
+- Pete Hegseth: 69597 просмотров (позавчера 33839, ×2.03)
+- Bob Dylan: 59817 просмотров (позавчера 26383, ×2.22)
 
 ## NewsAPI.ai: крупнейшие события
-- Cristiano Ronaldo retires from Portugal: 23 facts for his 23 years of international action: 1635 статей
-- Paraguay seizes major digital bank tied to president, leaving millions of customers in limbo: 883 статей
-- El-Sayed calls Vance habibi in victory speech. What does it mean?: 771 статей
-- Hubert Aiwanger, prominent German politician, found dead in Berlin hotel: 705 статей
-- AEK Athens 2-3 Real Madrid: Federico Valverde scores late winner as Real Madrid complete comeback: 645 статей
-- Midterm Election Losses Complicate Trump's Options on Iran War: 590 статей
-- Ukraine's Zelenskiy awards Melania Trump state honour: 459 статей
-- Russell Brand reacts after being found guilty of rape and sexual assault: 444 статей
-- Joshua Wong, Hong Kong Democracy Activist, Is Sentenced to 10 Years in Prison: 432 статей
-- Rafael Nadal: Tennis legend set to join Real Madrid board of directors: 427 статей
-- Cristiano Ronaldo announces international retirement: 'Portugal will always be in my heart': 373 статей
-- Tinto Brass, director of Caligula and maestro of Euro erotica, dies aged 93: 364 статей
-- US singer Bob Dylan meets Pope Leo XIV in Vatican City: 361 статей
-- Paraguay's president resigns amid banking scandal: 318 статей
-- Former F1 champion Jones dies aged 80: 312 статей
+- Cristiano Ronaldo retires from Portugal: 23 facts for his 23 years of international action: 1753 статей
+- "He Has To Go To Jail": Paraguay President Resigns Amid Banking Crisis: 1589 статей
+- How British Law Informed Russell Brand Trial Coverage: 994 статей
+- Cristiano Ronaldo's Portugal exit may have been messy but he leaves an untouchable legacy: 884 статей
+- Thomas Markle Sr., Meghan's father, arrested in Florida, sources say: 869 статей
+- Trump Says He Met With a Senior Russian Official on a Ukraine Peace Deal: 703 статей
+- Pope Leo XIV, who had cancer surgery just weeks ago, begins grueling South American tour: 508 статей
+- Global tech stocks tumble as blue wave is felt in Asia and Europe: 433 статей
+- Trump Taps Stephen Miller as New White House Chief of Staff: 397 статей
+- France deploys 70,000 police to meet day of nationwide protests, strikes: 389 статей
+- Triumphal Arch Set to Win Final Approval Despite Court Challenges: 381 статей
+- 'Several victims' after school bus crashes in France, officials say: 344 статей
+- Former F1 champion Jones dies aged 80: 338 статей
+- Tesla Is Ending Production of Its Cybertruck and Refocusing on the Cybercab: 330 статей
+- Unanswered questions after cult leader jailed but no one charged over 400 bodies: 315 статей
