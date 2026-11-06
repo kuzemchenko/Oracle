@@ -35,6 +35,7 @@ class OAuthTests(unittest.TestCase):
         self.assertEqual(r.status_code,302,r.text)
         page=self.client.get(r.headers['location'])
         self.assertEqual(page.headers['referrer-policy'],'same-origin')
+        self.assertIn("form-action 'self' https://chatgpt.com;", page.headers['content-security-policy'])
         key=re.search('name="request" value="([^"]+)"',page.text).group(1)
         csrf=re.search('name="csrf" value="([^"]+)"',page.text).group(1)
         return self.client.post('/owner',data={'request':key,'csrf':csrf,'password':password or self.password},
@@ -64,6 +65,28 @@ class OAuthTests(unittest.TestCase):
         self.assertEqual(r.status_code,200,r.text)
         headers['Authorization']='Bearer '+rotated['access_token']
         self.assertEqual(self.client.post('/mcp',json=body,headers=headers).status_code,401)
+    def test_duplicate_and_expired_consent_have_distinct_outcomes(self):
+        cid = self.register().json()['client_id']
+        first = self.authorize(cid)
+        self.assertEqual(first.status_code, 303)
+        replay = self.client.send(first.request)
+        self.assertEqual(replay.status_code, 400)
+        self.assertIn("уже принял пароль", replay.text)
+        self.assertEqual(len(self.oauth.codes), 1)
+        def expire_first(_request):
+            for item in self.oauth.pending.values():
+                item["expires_at"] = 0
+        self.client.event_hooks["request"].append(expire_first)
+        # Fetching an expired form cannot issue another code.
+        response = self.client.get('/authorize', params={
+            'client_id': cid, 'response_type': 'code', 'redirect_uri': self.callback,
+            'code_challenge': self.challenge, 'code_challenge_method': 'S256',
+            'resource': self.origin + '/mcp', 'scope': 'oracle.read',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Истекли 10 минут", response.text)
+        self.assertEqual(len(self.oauth.codes), 1)
+
     def test_wrong_password_and_origin(self):
         cid=self.register().json()['client_id']
         self.assertEqual(self.authorize(cid,password='wrong').status_code,403)
