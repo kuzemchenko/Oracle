@@ -39,6 +39,22 @@ def card_path_for(push_path):
     return p.with_name(p.name[:-len(".push.txt")] + ".card.json")
 
 
+def card_sha256(card):
+    """Отпечаток карточки: sha256 канонического JSON (ключи отсортированы, без gate_file)."""
+    import hashlib
+    c = {k: v for k, v in (card or {}).items() if k != "gate_file"}
+    blob = json.dumps(c, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _target_status(card):
+    try:
+        from mathlib import target_calc as TC
+        return TC.check_basis(card.get("target_basis"), card.get("target_price"))["status"]
+    except Exception:                                  # noqa: BLE001
+        return None
+
+
 def spec_from_card(card, idea_file=None, kind=KIND):
     """Карточка охотника → прогноз для mathlib.sealing.seal (или ValueError с причиной)."""
     s = (card or {}).get("spec9") or {}
@@ -57,6 +73,11 @@ def spec_from_card(card, idea_file=None, kind=KIND):
         "price_source": s.get("price_source") or f"EODHD close {asset}",
         "probability": prob,
         "вероятность_источник": "охотник (LLM, сырая, не калибрована — владельцу не показывается)",
+        # аудит 07.11 (№6–7): вид вероятности и отпечаток ИСХОДНОЙ карточки — пересмотр идеи
+        # (ops/idea_revision.py) ссылается на этот отпечаток и не может задним числом улучшить счёт
+        "probability_kind": str(s.get("probability_kind") or "subjective"),
+        "карточка_sha256": card_sha256(card),
+        "цель_статус": _target_status(card),
         "mechanism_id": card.get("mechanism_id"), "zone": card.get("zone"),
         "idea_file": idea_file,
         # перепроверка №2 (03.11): в записи — серверный якорь порога и цены идеи (чем мерили),
@@ -204,6 +225,7 @@ def push_card_mismatch(text, card, require_prices=True):
 WHY_HEAD = "Почему это ещё не в цене."
 MONEY_HEAD = "Сколько можно заработать и чем рискую."
 TODO_HEAD = "Что делать."
+CAVEATS_HEAD = "Оговорки проверки."          # абзац кода (ops/evidence_check.caveats_paragraph)
 
 
 def _norm_head(t):
@@ -321,7 +343,23 @@ def render_with_problems(card, update=False):
         cs = chance_sentence(card)
         if cs:
             out["money"] += " " + cs
+    # аудит 07.11: оговорки доказательной базы (цель предварительная, «документа нет» только по
+    # вторичным источникам) пишет КОД отдельным абзацем — модель не может их убрать или смягчить
+    cav = _caveats(card)
+    if cav:
+        out["caveats"] = cav
     return out, problems
+
+
+def _caveats(card):
+    try:
+        from ops import evidence_check as EV
+    except ImportError:
+        import evidence_check as EV
+    try:
+        return EV.caveats_paragraph(card)
+    except Exception:                                  # noqa: BLE001 — оговорка не валит рендер
+        return None
 
 
 def chance_sentence(card):
@@ -385,6 +423,14 @@ def apply_rendered(text, rendered, drop_unrendered=True):
         if anchor is None:
             anchor = next((i for i, b in enumerate(blocks) if _norm_head(b).startswith("что делать")), len(blocks))
         blocks[anchor:anchor] = missing
+    cav = rendered.get("caveats")
+    ch = _norm_head(CAVEATS_HEAD)[:20]
+    blocks = [b for b in blocks if not _norm_head(b).startswith(ch)]   # черновые «оговорки» модели — нет
+    if cav:
+        anchor = next((i for i, b in enumerate(blocks) if _norm_head(b).startswith("что делать")), None)
+        if anchor is None:
+            anchor = next((i for i, b in enumerate(blocks) if "исследовательский инструмент" in b), len(blocks))
+        blocks[anchor:anchor] = [cav]
     return "\n\n".join(blocks)
 
 
@@ -404,21 +450,37 @@ def prepare_push(text, card, update=False):
     # строка шанса — из КОДА (решение владельца 03.11): запрет вероятностных слов и счёт чисел
     # линта стоят против слов МОДЕЛИ, поэтому кодовая строка в линт не идёт
     cs = chance_sentence(card)
-    problems += [str(v) for v in PL.lint_hunter_idea(final.replace(" " + cs, "") if cs else final)]
+    linted = final.replace(" " + cs, "") if cs else final
+    if rendered.get("caveats"):                        # абзац кода — не слова модели, в линт не идёт
+        linted = linted.replace(rendered["caveats"], "")
+    problems += [str(v) for v in PL.lint_hunter_idea(linted)]
     return final, problems
 
 
-def preview(stem, today=None):
+def preview(stem, today=None, strict_evidence=False):
     """Облако и сервер видят ОДНО и то же: prepare_push по карточке (в облаке — её цены, на сервере —
     серверные). stem = reports/ideas/idea_<дата>_<ТИКЕР>. → {'problems', 'text'}; код выхода CLI 0 —
-    только если проблем нет."""
+    только если проблем нет. Аудит 07.11: в проблемах — и брак доказательств (ops/evidence_check)
+    для охот с idea_gate.EVIDENCE_FROM (или всегда при strict_evidence)."""
+    try:
+        from ops import evidence_check as EV, idea_gate as G
+    except ImportError:
+        import evidence_check as EV
+        import idea_gate as G
     text = pathlib.Path(str(stem) + ".push.txt").read_text(encoding="utf-8").strip()
     card = json.loads(pathlib.Path(str(stem) + ".card.json").read_text(encoding="utf-8"))
     final, problems = prepare_push(text, card)
     gap = entry_gap_problem(card)
     # владелец 04.11: придержанную идею бот всё равно показывает («для обсуждения, в счёт пока не
     # записал») — это ПРЕДУПРЕЖДЕНИЕ, а не брак: облако знает, как идея придёт, но коммит не блокирует
-    return {"problems": problems, "warnings": [gap] if gap else [], "text": final}
+    warnings = [gap] if gap else []
+    ev = EV.check(card)
+    hd = hunt_date_from_name(pathlib.Path(str(stem)).name)
+    if strict_evidence or (hd is not None and hd >= G.EVIDENCE_FROM):
+        problems += [f"доказательства: {x}" for x in ev["fails"]]
+    else:
+        warnings += [f"доказательства (для охот с {G.EVIDENCE_FROM}): {x}" for x in ev["fails"]]
+    return {"problems": problems, "warnings": warnings, "text": final}
 
 
 def entry_gap_problem(card):
@@ -807,7 +869,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Предпросмотр пуша охотника так, как его отправит бот")
     ap.add_argument("cmd", choices=["preview"])
     ap.add_argument("stem", help="reports/ideas/idea_<дата>_<ТИКЕР> (без расширения)")
+    ap.add_argument("--strict-evidence", action="store_true",
+                    help="брак доказательств — проблема и для охот раньше idea_gate.EVIDENCE_FROM")
     a = ap.parse_args()
-    res = preview(a.stem)
+    res = preview(a.stem, strict_evidence=a.strict_evidence)
     print(json.dumps(res, ensure_ascii=False, indent=1))
     sys.exit(0 if not res["problems"] else 1)

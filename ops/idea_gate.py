@@ -37,6 +37,16 @@ sys.path.insert(0, str(ROOT))
 from mathlib import priced_in as PI          # noqa: E402
 from mathlib import sealing as SEAL          # noqa: E402
 
+try:
+    from ops import evidence_check as EV     # noqa: E402
+except ImportError:                          # запуск из ops/ (бот)
+    import evidence_check as EV              # noqa: E402
+
+# Аудит 07.11: проверка СОДЕРЖАНИЯ доводов (ops/evidence_check.py) обязательна для охот с этой даты.
+# Идеи раньше неё уже запечатаны и ведутся своими проверками — их плановые обновления не должны
+# внезапно браковаться новыми полями; по ним доказательства показываются предупреждением.
+EVIDENCE_FROM = datetime.date(2026, 11, 8)
+
 TICKER_RE = re.compile(r"^[A-Z][A-Z0-9\-]{0,9}\.US$")
 MIN_DAYS, MAX_DAYS = 21, 91                  # 3–13 недель
 MIN_FACTS, MIN_DOMAINS = 3, 2
@@ -102,11 +112,13 @@ def price_math(direction, last_close, trigger_close, target, stop, entry_limit=N
     return out
 
 
-def check(card, today=None, horizon_from=None):
+def check(card, today=None, horizon_from=None, evidence=None):
     """Карточка → {'pass', 'fails', 'warnings', 'computed'}. Пустой fails = прошла шлагбаум.
     horizon_from — дата, от которой мерить горизонт 3–13 недель (на сервере — дата охоты: сервер
     печатает с лагом ≤3 дней, и честная идея на нижней границе не должна умирать от задержки
-    доставки — перепроверка №2); по умолчанию — today."""
+    доставки — перепроверка №2); по умолчанию — today.
+    evidence: True — проверка доказательств обязательна (брак), False — только предупреждения,
+    None — по дате охоты (horizon_from или today) против EVIDENCE_FROM."""
     today = today or datetime.datetime.now(datetime.timezone.utc).date()
     fails, warns, comp = [], [], {}
     if not isinstance(card, dict):
@@ -285,6 +297,17 @@ def check(card, today=None, horizon_from=None):
 
     if not str(card["who_sells"]).strip():
         fails.append("не сказано, кто продаёт нам и почему")
+
+    # 9. доказательства (аудит 07.11): цитаты регуляторики и исключения, проверка «отсутствия»,
+    # базис показателей, время события, причинность хода, расчёт цели, вид вероятности
+    ev = EV.check(card)
+    enforce = evidence if evidence is not None else (horizon_from or today) >= EVIDENCE_FROM
+    comp["доказательства"] = {"обязательны": bool(enforce), "брак": ev["fails"], "оговорки": ev["labels"],
+                              "цель": (ev.get("target") or {}).get("status")}
+    if enforce:
+        fails += [f"доказательства: {x}" for x in ev["fails"]]
+    else:
+        warns += [f"доказательства (для охот с {EVIDENCE_FROM}): {x}" for x in ev["fails"]]
     return {"pass": not fails, "fails": fails, "warnings": warns, "computed": comp}
 
 
@@ -293,9 +316,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Шлагбаум идеи охотника (жёсткие критерии кодом)")
     ap.add_argument("card")
     ap.add_argument("--today", default=None)
+    ap.add_argument("--strict-evidence", action="store_true",
+                    help="проверка доказательств обязательна и для охот раньше EVIDENCE_FROM (перепрогон старых карточек)")
     a = ap.parse_args(argv)
     card = json.loads(pathlib.Path(a.card).read_text(encoding="utf-8"))
-    res = check(card, today=_date(a.today) if a.today else None)
+    res = check(card, today=_date(a.today) if a.today else None,
+                evidence=True if a.strict_evidence else None)
     print(json.dumps(res, ensure_ascii=False, indent=1, default=str))
     return 0 if res["pass"] else 1
 
