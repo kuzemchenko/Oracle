@@ -1492,6 +1492,13 @@ class Bot:
         n = rec.get("checked")
         parts.append((f"Проверил кандидатов: {int(n)}. " if isinstance(n, int) and n > 0 else "")
                      + "Почему не прошли: " + "; ".join(r.rstrip(".") for r in reasons) + ".")
+        # VQ-2 (2f, владелец 07.11): журнал проверенных веток — что смотрели, почему отказ, какой факт вернёт
+        br = [b for b in (rec.get("branches") or []) if isinstance(b, dict) and b.get("what") and b.get("why_not")][:3]
+        if br:
+            parts.append("Что ещё смотрел:\n" + "\n".join(
+                "• " + " ".join(str(b["what"]).split())[:70] + " — " + " ".join(str(b["why_not"]).split()).rstrip(".")[:110]
+                + ((". Вернусь, если " + " ".join(str(b["return_if"]).split()).rstrip(".")[:110]) if b.get("return_if") else "")
+                + "." for b in br))
         bc = rec.get("best_candidate") if isinstance(rec.get("best_candidate"), dict) else {}
         if bc.get("name") and bc.get("becomes_idea_if"):
             tk = str(bc.get("ticker") or "").split(".")[0]

@@ -31,6 +31,8 @@ if str(ROOT) not in sys.path:
 
 from mathlib import event_timing as ET    # noqa: E402
 from mathlib import target_calc as TC     # noqa: E402
+from mathlib import expectations as EX    # noqa: E402
+from mathlib import materiality as MAT    # noqa: E402
 
 # ── детекторы ────────────────────────────────────────────────────────────────
 REGULATORY_RE = re.compile(
@@ -265,6 +267,111 @@ def check_probability(card, fails, labels):
         fails.append("§9: вероятность названа калиброванной без ссылки на калибровку (calibration_ref)")
 
 
+# ── VQ-2 (владелец 07.11): «рынок ждёт X, мы ждём Y», существенность, устойчивость, глубина цепочки ──
+MARKET_KINDS = {"magnitude", "timing", "flow", "rule"}
+MIN_GAP_REL = 0.05          # наш сценарий отличается от рынка меньше чем на 5% — расхождения нет
+MAX_CHAIN = 3               # звеньев от повода до бумаги (idea_bar: «2–3 звена»)
+MAX_HYPOTHESIS_LINKS = 1    # жёсткая остановка: не больше одного неподтверждённого звена
+
+
+def _num(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def check_market_view(card, fails, labels):
+    """Главный вопрос инвестора: что уже заложено в цену и почему мы ждём другого. Нет ответа с цифрами и
+    источником ожидания рынка — брак (идея уходит владельцу «для обсуждения», в счёт не пишется)."""
+    mv = card.get("market_view") if isinstance(card.get("market_view"), dict) else None
+    if not mv:
+        fails.append("рынок/мы: не показано, что рынок уже ждёт и чем отличается наш сценарий (market_view: "
+                     "показатель, ожидание рынка с источником, наше значение, почему иначе)")
+        return None
+    kind = str(mv.get("kind") or "magnitude")
+    m = mv.get("market") if isinstance(mv.get("market"), dict) else {}
+    o = mv.get("ours") if isinstance(mv.get("ours"), dict) else {}
+    why = str(mv.get("why_different") or "").strip()
+    out = {"kind": kind}
+    if kind not in MARKET_KINDS:
+        fails.append(f"рынок/мы: неизвестный вид расхождения {kind!r} (magnitude | timing | flow | rule)")
+        return out
+    if len(why) < 40:
+        fails.append("рынок/мы: не объяснено, почему мы ждём другого (why_different ≥ 40 знаков)")
+    if not str(m.get("source") or "").strip():
+        fails.append("рынок/мы: у ожидания рынка нет источника (консенсус EODHD, расчёт по цене, опционы…)")
+    if kind == "magnitude":
+        mv_, ov = m.get("value"), o.get("value")
+        if not (_num(mv_) and _num(ov)):
+            fails.append("рынок/мы: нет чисел — ожидание рынка и наше значение одного показателя (market.value, ours.value)")
+            return out
+        rel = (ov - mv_) / abs(mv_) if mv_ else None
+        out["разрыв_отн"] = None if rel is None else round(rel, 4)
+        if rel is not None and abs(rel) < MIN_GAP_REL:
+            fails.append(f"рынок/мы: наш сценарий почти совпадает с рынком ({rel * 100:+.1f}%) — "
+                         f"идее нечем отличаться от уже заложенного в цену")
+    elif kind == "timing":
+        if not (_date(m.get("date")) and _date(o.get("date"))) or str(m.get("date")) == str(o.get("date")):
+            fails.append("рынок/мы: расхождение по срокам без двух разных дат (market.date — когда ждёт рынок, ours.date — мы)")
+    elif kind in ("flow", "rule"):
+        labels.append("Расхождение с рынком — не в цифрах ожиданий, а в " +
+                      ("вынужденных продажах" if kind == "flow" else "понимании правила") +
+                      ": цифрами не проверено")
+    imp = mv.get("implied") if isinstance(mv.get("implied"), dict) else None
+    if imp:
+        r = EX.implied_growth(imp.get("market_cap"), imp.get("base_earnings"), r=imp.get("r", EX.DEFAULT_R),
+                              g=imp.get("g", EX.DEFAULT_G), years=int(imp.get("years", EX.DEFAULT_YEARS)))
+        out["зашито_в_цену"] = r
+        if r.get("ok") and kind == "magnitude" and str(mv.get("metric") or "").lower().startswith("рост"):
+            if _num(m.get("value")) and abs(m["value"] - r["рост_в_год"]) > 0.02:
+                fails.append(f"рынок/мы: заявленный рост, зашитый в цену ({m['value']:.3f}), расходится с "
+                             f"пересчётом кодом ({r['рост_в_год']:.3f}) больше чем на 2 п.п.")
+    return out
+
+
+def check_materiality(card, fails, labels):
+    mt = card.get("materiality") if isinstance(card.get("materiality"), dict) else None
+    if not mt:
+        labels.append("Существенность эффекта для компании не посчитана")
+        return None
+    r = MAT.materiality(effect_profit_per_year=mt.get("effect_profit_per_year"),
+                        effect_revenue_per_year=mt.get("effect_revenue_per_year"), years=mt.get("years"),
+                        net_income=mt.get("net_income"), revenue=mt.get("revenue"), market_cap=mt.get("market_cap"))
+    if not r.get("ok"):
+        labels.append("Существенность эффекта не посчитана: " + str(r.get("причина")))
+    elif r["вердикт"] == MAT.ШУМ:
+        fails.append(f"существенность: эффект — шум для размера компании ({r['основание']}: "
+                     f"{r['мерила'][r['основание']]})")
+    elif r["вердикт"] == MAT.ПОГРАНИЧНЫЙ:
+        labels.append("Эффект для компании пограничный по размеру")
+    if r.get("оговорка"):
+        labels.append(r["оговорка"])
+    return r
+
+
+def check_durability(card, fails, labels):
+    d = card.get("durability") if isinstance(card.get("durability"), dict) else None
+    if not d or len(str(d.get("reason") or "").strip()) < 20 or not _http(d.get("url")):
+        labels.append("Устойчивость эффекта не обоснована проверяемым фактом (что помешает конкурентам "
+                      "быстро отнять выгоду) — идея предварительная")
+
+
+def check_chain(card, fails, labels):
+    """Жёсткая остановка глубины: 452 исторические пары «событие → звено» — 0 подтверждены сверх случайности,
+    поэтому дальше третьего звена и больше одного неподтверждённого звена не идём."""
+    ch = card.get("chain")
+    if not isinstance(ch, list) or not ch:
+        fails.append("цепочка: не показаны звенья от повода до бумаги с качеством каждой связи (chain)")
+        return
+    if len(ch) > MAX_CHAIN:
+        fails.append(f"цепочка: {len(ch)} звеньев — дальше {MAX_CHAIN} связь слишком слабая (жёсткий предел)")
+    hyp = [i for i, x in enumerate(ch) if not isinstance(x, dict) or x.get("quality") != "confirmed"
+           or not _http(x.get("url"))]
+    if len(hyp) > MAX_HYPOTHESIS_LINKS:
+        fails.append(f"цепочка: неподтверждённых звеньев {len(hyp)} — держится на гипотезе поверх гипотезы "
+                     f"(допустимо не больше {MAX_HYPOTHESIS_LINKS}, подтверждение — источник)")
+    elif hyp:
+        labels.append("Одно звено цепочки — гипотеза без подтверждения источником")
+
+
 def check(card):
     """Карточка → {'fails', 'labels', 'target', 'regulatory'}. Пустой fails = доказательства в порядке."""
     fails, labels = [], []
@@ -277,7 +384,12 @@ def check(card):
     check_price_causality(card, fails, labels)
     tgt = check_target(card, fails, labels)
     check_probability(card, fails, labels)
-    return {"fails": fails, "labels": labels, "target": tgt, "regulatory": reg}
+    mv = check_market_view(card, fails, labels)
+    mat = check_materiality(card, fails, labels)
+    check_durability(card, fails, labels)
+    check_chain(card, fails, labels)
+    return {"fails": fails, "labels": labels, "target": tgt, "regulatory": reg, "market_view": mv,
+            "materiality": mat}
 
 
 CAVEATS_HEAD = "Оговорки проверки."

@@ -474,6 +474,52 @@ class Tools:
             return f"суд не запустился: {e}"
         return "суд запущен: генератор → критик → слепой судья других семейств; вердикт придёт отдельным сообщением"
 
+    # — VQ-2 (2g): что рынок уже ждёт, существенность, проверенные ветки — расчёт КОДОМ (mathlib) —
+    def implied_expectations(self, market_cap, base_earnings=None, revenue=None, terminal_margin=None,
+                             current_margin=None, r=None, g=None, years=10, our_growth=None):
+        from mathlib import expectations as EX
+        r = EX.DEFAULT_R if r is None else float(r)
+        g = EX.DEFAULT_G if g is None else float(g)
+        if base_earnings is not None and float(base_earnings) > 0:
+            res = EX.implied_growth(float(market_cap), float(base_earnings), r=r, g=g, years=int(years))
+        elif revenue is not None and terminal_margin is not None:
+            res = EX.implied_revenue_growth(float(market_cap), float(revenue), float(terminal_margin),
+                                            current_margin=None if current_margin is None else float(current_margin),
+                                            r=r, g=g, years=int(years))
+        else:
+            return "ошибка: нужна прибыль > 0 (base_earnings) или выручка + целевая маржа (revenue, terminal_margin)"
+        if our_growth is not None and res.get("ok"):
+            res["сравнение"] = EX.compare(float(our_growth), res["рост_в_год"])
+        res["допущения"] = ("денежный поток владельцам = прибыль; рост постоянный N лет, затем вечный g; "
+                            "это порядок ожиданий рынка, не цель цены")
+        rid = self._store(res, "mathlib.expectations (обратный DCF)")
+        return self._view(rid, res, "mathlib.expectations")
+
+    def materiality_check(self, effect_profit_per_year=None, effect_revenue_per_year=None, years=None,
+                          net_income=None, revenue=None, market_cap=None):
+        from mathlib import materiality as MT
+        res = MT.materiality(effect_profit_per_year=effect_profit_per_year, effect_revenue_per_year=effect_revenue_per_year,
+                             years=years, net_income=net_income, revenue=revenue, market_cap=market_cap)
+        rid = self._store(res, "mathlib.materiality")
+        return self._view(rid, res, "mathlib.materiality")
+
+    def checked_branches(self, days=14):
+        p = ROOT / "reports" / "ideas" / "hunt_log.jsonl"
+        if not p.exists():
+            return "нет данных: журнала охоты ещё нет"
+        since = (datetime.date.today() - datetime.timedelta(days=max(1, min(int(days or 14), 90)))).isoformat()
+        rows = []
+        for ln in p.read_text(encoding="utf-8").splitlines():
+            try:
+                r = json.loads(ln)
+            except ValueError:
+                continue
+            if str(r.get("дата") or "") >= since:
+                rows.append({k: r.get(k) for k in ("дата", "инструмент", "механизм", "вердикт", "причина",
+                                                   "пересмотреть_если")})
+        rid = self._store(rows, "reports/ideas/hunt_log.jsonl")
+        return self._view(rid, rows, "reports/ideas/hunt_log.jsonl", {"веток": len(rows)})
+
     # — запрос «найди идею» закрыт в разговоре (поправка точки Б1, да владельца 07.11) —
     def record_find_idea(self, topic, outcome, summary, tickers=None):
         outcome = str(outcome or "").strip().lower()
@@ -602,6 +648,19 @@ TOOL_SPECS = [
         "path — вложенный ключ ('data', 'Earnings.Trend'); fields — колонки CSV; note — единицы/оговорки. "
         "В файл попадают источник и время получения. Используй для любых выгрузок и длинных таблиц.",
         {"result_id": S, "filename": S, "fmt": S, "path": S, "fields": A, "note": S}, ("result_id", "filename")),
+    _fn("implied_expectations", "Что рынок УЖЕ заложил в цену (обратный DCF, расчёт кодом): какой рост прибыли в год на N лет "
+        "оправдывает капитализацию; для убыточных — рост выручки при целевой марже. Входы — из EODHD (Highlights: "
+        "MarketCapitalization, прибыль; консенсус — Earnings::Trend). our_growth — наш сценарий для сравнения. "
+        "Главный вопрос любой идеи: «цена уже предполагает X — почему мы ждём больше?».",
+        {"market_cap": N, "base_earnings": N, "revenue": N, "terminal_margin": N, "current_margin": N, "r": N, "g": N,
+         "years": I, "our_growth": N}, ("market_cap",)),
+    _fn("materiality_check", "Существенен ли эффект для компании (расчёт кодом): доп. прибыль/выручка в год и срок против "
+        "прибыли, выручки, капитализации → СУЩЕСТВЕННО / ПОГРАНИЧНЫЙ / ШУМ. Все суммы в одной валюте и масштабе.",
+        {"effect_profit_per_year": N, "effect_revenue_per_year": N, "years": N, "net_income": N, "revenue": N,
+         "market_cap": N}),
+    _fn("checked_branches", "Журнал проверенных веток охотника за N дней: что смотрели, вердикт, почему отказ, при каком "
+        "факте вернуться. Используй, чтобы не предлагать уже отвергнутое и честно говорить «уже смотрели, вот почему нет».",
+        {"days": I}),
     _fn("record_find_idea", "Вызывай ОДИН раз, когда разговор «найди/найдём идею» дошёл до итога: outcome «идея» — ты принёс "
         "конкретную идею для обсуждения (компания, на что ставим, почему рынок не видит, что опровергнет), или «нечего» — "
         "честно: защищаемой нет, с проверенными направлениями и причинами отказа. Это засчитывается владельцу как закрытый "
