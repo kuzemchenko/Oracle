@@ -367,12 +367,11 @@ def test_bot_run_once_launches_job_days_and_opens_week_odds_push(tmp_path, monke
     import bot_state as S
     import bot as BOT
     monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
-    ro = tmp_path / "run_once"
-    ro.mkdir()
+    ro = tmp_path / "ops" / "run_once"
+    ro.mkdir(parents=True)
     (ro / "deep_dive_20261107.req").write_text("показ владельцу; дней: 2", encoding="utf-8")
     (ro / "week_odds_20261107.req").write_text("показ", encoding="utf-8")
     (ro / "rm_rf_20261107.req").write_text("дней: 1", encoding="utf-8")
-    monkeypatch.setattr(BOT.Bot, "RUN_ONCE_DIR", ro)
     monkeypatch.setattr(BOT, "ROOT", tmp_path)
     (tmp_path / "journal").mkdir()
 

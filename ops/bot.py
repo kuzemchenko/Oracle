@@ -1803,7 +1803,6 @@ class Bot:
             log("запущена задача за флагом", flag, label)
             self.save()
 
-    RUN_ONCE_DIR = ROOT / "ops" / "run_once"
     RUN_ONCE_JOBS = ("deep_dive", "week_odds")      # ручной показ владельцу ДО включения флага (правило 01.11)
 
     def _tick_run_once(self, now, procs, popen=None):
@@ -1813,7 +1812,7 @@ class Bot:
         флаг расписания при этом НЕ включается. Для «Шансов недели» на 24 ч открыт пуш результата."""
         import re as _re
         import subprocess
-        d = self.RUN_ONCE_DIR
+        d = ROOT / "ops" / "run_once"            # от ROOT в момент вызова (тесты подменяют корень)
         if not d.is_dir():
             return
         done = self.state.setdefault("run_once_done", {})
