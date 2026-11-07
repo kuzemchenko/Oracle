@@ -67,3 +67,19 @@ def test_discussion_idea_closes_request_but_is_not_a_recorded_hunter_push(tmp_pa
     assert m["запросы"] == {"всего": 1, "закрыто": 1, "незакрытые": []}
     hunter = [c for c in m["критерии"] if c["что"].startswith("идеи охотника доставлены")][0]
     assert hunter["сейчас"] == 0
+
+
+def test_telegram_find_idea_conversation_closes_request(tmp_path):
+    """Поправка 07.11 (да владельца): разговор «найди идею» в Telegram с итогом — закрытый запрос; дубль темы за день
+    считается один раз; без итога/без сути — не считается."""
+    import json as _json
+    import point_b as PB
+    j = tmp_path / "journal"
+    j.mkdir()
+    rows = [{"ts": "2026-11-07T10:00:00+00:00", "outcome": "идея", "topic": "Медь", "summary": "x" * 50},
+            {"ts": "2026-11-07T11:00:00+00:00", "outcome": "идея", "topic": "медь", "summary": "y" * 50},
+            {"ts": "2026-11-07T12:00:00+00:00", "outcome": "нечего", "topic": "Япония", "summary": "z" * 50},
+            {"ts": "2026-11-07T13:00:00+00:00", "outcome": "болтали", "topic": "Иран", "summary": "w" * 50}]
+    (j / "chat_requests.jsonl").write_text("\n".join(_json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
+    n, closed, open_ = PB.requests_closed(tmp_path, [])
+    assert (n, closed, open_) == (2, 2, [])

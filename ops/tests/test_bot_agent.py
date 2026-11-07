@@ -348,3 +348,58 @@ def test_bot_reads_pdf_document_and_reattaches_for_followup(tmp_path, monkeypatc
     b._on_message({"chat": {"id": 555}, "document": {"file_id": "f2", "file_name": "x.docx",
                                                      "mime_type": "application/msword"}})
     assert "только PDF" in b.tg.sent[-1] and len(calls) == 2
+
+
+def test_record_find_idea_writes_request_and_validates(tmp_path, monkeypatch):
+    monkeypatch.setattr(A, "CHAT_REQUESTS", tmp_path / "req.jsonl")
+    t = A.Tools()
+    assert t.record_find_idea("медь", "может быть", "x" * 50).startswith("ошибка")
+    assert t.record_find_idea("медь", "идея", "коротко").startswith("ошибка")
+    assert "закрыт" in t.record_find_idea("Медь", "Идея", "Freeport: дефицит концентрата, рынок ждёт +5%, мы +15%", ["FCX"])
+    rec = json.loads((tmp_path / "req.jsonl").read_text().splitlines()[-1])
+    assert rec["outcome"] == "идея" and rec["tickers"] == ["FCX"] and rec["source"] == "telegram"
+    assert "record_find_idea" in A.TOOL_NAMES
+
+
+def test_bot_run_once_launches_job_days_and_opens_week_odds_push(tmp_path, monkeypatch):
+    """07.11: ручной показ прокачки и «Шансов недели» — разовый запуск по ops/run_once/*.req, флаг расписания не включается."""
+    import datetime as _dt
+    import bot_state as S
+    import bot as BOT
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "bot_state.json")
+    ro = tmp_path / "run_once"
+    ro.mkdir()
+    (ro / "deep_dive_20261107.req").write_text("показ владельцу; дней: 2", encoding="utf-8")
+    (ro / "week_odds_20261107.req").write_text("показ", encoding="utf-8")
+    (ro / "rm_rf_20261107.req").write_text("дней: 1", encoding="utf-8")
+    monkeypatch.setattr(BOT.Bot, "RUN_ONCE_DIR", ro)
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    (tmp_path / "journal").mkdir()
+
+    class P:
+        def __init__(self):
+            self.done = False
+
+        def poll(self):
+            return 0 if self.done else None
+    started = []
+
+    def popen(cmd, **kw):
+        started.append(cmd)
+        return P()
+
+    class TG:
+        def send_message(self, *a, **k):
+            return 1
+    b = BOT.Bot(TG(), "555", state=S._default_state())
+    d1 = _dt.datetime(2026, 11, 7, 14, 0, tzinfo=_dt.timezone.utc)
+    procs = {}
+    b._tick_run_once(d1, procs, popen)
+    labels = sorted(c[1] for c in started)
+    assert labels == ["deep_dive", "week_odds"]                       # неизвестная задача не запускается
+    assert b.state["week_odds_show_until"].startswith("2026-11-08T14:00")
+    b._tick_run_once(d1, {}, popen)                                   # тот же день — не повторяет
+    assert len(started) == 2
+    b._tick_run_once(d1 + _dt.timedelta(days=1), {}, popen)           # второй день прокачки
+    b._tick_run_once(d1 + _dt.timedelta(days=2), {}, popen)           # дальше — нет
+    assert [c[1] for c in started].count("deep_dive") == 2 and [c[1] for c in started].count("week_odds") == 1

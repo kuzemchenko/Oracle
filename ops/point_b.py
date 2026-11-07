@@ -82,7 +82,13 @@ def requests_closed(root, deliveries):
             continue
         if day not in got and nxt not in got:
             open_.append(day)
-    return len(days), len(days) - len(open_), open_
+    # поправка 07.11 (да владельца): разговор «найди идею» в Telegram, дошедший до итога (идея для обсуждения
+    # или честное «нечего»), — закрытый запрос; один в сутки на тему (journal/chat_requests.jsonl, пишет агент)
+    chats = set()
+    for r in _jsonl(pathlib.Path(root) / "journal" / "chat_requests.jsonl"):
+        if r.get("outcome") in ("идея", "нечего") and str(r.get("summary") or "").strip():
+            chats.add((str(r.get("ts"))[:10], str(r.get("topic") or "").strip().lower()[:60]))
+    return len(days) + len(chats), len(days) - len(open_) + len(chats), open_
 
 
 def _week(iso):
@@ -146,7 +152,7 @@ def measure(today=None, root=None):
     n_req, n_closed, req_open = requests_closed(root, deliveries)
     crit = [
         # 03.11: охота по запросу владельца — главный счёт потока: закрытые запросы (определение — на подпись)
-        ("Б1", "твои запросы «найди идею», закрытые идеей (в счёт или для обсуждения) или честным «нечего»", n_closed, 10),
+        ("Б1", "твои запросы «найди идею» (облако или разговор в Telegram), закрытые идеей (в счёт или для обсуждения) или честным «нечего»", n_closed, 10),
         ("Б1", "дни с идеей охотника или честным нолём до 15:00 UTC (старое определение)", len(days), 15),
         ("Б1", "полный цикл прокачки «Качаем 2 дня» дошёл до паспорта", len(passports), 1),
         ("Б1", "этапы V0–V2 закрыты гейтами", sum(1 for k in ("V0", "V1", "V2") if stages.get(k) == "done"), 3),

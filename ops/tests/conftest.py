@@ -44,4 +44,5 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         except ImportError:
             continue
         monkeypatch.setattr(ag, "CHAT_LOG", tmp_path / "guard_chat_agent.jsonl")
+        monkeypatch.setattr(ag, "CHAT_REQUESTS", tmp_path / "guard_chat_requests.jsonl")
     yield

@@ -1543,7 +1543,9 @@ class Bot:
         За флагом presentation week_odds_push (ПРАВИЛО ВНЕДРЕНИЯ 01.11: включается после
         ручного прогона испытателя и «ок» владельца). Fail-closed линт; дедуп по файлу."""
         pres = R.load_presentation()
-        if not pres.get("week_odds_push"):
+        # 07.11: разовый ручной показ владельцу (ops/run_once/week_odds_*.req) — пуш открыт на окно показа
+        show = str(self.state.get("week_odds_show_until") or "") > S.now_utc().isoformat()
+        if not pres.get("week_odds_push") and not show:
             return
         d = ROOT / "journal" / "week_odds"
         if not d.exists():
@@ -1779,6 +1781,7 @@ class Bot:
                 procs.pop(label, None)
         days = self.state.setdefault("jobs_last_day", {})
         today = now.date().isoformat()
+        self._tick_run_once(now, procs, popen)
         for flag, label, argv, weekdays, (hh, mm) in SCHEDULED_JOBS:
             if not pres.get(flag) or now.isoweekday() not in weekdays or (now.hour, now.minute) < (hh, mm):
                 continue
@@ -1798,6 +1801,49 @@ class Bot:
                 continue
             days[label] = today
             log("запущена задача за флагом", flag, label)
+            self.save()
+
+    RUN_ONCE_DIR = ROOT / "ops" / "run_once"
+    RUN_ONCE_JOBS = ("deep_dive", "week_odds")      # ручной показ владельцу ДО включения флага (правило 01.11)
+
+    def _tick_run_once(self, now, procs, popen=None):
+        """07.11 (владелец одобрил ручные показы прокачки и «Шансов недели»): облако коммитит
+        ops/run_once/<задача>_<метка>.req (строка «дней: N» — сколько суток подряд гонять, по умолчанию 1),
+        сервер подтягивает его и запускает ту же команду, что и задача за флагом, раз в сутки N раз —
+        флаг расписания при этом НЕ включается. Для «Шансов недели» на 24 ч открыт пуш результата."""
+        import re as _re
+        import subprocess
+        d = self.RUN_ONCE_DIR
+        if not d.is_dir():
+            return
+        done = self.state.setdefault("run_once_done", {})
+        today = now.date().isoformat()
+        by_label = {lab: argv for _f, lab, argv, _w, _t in SCHEDULED_JOBS}
+        for req in sorted(d.glob("*.req")):
+            label = next((j for j in self.RUN_ONCE_JOBS if req.name.startswith(j + "_")), None)
+            if label is None or label not in by_label:
+                continue
+            try:
+                m = _re.search(r"дней:\s*(\d+)", req.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+            n_days = max(1, min(int(m.group(1)) if m else 1, 5))
+            runs = done.setdefault(req.name, [])
+            if len(runs) >= n_days or today in runs or label in procs:
+                continue
+            cmd = [str(ROOT / "ops" / "cron_alert.sh"), label, sys.executable, *by_label[label]]
+            try:
+                with open(ROOT / "journal" / "cron.log", "a", encoding="utf-8") as logf:
+                    procs[label] = (popen or subprocess.Popen)(cmd, cwd=str(ROOT), stdout=logf, stderr=logf,
+                                                               start_new_session=True)
+            except OSError as e:
+                log("разовый запуск не стартовал", req.name, repr(e))
+                continue
+            runs.append(today)
+            if label == "week_odds":
+                import datetime as _dt
+                self.state["week_odds_show_until"] = (now + _dt.timedelta(hours=24)).isoformat()
+            log("разовый запуск", req.name, f"{len(runs)}/{n_days}")
             self.save()
 
     def _tick_heartbeat(self, now=None):
