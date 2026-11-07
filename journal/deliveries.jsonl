@@ -10,3 +10,7 @@
 {"ts": "2026-11-05T21:15:08+00:00", "kind": "заметка: дозор", "ref": "notices#138", "sha256": "56279389d1e437fe8665e9509f5785a6f9c034e053d0fa3ccba51c7fcd8bd62e", "chars": 290, "buttons": false, "lint_ok": null, "message_id": 801}
 {"ts": "2026-11-06T00:00:17+00:00", "kind": "бот жив", "ref": "2026-11-06", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
 {"ts": "2026-11-06T18:00:14+00:00", "kind": "заметка: дозор", "ref": "notices#140", "sha256": "38bffd3ab31c0c315ab49aef36b6137f74a613960b78250fc464b54c9d56eaf5", "chars": 959, "buttons": false, "lint_ok": null, "message_id": 805}
+{"ts": "2026-11-07T00:00:20+00:00", "kind": "бот жив", "ref": "2026-11-07", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
+{"ts": "2026-11-07T14:07:40+00:00", "kind": "заметка: дозор", "ref": "notices#143", "sha256": "809b4573983475bb040ee6c4d3309d83b6e828e752b394a5d5738ebd9bde2e7a", "chars": 197, "buttons": false, "lint_ok": null, "message_id": 889}
+{"ts": "2026-11-07T14:10:12+00:00", "kind": "день прокачки", "ref": "notices#144", "sha256": "cbb2c048e72fd0616543ac640c8ad187fcf16cb65331a103b2bc48dd043de4d7", "chars": 1278, "buttons": false, "lint_ok": null, "message_id": 890}
+{"ts": "2026-11-07T14:13:59+00:00", "kind": "день прокачки", "ref": "notices#145", "sha256": "6e5bc8656edf052feb6c7f2432e842f55b325b6338929c7fd8a4cc442dc8ff3b", "chars": 1252, "buttons": false, "lint_ok": null, "message_id": 891}
