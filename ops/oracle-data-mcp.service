@@ -1,0 +1,20 @@
+[Unit]
+Description=Oracle read-only MCP data bridge
+After=network-online.target
+
+[Service]
+Type=simple
+User=oracle
+WorkingDirectory=/home/oracle/oracle-advisor
+ExecStart=/bin/bash -c 'set -a; source /home/oracle/oracle/.env; source .env.advisor; export ORACLE_DATA_ROOT=/home/oracle/oracle; exec .venv-advisor/bin/python -m advisor.server'
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/oracle/oracle-advisor/storage
+
+[Install]
+WantedBy=multi-user.target
