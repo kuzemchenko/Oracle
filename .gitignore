@@ -41,3 +41,13 @@ journal/pull_refused.txt
 
 # аудит 03.11: снимок идей облака при заморозке протяжки (ops/safe_pull.sh) — вне git
 .cache/
+
+# Independent adviser: credentials and private evidence database
+.env.advisor
+storage/advisor.sqlite3*
+
+.venv-advisor/
+
+# Local pilot runtime binary and temporary endpoint
+bin/cloudflared*
+storage/public_url.txt
