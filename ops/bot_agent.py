@@ -60,6 +60,8 @@ MAX_TURN_COST_USD = 2.50       # потолок трат на ОДИН отве�
 MAX_TOOL_CHARS = 14000         # сколько символов результата инструмента видит модель
 MAX_FILE_BYTES = 15_000_000    # под лимит Telegram на документ бота (50 МБ) с запасом
 MAX_HISTORY_TURNS = 10
+MAX_CONTINUATIONS = 3          # продлений ответа, оборванного лимитом длины (аудит 07.11, №9)
+REPAIR_STEPS = 6               # кругов инструментов на доработку черновика по находкам проверки кодом
 HTTP_TIMEOUT = 60
 
 # ── секреты ────────────────────────────────────────────────────────────────────────
@@ -489,6 +491,60 @@ class Tools:
         except OSError as e:
             return f"не записал: {e}"
         return "записал: запрос «найди идею» закрыт (" + outcome + ")"
+    # — факты о самой системе и время события (аудит 07.11; ops/agent_facts.py — только кодом) —
+    def _facts(self):
+        try:
+            from ops import agent_facts as F
+        except ImportError:
+            import agent_facts as F
+        return F
+
+    def track_record(self):
+        data = self._facts().track_record()
+        rid = self._store(data, "journal/predictions+outcomes (код)")
+        return self._view(rid, data, "ops/agent_facts.track_record")
+
+    def sealed_terms(self, ticker=None):
+        data = self._facts().sealed_terms(ticker)
+        rid = self._store(data, "journal/predictions.jsonl (код)")
+        return self._view(rid, data, "ops/agent_facts.sealed_terms")
+
+    def pipeline_status(self):
+        data = self._facts().pipeline_status()
+        rid = self._store(data, "reports/ideas + journal + config (код)")
+        return self._view(rid, data, "ops/agent_facts.pipeline_status")
+
+    def _closes(self, ticker, date_from, date_to):
+        """Дневные закрытия: EODHD eod, при отказе — наша база quotes. → {YYYY-MM-DD: close}."""
+        sym = str(ticker).upper() if "." in str(ticker) else str(ticker).upper() + ".US"
+        key = os.environ.get("EODHD_API_KEY") or os.environ.get("EODHD_KEY")
+        if key:
+            try:
+                code, _ct, body = self.http_get(f"{EODHD}/eod/{sym}", params={
+                    "from": date_from, "to": date_to, "fmt": "json", "api_token": key})
+                if code == 200:
+                    rows = json.loads(body.decode("utf-8", "ignore") or "[]")
+                    out = {r["date"]: r.get("close") for r in rows if isinstance(r, dict) and r.get("date")}
+                    if out:
+                        return out
+            except Exception:                                    # noqa: BLE001
+                pass
+        try:
+            con = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5)
+            rows = con.execute("SELECT date, close FROM quotes WHERE symbol=? AND date BETWEEN ? AND ?",
+                               (sym, date_from, date_to)).fetchall()
+            con.close()
+            return {d: c for d, c in rows}
+        except Exception:                                        # noqa: BLE001
+            return {}
+
+    def event_reaction(self, ticker, event_time_utc):
+        try:
+            data = self._facts().event_reaction(ticker, event_time_utc, self._closes)
+        except ValueError as e:
+            return f"ошибка: {e}"
+        rid = self._store(data, f"закрытия {ticker} (EODHD/база) + mathlib.event_timing")
+        return self._view(rid, data, "ops/agent_facts.event_reaction")
 
     def call(self, name, args):
         fn = getattr(self, name, None) if name in TOOL_NAMES else None
@@ -551,6 +607,18 @@ TOOL_SPECS = [
         "честно: защищаемой нет, с проверенными направлениями и причинами отказа. Это засчитывается владельцу как закрытый "
         "запрос. Не вызывай для обычных вопросов и без итога.",
         {"topic": S, "outcome": S, "summary": S, "tickers": A}, ("topic", "outcome", "summary")),
+    _fn("track_record", "Счёт качества прогнозов ПО КАЖДОМУ МЕХАНИЗМУ отдельно (охотник, старый утренний конвейер, "
+        "калибровочный трек, форвард рёбер…): записано/сверено, доля попаданий, Brier против постоянной базы, период, "
+        "версия. Любое утверждение о точности системы — только отсюда, с названием механизма.", {}),
+    _fn("sealed_terms", "Что записано в журнал по идеям охотника: записанная вероятность и её вид (субъективная), "
+        "порог, срок, цель/стоп/вход, дата записи. Записанное не меняется.", {"ticker": S}),
+    _fn("pipeline_status", "Статус цепочки по фактам: запросы «найди идею» → охота → проверка → запись → доставка; "
+        "очередь «Качаем» и почему ждёт (выключенные функции); последний прогон СТАРОГО конвейера отдельно, "
+        "с пометкой, уходит ли он владельцу. О том, работает ли система, — только отсюда.", {}),
+    _fn("event_reaction", "Время события → торговая сессия Нью-Йорка (до открытия / торги / после закрытия), "
+        "первая сессия, которая могла ответить, ход ДО события и ход РЕАКЦИИ по закрытиям. Вызывай ПЕРЕД тем, как "
+        "связывать движение цены с отчётом или новостью. event_time_utc — ISO с часовым поясом, например "
+        "'2026-11-05T21:05:00Z'.", {"ticker": S, "event_time_utc": S}, ("ticker", "event_time_utc")),
     _fn("court_check", "Запустить состязательный суд по идее (генератор → критик → слепой судья ДРУГИХ семейств моделей). "
         "Вердикт придёт отдельным сообщением через несколько минут. Только когда владелец хочет проверку боем.",
         {"idea": S}, ("idea",)),
@@ -563,12 +631,20 @@ SYSTEM_PROMPT = """Ты — инвест-аналитик владельца с�
 ТВОЯ РАБОТА:
 • Защищать идеи. Если владелец спрашивает про идею (MP, DHT, FSLR или свою) — ты её адвокат: излагаешь механизм, почему рынок этого ещё не видит, кто продаёт и почему он неправ, что должно случиться и к какой дате. Каверзный вопрос — это не повод сдаться: отвечай по существу, с данными; уступай только аргументу, и тогда говори прямо «тут ты прав, это меняет идею так-то».
 • Смотреть с разных сторон: бык и медведь, 1-й/2-й/3-й круг последствий («круги на воде»), кто выигрывает и проигрывает, где цепочка обычно ломается, что уже в цене.
-• Говорить вероятностями: «считаю шанс около X% — потому что в похожих случаях (такие-то) было так-то; что сдвинет оценку вверх/вниз». Отделяй свою оценку от посчитанного кодом и не выдавай одно за другое. Историческая база: у системы пока НЕТ доказанного умения предсказывать (за 3,5 месяца — на уровне монетки), и «волна доходит до цены» историей подтверждается редко — держи это в уме и говори, когда речь о деньгах.
+• Говорить вероятностями: «считаю шанс около X% — потому что в похожих случаях (такие-то) было так-то; что сдвинет оценку вверх/вниз». Отделяй свою оценку от посчитанного кодом и не выдавай одно за другое. Вероятность от тебя — всегда СУБЪЕКТИВНАЯ оценка: так и называй, с основанием; калиброванной она не бывает, пока это не покажет track_record. О качестве прогнозов говори только по track_record и только про конкретный механизм (у охотника сверенных исходов пока нет; счёт старого утреннего конвейера на охотника не переносится). «Волна доходит до цены» историей подтверждается редко — держи это в уме, когда речь о деньгах.
 • Сам задавай владельцу неудобные вопросы и предлагай проверку: «что нас опровергнет», какая дата или цифра покажет, что мы неправы.
 
 ДАННЫЕ — бери сам инструментами, не говори «нет доступа»: EODHD (цены, дивиденды, отчётность, консенсус аналитиков и его пересмотры, цели, опционы, календарь, новости), NewsAPI.ai, GDELT и меню горячих событий, наша база, карточки идей и отчёты (reports/ideas/*.md и *.card.json — там вся аргументация идеи), публичные сайты, наши скрипты (oracle_script analogs — похожие случаи из истории). Прежде чем спорить о свежих цифрах — проверь их. Выгрузки и длинные таблицы — файлом через send_file, в тексте коротко: что в файле, откуда, на какое время.
 
 «НАЙДЁМ ИДЕЮ»: спроси тему или покажи 3–5 горячих событий (event_menu, gdelt_hot, newsapi) со строкой «почему горячее»; по выбранному — свободно круги, выигравшие и проигравшие, неочевидные «бабочки», как было в истории и что сейчас иначе. У ветки должен быть ответ «почему рынок этого не видит» (недооценённая дата, вынужденный продавец, уже подписанные деньги, неверно понятое правило). Понравившуюся ветку можно отправить на строгую проверку с записью в счёт — это делает облачная сессия охотника. Когда разговор «найди идею» дошёл до итога (конкретная идея для обсуждения или честное «нечего» с причинами), один раз вызови record_find_idea — это засчитывается владельцу как закрытый запрос.
+
+ПРОВЕРКА ДО ОТВЕТА (код проверяет каждый твой ответ и вернёт черновик на доработку, если правило нарушено):
+• Движение цены и событие: сначала event_reaction (время публикации, сессия, ход ДО и ПОСЛЕ); причину хода без источника называй гипотезой. Исправил факт — пересмотри все выводы, которые на нём стояли.
+• Показатели: прибыль на акцию — с базисом (GAAP или скорректированная) и периодом; сравнение с консенсусом — только на том же базисе; в выручке ищи разовые статьи и скажи, повторятся ли они; квартал не переносится на будущее без названного допущения. Ставка в сутки × судо-дни у танкеров — выручка TCE, уже за вычетом рейсовых расходов.
+• Регуляторика: тезис о правиле — по полному тексту (область действия, исключения, переходные условия, даты, поправки), с цитатой. «Не нашёл документа» — не доказательство, что его нет: скажи, где и на какую дату искал.
+• Цель цены — метод, входные числа, допущения и расчёт; чужой таргет сам по себе не обоснование; нет расчёта — «цель предварительная».
+• Исходная карточка и её прогноз неизменны (sealed_terms). Новый срок, цель или стоп — это НОВАЯ версия со своей датой и причиной, она не улучшает счёт исходной идеи.
+• О работе системы — только pipeline_status: какой механизм, чем кончился запуск, дошло ли до владельца, что ждёт и почему.
 
 ЧЕСТНОСТЬ (единственные жёсткие правила):
 • Факты, цены, даты — только из инструментов или поданного состояния, с источником. Чего нет — «нет данных: …», без выдумок и «досчитываний по памяти». Твоё мнение и оценки — можно и нужно, но помечай их как оценку.
@@ -639,6 +715,11 @@ class Agent:
         self.cache_on = True
         self.cache_read = self.cache_write = 0
         self.cache_error = None
+        self.last_finish = None
+        self.continued = 0              # сколько раз ответ продлевали после обрыва на лимите длины
+        self.truncated = False          # остался ли ответ оборванным после всех продлений
+        self.findings_first = []        # находки проверки кодом в черновике (ops/claim_check)
+        self.findings_left = []         # находки, оставшиеся после доработки (дописаны кодом)
 
     def _post(self, body):
         if not self.api_key:
@@ -727,6 +808,7 @@ class Agent:
                 self.cache_write += int(det.get("cache_write_tokens") or 0)
                 self.log_cost("live", "bot_agent", model, usage, cost, ok=True, run_id="bot_agent")
                 self.cost += float(cost or 0.0)
+                self.last_finish = ch[0].get("finish_reason") or ch[0].get("native_finish_reason")
                 return ch[0].get("message") or {}, model
         raise RuntimeError(f"модели роли {ROLE} недоступны: {last}")
 
@@ -734,17 +816,61 @@ class Agent:
         return self._call(messages, "auto", 6000)
 
     def run(self, user_text, history=None, brief="", attachments=None):
-        """→ (текст ответа, [(имя_файла, байты, подпись)], стоимость_usd)."""
+        """→ (текст ответа, [(имя_файла, байты, подпись)], стоимость_usd).
+        Аудит 07.11: (1) ответ, оборванный лимитом длины, продлевается с места обрыва, а не выдаётся
+        «готовым»; (2) черновик проверяет КОД (ops/claim_check) — находки уходят модели на одну доработку
+        с инструментами, оставшиеся код дописывает в конец ответа как непроверенное."""
         msgs = _messages(user_text, history, brief, attachments)
+        text = self._loop(msgs, MAX_STEPS)
+        text = self._finish(msgs, text)
+        try:
+            import claim_check as CC
+        except ImportError:
+            from ops import claim_check as CC
+        sealed = self._sealed_probs()
+        self.findings_first = CC.check(text, self.trace, sealed)
+        if self.findings_first and self.cost < MAX_TURN_COST_USD:
+            if msgs and msgs[-1].get("role") == "assistant" and not msgs[-1].get("tool_calls"):
+                msgs[-1] = {"role": "assistant", "content": text}
+            else:
+                msgs.append({"role": "assistant", "content": text})
+            msgs.append({"role": "user", "content": CC.repair_prompt(self.findings_first)})
+            fixed = self._finish(msgs, self._loop(msgs, REPAIR_STEPS))
+            if fixed.strip():
+                text = fixed
+            self.findings_left = CC.check(text, self.trace, sealed)
+        else:
+            self.findings_left = self.findings_first
+        tail = CC.footer(self.findings_left)
+        if self.truncated:
+            tail = (tail + "\n\n" if tail else "") + ("⚠ Ответ не уместился в лимит длины и оборван — напиши "
+                                                       "«продолжи», и я допишу с места обрыва.")
+        if tail:
+            text = text.rstrip() + "\n\n" + tail
+        return redact((text or "").strip()), list(self.tools.files), round(self.cost, 4)
+
+    def _sealed_probs(self):
+        try:
+            data = self.tools._facts().sealed_terms()
+            out = {}
+            for r in data.get("записи") or []:
+                tk = str(r.get("актив") or "").split(".")[0].upper()
+                if tk and tk not in out:
+                    out[tk] = r.get("вероятность_записанная")
+            return out
+        except Exception:                                        # noqa: BLE001
+            return {}
+
+    def _loop(self, msgs, steps):
         text = ""
-        for step in range(MAX_STEPS):
+        for _step in range(steps):
             msg, model = self._complete(msgs)
             calls = msg.get("tool_calls") or []
-            text = msg.get("content") or ""
-            if isinstance(text, list):                      # некоторые провайдеры отдают части
-                text = "".join(p.get("text", "") for p in text if isinstance(p, dict))
+            text = _msg_text(msg)
             if not calls:
-                break
+                if self.last_finish == "length":
+                    msgs.append({"role": "assistant", "content": text})
+                return text
             msgs.append({"role": "assistant", "content": text or None, "tool_calls": calls})
             prog = self.tools.actions.get("progress")
             if prog:
@@ -769,19 +895,57 @@ class Agent:
                     "[система] потолок трат на один ответ исчерпан — инструменты больше не вызывай, "
                     "ответь по уже собранному и честно скажи, чего не успел взять.")})
                 final, _m = self._complete_no_tools(msgs)
-                text = final
-                break
-        else:
-            msgs.append({"role": "user", "content": "[система] кругов инструментов больше нет — ответь по собранному."})
-            text, _m = self._complete_no_tools(msgs)
-        return redact((text or "").strip()), list(self.tools.files), round(self.cost, 4)
+                return final
+        msgs.append({"role": "user", "content": "[система] кругов инструментов больше нет — ответь по собранному."})
+        text, _m = self._complete_no_tools(msgs)
+        return text
 
-    def _complete_no_tools(self, msgs):
+    def _finish(self, msgs, text):
+        """Ответ оборван лимитом длины → продлить с места обрыва (до MAX_CONTINUATIONS раз)."""
+        parts = [text or ""]
+        n = 0
+        while self.last_finish == "length" and n < MAX_CONTINUATIONS and self.cost < MAX_TURN_COST_USD:
+            n += 1
+            if not msgs or msgs[-1].get("role") != "assistant":
+                msgs.append({"role": "assistant", "content": parts[-1]})
+            msgs.append({"role": "user", "content": "[система] ответ оборвался на лимите длины. Продолжи РОВНО с "
+                                                    "места обрыва, без повторов и без вступления."})
+            more, _m = self._complete_no_tools(msgs, max_tokens=8000)
+            msgs.append({"role": "assistant", "content": more})
+            parts.append(more or "")
+        self.continued += n
+        self.truncated = self.last_finish == "length"
+        return _join_parts(parts)
+
+    def _complete_no_tools(self, msgs, max_tokens=6000):
         try:
-            msg, model = self._call(msgs, "none", 4000)
+            msg, model = self._call(msgs, "none", max_tokens)
         except RuntimeError:
+            self.last_finish = "error"
             return "Не успел собрать ответ — модели недоступны.", None
-        return msg.get("content") or "", model
+        return _msg_text(msg), model
+
+
+def _msg_text(msg):
+    text = msg.get("content") or ""
+    if isinstance(text, list):                      # некоторые провайдеры отдают части
+        text = "".join(p.get("text", "") for p in text if isinstance(p, dict))
+    return text
+
+
+def _join_parts(parts):
+    """Склейка продолжений: без разрыва слова на стыке и без повтора хвоста."""
+    out = parts[0] if parts else ""
+    for p in parts[1:]:
+        p = p or ""
+        tail = out[-200:]
+        for k in range(min(len(tail), len(p)), 15, -1):          # модель повторила кусок хвоста — срезать
+            if tail.endswith(p[:k]):
+                p = p[k:]
+                break
+        joiner = "" if (out[-1:].isalnum() and p[:1].isalnum()) or out[-1:] in (" ", "\n") or p[:1] in (" ", "\n") else " "
+        out = out + joiner + p
+    return out
 
 
 def hunter_ideas_brief(n=5):
@@ -801,13 +965,16 @@ def hunter_ideas_brief(n=5):
     return "\n".join(rows)
 
 
-def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply=None, cache=None):
+def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply=None, cache=None, quality=None):
     """Строка журнала разговора: вопрос (начало), вызванные инструменты, файлы, стоимость. Ключей нет —
     аргументы уже вычищены redact(). Нужен, чтобы видеть с GitHub, работает ли агент вживую (bot.log туда не идёт)."""
     # 04.11 владелец: «можешь смотреть в Telegram?» — журнал хранит и вопрос, и ответ целиком (до 6000 симв.),
     # чтобы разговор был виден в облачной сессии после вечерней выгрузки в GitHub
+    # аудит 07.11 (№9): ответ хранится целиком (до 30 000 симв.) — журнал = то, что ушло владельцу;
+    # quality — продления после обрыва, оборван ли итог, находки проверки кодом до и после доработки
     rec = {"ts": _now(), "ok": ok, "question": redact(str(question))[:2000],
-           "reply": redact(str(reply))[:6000] if reply else None,
+           "reply": redact(str(reply))[:30000] if reply else None,
+           "reply_chars": len(str(reply)) if reply else 0, "quality": quality,
            "tools": [{"tool": t.get("tool"), "args": t.get("args"), "chars": t.get("chars")} for t in (trace or [])][:40],
            "files": [f[0] for f in (files or [])], "cost_usd": cost, "cache": cache, "error": redact(str(error))[:300] if error else None}
     p = pathlib.Path(path or CHAT_LOG)
@@ -844,5 +1011,8 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
         raise
     log_turn(user_text, ag.trace, files, cost, reply=text,
              cache={"read_tokens": ag.cache_read, "write_tokens": ag.cache_write, "on": ag.cache_on,
-                    "error": ag.cache_error})
+                    "error": ag.cache_error},
+             quality={"continued": getattr(ag, "continued", 0), "truncated": getattr(ag, "truncated", False),
+                      "findings_first": [f["code"] for f in getattr(ag, "findings_first", [])],
+                      "findings_left": [f["code"] for f in getattr(ag, "findings_left", [])]})
     return plain_text(text), files, cost

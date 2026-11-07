@@ -112,6 +112,46 @@ CHECKPOINT_CODES = {   # ops/checkpoint.sh
 }
 
 
+def deep_dive_status_line(flags=None):
+    """Аудит 07.11 (№8): выключенная функция видна владельцу прямо в ответе на кнопку, а не только
+    в служебной заметке дозора (те владельцу больше не шлются)."""
+    if flags is None:
+        flags = _load_presentation_flags()
+    if (flags or {}).get("deep_dive_auto"):
+        return "Двухдневная прокачка включена — заявка уйдёт в ближайший утренний прогон (после 09:40 UTC)."
+    return ("Двухдневная прокачка сейчас ВЫКЛЮЧЕНА (ждёт твоего «ок» после ручного показа) — заявка лежит в "
+            "очереди и сама не запустится. Запуск вручную на сервере: orchestrator/deep_dive.py --show.")
+
+
+def _load_presentation_flags():
+    try:
+        import yaml
+        return yaml.safe_load((ROOT / "config" / "presentation.yaml").read_text(encoding="utf-8")) or {}
+    except Exception:                                            # noqa: BLE001
+        return {}
+
+
+def split_message(text, limit):
+    """Разрезать текст на части ≤ limit по самой «мягкой» границе: абзац → строка → предложение →
+    пробел; посреди слова — только если в куске нет ни одного пробела."""
+    text = str(text or "")
+    out = []
+    while len(text) > limit:
+        cut = -1
+        for sep in ("\n\n", "\n", ". ", "! ", "? ", "; ", ", ", " "):
+            j = text.rfind(sep, int(limit * 0.5), limit)
+            if j > 0:
+                cut = j + len(sep)
+                break
+        if cut <= 0:
+            cut = limit
+        out.append(text[:cut].rstrip())
+        text = text[cut:].lstrip()
+    if text:
+        out.append(text)
+    return out
+
+
 class Telegram:
     def __init__(self, token, session=None):
         self.base = f"https://api.telegram.org/bot{token}"
@@ -542,9 +582,8 @@ class Bot:
             return
         self._append_deep_dive(run_id, lead)
         name = R._asset_human(lead)[0]
-        self.tg.send_message(chat, f"Взял {name} ({lead}) в прокачку. Сейчас прогоню полный "
-                                   f"состязательный разбор, а конвейер двухдневной прокачки "
-                                   f"добавит углубления по утрам.")
+        self.tg.send_message(chat, f"Взял {name} ({lead}) в прокачку — заявка в очереди. Сейчас прогоню полный "
+                                   f"состязательный разбор. " + deep_dive_status_line())
         self.save()
         self._cmd_check_idea(chat, lead)
 
@@ -573,8 +612,8 @@ class Bot:
             t = " ".join(str(t or "").split())
             return t if t and not PL.odds_markers(t, include_quotes=True) else ""
 
-        out = [f"Взял {name} ({base}) в прокачку — вот на чём стоит идея: материалы её карточки "
-               "(факты с датой публикации или проверки и источником)."]
+        out = [f"Взял {name} ({base}) в прокачку — заявка в очереди. " + deep_dive_status_line()
+               + " А пока — вот на чём стоит идея: материалы её карточки (факты с датой публикации или проверки и источником)."]
         th = ok(card.get("thesis"))
         if th:
             out.append("Суть. " + th[:700])
@@ -2362,13 +2401,36 @@ class Bot:
         self._start_job("разбор идеи (debate)", _job)
 
     # ── свободный диалог с Дирижёром ─────────────────────────────────────────────────
-    def _send_long(self, chat, text):
-        """Длинный ответ режем на части под лимит Telegram (4096)."""
+    SEND_RETRIES = (2, 5, 12)        # пауз между повторами отправки части, сек (429/сеть)
+
+    def _send_long(self, chat, text, kind=None, sleep=time.sleep):
+        """Длинный ответ — частями под лимит Telegram (4096). Аудит 07.11 (№9): ответ «Аудит выполнен»
+        оборвался посреди слова. Теперь: режем по абзацу/строке/предложению/пробелу (не посреди слова),
+        нумеруем части «(1/3)», каждую отправляем с повторами; не ушедшая часть не теряется молча —
+        владелец получает строку, какой части нет, а журнал доставок — сколько частей дошло.
+        → {'parts', 'sent', 'failed'}."""
         import bot_chat as C
         if not text:
-            return
-        for i in range(0, len(text), C.MAX_REPLY_CHUNK):
-            self.tg.send_message(chat, text[i:i + C.MAX_REPLY_CHUNK])
+            return {"parts": 0, "sent": 0, "failed": []}
+        parts = split_message(text, C.MAX_REPLY_CHUNK - 12)
+        n = len(parts)
+        mids, failed = [], []
+        for i, part in enumerate(parts, 1):
+            body = f"({i}/{n}) " + part if n > 1 else part
+            mid = self.tg.send_message(chat, body)
+            for pause in self.SEND_RETRIES:
+                if mid is not None:
+                    break
+                sleep(pause)
+                mid = self.tg.send_message(chat, body)
+            (mids.append(mid) if mid is not None else failed.append(i))
+        if failed:
+            self.tg.send_message(chat, f"⚠ Не дошли части ответа: {', '.join(map(str, failed))} из {n}. "
+                                       "Напиши «повтори ответ» — пришлю заново.")
+        if kind:
+            self._log_delivery(kind, ref=f"частей {n}", text=text, mid=mids[0] if mids else None,
+                               extra={"parts": n, "parts_sent": len(mids), "parts_failed": failed})
+        return {"parts": n, "sent": len(mids), "failed": failed}
 
     DOC_KEEP_S = 3600       # последний PDF прикладывается и к уточняющим вопросам в течение часа
 
@@ -2478,7 +2540,8 @@ class Bot:
         hist.append({"role": "user", "text": text})
         hist.append({"role": "assistant", "text": reply or f"(отправил файлов: {sent_files})"})
         self.state["chat_history"] = hist[-2 * A.MAX_HISTORY_TURNS:]
-        self._send_long(chat, reply)
+        self.state["last_chat_reply"] = reply
+        self._send_long(chat, reply, kind="ответ агента")
         try:
             self.save()
         except Exception as e:                                   # noqa: BLE001
