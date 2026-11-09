@@ -1,0 +1,1006 @@
+{
+ "AA.US": {
+  "name": "Alcoa Corp",
+  "page": "Alcoa",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AAL.US": {
+  "name": "American Airlines Group",
+  "page": "American_Airlines_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AAPL.US": {
+  "name": "Apple Inc.",
+  "page": "Apple",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AAXJ.US": {
+  "name": "iShares MSCI All Country Asia ex Japan ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "ABBNY.US": {
+  "name": "ABB Ltd",
+  "page": "ABB",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ABNB.US": {
+  "name": "Airbnb Inc",
+  "page": "Airbnb",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ABT.US": {
+  "name": "Abbott Laboratories",
+  "page": "Abbott_Laboratories",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ACHR.US": {
+  "name": "Archer Aviation Inc",
+  "page": "Archer_Aviation",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ACI.US": {
+  "name": "Albertsons Companies",
+  "page": "Albertsons_Companies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ACM.US": {
+  "name": "Aecom Technology Corporation",
+  "page": "Aecom_Technology",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ACN.US": {
+  "name": "Accenture plc",
+  "page": "Accenture",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ADBE.US": {
+  "name": "Adobe Inc.",
+  "page": "Adobe",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ADI.US": {
+  "name": "Analog Devices Inc",
+  "page": "Analog_Devices",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ADM.US": {
+  "name": "Archer-Daniels-Midland Company",
+  "page": "Archer-Daniels-Midland_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ADP.US": {
+  "name": "Automatic Data Processing Inc",
+  "page": "Automatic_Data_Processing",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ADSK.US": {
+  "name": "Autodesk Inc",
+  "page": "Autodesk",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AEM.US": {
+  "name": "Agnico Eagle Mines Limited",
+  "page": "Agnico_Eagle_Mines",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AER.US": {
+  "name": "AerCap Holdings NV",
+  "page": "AerCap",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AG.US": {
+  "name": "First Majestic Silver Corp",
+  "page": "First_Majestic_Silver",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AGCO.US": {
+  "name": "AGCO Corporation",
+  "page": "AGCO",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AIG.US": {
+  "name": "American International Group Inc",
+  "page": "American_International_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AIQ.US": {
+  "name": "Global X Artificial Intelligence & Technology ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "AJG.US": {
+  "name": "Arthur J Gallagher & Co",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ALB.US": {
+  "name": "Albemarle Corp",
+  "page": "Albemarle",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ALL.US": {
+  "name": "The Allstate Corporation",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ALLY.US": {
+  "name": "Ally Financial Inc",
+  "page": "Ally_Financial",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ALSN.US": {
+  "name": "Allison Transmission Holdings Inc",
+  "page": "Allison_Transmission_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ALV.US": {
+  "name": "Autoliv Inc",
+  "page": "Autoliv",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AMAT.US": {
+  "name": "Applied Materials Inc",
+  "page": "Applied_Materials",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AMD.US": {
+  "name": "Advanced Micro Devices Inc",
+  "page": "Advanced_Micro_Devices",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AMH.US": {
+  "name": "American Homes 4 Rent",
+  "page": "American_Homes_4_Rent",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AMKR.US": {
+  "name": "Amkor Technology Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "AMLP.US": {
+  "name": "Alerian MLP ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "AMSC.US": {
+  "name": "American Superconductor Corporation",
+  "page": "American_Superconductor",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AMT.US": {
+  "name": "American Tower Corp",
+  "page": "American_Tower",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AMZN.US": {
+  "name": "Amazon.com Inc",
+  "page": "Amazon.com",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AN.US": {
+  "name": "AutoNation Inc",
+  "page": "AutoNation",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ANET.US": {
+  "name": "Arista Networks",
+  "page": "Arista_Networks",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AON.US": {
+  "name": "Aon PLC",
+  "page": "Aon",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "APD.US": {
+  "name": "Air Products and Chemicals Inc",
+  "page": "Air_Products_and_Chemicals",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "APH.US": {
+  "name": "Amphenol Corporation",
+  "page": "Amphenol",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "APO.US": {
+  "name": "Apollo Global Management LLC Class A",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "APTV.US": {
+  "name": "Aptiv PLC",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "AR.US": {
+  "name": "Antero Resources Corp",
+  "page": "Antero_Resources",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ARES.US": {
+  "name": "Ares Management LP",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ARGT.US": {
+  "name": "Global X MSCI Argentina ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "ARKK.US": {
+  "name": "ARK Innovation ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "ARKX.US": {
+  "name": "ARK Space Exploration & Innovation ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "ARM.US": {
+  "name": "Arm Holdings plc American Depositary Shares",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ASC.US": {
+  "name": "Ardmore Shpng",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ASML.US": {
+  "name": "ASML Holding N.V. New York Registry Shares",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ASTS.US": {
+  "name": "Ast Spacemobile Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ASX.US": {
+  "name": "ASE Industrial Holding Co Ltd ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "ATI.US": {
+  "name": "ATI Inc.",
+  "page": "ATI",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "ATO.US": {
+  "name": "Atmos Energy Corporation",
+  "page": "Atmos_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AU.US": {
+  "name": "AngloGold Ashanti plc",
+  "page": "AngloGold_Ashanti",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AVAV.US": {
+  "name": "AeroVironment Inc",
+  "page": "AeroVironment",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AVGO.US": {
+  "name": "Broadcom Inc",
+  "page": "Broadcom",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AWK.US": {
+  "name": "American Water Works",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "AXON.US": {
+  "name": "Axon Enterprise Inc.",
+  "page": "Axon_Enterprise",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AXP.US": {
+  "name": "American Express Company",
+  "page": "American_Express_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AXS.US": {
+  "name": "AXIS Capital Holdings Ltd",
+  "page": "AXIS_Capital",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AZN.US": {
+  "name": "AstraZeneca PLC",
+  "page": "AstraZeneca",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "AZO.US": {
+  "name": "AutoZone Inc",
+  "page": "AutoZone",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BA.US": {
+  "name": "The Boeing Company",
+  "page": "The_Boeing_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BABA.US": {
+  "name": "Alibaba Group Holding Ltd",
+  "page": "Alibaba_Group_Holding",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BAH.US": {
+  "name": "Booz Allen Hamilton Holding",
+  "page": "Booz_Allen_Hamilton",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BALL.US": {
+  "name": "Ball Corporation",
+  "page": "Ball",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BAM.US": {
+  "name": "Brookfield Asset Management Ltd.",
+  "page": "Brookfield_Asset_Management",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BASFY.US": {
+  "name": "BASF SE ADR",
+  "page": "BASF_SE",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BBY.US": {
+  "name": "Best Buy Co. Inc",
+  "page": "Best_Buy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BCOM.INDX": {
+  "name": "Bloomberg Commodity",
+  "page": null,
+  "почему": "тип INDEX — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BCOMTR.INDX": {
+  "name": "Bloomberg Commodity TR",
+  "page": null,
+  "почему": "тип INDEX — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BCS.US": {
+  "name": "Barclays PLC ADR",
+  "page": "Barclays",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BE.US": {
+  "name": "Bloom Energy Corp",
+  "page": "Bloom_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BG.US": {
+  "name": "Bunge Global SA",
+  "page": "Bunge_Global",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BHP.US": {
+  "name": "BHP Group Limited",
+  "page": "BHP_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BIDU.US": {
+  "name": "Baidu Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BIL.US": {
+  "name": "SPDR® Bloomberg 1-3 Month T-Bill ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BITB.US": {
+  "name": "Bitwise Bitcoin ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BITO.US": {
+  "name": "ProShares Bitcoin Strategy ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BKNG.US": {
+  "name": "Booking Holdings Inc",
+  "page": "Booking_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BKR.US": {
+  "name": "Baker Hughes Co",
+  "page": "Baker_Hughes",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BLDR.US": {
+  "name": "Builders FirstSource Inc",
+  "page": "Builders_FirstSource",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BLK.US": {
+  "name": "BlackRock Inc",
+  "page": "BlackRock",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BLNK.US": {
+  "name": "Blink Charging Co",
+  "page": "Blink_Charging",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BMA.US": {
+  "name": "Banco Macro SA B ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BMI.US": {
+  "name": "Badger Meter Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BMNR.US": {
+  "name": "BitMine Immersion Technologies, Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BMO.US": {
+  "name": "Bank of Montreal",
+  "page": "Bank_of_Montreal",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BNDX.US": {
+  "name": "Vanguard Total International Bond Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BNO.US": {
+  "name": "United States Brent Oil Fund LP",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BNPQY.US": {
+  "name": "BNP Paribas SA ADR",
+  "page": "BNP_Paribas",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BOIL.US": {
+  "name": "ProShares Ultra Bloomberg Natural Gas",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BOTZ.US": {
+  "name": "Global X Robotics & Artificial Intelligence ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BP.US": {
+  "name": "BP PLC ADR",
+  "page": "BP",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BRK-B.US": {
+  "name": "Berkshire Hathaway Inc",
+  "page": "Berkshire_Hathaway",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BRO.US": {
+  "name": "Brown & Brown Inc",
+  "page": "Brown_&_Brown",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BTI.US": {
+  "name": "British American Tobacco p.l.c.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BTU.US": {
+  "name": "Peabody Energy Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BUD.US": {
+  "name": "Anheuser Busch Inbev NV ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BUG.US": {
+  "name": "Global X Cybersecurity ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "BVN.US": {
+  "name": "Compania de Minas Buenaventura SAA ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "BWA.US": {
+  "name": "BorgWarner Inc",
+  "page": "BorgWarner",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BWXT.US": {
+  "name": "BWX Technologies Inc",
+  "page": "BWX_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BX.US": {
+  "name": "Blackstone Group Inc",
+  "page": "Blackstone_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "BXP.US": {
+  "name": "BXP, Inc.",
+  "page": "BXP",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "C.US": {
+  "name": "Citigroup Inc.",
+  "page": "Citigroup",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CAG.US": {
+  "name": "Conagra Brands, Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CAH.US": {
+  "name": "Cardinal Health Inc",
+  "page": "Cardinal_Health",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CANE.US": {
+  "name": "Teucrium Sugar",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "CAR.US": {
+  "name": "Avis Budget Group Inc",
+  "page": "Avis_Budget_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CARR.US": {
+  "name": "Carrier Global Corp",
+  "page": "Carrier_Global",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CASY.US": {
+  "name": "Caseys General Stores Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CAT.US": {
+  "name": "Caterpillar Inc",
+  "page": "Caterpillar",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CB.US": {
+  "name": "Chubb Ltd",
+  "page": "Chubb",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CBOE.US": {
+  "name": "Cboe Global Markets Inc",
+  "page": "Cboe_Global_Markets",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CBRE.US": {
+  "name": "CBRE Group Inc Class A",
+  "page": "CBRE_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CCJ.US": {
+  "name": "Cameco Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CCK.US": {
+  "name": "Crown Holdings Inc",
+  "page": "Crown_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CCL.US": {
+  "name": "Carnival Corporation",
+  "page": "Carnival",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CCOI.US": {
+  "name": "Cogent Communications Group Inc",
+  "page": "Cogent_Communications",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CDNS.US": {
+  "name": "Cadence Design Systems Inc",
+  "page": "Cadence_Design_Systems",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CE.US": {
+  "name": "Celanese Corporation",
+  "page": "Celanese",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CEG.US": {
+  "name": "Constellation Energy Corp",
+  "page": "Constellation_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CENX.US": {
+  "name": "Century Aluminum Company",
+  "page": "Century_Aluminum",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CF.US": {
+  "name": "CF Industries Holdings Inc",
+  "page": "CF_Industries_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CFRUY.US": {
+  "name": "Compagnie Financiere Richemont",
+  "page": "Compagnie_Financiere_Richemont",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CHGG.US": {
+  "name": "Chegg Inc",
+  "page": "Chegg",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CHKP.US": {
+  "name": "Check Point Software Technologies Ltd",
+  "page": "Check_Point_Software_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CHPT.US": {
+  "name": "ChargePoint Holdings Inc",
+  "page": "ChargePoint",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CHRD.US": {
+  "name": "Chord Energy Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CHRW.US": {
+  "name": "CH Robinson Worldwide Inc",
+  "page": "CH_Robinson_Worldwide",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CIB.US": {
+  "name": "Grupo Cibest S.A.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CIBR.US": {
+  "name": "First Trust NASDAQ Cybersecurity ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-09"
+ },
+ "CIEN.US": {
+  "name": "Ciena Corp",
+  "page": "Ciena",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CIFR.US": {
+  "name": "Cipher Mining Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CL.US": {
+  "name": "Colgate-Palmolive Company",
+  "page": "Colgate-Palmolive_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CLF.US": {
+  "name": "Cleveland-Cliffs Inc",
+  "page": "Cleveland-Cliffs",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CLNE.US": {
+  "name": "Clean Energy Fuels Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CLSK.US": {
+  "name": "CleanSpark Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-09"
+ },
+ "CMC.US": {
+  "name": "Commercial Metals Company",
+  "page": "Commercial_Metals_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CMCSA.US": {
+  "name": "Comcast Corp",
+  "page": "Comcast",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CME.US": {
+  "name": "CME Group Inc",
+  "page": "CME_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CMI.US": {
+  "name": "Cummins Inc",
+  "page": "Cummins",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CNA.US": {
+  "name": "CNA Financial Corporation",
+  "page": "CNA_Financial",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CNI.US": {
+  "name": "Canadian National Railway Company",
+  "page": "Canadian_National_Railway_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "CNQ.US": {
+  "name": "Canadian Natural Resources Ltd",
+  "page": "Canadian_Natural_Resources",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "COF.US": {
+  "name": "Capital One Financial Corporation",
+  "page": "Capital_One_Financial",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ },
+ "COHR.US": {
+  "name": "Coherent Corp",
+  "page": "Coherent",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-09"
+ }
+}
