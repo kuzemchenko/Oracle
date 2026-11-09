@@ -188,6 +188,17 @@ def forward(out_dir=None, closes_path=None, horizons=(5, 20), bench="SPY.US"):
     snap = json.loads(pathlib.Path(closes_path or ROOT / "reports" / "prices" / "closes_latest.json").read_text("utf-8"))
     sy = snap.get("symbols") or {}
     first = {}
+    # быстрые следы (ops/attention_fast): новости 15 мин / Википедия по часам / объём торгов — тем же счётом
+    fast = d / "fast_signals.jsonl"
+    if fast.exists():
+        for ln in fast.read_text(encoding="utf-8").splitlines():
+            try:
+                r = json.loads(ln)
+            except ValueError:
+                continue
+            key = (r.get("бумага"), "быстро:" + str(r.get("след")))
+            if key[0] and key not in first:
+                first[key] = str(r.get("ts"))[:10]
     for f in sorted(d.glob("attention_20*.json")):
         rep = json.loads(f.read_text(encoding="utf-8"))
         for s in rep.get("сигналы") or []:

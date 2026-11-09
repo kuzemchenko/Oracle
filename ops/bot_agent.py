@@ -553,6 +553,11 @@ class Tools:
                 return "нет данных: датчик внимания ещё не делал обход (сервер, ежедневно после 20:30 UTC)"
             rep = json.loads(p.read_text(encoding="utf-8"))
             data = {"дата": rep.get("дата"), "измерено": rep.get("измерено"), "сигналы": (rep.get("сигналы") or [])[:30]}
+            fp = ROOT / "reports" / "attention" / "fast_latest.json"
+            if fp.exists():
+                fr = json.loads(fp.read_text(encoding="utf-8"))
+                data["быстрые"] = {"на": fr.get("ts"), "сигналы": (fr.get("сигналы") or [])[:20],
+                                   "что": "новости GDELT за 2 ч, Википедия за 3 ч, темп объёма торгов (+ опционы) против нормы"}
             rid = self._store(data, "reports/attention/attention_latest.json")
             return self._view(rid, data, "reports/attention/attention_latest.json (датчик внимания)")
         try:
@@ -1319,6 +1324,12 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
             if _sig:
                 brief += (f"\n\nРАСТУЩЕЕ ВНИМАНИЕ ТОЛПЫ на {_rep.get('дата')} (просмотры Википедии, код; повод искать, "
                           "не довод): " + "; ".join(_sig))
+        _fp = ROOT / "reports" / "attention" / "fast_latest.json"
+        if _fp.exists():
+            _fr = json.loads(_fp.read_text(encoding="utf-8"))
+            _fs = [f"{r['бумага']} ({', '.join(r.get('следы') or [])})" for r in (_fr.get("сигналы") or [])[:8]]
+            if _fs:
+                brief += f"\nБЫСТРЫЕ СЛЕДЫ ТОЛПЫ на {_fr.get('ts')} UTC (новости/часы Википедии/объём торгов, код): " + "; ".join(_fs)
     except Exception:                                            # noqa: BLE001
         pass
     try:

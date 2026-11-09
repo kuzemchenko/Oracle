@@ -74,3 +74,37 @@ def words(name, res):
             "пик": "интерес на пике — толпа уже здесь, входить поздно чаще, чем рано.",
             "угасание": "пик был недавно и спал — толпа уходит."}[ph]
     return base + f"; фаза «{ph}»: {tail}"
+
+
+# ── Q-тренды-быстро (09.11): быстрые следы толпы — новости по 15 мин, Википедия по часам, объём торгов ──
+MIN_FAST_BASE = 1.0
+
+
+def surge(recent, history, min_recent=3):
+    """Всплеск: сумма за свежее окно против медианы таких же окон в прошлом (тот же размер окна).
+    → {"ok", "сейчас", "норма", "кратно"} или отказ. Мало истории или мало событий — честно «не измерено»."""
+    if len(history) < 6:
+        return {"ok": False, "причина": f"мало истории: {len(history)} окон < 6"}
+    norm = statistics.median(history)
+    if recent < min_recent:
+        return {"ok": True, "сейчас": recent, "норма": norm, "кратно": None, "всплеск": False,
+                "причина": f"меньше {min_recent} событий — не всплеск"}
+    ratio = recent / max(norm, MIN_FAST_BASE)
+    return {"ok": True, "сейчас": recent, "норма": round(norm, 2), "кратно": round(ratio, 2), "всплеск": ratio >= STRONG}
+
+
+SESSION_MIN = 390          # торговая сессия Нью-Йорка, минут (9:30–16:00)
+
+
+def volume_pace(volume_so_far, adv, minutes_elapsed):
+    """Темп объёма торгов внутри дня: объём к этому часу против обычного дневного объёма × доля прошедшей сессии.
+    Утро — самое шумное, поэтому меньше 30 минут не считаем. Линейная доля — упрощение (объём к открытию и
+    закрытию выше): темп ×3 и выше — сигнал, ниже — нет."""
+    if not adv or adv <= 0 or volume_so_far is None or minutes_elapsed is None:
+        return {"ok": False, "причина": "нет обычного объёма или текущего"}
+    if minutes_elapsed < 30:
+        return {"ok": False, "причина": "первые 30 минут сессии — темп не считаем"}
+    frac = min(1.0, minutes_elapsed / SESSION_MIN)
+    pace = volume_so_far / (adv * frac)
+    return {"ok": True, "темп": round(pace, 2), "объём": volume_so_far, "обычный_день": round(adv), "доля_сессии": round(frac, 3),
+            "всплеск": pace >= STRONG}

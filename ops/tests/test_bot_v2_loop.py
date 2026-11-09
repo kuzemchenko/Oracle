@@ -300,3 +300,28 @@ def test_point_verdict_card_once_and_answer_logged(paths, monkeypatch, tmp_path)
     b._on_callback(_cb("b:c:Б1"))
     rows = [json.loads(x) for x in (tmp_path / "pv.jsonl").read_text("utf-8").splitlines()]
     assert len(rows) == 1 and rows[0]["verdict"] == "консервация" and rows[0]["point"] == "Б1"
+
+
+def test_repeat_job_every_15_minutes(paths, monkeypatch):
+    """Q-тренды-быстро: повторяющаяся задача за флагом стартует раз в 15 минут, идущая — не дублируется."""
+    monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"attention_fast_auto": True})
+    monkeypatch.setattr(BOT, "SCHEDULED_JOBS", ())
+    started = []
+
+    class P:
+        def __init__(self, cmd, **kw):
+            started.append(cmd)
+            self.done = False
+
+        def poll(self):
+            return 0 if self.done else None
+    b = _bot()
+    t0 = datetime.datetime(2026, 11, 9, 15, 0, tzinfo=datetime.timezone.utc)
+    b._tick_scheduled_jobs(t0, popen=P)
+    b._tick_scheduled_jobs(t0 + datetime.timedelta(minutes=5), popen=P)
+    assert len(started) == 1 and started[0][-2:] == ["ops/attention_fast.py", "tick"]
+    b._job_procs["attention_fast"].done = True
+    b._tick_scheduled_jobs(t0 + datetime.timedelta(minutes=10), popen=P)
+    assert len(started) == 1                                   # 15 минут ещё не прошло
+    b._tick_scheduled_jobs(t0 + datetime.timedelta(minutes=16), popen=P)
+    assert len(started) == 2

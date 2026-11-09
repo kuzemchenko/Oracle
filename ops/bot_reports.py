@@ -560,7 +560,7 @@ EMPTY_MARK = "[поле пустое]"   # П8: пусто → честно, н�
 
 
 JOB_FLAGS = ("deep_dive_auto", "week_odds_auto", "point_b_auto", "price_snapshot_auto", "event_menu_auto",
-             "attention_watch_auto")
+             "attention_watch_auto", "attention_fast_auto")
 
 
 def load_presentation(path=None):

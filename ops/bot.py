@@ -96,6 +96,11 @@ SCHEDULED_JOBS = (
     # Q-тренды (09.11): датчик растущего внимания толпы (просмотры Википедии) — до чекпоинта, без LLM
     ("attention_watch_auto", "attention_watch", ("ops/attention_watch.py", "daily"), (1, 2, 3, 4, 5, 6, 7), (20, 30)),
 )
+# Q-тренды-быстро (09.11): ПОВТОРЯЮЩИЕСЯ задачи за флагом — каждые N минут отдельным процессом (без алерта на каждый
+# сбой: один пропущенный 15-минутный сбор — не повод будить владельца; итог виден в reports/attention/fast_latest.json)
+REPEAT_JOBS = (
+    ("attention_fast_auto", "attention_fast", ("ops/attention_fast.py", "tick"), 15),
+)
 CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,
     "4": "в индексе git чужие изменения (ручная работа на сервере) — закончи её или пришли мне git status",
@@ -1994,6 +1999,27 @@ class Bot:
                 continue
             days[label] = today
             log("запущена задача за флагом", flag, label)
+            self.save()
+
+        last = self.state.setdefault("jobs_last_ts", {})
+        for flag, label, argv, every_min in REPEAT_JOBS:
+            if not pres.get(flag) or label in procs:
+                continue
+            try:
+                prev = datetime.datetime.fromisoformat(last[label]) if last.get(label) else None
+            except ValueError:
+                prev = None
+            if prev is not None and (now - prev).total_seconds() < every_min * 60:
+                continue
+            try:
+                (ROOT / "journal").mkdir(parents=True, exist_ok=True)
+                with open(ROOT / "journal" / "cron.log", "a", encoding="utf-8") as logf:
+                    procs[label] = (popen or subprocess.Popen)([sys.executable, *argv], cwd=str(ROOT), stdout=logf,
+                                                               stderr=logf, start_new_session=True)
+            except OSError as e:
+                log("повторяющаяся задача не запустилась", label, repr(e))
+                continue
+            last[label] = now.isoformat(timespec="seconds")
             self.save()
 
     RUN_ONCE_JOBS = ("deep_dive", "week_odds")      # ручной показ владельцу ДО включения флага (правило 01.11)
