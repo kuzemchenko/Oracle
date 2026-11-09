@@ -273,3 +273,30 @@ def test_unanswered_themes_do_not_block_next_saturday_and_buttons_go(paths, monk
         [{"text": "✅ 1", "callback_data": "t:y:k1"}, {"text": "❌ 1", "callback_data": "t:n:k1"}]]}}
     b._on_theme_cb("cb", "555", msg, "y", "k1")
     assert b.tg.edits and b.tg.edits[-1][2] == {"inline_keyboard": []}
+
+
+def test_point_verdict_card_once_and_answer_logged(paths, monkeypatch, tmp_path):
+    """V7 (Q-вердикт-Б1): в день точки после 12:00 UTC — замер и три кнопки; ответ — в журнал, один раз."""
+    import point_b as PB
+    from ops import point_b as PB2
+    fake = lambda today=None, root=None: {  # noqa: E731
+        "критерии": [{"точка": "Б1", "что": "поиск выполнен", "сейчас": 3, "цель": 10, "выполнено": False},
+                     {"точка": "Б", "что": "другое", "сейчас": 0, "цель": 1, "выполнено": False}],
+        "запросы": {"поиск": {"выполнено": 3, "приостановлено": 1}}, "код_sha256": "abc"}
+    monkeypatch.setattr(PB, "measure", fake)
+    monkeypatch.setattr(PB2, "measure", fake)
+    monkeypatch.setattr(BOT, "POINT_VERDICTS_PATH", tmp_path / "pv.jsonl")
+    b = _bot()
+    b._tick_point_verdict(datetime.datetime(2026, 11, 28, 11, 0, tzinfo=datetime.timezone.utc))
+    assert not b.tg.sent
+    noon = datetime.datetime(2026, 11, 28, 12, 5, tzinfo=datetime.timezone.utc)
+    b._tick_point_verdict(noon)
+    b._tick_point_verdict(noon)
+    assert len(b.tg.sent) == 1
+    text, kb = b.tg.sent[0][1], b.tg.sent[0][2]
+    assert "Точка Б1" in text and "выполнено 0" in text and "поиск выполнен: сейчас 3, цель 10" in text
+    assert [x["callback_data"] for x in kb["inline_keyboard"][0]] == ["b:c:Б1", "b:r:Б1", "b:k:Б1"]
+    b._on_callback(_cb("b:k:Б1"))
+    b._on_callback(_cb("b:c:Б1"))
+    rows = [json.loads(x) for x in (tmp_path / "pv.jsonl").read_text("utf-8").splitlines()]
+    assert len(rows) == 1 and rows[0]["verdict"] == "консервация" and rows[0]["point"] == "Б1"

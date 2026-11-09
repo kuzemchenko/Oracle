@@ -83,6 +83,7 @@ PULL_CODES = {   # ops/safe_pull.sh
 # Аудит 03.11 (P1 №24): задачи, которые бот запускает сам за флагами config/presentation.yaml — «ок»
 # владельца становится облачным коммитом флага (сервер протянет его за час), без захода в терминал ради
 # crontab. ВНИМАНИЕ: при включённом флаге одноимённую строку в crontab НЕ раскомментировать (двойной прогон).
+POINT_VERDICTS_PATH = ROOT / "journal" / "point_verdicts.jsonl"   # V7: вердикт владельца в точках Б1/Б (append-only)
 SCHEDULED_JOBS = (
     # флаг,              метка в алертах, команда (от корня проекта),                    дни недели,      не раньше (UTC)
     ("deep_dive_auto", "deep_dive", ("orchestrator/deep_dive.py", "--mode", "live"), (1, 2, 3, 4, 5, 6, 7), (9, 40)),
@@ -326,6 +327,9 @@ class Bot:
             return
         if len(parts) == 3 and parts[0] == "p":
             self._on_proposal_cb(cb_id, chat, msg, parts[1], parts[2])
+            return
+        if len(parts) == 3 and parts[0] == "b":
+            self._on_point_verdict_cb(cb_id, chat, msg, parts[1], parts[2])
             return
         if len(parts) != 3 or parts[0] != "d":
             self.tg.answer_callback(cb_id)        # noop / неизвестная кнопка
@@ -711,6 +715,78 @@ class Bot:
         if not pend:
             self.tg.send_message(chat, "Пакет предложений разобран, спасибо. Подписанное "
                                        "машинист внесёт через git с ревью и тестами.")
+        self.save()
+
+    # ── V7 (Q-вердикт-Б1): вердикт владельца в точках Б1 (28.11) и Б (01.02.2027) ──
+    POINT_VERDICTS = {"c": ("продолжаем", "Продолжаем"), "r": ("перезапуск", "Перезапуск"),
+                      "k": ("консервация", "Консервация")}
+
+    def _point_verdict_text(self, point, m):
+        crit = [c for c in m["критерии"] if c["точка"] == point]
+        done = sum(1 for c in crit if c["выполнено"])
+        L = [f"Точка {point} — пора решить, что дальше с проектом.", "",
+             f"Что это значит для тебя. Пунктов, обещанных к сегодняшней дате: {len(crit)}; выполнено {done}. "
+             "Цифры посчитал код по журналам системы, без пересказа.", ""]
+        for c in crit:
+            L.append(f"• {c['что']}: сейчас {c['сейчас']}, цель {c['цель']} — {'есть' if c['выполнено'] else 'нет'}.")
+        q = (m.get("запросы") or {}).get("поиск") or {}
+        if q:
+            L += ["", f"Поиск идей: доведено до достойного кандидата — {q.get('выполнено', 0)}, "
+                      f"на паузе — {q.get('приостановлено', 0)}."]
+        L += ["", "Что делать. Выбери одно:",
+              "• «Продолжаем» — идём дальше по дорожной карте к точке Б.",
+              "• «Перезапуск» — то, что сделано, не работает как надо; соберу новый план и покажу тебе.",
+              "• «Консервация» — останавливаю регулярные прогоны и траты, сохраняю всё как есть.",
+              "", "Это исследовательский инструмент, не инвестиционная рекомендация."]
+        return "\n".join(L)
+
+    def _tick_point_verdict(self, now=None):
+        """В день точки (с 12:00 UTC) — замер ops/point_b и три кнопки. Один раз на точку; ответ — в журнал."""
+        now = now or S.now_utc()
+        try:
+            from ops import point_b as PB
+        except ImportError:
+            import point_b as PB
+        today = now.date().isoformat()
+        sent = self.state.setdefault("point_verdict_sent", {})
+        for point, day in PB.POINTS.items():
+            if today != day or now.hour < 12 or sent.get(point):
+                continue
+            m = PB.measure(today)
+            text = self._point_verdict_text(point, m)
+            kb = {"inline_keyboard": [[{"text": t, "callback_data": f"b:{code}:{point}"}
+                                       for code, (_v, t) in self.POINT_VERDICTS.items()]]}
+            mid = self.tg.send_message(self.chat_id, text, reply_markup=kb)
+            if mid is None:
+                return
+            self._log_delivery("вердикт точки", ref=point, text=text, mid=mid)
+            sent[point] = {"ts": S.iso(now), "код_замера": m.get("код_sha256")}
+            self.save()
+
+    def _on_point_verdict_cb(self, cb_id, chat, msg, code, point):
+        if code not in self.POINT_VERDICTS:
+            self.tg.answer_callback(cb_id)
+            return
+        sent = (self.state.get("point_verdict_sent") or {}).get(point)
+        if not sent or sent.get("verdict"):
+            self.tg.answer_callback(cb_id, "Решение по этой точке уже записано." if sent else "Карточка устарела.")
+            return
+        verdict = self.POINT_VERDICTS[code][0]
+        rec = {"ts": S.iso(S.now_utc()), "type": "point_verdict", "point": point, "verdict": verdict,
+               "код_замера": sent.get("код_замера"), "chat_id": self.chat_id, "source": "telegram_bot"}
+        S._append_jsonl(POINT_VERDICTS_PATH, rec)
+        sent["verdict"] = verdict
+        if msg.get("message_id"):
+            self.tg.edit_reply_markup(chat, msg["message_id"], {"inline_keyboard": []})
+        self.tg.answer_callback(cb_id, f"Записано: {verdict}.")
+        follow = {"продолжаем": "Записал: продолжаем. Иду по дорожной карте к точке Б (1 февраля).",
+                  "перезапуск": "Записал: перезапуск. Основная сессия соберёт новый план и покажет тебе — "
+                                "до твоего «да» ничего не ломаю.",
+                  "консервация": "Записал: консервация. Регулярные прогоны остановит основная сессия коммитом "
+                                 "флагов; всё сохранено, вернуться можно в любой момент."}[verdict]
+        self.tg.send_message(chat, follow)
+        self._notice_dozor(f"Вердикт владельца по точке {point}: {verdict} (journal/point_verdicts.jsonl) — "
+                           "основной сессии взять в работу.")
         self.save()
 
     @staticmethod
@@ -2717,6 +2793,10 @@ class Bot:
             self._tick_scheduled_jobs(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick jobs ошибка", repr(e))
+        try:
+            self._tick_point_verdict(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick point verdict ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):
