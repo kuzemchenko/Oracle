@@ -1864,7 +1864,31 @@ class Bot:
         done = self.state.setdefault("run_once_done", {})
         today = now.date().isoformat()
         by_label = {lab: argv for _f, lab, argv, _w, _t in SCHEDULED_JOBS}
+        # 09.11: повторный показ уже запечатанного выпуска «Шансов недели» без нового прогона —
+        # ops/run_once/show_week_odds_<метка>.req со строкой «файл: wo_….json»
+        for req in sorted(d.glob("show_week_odds_*.req")):
+            if req.name in done:
+                continue
+            try:
+                m = _re.search(r"файл:\s*(wo_[\w]+\.json)", req.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+            done[req.name] = [today]
+            if not m:
+                log("повторный показ: в заявке нет «файл: wo_….json»", req.name)
+                continue
+            name = m.group(1)
+            sent = self.state.setdefault("week_odds_sent", [])
+            self.state["week_odds_sent"] = [x for x in sent if x != name]
+            if str(self.state.get("week_odds_mark") or "") >= name:
+                self.state["week_odds_mark"] = name[:-1]
+            import datetime as _dt
+            self.state["week_odds_show_until"] = (now + _dt.timedelta(hours=24)).isoformat()
+            log("повторный показ «Шансов недели»", name)
+            self.save()
         for req in sorted(d.glob("*.req")):
+            if req.name.startswith("show_"):
+                continue
             label = next((j for j in self.RUN_ONCE_JOBS if req.name.startswith(j + "_")), None)
             if label is None or label not in by_label:
                 continue

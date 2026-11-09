@@ -1292,6 +1292,15 @@ _DEJARGON = [
 ]
 
 
+def _dejargon(s):
+    """09.11: свободный текст экономиста потоков («переходят в каскад…») валил линт «Шансов недели» — выпуск
+    07.11 не дошёл до владельца. Служебные слова → человеческие (та же таблица, что у _clean_llm), смысл цел."""
+    out = str(s or "")
+    for rx, repl in _DEJARGON:
+        out = rx.sub(repl, out)
+    return out
+
+
 def _trunc_words(s, n):
     """Обрезка по ГРАНИЦЕ СЛОВА (не «…from Jo»): режем до n, откатываемся к последнему пробелу."""
     s = " ".join(str(s).split())
@@ -2527,7 +2536,7 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
     for q in qs:
         asset = q.get("asset") or ""
         имя = _asset_human(asset)[0]
-        текст = str(q.get("вопрос") or "").strip().rstrip("?.")
+        текст = _dejargon(str(q.get("вопрос") or "").strip().rstrip("?."))
         # Ре-гейт V0 02.11: незнакомый тикер (имя==тикер) не валит ВЕСЬ выпуск из-за линта —
         # честная пометка «компанию не опознал» рядом с тикером (как у Идеи дня), пуш живёт.
         _base = (asset.split(".")[0] if asset else "")
@@ -2550,10 +2559,10 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
             текст = f"{текст} [{имя} ({asset})]"
         p = q.get("probability")
         строка = f"— {текст}? — думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) else f"— {текст}?"
-        почему = _shorten(str(q.get("почему") or "").strip(), 170)
+        почему = _shorten(_dejargon(str(q.get("почему") or "").strip()), 170)
         if почему:
             строка += f" Почему: {почему}"
-        в_цене = _shorten((q.get("что_уже_в_цене") or {}).get("строка") or "", 110)
+        в_цене = _shorten(_dejargon((q.get("что_уже_в_цене") or {}).get("строка") or ""), 110)
         if в_цене:
             строка += f" Что уже в цене: {в_цене}."
         взгляд = q.get("mechanism_id") or q.get("thesis_id")

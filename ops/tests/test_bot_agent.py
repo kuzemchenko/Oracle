@@ -402,3 +402,35 @@ def test_bot_run_once_launches_job_days_and_opens_week_odds_push(tmp_path, monke
     b._tick_run_once(d1 + _dt.timedelta(days=1), {}, popen)           # второй день прокачки
     b._tick_run_once(d1 + _dt.timedelta(days=2), {}, popen)           # дальше — нет
     assert [c[1] for c in started].count("deep_dive") == 2 and [c[1] for c in started].count("week_odds") == 1
+
+
+def test_week_odds_dejargon_and_reshow(tmp_path, monkeypatch):
+    """09.11: выпуск «Шансов недели» 07.11 не дошёл из-за слова «каскад» в тексте экономиста; повторный показ
+    запечатанного выпуска — заявкой show_week_odds_*.req (без нового прогона и новых печатей)."""
+    import datetime as _dt
+    import bot_reports as R
+    import bot_state as S
+    import bot as BOT
+    pr = {"ts": "2026-11-07T14:06:24Z", "запечатано": 1, "вопросы": [
+        {"asset": "WEAT.US", "вопрос": "Пшеница (фонд WEAT) закроется выше $23.47 к 19 декабря", "probability": 0.28,
+         "почему": "если ограничения экспорта переходят в каскад по нескольким продуктам"}]}
+    text, viol = R.format_week_odds(pr)
+    assert viol == [] and "каскад" not in text and "сценарий" in text
+    monkeypatch.setattr(S, "STATE_PATH", tmp_path / "s.json")
+    monkeypatch.setattr(BOT, "ROOT", tmp_path)
+    ro = tmp_path / "ops" / "run_once"
+    ro.mkdir(parents=True)
+    (ro / "show_week_odds_20261109.req").write_text("файл: wo_20261107T140624Z.json", encoding="utf-8")
+
+    class TG:
+        def send_message(self, *a, **k):
+            return 1
+    b = BOT.Bot(TG(), "555", state=S._default_state())
+    b.state["week_odds_sent"] = ["wo_20261103T124622Z.json", "wo_20261107T140624Z.json"]
+    b.state["week_odds_mark"] = "wo_20261107T140624Z.json"
+    started = []
+    b._tick_run_once(_dt.datetime(2026, 11, 9, 4, 0, tzinfo=_dt.timezone.utc), {}, lambda c, **k: started.append(c))
+    assert started == []                                                  # нового прогона нет
+    assert "wo_20261107T140624Z.json" not in b.state["week_odds_sent"]
+    assert b.state["week_odds_mark"] < "wo_20261107T140624Z.json"
+    assert b.state["week_odds_show_until"].startswith("2026-11-10T04")
