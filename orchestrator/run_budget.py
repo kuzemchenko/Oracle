@@ -52,38 +52,85 @@ def _month(now=None):
     return now.strftime("%Y-%m")
 
 
-def avg_call_cost(costs_log, *, month=None, prior=0.04):
+# VQ-4 (09.11): цена вызова считается ПО РЕЖИМУ. Раньше бралась средняя по ВСЕМ вызовам месяца —
+# туда попадали дорогие ответы Telegram-агента (≈$0.23 за вызов против ≈$0.06 у утреннего прогона),
+# и 120 ожидаемых вызовов утреннего прогона «стоили» $12.4 > потолка $10 → отказ 08.11, хотя реальные
+# прогоны 27.10–07.11 стоили $2.7–4.2. Число вызовов (план) НЕ уменьшаем — меняем только цену вызова
+# на честную цену ЭТОГО режима. Нет своей истории → средняя по фоновым контурам (без разговоров) → приор.
+MODE_RUN_PREFIX = {
+    "event_first": ("ef_",),
+    "challenge": ("challenge",),
+    "week_odds": ("wo_",),
+    "hunter_court": ("hunter",),
+    "story_editor": ("story",),
+    "world_map": ("wm_", "world"),
+}
+INTERACTIVE_PREFIXES = ("bot",)      # разговоры владельца — не прогон, их цена к прогону не относится
+MIN_MODE_HISTORY = 20                # меньше вызовов режима за месяц — своей средней не доверяем
+
+
+def _cost_rows(costs_log, month):
+    p = pathlib.Path(costs_log)
+    if not p.exists():
+        return []
+    out = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("mode") == "mock" or not rec.get("ok"):
+            continue
+        if not str(rec.get("ts", "")).startswith(month):
+            continue
+        c = rec.get("cost_usd")
+        if isinstance(c, (int, float)) and c > 0:
+            out.append(rec)
+    return out
+
+
+def _rid(rec):
+    return str(rec.get("run_id") or "")
+
+
+def avg_call_cost(costs_log, *, month=None, prior=0.04, mode=None):
     """Средняя цена УСПЕШНОГО live-вызова за месяц из journal/costs.jsonl.
 
-    Источник правды стоимости — журнал реальных вызовов (решение Нед.1). Пока успешных
-    live-строк нет — возвращаем консервативный приор (basis='приор'). Mock-строки (cost 0)
-    и неуспешные — не считаем."""
-    p = pathlib.Path(costs_log)
+    mode задан и у режима есть ≥MIN_MODE_HISTORY своих вызовов → средняя ЭТОГО режима (basis='режим').
+    Иначе → средняя фоновых контуров без разговоров владельца (basis='история'). Нет строк → приор."""
     month = month or _month()
-    costs = []
-    if p.exists():
-        for line in p.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if rec.get("mode") == "mock" or not rec.get("ok"):
-                continue
-            if not str(rec.get("ts", "")).startswith(month):
-                continue
-            c = rec.get("cost_usd")
-            if isinstance(c, (int, float)) and c > 0:
-                costs.append(float(c))
-    if costs:
-        return sum(costs) / len(costs), "история", len(costs)
+    rows = _cost_rows(costs_log, month)
+    pref = MODE_RUN_PREFIX.get(mode or "")
+    if pref:
+        own = [r["cost_usd"] for r in rows if _rid(r).startswith(pref)]
+        if len(own) >= MIN_MODE_HISTORY:
+            return sum(own) / len(own), "режим", len(own)
+    bg = [r["cost_usd"] for r in rows if not _rid(r).startswith(INTERACTIVE_PREFIXES)]
+    if bg:
+        return sum(bg) / len(bg), "история", len(bg)
     return float(prior), "приор", 0
 
 
+def recent_runs(mode, costs_log, *, month=None, last=10):
+    """Фактические прогоны режима: [(run_id, вызовов, $)] за месяц — контроль, что оценка не оторвалась."""
+    pref = MODE_RUN_PREFIX.get(mode or "")
+    if not pref:
+        return []
+    agg = {}
+    for r in _cost_rows(costs_log, month or _month()):
+        rid = _rid(r)
+        if rid.startswith(pref):
+            run = rid.split("__")[0]
+            n, c = agg.get(run, (0, 0.0))
+            agg[run] = (n + 1, c + float(r["cost_usd"]))
+    return [(k, n, round(c, 4)) for k, (n, c) in sorted(agg.items())][-last:]
+
+
 def estimate_run_cost(mode, *, expected_calls=None, limits=None, costs_log=None, month=None):
-    """Оценка стоимости прогона ДО вызовов = ожидаемое_число_вызовов × средняя_цена_вызова."""
+    """Оценка стоимости прогона ДО вызовов = ожидаемое_число_ВЫЗОВОВ_моделей × цена_вызова_режима."""
     lim = limits or L.load_limits()
     costs_log = costs_log or (ROOT / lim["budget"].get("costs_log", "journal/costs.jsonl"))
     if expected_calls is None:
@@ -91,10 +138,42 @@ def estimate_run_cost(mode, *, expected_calls=None, limits=None, costs_log=None,
     if expected_calls is None:
         raise ValueError(f"нет per_run_expected_calls для режима {mode!r} и не передан expected_calls")
     prior = float(lim.get("cost_per_call_prior_usd", 0.04))
-    avg, basis, n_hist = avg_call_cost(costs_log, month=month, prior=prior)
+    avg, basis, n_hist = avg_call_cost(costs_log, month=month, prior=prior, mode=mode)
     est = round(expected_calls * avg, 4)
-    return {"estimate_usd": est, "expected_calls": expected_calls,
-            "avg_call_usd": round(avg, 5), "basis_avg": basis, "n_history": n_hist}
+    out = {"estimate_usd": est, "expected_calls": expected_calls,
+           "avg_call_usd": round(avg, 5), "basis_avg": basis, "n_history": n_hist}
+    runs = recent_runs(mode, costs_log, month=month)
+    if runs:
+        out["факт_прогонов"] = {"n": len(runs), "max_usd": max(c for _, _, c in runs),
+                                "max_вызовов": max(n for _, n, _ in runs)}
+    return out
+
+
+def fit_plan(stages, cap_usd, avg_call_usd):
+    """Урезать НЕобязательный объём под потолок, сохранив обязательные этапы целиком.
+
+    stages: [{"этап": str, "вызовов": int, "обязательный": bool}] — план работ по этапам (вызовы моделей).
+    → {"влезает": bool, "этапы": [... с "разрешено"], "вызовов": int, "отложено": {этап: вызовов}}.
+    Обязательное не влезает целиком → влезает=False (прогон не начинать, ничего не урезать молча)."""
+    must = sum(s["вызовов"] for s in stages if s.get("обязательный"))
+    room = cap_usd / avg_call_usd if avg_call_usd > 0 else float("inf")
+    if must > room:
+        return {"влезает": False, "вызовов": must, "отложено": {},
+                "причина": f"обязательные этапы {must} вызовов × ${avg_call_usd:.4f} > потолка ${cap_usd}"}
+    left = int(room - must)
+    out, deferred, total = [], {}, must
+    for s in stages:
+        s2 = dict(s)
+        if s.get("обязательный"):
+            s2["разрешено"] = s["вызовов"]
+        else:
+            s2["разрешено"] = min(s["вызовов"], max(0, left))
+            left -= s2["разрешено"]
+            total += s2["разрешено"]
+            if s2["разрешено"] < s["вызовов"]:
+                deferred[s["этап"]] = s["вызовов"] - s2["разрешено"]
+        out.append(s2)
+    return {"влезает": True, "этапы": out, "вызовов": total, "отложено": deferred}
 
 
 def precheck(mode, *, expected_calls=None, limits=None, costs_log=None, month=None):
@@ -127,7 +206,7 @@ def precheck(mode, *, expected_calls=None, limits=None, costs_log=None, month=No
     if not rb["allowed"]:
         return {**base, "allowed": False, "контур": "потолок_режима", "cap_usd": rb.get("limit"),
                 "reason": f"ОТКАЗ (§24): {rb['reason']} [оценка={est['estimate_usd']} = "
-                          f"{est['expected_calls']}×${est['avg_call_usd']} ({est['basis_avg']})]"}
+                          f"{est['expected_calls']} вызовов моделей×${est['avg_call_usd']} ({est['basis_avg']})]"}
 
     # (3) месячный спенд + оценка влезает в месячный потолок
     would_be = spent_month + est["estimate_usd"]

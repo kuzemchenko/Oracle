@@ -282,6 +282,27 @@ def _proposal_ideas(proposals):
     return ideas
 
 
+MIN_CARTO_MAPS = 6   # меньше — поток идей слишком узкий, честнее отказ с причиной, чем видимость прогона
+
+
+def _fit_event_first(decision, limits=None):
+    """План утреннего прогона по этапам (вызовы моделей): картограф — НЕобязательный объём (до
+    CARTO_MAX_MAP карт), суд и защита отобранных идей — обязательные. Урезаем карты под потолок.
+    → {"вызовов", "карт_разрешено", "карт_отложено", "план"} или None (обязательное не влезает)."""
+    total = int(decision.get("expected_calls") or 0)
+    must = max(0, total - CARTO_MAX_MAP)
+    fit = RB.fit_plan([{"этап": "картограф", "вызовов": CARTO_MAX_MAP, "обязательный": False},
+                       {"этап": "суд_и_защита", "вызовов": must, "обязательный": True}],
+                      float(decision.get("cap_usd") or 0), float(decision.get("avg_call_usd") or 0))
+    if not fit["влезает"]:
+        return None
+    maps = next(x["разрешено"] for x in fit["этапы"] if x["этап"] == "картограф")
+    if maps < MIN_CARTO_MAPS:
+        return None
+    return {"вызовов": fit["вызовов"], "карт_разрешено": maps, "карт_отложено": CARTO_MAX_MAP - maps,
+            "план": fit["этапы"]}
+
+
 def _cartographer_pass(scan, universe, mode, run_id, max_map=10, guard=None):
     """B2.5 (§R2): картограф ОДИН раз — новостные кластеры вне реестра тем → каскадные карты. Один
     результат кормит И воронку отбора (узлы графа), И стейджинг/поток research-идей (дедуп: раньше
@@ -862,8 +883,19 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
     # F0#9: ПРЕД-проверка бюджета (§24/Инв#5) — для live ДО единого LLM-вызова. Отказ → прогон не
     # начинается (как в funnel/masked). Раньше боевой event_first (--vet --deep) шёл вообще без гарда.
     guard = None
+    carto_max = CARTO_MAX_MAP
+    урезано = None
     if mode != "mock":
         budget_decision = RB.precheck("event_first")
+        if not budget_decision["allowed"] and budget_decision.get("контур") == "потолок_режима":
+            # VQ-4: не отменять прогон целиком — урезать НЕобязательный объём (число карт картографа),
+            # обязательные проверки отобранных идей (суд/защита) сохранить; остаток — в протокол очереди.
+            urez = _fit_event_first(budget_decision)
+            if urez:
+                d2 = RB.precheck("event_first", expected_calls=urez["вызовов"])
+                if d2["allowed"]:
+                    budget_decision, урезано = d2, urez
+                    carto_max = urez["карт_разрешено"]
         if not budget_decision["allowed"]:
             return {"run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
                     "режим": "event-first контур",
@@ -884,7 +916,7 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         sources = _shock_sources(scan, universe, con, max(k, MAX_SHOCK_SOURCES))
         # ШИРОКИЙ ВХОД (РЕШЕНИЕ «A» + B2.5): новостные кластеры вне реестра тем → картограф ОДИН раз.
         # Карты идут И в воронку отбора (узлы графа, ниже), И в стейджинг/поток research-идей (дедуп).
-        pcs = _cartographer_pass(scan, universe, mode, run_id, max_map=CARTO_MAX_MAP, guard=guard)
+        pcs = _cartographer_pass(scan, universe, mode, run_id, max_map=carto_max, guard=guard)
         proposals = _stage_cartographer(pcs, now)
         картограф_идеи = _proposal_ideas(proposals)
         # FГ B2: дорогой контур — только по первым k источникам (бюджет). Остальные найденные
@@ -1153,6 +1185,10 @@ def run_event_first(mode="mock", k=3, horizon_days=5, write=True, run_id=None, s
         # фактический спенд ВЫШЕ учтённого (лимиты Инв#5 занижены), это сигнал, не мелочь
         "бюджет_прогона": ({"потрачено_usd": round(guard.spent_usd, 4), "вызовов": guard.calls,
                             "без_стоимости": guard.unaccounted_calls} if guard is not None else None),
+        # VQ-4: план не влез в потолок → урезан необязательный объём (карты картографа), обязательные
+        # проверки целы; сколько карт отложено и сколько кластеров не досталось картографу — видно здесь
+        "урезано_по_бюджету": (dict(урезано, кластеров_вне_картографа=max(
+            0, len(scan.get("новостные_события", [])) - carto_max)) if урезано else None),
         "граф_отбор": {                                     # §R2/§R3: воронка отбора объединённого графа + треки seal
             "узлов": отбор["всего"], "ворота_прошли": отбор["ворота_прошли"],
             "отсев_по_критериям": отбор["отсев_по_критериям"],
