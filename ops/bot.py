@@ -93,6 +93,8 @@ SCHEDULED_JOBS = (
     ("price_snapshot_auto", "price_snapshot", ("ops/price_snapshot.py", "write"), (1, 2, 3, 4, 5, 6, 7), (21, 30)),
     # меню событий для режима «Круги на воде» (04.11): GDELT по файлам + Википедия + NewsAPI.ai — до чекпоинта
     ("event_menu_auto", "event_menu", ("ops/event_menu.py", "write"), (1, 2, 3, 4, 5, 6, 7), (21, 0)),
+    # Q-тренды (09.11): датчик растущего внимания толпы (просмотры Википедии) — до чекпоинта, без LLM
+    ("attention_watch_auto", "attention_watch", ("ops/attention_watch.py", "daily"), (1, 2, 3, 4, 5, 6, 7), (20, 30)),
 )
 CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,

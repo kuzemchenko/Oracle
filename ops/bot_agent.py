@@ -545,6 +545,24 @@ class Tools:
         rid = self._store(res, "EODHD fundamentals + eod → mathlib.multiple_history")
         return self._view(rid, res, "EODHD fundamentals + mathlib.multiple_history")
 
+    def attention_trend(self, ticker=None):
+        """Q-тренды 09.11: растущее внимание толпы к бумаге (просмотры Википедии) или сводка сигналов дня."""
+        if not ticker:
+            p = ROOT / "reports" / "attention" / "attention_latest.json"
+            if not p.exists():
+                return "нет данных: датчик внимания ещё не делал обход (сервер, ежедневно после 20:30 UTC)"
+            rep = json.loads(p.read_text(encoding="utf-8"))
+            data = {"дата": rep.get("дата"), "измерено": rep.get("измерено"), "сигналы": (rep.get("сигналы") or [])[:30]}
+            rid = self._store(data, "reports/attention/attention_latest.json")
+            return self._view(rid, data, "reports/attention/attention_latest.json (датчик внимания)")
+        try:
+            from ops import attention_watch as AW
+        except ImportError:
+            import attention_watch as AW
+        res = AW.show(ticker)
+        rid = self._store(res, "Wikimedia pageviews + mathlib.attention_trend")
+        return self._view(rid, res, "Wikimedia pageviews + mathlib.attention_trend")
+
     def checked_branches(self, days=14):
         p = ROOT / "reports" / "ideas" / "hunt_log.jsonl"
         if not p.exists():
@@ -798,6 +816,10 @@ TOOL_SPECS = [
         "против собственной истории компании за N лет: перцентиль, обычное значение, разброс (расчёт кодом, без "
         "заглядывания вперёд — по датам подачи отчётов). Мерило ожиданий рынка, а не довод «дёшево».",
         {"ticker": S, "years": I}, ("ticker",)),
+    _fn("attention_trend", "Растущее внимание толпы (просмотры Википедии, расчёт кодом): по бумаге — ускорение интереса к "
+        "своей норме и фаза (тишина / ранний рост / разгон / пик / угасание); без тикера — сигналы дня по всем бумагам "
+        "сервера. Рост внимания — повод искать (и смотреть 2–3-й круг); пик — предупреждение «толпа уже здесь». Двигает ли "
+        "толпа цену — показывает только форвард-счёт, не мнение.", {"ticker": S}),
     _fn("materiality_check", "Существенен ли эффект для компании (расчёт кодом): доп. прибыль/выручка в год и срок против "
         "прибыли, выручки, капитализации → СУЩЕСТВЕННО / ПОГРАНИЧНЫЙ / ШУМ. Все суммы в одной валюте и масштабе.",
         {"effect_profit_per_year": N, "effect_revenue_per_year": N, "years": N, "net_income": N, "revenue": N,
@@ -1287,6 +1309,16 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
         if hb:
             brief += ("\n\nПОСЛЕДНИЕ ИДЕИ ОХОТНИКА (аргументы — в карточках; статус — актуальное решение по идее, его "
                       "пишет код; при статусе не «действует» план входа не предлагай как действующий):\n" + hb)
+    except Exception:                                            # noqa: BLE001
+        pass
+    try:
+        _ap = ROOT / "reports" / "attention" / "attention_latest.json"
+        if _ap.exists():
+            _rep = json.loads(_ap.read_text(encoding="utf-8"))
+            _sig = [f"{r['бумага']} ×{r['ускорение']} ({r['фаза']})" for r in (_rep.get("сигналы") or [])[:8]]
+            if _sig:
+                brief += (f"\n\nРАСТУЩЕЕ ВНИМАНИЕ ТОЛПЫ на {_rep.get('дата')} (просмотры Википедии, код; повод искать, "
+                          "не довод): " + "; ".join(_sig))
     except Exception:                                            # noqa: BLE001
         pass
     try:
