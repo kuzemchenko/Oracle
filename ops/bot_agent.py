@@ -528,6 +528,23 @@ class Tools:
         rid = self._store(res, "EODHD опционы (Unicorn Bay) + mathlib.options_implied")
         return self._view(rid, res, "EODHD опционы + mathlib.options_implied")
 
+    def valuation_history(self, ticker, years=5):
+        """Q-в-цене 09.11: P/E и P/S сейчас против собственной истории компании (ops/multiples_view)."""
+        try:
+            from ops import multiples_view as MV
+        except ImportError:
+            import multiples_view as MV
+
+        def get(url, params):
+            code, _ct, body = self.http_get(url, params=params, timeout=60)
+            try:
+                return code, json.loads(body)
+            except (ValueError, TypeError):
+                return code, None
+        res = MV.view(ticker, max(2, min(int(years or 5), 10)), get=get)
+        rid = self._store(res, "EODHD fundamentals + eod → mathlib.multiple_history")
+        return self._view(rid, res, "EODHD fundamentals + mathlib.multiple_history")
+
     def checked_branches(self, days=14):
         p = ROOT / "reports" / "ideas" / "hunt_log.jsonl"
         if not p.exists():
@@ -777,6 +794,10 @@ TOOL_SPECS = [
         "±1σ до ближайшей экспирации после даты и риск-нейтральная вероятность закрыться выше/ниже порога (с премией за "
         "риск — не точная вероятность, но мерило ожиданий рынка). Наш шанс выше рыночного — объясни, почему.",
         {"ticker": S, "resolve_by": S, "threshold": N, "direction": S, "spot": N}, ("ticker", "resolve_by")),
+    _fn("valuation_history", "P/E (цена к прибыли за 4 квартала по официальной отчётности) и P/S (цена к выручке) СЕЙЧАС "
+        "против собственной истории компании за N лет: перцентиль, обычное значение, разброс (расчёт кодом, без "
+        "заглядывания вперёд — по датам подачи отчётов). Мерило ожиданий рынка, а не довод «дёшево».",
+        {"ticker": S, "years": I}, ("ticker",)),
     _fn("materiality_check", "Существенен ли эффект для компании (расчёт кодом): доп. прибыль/выручка в год и срок против "
         "прибыли, выручки, капитализации → СУЩЕСТВЕННО / ПОГРАНИЧНЫЙ / ШУМ. Все суммы в одной валюте и масштабе.",
         {"effect_profit_per_year": N, "effect_revenue_per_year": N, "years": N, "net_income": N, "revenue": N,
