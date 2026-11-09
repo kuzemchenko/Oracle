@@ -85,7 +85,26 @@ def _tickers(text):
     return set(_TICKER_SUF_RE.findall(s)) | (set(_BARE_TICKER_RE.findall(s)) - _NOT_TICKERS)
 
 
-def verify(story, source):
+def facts_block(facts):
+    """Q-рассказчик: данные протокола — отдельным блоком входа; числа рассказа сверяются и с ним."""
+    if not facts:
+        return ""
+    L = ["", "ДАННЫЕ ПРОТОКОЛА (единственный источник критерия сверки и чисел; по памяти не восстанавливать):"]
+    if facts.get("критерий"):
+        L.append(f"- критерий сверки (перенести ДОСЛОВНО, в кавычках «…»): {facts['критерий']}")
+    mv = facts.get("ход") or {}
+    for k, title in (("полный_доля", "полный расчётный ход"), ("неотыгранный_остаток_доля", "неотыгранный остаток"),
+                     ("отыграно_доля", "уже отыграно")):
+        if isinstance(mv.get(k), (int, float)):
+            L.append(f"- {title}: {mv[k] * 100:.1f}%")
+    if facts.get("срок_торговых_дней"):
+        L.append(f"- срок: {facts['срок_торговых_дней']} торговых дней")
+    if facts.get("счёт_трека"):
+        L.append(f"- счёт трека: {facts['счёт_трека']}")
+    return "\n".join(L) if len(L) > 2 else ""
+
+
+def verify(story, source, facts=None):
     """Детерминированная проверка рассказа против строгого входа. → список нарушений."""
     try:
         from ops import presentation_lint as PL
@@ -95,6 +114,10 @@ def verify(story, source):
     s = str(story or "").strip()
     if not s:
         return ["пустой рассказ"]
+    source = str(source or "") + facts_block(facts)
+    crit = (facts or {}).get("критерий")
+    if crit and crit not in s:
+        viol.append(f"потерян критерий сверки (нужна дословная цитата «{crit}»)")
     extra_n = _nums(s) - _nums(source)
     if extra_n:
         viol.append("числа не из входа (П8): " + ", ".join(sorted(extra_n)[:5]))
@@ -115,7 +138,7 @@ def verify(story, source):
     return viol
 
 
-def rewrite(source_text, *, client=None, mode="auto", run_id=None):
+def rewrite(source_text, *, client=None, mode="auto", run_id=None, facts=None):
     """Строгий текст → рассказ. Возвращает (story|None, причина_отказа|None).
     Любой сбой/нарушение → (None, причина): бот уходит на строгий формат (fail-soft)."""
     src = str(source_text or "").strip()
@@ -138,7 +161,7 @@ def rewrite(source_text, *, client=None, mode="auto", run_id=None):
                 return None, f"бюджет §24: {decision.get('reason') or decision}"
             client.cost_guard = RB.RunBudgetGuard("story_editor", decision["cap_usd"])
         try:
-            resp = client.complete(ROLE, system, src, agent_id="story_editor",
+            resp = client.complete(ROLE, system, src + facts_block(facts), agent_id="story_editor",
                                    output_kind="story_rewrite")
         except RB.RunBudgetExceeded as e:        # BaseException — отдельная ветка (Инв#5)
             return None, f"ОСТАНОВ бюджета §24: {e.spent_usd:.4f} при потолке {e.cap_usd}"
@@ -146,7 +169,7 @@ def rewrite(source_text, *, client=None, mode="auto", run_id=None):
     except Exception as e:                                   # noqa: BLE001 — подача не падает
         return None, f"редактор недоступен: {type(e).__name__}: {e}"
     story = story.strip()
-    viol = verify(story, src)
+    viol = verify(story, src, facts)
     if viol:
         return None, "; ".join(viol[:3])
     return story, None

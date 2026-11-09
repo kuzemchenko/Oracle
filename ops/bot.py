@@ -2937,7 +2937,11 @@ class Bot:
                                     if _sc.get("run_id") == run_id:
                                         story, why = _sc.get("text"), _sc.get("fail")
                                     else:
-                                        story, why = SE.rewrite(id_text, run_id=run_id)
+                                        try:
+                                            _facts = R.story_facts(proto, id_text)
+                                        except Exception:  # noqa: BLE001 — без данных рассказчик всё равно под гардами
+                                            _facts = None
+                                        story, why = SE.rewrite(id_text, run_id=run_id, facts=_facts)
                                         self.state["story_cache"] = {"run_id": run_id,
                                                                      "text": story, "fail": why}
                                         self.save()

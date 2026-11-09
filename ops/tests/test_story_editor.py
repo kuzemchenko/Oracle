@@ -193,3 +193,14 @@ def test_verbal_quantities_inside_quotes_rejected():
     bad = GOOD.replace("с шансом около 48%", "с шансом около 48% («сбывается в девяти случаях из десяти»)")
     story, why = SE.rewrite(SRC, client=StubClient(bad))
     assert story is None and "количественные слова" in why
+
+
+def test_facts_block_and_lost_criterion_rejected():
+    """Q-рассказчик: данные протокола идут блоком; потерянный критерий сверки — брак."""
+    import story_editor as SE2
+    facts = {"критерий": "Сверю к 20 ноября", "ход": {"полный_доля": 0.06}, "счёт_трека": "сбылось 48 из 100"}
+    blk = SE2.facts_block(facts)
+    assert "ДОСЛОВНО" in blk and "6.0%" in blk and "48 из 100" in blk
+    story = "Рассказ без даты сверки. Это исследовательский инструмент, не инвестиционная рекомендация."
+    assert any("критерий" in v for v in SE2.verify(story, "Сверю к 20 ноября.", facts))
+    assert SE2.facts_block(None) == ""

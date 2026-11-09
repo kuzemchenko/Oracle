@@ -2470,6 +2470,27 @@ def idea_of_day_from_protocol(proto, *, name_fn=None, base_rate=None, money_base
     return text, meta, []
 
 
+def story_facts(proto, strict_text, *, name_fn=None, base_rate=None):
+    """Q-рассказчик (V0, испытание 02.11): ДАННЫЕ для редактора-рассказчика — чтобы он не восстанавливал по
+    памяти критерий сверки, числа хода и счёт трека. Всё — из протокола, строгого текста и журнала исходов.
+    → {"критерий": строка-цитата|None, "ход": {...}, "срок_торговых_дней", "счёт_трека": "сбылось k из n"|None}."""
+    out = {"критерий": None, "ход": None, "срок_торговых_дней": None, "счёт_трека": None}
+    for ln in str(strict_text or "").splitlines():
+        if ln.strip().startswith("Сверю к "):
+            out["критерий"] = ln.strip().rstrip(".")
+    lead, _why, _sk = select_idea_day_lead(proto, name_fn=name_fn)
+    if lead is not None:
+        b = lead[0]
+        out["ход"] = {"полный_доля": b.get("полный_ход"), "неотыгранный_остаток_доля": b.get("edge"),
+                      "отыграно_доля": b.get("отыгранность_узла"), "направление": b.get("направление")}
+        out["срок_торговых_дней"] = b.get("горизонт_дней")
+        kind = "cascade_provisional" if b.get("провизорный") else "cascade_money"
+        br = base_rate if base_rate is not None else track_base_rate(kind)
+        if br and br.get("n"):
+            out["счёт_трека"] = f"сбылось {round((br.get('hit') or 0) * br['n'])} из {br['n']} прошлых идей этого трека"
+    return out
+
+
 # ── V5 «Шансы недели» (карта v3; крон включается после ручного прогона испытателя) ────
 _MECH_NAMES_CACHE = {}
 
