@@ -57,6 +57,9 @@ CHAT_REQUESTS = ROOT / "journal" / "chat_requests.jsonl"   # запросы «н
 ROLE = "partner_chat"
 MAX_STEPS = 18                 # кругов «модель → инструменты» на один ответ
 MAX_TURN_COST_USD = 2.50       # потолок трат на ОДИН ответ (месячный лимит проверяет bot.py)
+SEARCH_ROUNDS = 4              # VQ-4: сколько раз код возвращает модель к незавершённому поиску в одном ответе
+SEARCH_STEPS = 10              # кругов инструментов на одно возвращение
+SEARCH_COST_SHARE = 0.85       # доля потолка ответа, после которой поиск ставится на паузу (остаток — на итог)
 MAX_TOOL_CHARS = 14000         # сколько символов результата инструмента видит модель
 MAX_FILE_BYTES = 15_000_000    # под лимит Telegram на документ бота (50 МБ) с запасом
 MAX_HISTORY_TURNS = 10
@@ -148,6 +151,8 @@ class Tools:
         self.results = {}          # id → {"data", "source", "fetched_at", "units"}
         self.files = []            # [(filename, bytes, caption)]
         self._n = 0
+        self.search_dir = None     # VQ-4: каталог очереди поиска (None — reports/ideas/searches)
+        self.search_id = None      # поиск, который трогали в этом ответе
 
     def _store(self, data, source, units=None):
         self._n += 1
@@ -529,6 +534,10 @@ class Tools:
             return "ошибка: summary — суть итога разговора (идея и почему защищаю / что проверили и почему отказ), ≥40 знаков"
         rec = {"ts": _now(), "source": "telegram", "topic": redact(str(topic or ""))[:200], "outcome": outcome,
                "summary": redact(str(summary))[:1500], "tickers": [str(t)[:15] for t in (tickers or [])][:10]}
+        # VQ-4: запись = «ответ доставлен»; выполнен ли поиск — решает статус очереди поиска (только found)
+        sq = self._sq_active()
+        if sq:
+            rec["поиск"] = {"id": sq["id"], "статус": sq["статус"]}
         try:
             p = pathlib.Path(CHAT_REQUESTS)
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -537,6 +546,96 @@ class Tools:
         except OSError as e:
             return f"не записал: {e}"
         return "записал: запрос «найди идею» закрыт (" + outcome + ")"
+    # — VQ-4: поиск идеи как сохраняемая очередь гипотез (ops/search_queue.py) —
+    def _sq(self):
+        try:
+            from ops import search_queue as SQ
+        except ImportError:
+            import search_queue as SQ
+        return SQ
+
+    def _sq_active(self):
+        SQ = self._sq()
+        if self.search_id:
+            try:
+                return SQ.load(self.search_id, self.search_dir)
+            except (OSError, ValueError):
+                pass
+        return SQ.active("telegram", self.search_dir)
+
+    def _sq_view(self, s, msg=None):
+        SQ = self._sq()
+        out = {"сообщение": msg, **SQ.summary(s)}
+        return json.dumps(out, ensure_ascii=False, default=str)[:MAX_TOOL_CHARS]
+
+    def search_start(self, topic):
+        SQ = self._sq()
+        cur = SQ.active("telegram", self.search_dir)
+        if cur:
+            self.search_id = cur["id"]
+            if cur["статус"] == SQ.PAUSED:
+                cur, err = SQ.resume(cur)
+                SQ.save(cur, self.search_dir)
+                if err:
+                    return self._sq_view(cur, err)
+            return self._sq_view(cur, "есть незавершённый поиск — продолжаю его (новый не начинаю). Отменить его "
+                                      "может только владелец (search_cancel с его словами)")
+        s = SQ.start(topic, "telegram", d=self.search_dir)
+        self.search_id = s["id"]
+        return self._sq_view(s, "поиск начат")
+
+    def search_add(self, thesis, ticker, mechanism, beneficiary="", circle=1, direction_id=None, new_data=None):
+        SQ = self._sq()
+        s = self._sq_active()
+        if not s:
+            return "нет активного поиска — сначала search_start"
+        self.search_id = s["id"]
+        h, err = SQ.add_hypothesis(s, thesis, ticker, mechanism, beneficiary, circle, direction_id, new_data)
+        SQ.save(s, self.search_dir)
+        return self._sq_view(s, err or f"гипотеза {h['id']} добавлена")
+
+    def search_step(self, hyp_id, outcome, data=None, reject_kind=None, reason="", needs=None):
+        SQ = self._sq()
+        s = self._sq_active()
+        if not s:
+            return "нет активного поиска — сначала search_start"
+        self.search_id = s["id"]
+        _h, msg = SQ.advance(s, hyp_id, outcome, data if isinstance(data, dict) else None, reject_kind, reason, needs)
+        SQ.save(s, self.search_dir)
+        return self._sq_view(s, msg)
+
+    def search_status(self):
+        s = self._sq_active()
+        if not s:
+            return "активного поиска нет"
+        self.search_id = s["id"]
+        return self._sq_view(s)
+
+    def search_cancel(self, owner_words):
+        SQ = self._sq()
+        s = self._sq_active()
+        if not s:
+            return "активного поиска нет"
+        try:
+            SQ.cancel(s, owner_words)
+        except ValueError as e:
+            return f"не отменил: {e}"
+        SQ.save(s, self.search_dir)
+        return self._sq_view(s, "поиск отменён по слову владельца")
+
+    def search_budget(self, new_limit_usd, owner_words):
+        SQ = self._sq()
+        s = self._sq_active()
+        if not s:
+            return "активного поиска нет"
+        try:
+            SQ.raise_budget(s, new_limit_usd, owner_words)
+        except ValueError as e:
+            return f"не изменил: {e}"
+        s, err = SQ.resume(s)
+        SQ.save(s, self.search_dir)
+        return self._sq_view(s, err or "бюджет поиска изменён по слову владельца, поиск продолжается")
+
     # — факты о самой системе и время события (аудит 07.11; ops/agent_facts.py — только кодом) —
     def _facts(self):
         try:
@@ -666,6 +765,29 @@ TOOL_SPECS = [
         "честно: защищаемой нет, с проверенными направлениями и причинами отказа. Это засчитывается владельцу как закрытый "
         "запрос. Не вызывай для обычных вопросов и без итога.",
         {"topic": S, "outcome": S, "summary": S, "tickers": A}, ("topic", "outcome", "summary")),
+    _fn("search_start", "Начать поиск идеи по теме (или продолжить незавершённый). Поиск — сохраняемая очередь гипотез: "
+        "генерация → быстрая проверка → углубление → критика → оценка → результат. Закончить его можно только "
+        "найденным достойным кандидатом, паузой по лимиту (код сам ставит) или отменой владельцем.", {"topic": S}, ("topic",)),
+    _fn("search_add", "Добавить гипотезу в очередь поиска: тезис, тикер, механизм (через что меняется прибыль), "
+        "получатель прибыли, круг (1/2/3), direction_id — если по направлению после отказа. Отвергнутый тезис под "
+        "новым названием код не примет без new_data [{текст, url, опубликовано}].",
+        {"thesis": S, "ticker": S, "mechanism": S, "beneficiary": S, "circle": I, "direction_id": S,
+         "new_data": {"type": "array", "items": O}}, ("thesis", "ticker", "mechanism")),
+    _fn("search_step", "Итог текущего этапа гипотезы: outcome 'pass' | 'reject' | 'needs_data'. reject_kind: priced_in "
+        "(прямой эффект в цене → ищем других получателей), mechanism_refuted (ветка закрыта), instrument_unfit (другой "
+        "способ выразить), no_data (добыть данные). data — собранное: быстрая проверка {факты:[{текст,url,опубликовано,"
+        "проверено}], механизм_проверен, цена, дата_цены, потенциал_пп, риски:[], инструмент_доступен:true}; углубление "
+        "и далее {market_view:{kind,metric,market:{value,source},ours:{value},why_different,основано_на:[номера фактов]}, "
+        "materiality:{…}, сценарии:{цена,дата_цены,источник_цены,базовый:{цена,основание},неблагоприятный:{цена,основание}}, "
+        "направление:'long'|'short', горизонт:'YYYY-MM-DD', условия_реализации:[], условия_опровержения:[], "
+        "критика:{семейство, возражения:[{текст,существенное,ответ}]}, вероятность (только со счётом «k из n» в "
+        "основание_вероятности)}. Код не пропустит этап, если чего-то не хватает, и скажет чего.",
+        {"hyp_id": S, "outcome": S, "data": O, "reject_kind": S, "reason": S, "needs": A}, ("hyp_id", "outcome")),
+    _fn("search_status", "Статус поиска, очередь гипотез и направлений, следующий шаг.", {}),
+    _fn("search_cancel", "Отменить поиск — ТОЛЬКО если владелец сам сказал отменить; owner_words — его слова.",
+        {"owner_words": S}, ("owner_words",)),
+    _fn("search_budget", "Изменить бюджет поиска — ТОЛЬКО по прямому слову владельца (owner_words — его слова).",
+        {"new_limit_usd": N, "owner_words": S}, ("new_limit_usd", "owner_words")),
     _fn("track_record", "Счёт качества прогнозов ПО КАЖДОМУ МЕХАНИЗМУ отдельно (охотник, старый утренний конвейер, "
         "калибровочный трек, форвард рёбер…): записано/сверено, доля попаданий, Brier против постоянной базы, период, "
         "версия. Любое утверждение о точности системы — только отсюда, с названием механизма.", {}),
@@ -695,7 +817,7 @@ SYSTEM_PROMPT = """Ты — инвест-аналитик владельца с�
 
 ДАННЫЕ — бери сам инструментами, не говори «нет доступа»: EODHD (цены, дивиденды, отчётность, консенсус аналитиков и его пересмотры, цели, опционы, календарь, новости), NewsAPI.ai, GDELT и меню горячих событий, наша база, карточки идей и отчёты (reports/ideas/*.md и *.card.json — там вся аргументация идеи), публичные сайты, наши скрипты (oracle_script analogs — похожие случаи из истории). Прежде чем спорить о свежих цифрах — проверь их. Выгрузки и длинные таблицы — файлом через send_file, в тексте коротко: что в файле, откуда, на какое время.
 
-«НАЙДЁМ ИДЕЮ»: спроси тему или покажи 3–5 горячих событий (event_menu, gdelt_hot, newsapi) со строкой «почему горячее»; по выбранному — свободно круги, выигравшие и проигравшие, неочевидные «бабочки», как было в истории и что сейчас иначе. У ветки должен быть ответ «почему рынок этого не видит» (недооценённая дата, вынужденный продавец, уже подписанные деньги, неверно понятое правило). Понравившуюся ветку можно отправить на строгую проверку с записью в счёт — это делает облачная сессия охотника. Когда разговор «найди идею» дошёл до итога (конкретная идея для обсуждения или честное «нечего» с причинами), один раз вызови record_find_idea — это засчитывается владельцу как закрытый запрос.
+«НАЙДЁМ ИДЕЮ»: спроси тему или покажи 3–5 горячих событий (event_menu, gdelt_hot, newsapi) со строкой «почему горячее»; по выбранному — свободно круги, выигравшие и проигравшие, неочевидные «бабочки», как было в истории и что сейчас иначе. У ветки должен быть ответ «почему рынок этого не видит» (недооценённая дата, вынужденный продавец, уже подписанные деньги, неверно понятое правило). Понравившуюся ветку можно отправить на строгую проверку с записью в счёт — это делает облачная сессия охотника. ПОИСК ДО РЕЗУЛЬТАТА: просьба «найди идею» — это search_start и очередь гипотез (search_add, search_step). Отказ первых кандидатов поиск НЕ завершает: код по виду отказа даёт новое направление, бери следующее. Быстро отсекай слабое на быстрой проверке; на углублении — что рынок уже ждёт и наше отличие с цифрами, сценарии от актуальной цены включая неблагоприятный; критика — court_check. «Два кандидата плохие», «отправил карточку», «нечего» и «ждём отчёта» — не итог поиска. Итог только: найден достойный кандидат (код проверил), пауза с причиной (ставит код, когда кончился ресурс ответа или бюджет), отмена владельцем. Не обещай, что продолжишь сам в фоне — между сообщениями исполнителя нет; не проси и не повышай бюджет сам. Когда ответ владельцу по «найди идею» отправляется, один раз вызови record_find_idea (это запись «ответ доставлен», а выполнен ли поиск — решает статус очереди).
 
 ПРОВЕРКА ДО ОТВЕТА (код проверяет каждый твой ответ и вернёт черновик на доработку, если правило нарушено):
 • Движение цены и событие: сначала event_reaction (время публикации, сессия, ход ДО и ПОСЛЕ); причину хода без источника называй гипотезой. Исправил факт — пересмотри все выводы, которые на нём стояли.
@@ -779,6 +901,8 @@ class Agent:
         self.truncated = False          # остался ли ответ оборванным после всех продлений
         self.findings_first = []        # находки проверки кодом в черновике (ops/claim_check)
         self.findings_left = []         # находки, оставшиеся после доработки (дописаны кодом)
+        self.search_rounds = 0          # VQ-4: сколько раз код вернул модель к незавершённому поиску
+        self.search_status = None
 
     def _post(self, body):
         if not self.api_key:
@@ -882,6 +1006,7 @@ class Agent:
         msgs = _messages(user_text, history, brief, attachments)
         text = self._loop(msgs, MAX_STEPS)
         text = self._finish(msgs, text)
+        text = self._continue_search(msgs, text)
         try:
             import claim_check as CC
         except ImportError:
@@ -901,12 +1026,56 @@ class Agent:
         else:
             self.findings_left = self.findings_first
         tail = CC.footer(self.findings_left)
+        line = self._close_search_turn()
+        if line:
+            tail = line + ("\n\n" + tail if tail else "")
         if self.truncated:
             tail = (tail + "\n\n" if tail else "") + ("⚠ Ответ не уместился в лимит длины и оборван — напиши "
                                                        "«продолжи», и я допишу с места обрыва.")
         if tail:
             text = text.rstrip() + "\n\n" + tail
         return redact((text or "").strip()), list(self.tools.files), round(self.cost, 4)
+
+    def _continue_search(self, msgs, text):
+        """VQ-4: пока поиск идёт и у ответа есть ресурс — финальный текст не принимается, модели дают следующий
+        шаг очереди. Это правило кода, а не просьба в подсказке: «два кандидата плохие» итогом не бывает."""
+        if not self.tools.search_id:
+            return text
+        SQ = self.tools._sq()
+        for _ in range(SEARCH_ROUNDS):
+            s = self.tools._sq_active()
+            if not s or s["статус"] != SQ.RUNNING or self.cost >= MAX_TURN_COST_USD * SEARCH_COST_SHARE:
+                break
+            nxt = SQ.next_action(s)
+            if msgs and msgs[-1].get("role") == "assistant" and not msgs[-1].get("tool_calls"):
+                msgs[-1] = {"role": "assistant", "content": text}
+            else:
+                msgs.append({"role": "assistant", "content": text})
+            msgs.append({"role": "user", "content": (
+                f"[система] поиск «{s['тема'][:80]}» не завершён (статус: выполняется; кандидата, прошедшего "
+                f"проверку кодом, нет). Следующий шаг очереди: {nxt['текст']}. Продолжай инструментами "
+                f"(search_add / search_step). Не пиши итог «нечего» — итог ставит код.")})
+            self.search_rounds += 1
+            text = self._finish(msgs, self._loop(msgs, SEARCH_STEPS))
+        return text
+
+    def _close_search_turn(self):
+        """Конец ответа: стоимость — в бюджет поиска; поиск, который ещё идёт, ставится на паузу с причиной
+        (между сообщениями исполнителя нет — честно, без обещаний фона). Строку статуса пишет код."""
+        if not self.tools.search_id:
+            return None
+        SQ = self.tools._sq()
+        s = self.tools._sq_active()
+        if not s:
+            return None
+        if s["статус"] in (SQ.RUNNING, SQ.PAUSED):
+            SQ.charge(s, self.cost)
+        if s["статус"] == SQ.RUNNING:
+            SQ.pause(s, "turn", f"ответ закончился — потрачено ${self.cost:.2f} из ${MAX_TURN_COST_USD:.2f} на один "
+                                f"ответ, кругов продолжения {self.search_rounds}")
+        SQ.save(s, self.tools.search_dir)
+        self.search_status = s["статус"]
+        return SQ.status_line(s)
 
     def _sealed_probs(self):
         try:
@@ -1059,6 +1228,15 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
     except Exception:                                            # noqa: BLE001
         pass
     try:
+        from ops import search_queue as SQ
+        cur = SQ.active("telegram", getattr(getattr(agent, "tools", None), "search_dir", None))
+        if cur:
+            brief += ("\n\nПОИСК ИДЕИ (очередь, пишет код): " + SQ.status_line(cur) + " Следующий шаг: "
+                      + SQ.next_action(cur)["текст"] + " — если владелец просит продолжать или искать, вызови "
+                      "search_start (продолжит этот поиск).")
+    except Exception:                                            # noqa: BLE001
+        pass
+    try:
         ag = agent or Agent(tools=Tools(actions=actions))
     except Exception as e:                                       # noqa: BLE001
         log_turn(user_text, [], [], None, ok=False, error=e)
@@ -1073,5 +1251,6 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
                     "error": ag.cache_error},
              quality={"continued": getattr(ag, "continued", 0), "truncated": getattr(ag, "truncated", False),
                       "findings_first": [f["code"] for f in getattr(ag, "findings_first", [])],
-                      "findings_left": [f["code"] for f in getattr(ag, "findings_left", [])]})
+                      "findings_left": [f["code"] for f in getattr(ag, "findings_left", [])],
+                      "search": {"id": ag.tools.search_id, "status": ag.search_status, "rounds": ag.search_rounds}})
     return plain_text(text), files, cost
