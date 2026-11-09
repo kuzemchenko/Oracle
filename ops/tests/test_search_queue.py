@@ -250,9 +250,10 @@ def test_agent_turn_end_pauses_search_honestly(tmp_path):
     script = [_msg(calls=[("search_start", {"topic": "уран"})]),
               _msg(calls=[("search_add", {"thesis": "Обогатители выигрывают от запрета российского урана",
                                           "ticker": "LEU", "mechanism": "запрет импорта обогащённого урана"})])]
-    llm = FakeLLM(script, default="Пока смотрю дальше.")
+    llm = FakeLLM(script, default="Пока смотрю дальше, вернусь с результатом.")
     ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
     text, _f, _c = ag.run("найди идею про уран")
+    assert "Поправка кода" in text                                          # обещание фона поправлено кодом
     s = SQ.all_searches(tmp_path)[0]
     assert s["статус"] == SQ.PAUSED and s["пауза"]["вид"] == "turn"
     assert s["бюджет"]["потрачено_usd"] > 0 and len(s["гипотезы"]) == 1      # очередь цела, траты учтены

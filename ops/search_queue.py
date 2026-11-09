@@ -483,6 +483,29 @@ def summary(s):
             "направления": s["направления"]}
 
 
+def refute(ticker, reason, kind="mechanism_refuted", d=None):
+    """Найденный кандидат опровергнут позже (прокачка, отмена условием) → гипотеза «отклонена», поиск снова
+    не выполнен: пауза с причиной и новым направлением. Сам поиск НЕ продолжается в фоне — продолжит
+    исполнитель при следующем запуске (честно). → обновлённый поиск или None."""
+    tk = str(ticker or "").upper().split(".")[0]
+    for s in sorted(all_searches(d), key=lambda x: x.get("обновлён") or "", reverse=True):
+        h = next((x for x in s["гипотезы"] if x["тикер"] == tk and x["вердикт"] in (WORTHY, OPEN, NEEDS_DATA)), None)
+        if not h or s["статус"] == CANCELLED:
+            continue
+        h["вердикт"] = REJECTED
+        h["отказ"] = {"вид": kind, "причина": str(reason)[:500], "этап": h["этап"], "когда": _now()}
+        dr = _add_direction(s, kind, h, f"{REJECT_KINDS[kind]} (после {tk}: {str(reason)[:160]})")
+        if s["статус"] == FOUND:
+            s["итог"] = None
+        s["статус"] = RUNNING
+        pause(s, "executor", f"кандидат {tk} опровергнут позже ({str(reason)[:160]}); поиск не выполнен — "
+                             f"продолжится с направления {dr['id']} при следующем запуске исполнителя")
+        _log(s, "опровергнут_позже", id=h["id"], тикер=tk)
+        save(s, d)
+        return s
+    return None
+
+
 # ── облачный охотник: итог запуска → состояние поиска ─────────────────────────────────
 def from_hunt(none_path=None, card_path=None, topic="", date=None, d=None, gate=None):
     """Итог запуска hunt-idea.js → поиск исполнителя 'hunter'. Честный ноль — НЕ успех: проверенные ветки

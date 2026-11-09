@@ -74,8 +74,8 @@ def queue_state(queue_path=None):
         stage = r.get("status") or r.get("stage")
         if stage == "day1":
             cur["stage"], cur["day1"] = "day1", r
-        elif stage == "day2":
-            cur["stage"] = "day2"
+        elif stage in ("day2", "closed"):
+            cur["stage"] = "day2"               # VQ-4: closed = идея снята после дня 1 (отклонена / нужны данные)
         if (r.get("ts") or "") > (cur["last_ts"] or ""):
             cur["last_ts"] = r.get("ts")
     return st
@@ -170,6 +170,99 @@ def _extract_challenge(ch):
     return str(верд), разбор, смерть
 
 
+# VQ-4 (09.11): вердикт дня 1 решает судьбу дня 2. Вживую 07.11 суд вынес MP и DHT «РАЗБИТА», а 08.11
+# паспорт всё равно выдал план входа (вход/цель/стоп). Теперь: РАЗБИТА/ВЕТО → идея «отклонена», плана нет,
+# поиск идёт к следующей ветке; неясный вердикт → «нужны данные», плана нет; УСТОЯЛА → экономика СРАЗУ
+# в тот же прогон (второй день не ждём искусственно — расчёт детерминированный).
+NEGATIVE = ("РАЗБИТА", "ВЕТО", "ОТКЛОН", "ОПРОВЕРГ", "НЕ УСТОЯЛА", "НЕ ВЫДЕРЖАЛА")
+
+
+def verdict_class(verdict):
+    v = str(verdict or "").upper()
+    if any(x in v for x in NEGATIVE):
+        return "negative"
+    if v.startswith("УСТОЯЛА") and "БЕЗ_КРИТИКИ" not in v and "БЕЗ КРИТИКИ" not in v:
+        return "positive"
+    return "unclear"
+
+
+def challenge_verdict(challenge_run_id, challenges_dir=None):
+    """Вердикт сохранённого разбора journal/challenges/<id>.json (для записей дня 1 до 09.11)."""
+    p = pathlib.Path(challenges_dir or (ROOT / "journal" / "challenges")) / f"{challenge_run_id}.json"
+    try:
+        return _extract_challenge(json.loads(p.read_text(encoding="utf-8")))[0]
+    except (OSError, ValueError):
+        return None
+
+
+def _day1_closed_text(asset, label, verdict, cls, разбор, смерть, names=None):
+    label = label or _asset_label(asset)
+    резюме = _humanize_tickers(разбор, names)
+    if cls == "negative":
+        L = [f"Прокачка {label}: идея не устояла.", "",
+             f"Что это значит для тебя. Сильнейший противник разбил идею (итог суда — {verdict}). "
+             "Плана покупки не будет: идея помечена «отклонена», поиск пойдёт к следующей ветке."]
+    else:
+        L = [f"Прокачка {label}: вывод пока не получен.", "",
+             f"Что это значит для тебя. Суд не дал ясного итога ({verdict}). Плана покупки нет: идея помечена "
+             "«нужны данные» — сначала недостающие факты."]
+    if резюме:
+        L += ["", f"Суд говорит: «{резюме.rstrip('.')}»."]
+    if смерть:
+        L += ["", "Главное против: " + "; ".join(_humanize_tickers(x, names) for x in list(смерть)[:3]) + "."]
+    L += ["", "Что делать. Ничего: прежние уровни входа больше не действуют.",
+          "Это исследовательский инструмент, не инвестиционная рекомендация."]
+    return "\n".join(L)
+
+
+def _set_idea_status(run_id, cls, verdict, reason, ch_id, ideas_dir=None, status_dir=None, now=None):
+    """Решение дня 1 → актуальный статус идеи охотника (ops/idea_revision) + продолжение поиска."""
+    try:
+        from ops import idea_revision as IR
+    except ImportError:
+        import idea_revision as IR
+    stem = IR.stem_for_run_id(run_id, ideas_dir)
+    if not stem:
+        return None
+    st = {"negative": "отклонена", "unclear": "нужны данные", "positive": "действует"}[cls]
+    rec = IR.set_status(stem, st, [f"прокачка, день 1: итог суда «{verdict}» — {_clean_text(reason, 300)}"],
+                        questions=(["какие факты снимут сомнение суда"] if cls == "unclear" else []),
+                        source="прокачка, день 1", date=(now or _now()).date().isoformat(), out_dir=status_dir,
+                        refs=[f"journal/challenges/{ch_id}.json"] if ch_id else [])
+    if cls == "negative":
+        try:
+            from ops import search_queue as SQ
+            SQ.refute(str(run_id).rsplit("_", 1)[-1], f"прокачка, день 1: {verdict} — {_clean_text(reason, 200)}")
+        except Exception:                                          # noqa: BLE001 — поиск не блокирует прокачку
+            pass
+    return rec
+
+
+def backfill_statuses(queue_path=None, ideas_dir=None, status_dir=None, challenges_dir=None):
+    """Разовая перепроверка записей дня 1 до 09.11 (вердикт не сохранялся): вердикт из journal/challenges →
+    актуальный статус идеи, если его ещё нет. История прогноза не трогается. → [(run_id, статус)]."""
+    try:
+        from ops import idea_revision as IR
+    except ImportError:
+        import idea_revision as IR
+    out = []
+    for r in _read_jsonl(queue_path or QUEUE):
+        if r.get("stage") != "day1" or not str(r.get("run_id") or "").startswith("h_"):
+            continue
+        stem = IR.stem_for_run_id(r["run_id"], ideas_dir)
+        if not stem or (IR._status_doc(stem, status_dir).get("текущий")):
+            continue
+        verdict = r.get("вердикт") or challenge_verdict(r.get("challenge_run_id"), challenges_dir)
+        if not verdict:
+            continue
+        cls = verdict_class(verdict)
+        rec = _set_idea_status(r["run_id"], cls, verdict, r.get("резюме") or "", r.get("challenge_run_id"),
+                               ideas_dir, status_dir, now=datetime.datetime.fromisoformat(r["ts"]))
+        if rec:
+            out.append((r["run_id"], rec["статус"]))
+    return out
+
+
 def _day1_text(asset, ch, now, label=None, names=None):
     label = label or _asset_label(asset)
     вердикт, разбор, смерть_raw = _extract_challenge(ch)
@@ -177,8 +270,8 @@ def _day1_text(asset, ch, now, label=None, names=None):
     смерть = [_humanize_tickers(x, names) for x in смерть_raw]
     L = [f"Прокачка, день первый — {label}: испытание на прочность.",
          "",
-         "Что это значит для тебя. Ты нажал «Качаем» — сегодня идею атаковал её сильнейший "
-         "противник, завтра посчитаем экономику ставки.",
+         "Что это значит для тебя. Ты нажал «Качаем» — идею атаковал её сильнейший "
+         "противник, и она устояла; экономика ставки — следующим сообщением.",
          ""]
     if резюме:
         # слова суда/критика — чужой текст, печатаем дословной цитатой (линт «…» не правит)
@@ -187,14 +280,14 @@ def _day1_text(asset, ch, now, label=None, names=None):
     if смерть:
         L.append("Идея умирает, если: " + "; ".join(str(x) for x in list(смерть)[:3]) + ".")
     else:
-        L.append(f"Итог испытания: {вердикт}. Условия смерти идеи соберу в паспорт завтра.")
+        L.append(f"Итог испытания: {вердикт}. Условия смерти идеи — в паспорте следующим сообщением.")
     L += ["",
-          "Что делать. Ничего — завтра утром придёт экономика: размер, правило выхода, дата сверки.",
+          "Что делать. Ничего — следом придёт экономика: размер, правило выхода, дата сверки.",
           "Это исследовательский инструмент, не инвестиционная рекомендация."]
     return "\n".join(L)
 
 
-def _day2_passport(asset, run_id, day1_rec, now, card=None):
+def _day2_passport(asset, run_id, day1_rec, now, card=None, status_ideas_dir=None, status_dir=None):
     """Детерминированная экономика §11/§21: до доказанной калибровки Келли выключен —
     фикс микро-размер. Возвращает (текст_пуша, markdown_паспорта). У идеи охотника план
     (вход/цель/выход/срок) — из ЦЕН её карточки, а условия смерти — из её kill_conditions."""
@@ -206,6 +299,18 @@ def _day2_passport(asset, run_id, day1_rec, now, card=None):
     строки_смерти = ("; ".join(_humanize_tickers(x) for x in смерть[:3])
                      if смерть else "условия из вчерашнего разбора — см. паспорт")
     plan = _hunter_plan_lines(card) if card else []
+    cur = None
+    if card:
+        # VQ-4: план — только если актуальный статус идеи «действует» (стоп, цель, срок, катализатор,
+        # свежесть цены перепроверены кодом прямо сейчас); иначе — архивные уровни с пометкой
+        try:
+            from ops import idea_revision as IR
+        except ImportError:
+            import idea_revision as IR
+        stem = IR.stem_for_run_id(run_id, status_ideas_dir)
+        if stem:
+            cur = IR.current(stem, card=card, today=now.date().isoformat(), out_dir=status_dir)
+            plan = IR.plan_or_archive(card, cur, plan)
     if card:
         kills = _hunter_kills(card)[:2] + [_humanize_tickers(x) for x in смерть[:1]]
         строки_смерти = "; ".join(kills) if kills else строки_смерти
@@ -213,12 +318,15 @@ def _day2_passport(asset, run_id, day1_rec, now, card=None):
                  f"${amount:,.0f} на идею (половина процента капитала-ориентира). Формула Келли включится "
                  f"только после доказанного счёта — так задумано, это защита от сверхуверенности.")
     fname = f"{str(asset).replace('.', '_')}_{now.strftime('%Y%m%d')}.md"
+    active = cur is None or cur.get("план_действует")
     push = "\n".join([
-        f"Прокачка, день второй — {label}: экономика ставки.",
+        f"Прокачка, день второй — {label}: {'экономика ставки' if active else 'план не действует'}.",
         "",
-        "Что это значит для тебя. Вот рамка, ЕСЛИ решишь действовать (решение всегда твоё).",
+        ("Что это значит для тебя. Вот рамка, ЕСЛИ решишь действовать (решение всегда твоё)." if active else
+         f"Что это значит для тебя. Перепроверка перед выдачей: статус идеи «{cur['статус']}» — действовать "
+         "по старому плану нельзя."),
         "",
-        size_line,
+        *([size_line] if active else []),
         *plan,
         f"{'Когда идея мертва' if card else 'Выход'}. Идея умирает, если: {строки_смерти}.",
         "Сверка. Итог идеи попадёт в счёт честности в дату её срока — покажу сам.",
@@ -234,7 +342,8 @@ def _day2_passport(asset, run_id, day1_rec, now, card=None):
         str((day1_rec or {}).get("резюме") or "разбор дня 1 — в journal/challenges/"),
         "",
         "## День 2 — экономика",
-        f"- Размер: фикс ${amount:,.0f} (0.5% капитала; Келли до доказанной калибровки выключен — §11/§21)",
+        (f"- Размер: фикс ${amount:,.0f} (0.5% капитала; Келли до доказанной калибровки выключен — §11/§21)"
+         if active else f"- Статус идеи: {cur['статус']} ({cur.get('дата')}) — план не действует"),
         *[f"- {x}" for x in plan],
         f"- Смерть идеи: {строки_смерти}",
         "- Рамка: исследовательский инструмент, не инвестиционная рекомендация (§16)",
@@ -345,8 +454,9 @@ def _hunter_kills(card):
 
 def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                   passports_dir=None, challenge_fn=None, max_per_run=MAX_PER_RUN,
-                  ideas_dir=None, dry=False):
-    """Продвинуть очередь прокачки на одну стадию на идею (день-1 → день-2 в разные дни).
+                  ideas_dir=None, dry=False, status_dir=None, challenges_dir=None):
+    """Продвинуть очередь прокачки: день 1 (испытание) → по вердикту: УСТОЯЛА — экономика сразу в тот же
+    прогон; РАЗБИТА/ВЕТО — идея «отклонена», плана нет; неясно — «нужны данные», плана нет (VQ-4).
 
     dry=True («--show»): ничего не пишет (ни заметок, ни стадий, ни паспортов, ни протокола
     разбора) — возвращает в итог["тексты"] ровно то, что ушло бы владельцу; для идеи в очереди
@@ -363,9 +473,6 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
             break
         stage, last_day = st["stage"], (st["last_ts"] or "")[:10]
         if stage == "day2":
-            continue
-        if stage == "day1" and last_day >= today:
-            итог["пропущено"].append({"asset": asset, "причина": "день-1 сегодня — день-2 завтра"})
             continue
         card = None
         if str(run_id).startswith("h_"):
@@ -400,21 +507,58 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                 if viol:
                     итог["ошибки"].append({"asset": asset, "этап": "day1", "ошибка": f"линт: {viol[:2]}"})
                     continue
+                cls = verdict_class(_верд)
                 day1_rec = {"ts": now.isoformat(timespec="seconds"), "run_id": run_id, "asset": asset,
                             "stage": "day1", "challenge_run_id": ch.get("run_id"),
-                            "резюме": _разбор[:2000], "смерть": list(смерть)[:5]}
+                            "резюме": _разбор[:2000], "смерть": list(смерть)[:5],
+                            "вердикт": str(_верд)[:80], "класс": cls}
+                if cls != "positive":
+                    text = _day1_closed_text(asset, _card_label(asset, card), _верд, cls, _разбор, смерть, names)
+                    viol = _lint_or_fallback(text)
+                    if viol:
+                        итог["ошибки"].append({"asset": asset, "этап": "day1", "ошибка": f"линт: {viol[:2]}"})
+                        continue
                 if dry:
                     итог["тексты"].append(text)
-                    push, _md = _day2_passport(asset, run_id, day1_rec, now, card=card)
-                    viol2 = _lint_or_fallback(push)
-                    итог["тексты"].append(push if not viol2 else "[день второй не прошёл линт: "
-                                          + "; ".join(viol2[:2]) + "]")
                 else:
                     _notice(text, notices_path, now)
                     _append(queue_path or QUEUE, day1_rec)
+                    if card is not None:
+                        _set_idea_status(run_id, cls, _верд, _разбор, ch.get("run_id"), ideas_dir, status_dir, now)
                 итог["день1"] += 1
-            else:                                                     # day1 → day2
-                push, md = _day2_passport(asset, run_id, st.get("day1"), now, card=card)
+                if cls != "positive":
+                    if not dry:
+                        _append(queue_path or QUEUE, {"ts": now.isoformat(timespec="seconds"), "run_id": run_id,
+                                                      "asset": asset, "stage": "closed",
+                                                      "итог": "отклонена" if cls == "negative" else "нужны данные"})
+                    итог.setdefault("закрыто", []).append({"asset": asset, "вердикт": _верд, "класс": cls})
+                    итог["продвинуто"] += 1
+                    continue
+                st = {"day1": day1_rec}                               # устояла → экономика СРАЗУ
+            if True:                                                  # day1 → day2 (тот же прогон или позже)
+                d1 = st.get("day1") or {}
+                cls1 = d1.get("класс") or verdict_class(d1.get("вердикт") or challenge_verdict(
+                    d1.get("challenge_run_id"), challenges_dir))
+                if cls1 != "positive":
+                    # запись дня 1 до 09.11 без вердикта: разбор не устоял или неясен → плана нет
+                    v1 = d1.get("вердикт") or challenge_verdict(d1.get("challenge_run_id"), challenges_dir) or "нет итога"
+                    text = _day1_closed_text(asset, _card_label(asset, card), v1, cls1, d1.get("резюме") or "",
+                                             d1.get("смерть") or [], {asset: card["name"]} if card and card.get("name") else None)
+                    if dry:
+                        итог["тексты"].append(text)
+                    else:
+                        _notice(text, notices_path, now)
+                        _append(queue_path or QUEUE, {"ts": now.isoformat(timespec="seconds"), "run_id": run_id,
+                                                      "asset": asset, "stage": "closed",
+                                                      "итог": "отклонена" if cls1 == "negative" else "нужны данные"})
+                        if card is not None:
+                            _set_idea_status(run_id, cls1, v1, d1.get("резюме") or "", d1.get("challenge_run_id"),
+                                             ideas_dir, status_dir, now)
+                    итог.setdefault("закрыто", []).append({"asset": asset, "вердикт": v1, "класс": cls1})
+                    итог["продвинуто"] += 1
+                    continue
+                push, md = _day2_passport(asset, run_id, d1, now, card=card, status_ideas_dir=ideas_dir,
+                                          status_dir=status_dir)
                 viol = _lint_or_fallback(push)
                 if viol:
                     итог["ошибки"].append({"asset": asset, "этап": "day2", "ошибка": f"линт: {viol[:2]}"})

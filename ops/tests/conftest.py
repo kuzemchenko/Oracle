@@ -45,4 +45,17 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
             continue
         monkeypatch.setattr(ag, "CHAT_LOG", tmp_path / "guard_chat_agent.jsonl")
         monkeypatch.setattr(ag, "CHAT_REQUESTS", tmp_path / "guard_chat_requests.jsonl")
+    # VQ-4 (09.11): актуальные статусы идей и очереди поиска — тоже мимо рабочей копии
+    for name in ("ops.idea_revision", "idea_revision"):
+        try:
+            ir = importlib.import_module(name)
+        except ImportError:
+            continue
+        monkeypatch.setattr(ir, "REV_DIR", tmp_path / "guard_revisions")
+    for name in ("ops.search_queue", "search_queue"):
+        try:
+            sq = importlib.import_module(name)
+        except ImportError:
+            continue
+        monkeypatch.setattr(sq, "SEARCH_DIR", tmp_path / "guard_searches")
     yield

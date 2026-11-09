@@ -1372,6 +1372,7 @@ class Bot:
                 self.state["hunter_shadow"] = sorted(done)
                 self.save()
         self._tick_hunter_fork_reminders()
+        self._tick_idea_status()
         sent = set(self.state.get("hunter_outcomes_sent") or [])
         fresh = [o for o in HS._read_jsonl(HS.OUTC)
                  if o.get("kind") == HS.KIND and o.get("hash") and o.get("outcome") in (0, 1)
@@ -1412,7 +1413,11 @@ class Bot:
                 parts.append("В счёт эта идея не записана — напоминаю, потому что ты её видел.")
             if lid.get("header"):
                 parts.append("Условие из записки: «" + str(lid["header"]).strip() + "»")
-            if lid.get("todo"):
+            cur = self._idea_current(rid)
+            if cur and not cur.get("план_действует"):
+                # VQ-4: план из записки печатается как действующий ТОЛЬКО при статусе «действует»
+                parts += self._idea_archive_lines(rid, cur)
+            elif lid.get("todo"):
                 parts.append("План: «" + str(lid["todo"]).strip() + "»")
             parts.append("Выполнилось ли условие — по первоисточникам из исследования; «Качаем» под "
                          "запиской покажет, на чём стоит идея. Это исследовательский инструмент, "
@@ -1423,6 +1428,70 @@ class Bot:
                 return
             self._log_delivery("напоминание развилки", ref=rid, text=_txt, mid=_mid)
             lid["fork_reminded"] = today
+            lids[rid] = lid
+            self.state["hunter_lids"] = lids
+            self.save()
+
+    # ── VQ-4: единый актуальный статус идеи (ops/idea_revision.current) для всех поверхностей бота ──
+    def _ir(self):
+        try:
+            from ops import idea_revision as IR
+        except ImportError:
+            import idea_revision as IR
+        return IR
+
+    def _idea_stem(self, rid):
+        return self._ir().stem_for_run_id(rid, self._ideas_dir())
+
+    def _idea_current(self, rid, persist=False):
+        try:
+            IR = self._ir()
+            stem = self._idea_stem(rid)
+            if not stem:
+                return None
+            rev = pathlib.Path(stem).parent / "revisions"
+            return IR.current(stem, out_dir=rev if rev.is_dir() else None, persist=persist)
+        except Exception as e:                                   # noqa: BLE001 — статус не роняет бота
+            log("статус идеи: сбой", rid, repr(e))
+            return None
+
+    def _idea_archive_lines(self, rid, cur):
+        try:
+            IR = self._ir()
+            card = json.loads(pathlib.Path(self._idea_stem(rid) + ".card.json").read_text(encoding="utf-8"))
+            return IR.plan_or_archive(card, cur, [])
+        except Exception:                                        # noqa: BLE001
+            return [f"План входа НЕ действует — статус идеи «{cur.get('статус')}»."]
+
+    def _tick_idea_status(self, now=None):
+        """VQ-4 приёмка «цена пересекла условие отмены → старая карточка не выглядит актуальной»: раз в час
+        перепроверяем показанные идеи охотника (стоп, цель, срок, наступивший катализатор, свежесть цены);
+        смена статуса на НЕдействующий — одно сообщение владельцу и запись в историю статуса."""
+        now = now or S.now_utc()
+        last = getattr(self, "_idea_status_at", None)
+        if last is not None and (now - last).total_seconds() < 1800:
+            return                                     # раз в 30 минут: снимок цен читается целиком
+        self._idea_status_at = now
+        lids = self.state.get("hunter_lids") or {}
+        for rid, lid in sorted(lids.items()):
+            if not (lid.get("sealed") or lid.get("unrecorded")) or lid.get("action") == "skip":
+                continue
+            cur = self._idea_current(rid, persist=True)
+            if not cur or cur["статус"] == lid.get("status_seen") or cur.get("план_действует"):
+                if cur:
+                    lid["status_seen"] = cur["статус"]
+                continue
+            base = str(lid.get("lead") or "").split(".")[0]
+            parts = [f"Идея {lid.get('name') or base} ({base}): статус сменился на «{cur['статус']}»."]
+            parts += self._idea_archive_lines(rid, cur)
+            parts.append("Исходный прогноз и его счёт не меняются — это текущее решение, не переписанная история. "
+                         "Это исследовательский инструмент, не инвестиционная рекомендация.")
+            _txt = "\n\n".join(parts)
+            _mid = self.tg.send_message(self.chat_id, _txt)
+            if _mid is None:
+                return
+            self._log_delivery("статус идеи", ref=rid, text=_txt, mid=_mid)
+            lid["status_seen"] = cur["статус"]
             lids[rid] = lid
             self.state["hunter_lids"] = lids
             self.save()

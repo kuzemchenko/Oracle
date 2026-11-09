@@ -60,6 +60,8 @@ MAX_TURN_COST_USD = 2.50       # потолок трат на ОДИН отве�
 SEARCH_ROUNDS = 4              # VQ-4: сколько раз код возвращает модель к незавершённому поиску в одном ответе
 SEARCH_STEPS = 10              # кругов инструментов на одно возвращение
 SEARCH_COST_SHARE = 0.85       # доля потолка ответа, после которой поиск ставится на паузу (остаток — на итог)
+FUTURE_PROMISE_RE = re.compile(r"вернусь|пришлю|сообщу|напишу,? когда|продолжу (?:сам|в фоне|позже|искать)|"
+                               r"дам знать|в фоне|позже (?:пришлю|напишу|вернусь)", re.I)
 MAX_TOOL_CHARS = 14000         # сколько символов результата инструмента видит модель
 MAX_FILE_BYTES = 15_000_000    # под лимит Telegram на документ бота (50 МБ) с запасом
 MAX_HISTORY_TURNS = 10
@@ -1027,6 +1029,9 @@ class Agent:
             self.findings_left = self.findings_first
         tail = CC.footer(self.findings_left)
         line = self._close_search_turn()
+        if line and self.search_status == "paused" and FUTURE_PROMISE_RE.search(text or ""):
+            # VQ-4: «вернусь с результатом» без исполнителя — неправда; код поправляет явно
+            line = "⚠ Поправка кода: сам я ничего не продолжу, пока ты не напишешь. " + line
         if line:
             tail = line + ("\n\n" + tail if tail else "")
         if self.truncated:
@@ -1186,9 +1191,22 @@ def hunter_ideas_brief(n=5):
             continue
         cat = c.get("catalyst") or {}
         cat = cat.get("date") if isinstance(cat, dict) else cat
+        # VQ-4: агент читает тот же актуальный статус, что Telegram и паспорт; недействующий план — архив
+        try:
+            from ops import idea_revision as IR
+            cur = IR.current(str(p)[:-len(".card.json")], card=c)
+        except Exception:                                        # noqa: BLE001
+            cur = None
+        if cur and not cur.get("план_действует"):
+            levels = (f"СТАТУС «{cur['статус']}» ({'; '.join(cur['основания'])[:200]}) — план НЕ действует; архивные "
+                      f"уровни: вход {c.get('entry_limit')}, цель {c.get('target_price')}, стоп {c.get('stop_price')}")
+        else:
+            levels = (f"статус «действует»: вход ≤{c.get('entry_limit')}, цель {c.get('target_price')}, "
+                      f"стоп {c.get('stop_price')}")
+        if cur and cur.get("вопросы"):
+            levels += "; открытые вопросы: " + "; ".join(cur["вопросы"])[:200]
         rows.append(f"• {p.name[5:15]} {c.get('ticker')} ({c.get('name')} — {str(c.get('role') or '')[:140]}), {c.get('direction')}: "
-                    f"вход ≤{c.get('entry_limit')}, цель {c.get('target_price')}, стоп {c.get('stop_price')}, "
-                    f"катализатор {cat}. Тезис: {str(c.get('thesis') or '')[:260]} "
+                    f"{levels}, катализатор {cat}. Тезис: {str(c.get('thesis') or '')[:260]} "
                     f"[полностью: {p.relative_to(ROOT).with_suffix('').with_suffix('.md')}]")
     return "\n".join(rows)
 
@@ -1224,7 +1242,8 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
     try:
         hb = hunter_ideas_brief()
         if hb:
-            brief += "\n\nПОСЛЕДНИЕ ИДЕИ ОХОТНИКА (их ты защищаешь; аргументы — в карточках):\n" + hb
+            brief += ("\n\nПОСЛЕДНИЕ ИДЕИ ОХОТНИКА (аргументы — в карточках; статус — актуальное решение по идее, его "
+                      "пишет код; при статусе не «действует» план входа не предлагай как действующий):\n" + hb)
     except Exception:                                            # noqa: BLE001
         pass
     try:

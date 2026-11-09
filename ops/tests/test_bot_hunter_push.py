@@ -746,6 +746,37 @@ def test_fork_reminder_on_catalyst_day_once(tmp_path, monkeypatch):
     assert "Вход не дороже $40.30" in msgs[0] and "не инвестиционная рекомендация" in msgs[0]
 
 
+def test_fork_reminder_and_status_change_read_current_status(tmp_path, monkeypatch):
+    """VQ-4: стоп пробит → напоминание в день развилки НЕ печатает план как действующий (архив с пометкой),
+    а смена статуса приходит владельцу одним сообщением; повторно не шлётся."""
+    import datetime as _dt
+    from ops import idea_revision as IR
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    d = b._ideas_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "idea_2026-11-02_MP.card.json").write_text(
+        (ROOT / "reports" / "ideas" / "idea_2026-11-02_MP.card.json").read_text("utf-8"), encoding="utf-8")
+    monkeypatch.setattr(IR, "closes_from_snapshot", lambda *a, **k: [("2026-11-03", 40.0), ("2026-11-05", 33.74),
+                                                                     ("2026-11-09", 34.0)])
+    b.state["hunter_lids"] = {
+        "h_2026-11-02_MP": {"run_id": "h_2026-11-02_MP", "lead": "MP.US", "source": "hunter",
+                            "sealed": True, "name": "MP Materials", "catalyst_date": "2026-11-09",
+                            "header": "Идея с триггером — ставлю на рост.",
+                            "todo": "Что делать. Вход не дороже $40.30."}}
+    noon = _dt.datetime(2026, 11, 9, 12, 30, tzinfo=_dt.timezone.utc)
+    b._tick_hunter_fork_reminders(noon)
+    msg = b.tg.sent[-1][1]
+    assert "Вход не дороже $40.30" not in msg and "НЕ действует" in msg and "отменена условием" in msg
+    assert "Архивные уровни" in msg
+    n = len(b.tg.sent)
+    b._tick_idea_status(noon)
+    b._idea_status_at = None
+    b._tick_idea_status(noon + _dt.timedelta(hours=1))
+    status_msgs = [t for _c, t, _k in b.tg.sent[n:]]
+    assert len(status_msgs) == 1 and "статус сменился на «отменена условием»" in status_msgs[0]
+    assert "ниже стопа $35.50" in status_msgs[0] and "не меняются" in status_msgs[0]
+
+
 def test_update_repriced_by_server_and_waits_on_missing_prices(tmp_path, monkeypatch):
     """Перепроверка №4: исправление доставленной идеи — цифры по серверным ценам; нет котировок —
     повтор, не брак."""
