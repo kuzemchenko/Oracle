@@ -384,6 +384,36 @@ def noise_fields(spec, closes_fn):
             "ход_в_сигмах": round(z, 3)}, None
 
 
+def annotate_options(spec, options_fn):
+    """Q-в-цене 09.11: что опционы закладывают к сроку вопроса (риск-нейтральная вероятность дойти до порога) —
+    ставится ДО печати, рядом с нашей оценкой; потом видно, где мы расходимся с рынком. Сбой — честно без поля."""
+    if options_fn is None:
+        return spec
+    try:
+        res = options_fn(spec)
+    except Exception as e:                                      # noqa: BLE001 — опционы не роняют выпуск
+        res = {"ok": False, "причина": f"{type(e).__name__}"}
+    if isinstance(res, dict) and res.get("ok") and res.get("вероятность_рн") is not None:
+        spec["опционы"] = {"вероятность_рн": res["вероятность_рн"], "экспирация": res.get("экспирация"),
+                           "ход_1сигма": (res.get("ход_1сигма") or {}).get("доля"),
+                           "котировки_на": res.get("котировки_на"), "оговорки": res.get("оговорки") or [],
+                           "источник": "EODHD опционы (Unicorn Bay) + mathlib/options_implied"}
+    elif isinstance(res, dict):
+        spec["опционы"] = {"нет": str(res.get("причина") or "не посчитано")[:160]}
+    return spec
+
+
+def make_options_fn():
+    """Серверный источник: ops/options_view (ключ EODHD из .env), якорь — цена вопроса."""
+    sys.path.insert(0, str(ROOT))
+    from ops import options_view as OV
+
+    def fn(spec):
+        return OV.view(spec["asset"], spec["resolve_by"][:10], spec["threshold"], spec["direction"],
+                       spot=spec.get("якорь_цена"), spot_date=spec.get("якорь_дата"))
+    return fn
+
+
 def _open_weeks(predictions_path=None):
     """(бумага, ISO-неделя сверки) уже запечатанных вопросов трека — одна бумага на неделю сверки."""
     p = pathlib.Path(predictions_path or ROOT / "journal" / ("predictions" + ".jsonl"))
@@ -438,7 +468,7 @@ def _last_close_from_db(db_path=None):
 
 def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_path=None,
                   predictions_path=None, out_dir=None, client=None, move_fn=None,
-                  sealable_fn=None, last_close_fn=None, closes_fn=None):
+                  sealable_fn=None, last_close_fn=None, closes_fn=None, options_fn=None):
     """Полный прогон: тезисы+механизмы → экономист → валидация → [«что уже в цене»] →
     [печать] → протокол. move_fn(asset)→реализованный ход % — серверный источник цен;
     в облаке None → аннотации честно нет. sealable_fn/last_close_fn — гарды §9/§10
@@ -555,6 +585,7 @@ def run_week_odds(mode="auto", seal=False, now=None, theses_path=None, mechs_pat
             per_mech[spec["mechanism_id"]] = per_mech.get(spec["mechanism_id"], 0) + 1
         assets_local.add(spec["asset"])
         annotate_priced_in(spec, _amps, move_fn)
+        annotate_options(spec, options_fn)
         if seal:
             sealed = SEAL.seal(dict(spec), path=predictions_path, dedup_fields=DEDUP_FIELDS)
             if sealed is None:
@@ -593,7 +624,11 @@ def main(argv=None):
     ap.add_argument("--show", action="store_true",
                     help="показать текст ровно так, как он уйдёт владельцу в Telegram (ручной прогон испытателя)")
     a = ap.parse_args(argv)
-    r = run_week_odds(mode=a.mode, seal=a.seal, move_fn=make_move_fn())
+    try:
+        _opt = make_options_fn()
+    except Exception:                                           # noqa: BLE001 — без опционов выпуск живёт
+        _opt = None
+    r = run_week_odds(mode=a.mode, seal=a.seal, move_fn=make_move_fn(), options_fn=_opt)
     if a.show:
         # 03.11: ручной прогон перед «ок» владельца — показываем подачу, а не только счётчики
         sys.path.insert(0, str(ROOT / "ops"))

@@ -510,6 +510,24 @@ class Tools:
         rid = self._store(res, "mathlib.materiality")
         return self._view(rid, res, "mathlib.materiality")
 
+    def options_expectations(self, ticker, resolve_by, threshold=None, direction="above", spot=None):
+        """Q-в-цене 09.11: что опционы закладывают к дате идеи (ops/options_view → mathlib/options_implied)."""
+        try:
+            from ops import options_view as OV
+        except ImportError:
+            import options_view as OV
+
+        def get(url, params):
+            code, _ct, body = self.http_get(url, params=params, timeout=60)
+            try:
+                return code, json.loads(body)
+            except (ValueError, TypeError):
+                return code, None
+        res = OV.view(ticker, str(resolve_by)[:10], threshold, direction if direction in ("above", "below") else "above",
+                      spot, get=get)
+        rid = self._store(res, "EODHD опционы (Unicorn Bay) + mathlib.options_implied")
+        return self._view(rid, res, "EODHD опционы + mathlib.options_implied")
+
     def checked_branches(self, days=14):
         p = ROOT / "reports" / "ideas" / "hunt_log.jsonl"
         if not p.exists():
@@ -755,6 +773,10 @@ TOOL_SPECS = [
         "Главный вопрос любой идеи: «цена уже предполагает X — почему мы ждём больше?».",
         {"market_cap": N, "base_earnings": N, "revenue": N, "terminal_margin": N, "current_margin": N, "r": N, "g": N,
          "years": I, "our_growth": N}, ("market_cap",)),
+    _fn("options_expectations", "Что рынок УЖЕ закладывает по ценам опционов к дате идеи (расчёт кодом): ожидаемое колебание "
+        "±1σ до ближайшей экспирации после даты и риск-нейтральная вероятность закрыться выше/ниже порога (с премией за "
+        "риск — не точная вероятность, но мерило ожиданий рынка). Наш шанс выше рыночного — объясни, почему.",
+        {"ticker": S, "resolve_by": S, "threshold": N, "direction": S, "spot": N}, ("ticker", "resolve_by")),
     _fn("materiality_check", "Существенен ли эффект для компании (расчёт кодом): доп. прибыль/выручка в год и срок против "
         "прибыли, выручки, капитализации → СУЩЕСТВЕННО / ПОГРАНИЧНЫЙ / ШУМ. Все суммы в одной валюте и масштабе.",
         {"effect_profit_per_year": N, "effect_revenue_per_year": N, "years": N, "net_income": N, "revenue": N,

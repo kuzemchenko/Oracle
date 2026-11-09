@@ -372,6 +372,31 @@ def check_chain(card, fails, labels):
         labels.append("Одно звено цепочки — гипотеза без подтверждения источником")
 
 
+def check_options(card, fails, labels):
+    """Q-в-цене 09.11: что опционы закладывают к сроку идеи (ops/options_view.py кладёт итог в options_view).
+    Не брак — оговорка: владелец видит рыночную оценку рядом с нашей. Нашу субъективную не скрываем."""
+    ov = card.get("options_view") if isinstance(card.get("options_view"), dict) else None
+    if not ov:
+        labels.append("Что закладывают опционы к сроку идеи — не посчитано")
+        return None
+    if not ov.get("ok"):
+        labels.append("Опционы: " + str(ov.get("причина") or "оценка не посчитана"))
+        return ov
+    p_mkt = _num(ov.get("вероятность_рн")) and ov.get("вероятность_рн")
+    spec = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+    p_our = spec.get("probability")
+    mv = (ov.get("ход_1сигма") or {}).get("доля")
+    txt = f"Опционы до {ov.get('экспирация')} закладывают колебание около ±{float(mv) * 100:.0f}%" if _num(mv) else "Опционы"
+    if p_mkt is not None and p_mkt is not False:
+        txt += f"; дойти до порога рынок оценивает примерно в {float(p_mkt) * 100:.0f}% (с премией за риск)"
+        if _num(p_our):
+            txt += f", наша оценка — {float(p_our) * 100:.0f}% (субъективная)"
+    labels.append(txt)
+    for o in ov.get("оговорки") or []:
+        labels.append("Опционы: " + str(o))
+    return ov
+
+
 def check(card):
     """Карточка → {'fails', 'labels', 'target', 'regulatory'}. Пустой fails = доказательства в порядке."""
     fails, labels = [], []
@@ -388,8 +413,9 @@ def check(card):
     mat = check_materiality(card, fails, labels)
     check_durability(card, fails, labels)
     check_chain(card, fails, labels)
+    opt = check_options(card, fails, labels)
     return {"fails": fails, "labels": labels, "target": tgt, "regulatory": reg, "market_view": mv,
-            "materiality": mat}
+            "materiality": mat, "options": opt}
 
 
 CAVEATS_HEAD = "Оговорки проверки."

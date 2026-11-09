@@ -2565,6 +2565,10 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
         в_цене = _shorten(_dejargon((q.get("что_уже_в_цене") or {}).get("строка") or ""), 110)
         if в_цене:
             строка += f" Что уже в цене: {в_цене}."
+        _opt = q.get("опционы") or {}
+        if isinstance(_opt.get("вероятность_рн"), (int, float)):
+            строка += (f" Рынок по ценам опционов: около {_opt['вероятность_рн'] * 100:.0f}% "
+                       "(с премией за риск).")
         взгляд = q.get("mechanism_id") or q.get("thesis_id")
         if взгляд:
             имя_в = _view_human(взгляд)
