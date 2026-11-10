@@ -213,7 +213,10 @@ def validate_candidate(c, now=None, *, sealable_fn=None, last_close_fn=None):
         hour=20, minute=0, second=0, microsecond=0)
     if px_code is not None:
         # текст вопроса — из КОДА (в тексте модели остались бы её цены по памяти)
-        label = re.split(r"\s+закроется\s+", вопрос, maxsplit=1)[0].strip() or asset.split(".")[0]
+        # испытатель 10.11: модель пишет и «закроются» (фонды во множественном числе) — резать по обеим
+        # формам, иначе «… закроются ниже … закроется ниже $X»
+        label = re.split(r"\s+закро(?:ется|ются)\s+", вопрос, maxsplit=1)[0].strip().rstrip("….") \
+            or asset.split(".")[0]
         months = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа",
                   "сентября", "октября", "ноября", "декабря")
         вопрос = (f"{label} закроется {'выше' if direction == 'above' else 'ниже'} ${threshold:.2f} "

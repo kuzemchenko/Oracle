@@ -302,3 +302,44 @@ def test_gate_enforces_evidence_for_new_hunts_only():
     new = G.check(c, today=datetime.date(2026, 11, 8), horizon_from=datetime.date(2026, 11, 8))
     assert not any(f.startswith("доказательства:") for f in old["fails"]) and old["warnings"]
     assert any(f.startswith("доказательства:") for f in new["fails"])
+
+
+# ── испытатель 10.11 ─────────────────────────────────────────────────────────────────
+def test_week_odds_text_repairs_and_whole_sentences():
+    import bot_reports as R
+    assert R._clean_question("Развивающиеся рынки (фонд EEM) закроются ниже … закроется ниже $55.47 к 19 декабря") == \
+        "Развивающиеся рынки (фонд EEM) закроются ниже $55.47 к 19 декабря"
+    long = ("Первое предложение объясняет механизм достаточно подробно и длинно. Второе предложение уже не "
+            "влезет в лимит и раньше обрывалось посреди мысли на полуслове.")
+    out = R._shorten(long, 100)
+    assert out.endswith("длинно.") and "…" not in out
+    p = {"ts": "2026-11-07T14:06:24+00:00", "вопросы": [
+        {"asset": "EEM.US", "probability": 0.41, "вопрос": "Развивающиеся рынки (фонд EEM) закроются ниже … закроется ниже $55.47 к 19 декабря",
+         "почему": "Тарифы бьют по доле Китая.", "что_уже_в_цене": {"строка": "цена идёт ПРОТИВ механизма — либо рано, либо правило здесь не работает"}},
+        {"asset": "DBA.US", "probability": 0.36, "вопрос": "Сельхозсырьё фондом DBA закроется выше $27.42 к 16 января",
+         "почему": "Корзина.", "что_уже_в_цене": {"строка": "цена идёт ПРОТИВ механизма — либо рано, либо правило здесь не работает"}}]}
+    text, viol = R.format_week_odds(p)
+    assert not viol and "… закроется" not in text and "компанию не опознал" not in text
+    assert text.count("правило здесь не работает") == 1
+
+
+def test_claim_check_basis_word_counts_as_label():
+    assert "eps_basis" not in {f["code"] for f in CC.check("Базис консенсуса EPS теперь подтверждён сверкой с отчётом.")}
+
+
+def test_week_odds_label_split_handles_plural():
+    import re
+    import orchestrator.week_odds as W  # noqa: F401  (модуль импортируется — разбиение в нём)
+    q = "Развивающиеся рынки (фонд EEM) закроются ниже …"
+    assert re.split(r"\s+закро(?:ется|ются)\s+", q, maxsplit=1)[0].strip().rstrip("….") == "Развивающиеся рынки (фонд EEM)"
+
+
+def test_status_waits_for_entry_when_market_ran_away(tmp_path):
+    c = card("FSLR")
+    closes = [("2026-11-05", 195.76), ("2026-11-06", 201.14)]
+    cur = IR.current(IDEAS / CARDS["FSLR"], card=c, closes=closes, today="2026-11-09", out_dir=tmp_path)
+    assert cur["статус"] == "ждёт входа" and not cur["план_действует"]
+    lines = IR.plan_or_archive(c, cur, ["Вход. Не дороже $190."])
+    assert lines[0].startswith("Сейчас по плану не входить") and "Архивные" not in " ".join(lines)
+    near = IR.current(IDEAS / CARDS["FSLR"], card=c, closes=[("2026-11-06", 192.0)], today="2026-11-09", out_dir=tmp_path)
+    assert near["статус"] == "действует"

@@ -1267,7 +1267,11 @@ def hunter_ideas_brief(n=5):
             cur = IR.current(str(p)[:-len(".card.json")], card=c)
         except Exception:                                        # noqa: BLE001
             cur = None
-        if cur and not cur.get("план_действует"):
+        if cur and cur.get("статус") == "ждёт входа":
+            levels = (f"статус «ждёт входа» ({'; '.join(cur['основания'])[:200]}) — уровни плана в силе, но входить "
+                      f"только при возврате цены к границе: вход ≤{c.get('entry_limit')}, цель {c.get('target_price')}, "
+                      f"стоп {c.get('stop_price')}")
+        elif cur and not cur.get("план_действует"):
             levels = (f"СТАТУС «{cur['статус']}» ({'; '.join(cur['основания'])[:200]}) — план НЕ действует; архивные "
                       f"уровни: вход {c.get('entry_limit')}, цель {c.get('target_price')}, стоп {c.get('stop_price')}")
         else:
