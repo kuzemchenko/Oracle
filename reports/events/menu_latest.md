@@ -1,68 +1,71 @@
-# Меню событий — 2026-11-09T21:00:08+00:00
+# Меню событий — 2026-11-10T21:00:05+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 192, нет 0)
-- страна: China: 21851 статей (было 8952, ×2.44); переговоры, заявления; https://www.greenocktelegraph.co.uk/news/national/26713124.nvidia-shares-plunge-boss-embroiled-alleged-chinese-spy-scandal/
-- NVIDIA: 6563 статей (было 435, ×14.47); расследования, заявления; https://www.channelnewsasia.com/world/nvidia-probes-whether-ceo-jensen-huang-was-target-foreign-spying-he-admits-affair-6534611
-- страна: Russia: 14249 статей (было 5088, ×2.79); переговоры, заявления; https://www.kvpr.org/npr-news/2026-11-08/europe-to-join-u-s-brokered-ukraine-talks-in-abu-dhabi-defying-kremlin-objections
-- страна: Ukraine: 13288 статей (было 5018, ×2.64); переговоры, намерения сотрудничать; https://www.kvpr.org/npr-news/2026-11-08/europe-to-join-u-s-brokered-ukraine-talks-in-abu-dhabi-defying-kremlin-objections
-- страна: France: 10879 статей (было 3604, ×3.01); переговоры, заявления; https://katv.com/news/nation-world/france-foreign-minister-jean-noel-barrot-groupd-of-seven-blames-iran-linked-hackers-for-supermarket-fridge-attack-vows-sanctions-islamic-revolutionary-guard-corps-shahid-kaveh-ip-addresses
-- страна: Germany: 6453 статей (было 2516, ×2.55); переговоры, намерения сотрудничать; http://www.malaysiasun.com/news/279418732/ukraine-looks-for-stronger-western-support-after-us-elections
-- страна: Liberia: 2023 статей (было 85, ×19.46); дипломатическое сотрудничество, переговоры; https://allafrica.com/stories/202611090740.html
-- AFRICA: 5967 статей (было 2972, ×2.0); переговоры, заявления; https://thebftonline.com/article/when-the-economy-is-in-good-hands-the-people-prosper
-- INTELLIGENCE: 3434 статей (было 1159, ×2.93); переговоры, заявления; https://www.dailygazette.com/leader_herald/ap/business/nvidia-investigating-reports-that-ceo-jensen-huang-was-targeted-by-chinese-intelligence/article_c5345c62-662b-5fd0-aab9-17f9b3277569.html
-- EUROPEAN: 3729 статей (было 1434, ×2.58); переговоры, намерения сотрудничать; https://www.kvpr.org/npr-news/2026-11-08/europe-to-join-u-s-brokered-ukraine-talks-in-abu-dhabi-defying-kremlin-objections
-- CHINESE: 3418 статей (было 1219, ×2.77); расследования, переговоры; http://www.middleeaststar.com/news/279421882/xinhua-headlines-the-world-comes-to-china-opportunities-flow-both-ways
-- страна: South Korea: 3202 статей (было 1152, ×2.75); переговоры, дипломатическое сотрудничество; https://www.wuwf.org/2026-11-09/why-a-south-korean-city-is-turning-to-a-u-s-college-to-outsmart-ai
-- RUSSIAN: 3150 статей (было 1129, ×2.76); переговоры, боевые действия; https://www.bankingnews.gr/diethni/articles/910035/the-ukrainian-fist-failed-nato-already-has-a-war-plan-will-bring-1-3-million-troops-to-the-border-with-russia
-- страна: Turkey: 4199 статей (было 2008, ×2.08); переговоры, заявления; https://kwhn.iheart.com/content/2026-11-09-us-skips-cop31-climate-summit/
-- COMPANIES: 3175 статей (было 1276, ×2.47); переговоры, заявления; https://www.kwbu.org/latest-from-npr/2026-11-08/nasa-is-looking-for-astronauts-to-live-and-work-on-the-moon
+## GDELT: резко выросло за 24 ч (файлов 191, нет 1)
+- страна: Bulgaria: 2704 статей (было 752, ×3.53); переговоры, заявления; https://www.hexham-courant.co.uk/news/national/26715729.least-12-people-killed-dozens-hurt-crashes-foggy-bulgarian-motorway/
+- страна: Venezuela: 2465 статей (было 852, ×2.85); переговоры, заявления; https://www.live5news.com/2026/11/09/hegseth-announces-rare-press-conference-discuss-expected-impeachment-resolution-congress/
+- страна: Guatemala: 1323 статей (было 171, ×7.03); переговоры, намерения сотрудничать; https://7newsbelize.com/sstory.php?nid=80544
+- страна: Belize: 1069 статей (было 82, ×10.68); переговоры, намерения сотрудничать; https://7newsbelize.com/sstory.php?nid=80547
+- страна: El Salvador: 1580 статей (было 348, ×4.35); переговоры, намерения сотрудничать; https://www.pasadenastarnews.com/2026/11/09/websters-pharmacy-gathers-women-business-founders-nov-14-in-altadena/
+- CANADIAN: 2585 статей (было 1184, ×2.16); переговоры, дипломатическое сотрудничество; https://torontosun.com/opinion/columnists/osap
+- страна: Switzerland: 2474 статей (было 1167, ×2.1); переговоры, заявления; https://www.northernpublicradio.org/2026-11-10/u-s-boycotts-u-n-human-rights-review-for-second-year-running
+- страна: Denmark: 1986 статей (было 860, ×2.28); переговоры, намерения сотрудничать; https://www.ledburyreporter.co.uk/news/national/26716656.russia-ukraine-hold-nearly-four-hours-us-mediated-talks-abu-dhabi/
+- BOSS: 1369 статей (было 477, ×2.79); заявления, намерения сотрудничать; https://www.bordermail.com.au/story/9388878/qantas-to-slash-hundreds-of-jobs-send-roles-overseas/
+- BOEING: 549 статей (было 35, ×10.35); переговоры, заявления; https://www.newvision.co.ug/category/business/from-first-officer-to-captain-uganda-airlines-NV_243940_112026
+- A US: 1080 статей (было 315, ×3.28); переговоры, заявления; https://www.cravenherald.co.uk/news/national/26715611.no-10-insists-british-air-bases-safe-us-aircraft-moved-raf-mildenhall/
+- CONGRESSMAN: 688 статей (было 103, ×5.76); неодобрение, призывы; https://www.bangordailynews.com/2026/11/09/politics/washington/paul-lepage-washington-dealmaker/
+- HOUSTON: 1187 статей (было 459, ×2.52); переговоры, дипломатическое сотрудничество; https://1019bigwaax.iheart.com/content/2026-11-09-fbi-probes-suspected-homicide-aboard-cruise-ship-docked-in-galveston/
+- UTAH: 958 статей (было 301, ×3.05); переговоры, боевые действия; https://www.northernnews.ca/press-releases/newsfile/manhattan-uranium-compiles-336-historical-holes-at-october-project-uravan-mineral-belt-identifies-priority-drill-targets-including-1-16-eu3o8-over-4-8-ft/
+- EXXON: 434 статей (было 21, ×11.07); переговоры, дипломатическое сотрудничество; https://wjla.com/news/local/police-seek-man-exxon-cigarette-theft-woodbridge-prince-william-county-virginia-crime
 
 ## GDELT: больше всего пишут
-- страна: United States: 105622 статей; переговоры, заявления
-- страна: United Kingdom: 29454 статей; переговоры, заявления
-- страна: China: 21851 статей; переговоры, заявления
-- страна: India: 21621 статей; переговоры, заявления
-- страна: Nigeria: 16489 статей; заявления, переговоры
-- страна: Iran: 15115 статей; переговоры, заявления
-- страна: Russia: 14249 статей; переговоры, заявления
-- страна: Israel: 13805 статей; переговоры, заявления
-- страна: Ukraine: 13288 статей; переговоры, намерения сотрудничать
-- страна: Australia: 13028 статей; переговоры, заявления
-- страна: Canada: 11961 статей; переговоры, заявления
-- страна: France: 10879 статей; переговоры, заявления
-- страна: Pakistan: 7329 статей; переговоры, заявления
-- NVIDIA: 6563 статей; расследования, заявления
-- страна: Germany: 6453 статей; переговоры, намерения сотрудничать
+- страна: United States: 164190 статей; переговоры, заявления
+- страна: United Kingdom: 34900 статей; переговоры, заявления
+- страна: India: 25052 статей; переговоры, заявления
+- страна: China: 22640 статей; переговоры, заявления
+- страна: Iran: 22605 статей; переговоры, заявления
+- страна: Australia: 19197 статей; заявления, переговоры
+- страна: Canada: 18451 статей; переговоры, заявления
+- страна: Russia: 17822 статей; переговоры, заявления
+- страна: Ukraine: 17655 статей; переговоры, намерения сотрудничать
+- страна: Nigeria: 15281 статей; заявления, переговоры
+- страна: Israel: 14764 статей; переговоры, заявления
+- страна: France: 12995 статей; переговоры, заявления
+- страна: Germany: 9614 статей; переговоры, намерения сотрудничать
+- страна: Pakistan: 8218 статей; переговоры, заявления
+- страна: Ireland: 6929 статей; переговоры, заявления
 
 ## Википедия: интерес вырос
-- Druski: 122026 просмотров (позавчера 0, ×123.03)
-- Cray Wanderers F.C.: 80778 просмотров (позавчера 0, ×81.78)
-- Marcus Freeman: 57662 просмотров (позавчера 0, ×58.66)
-- L. K. Advani: 50622 просмотров (позавчера 0, ×51.62)
-- Jensen Huang: 122360 просмотров (позавчера 33238, ×3.6)
-- Diwali: 122787 просмотров (позавчера 52715, ×2.3)
-- Joe Milton: 60051 просмотров (позавчера 10534, ×5.29)
-- CJ Carr: 50459 просмотров (позавчера 9396, ×4.95)
-- Bug Hall: 68949 просмотров (позавчера 21035, ×3.17)
-- Gadi Eisenkot: 92997 просмотров (позавчера 41084, ×2.23)
-- UFC Fight Night: Cortes-Acosta vs. Walker: 58482 просмотров (позавчера 22277, ×2.56)
-- 2026 Formula One World Championship: 54197 просмотров (позавчера 23074, ×2.29)
+- Russell Brand: 1010049 просмотров (позавчера 162342, ×6.19)
+- Jensen Huang: 733363 просмотров (позавчера 122360, ×5.95)
+- Tommy Walsh (builder): 134173 просмотров (позавчера 0, ×135.17)
+- Nvidia: 142333 просмотров (позавчера 17886, ×7.59)
+- Noah Eagle: 62304 просмотров (позавчера 0, ×63.3)
+- Caleb Williams: 53106 просмотров (позавчера 0, ×54.11)
+- Bucky Irving: 52398 просмотров (позавчера 0, ×53.4)
+- Thomas Massie: 91803 просмотров (позавчера 12166, ×7.05)
+- Lisa Su: 89426 просмотров (позавчера 13941, ×6.05)
+- Alice S. Huang: 75261 просмотров (позавчера 13054, ×5.43)
+- Katy Perry: 97984 просмотров (позавчера 27173, ×3.51)
+- Kirsty Gallacher: 81740 просмотров (позавчера 21621, ×3.66)
+- Jemima Goldsmith: 58883 просмотров (позавчера 8970, ×6.01)
+- Pete Hegseth: 69574 просмотров (позавчера 25957, ×2.62)
+- Georgina Baillie: 53781 просмотров (позавчера 17696, ×2.93)
 
 ## NewsAPI.ai: крупнейшие события
-- China Rejects Espionage Claims Involving Nvidia C.E.O. Jensen Huang: 3300 статей
-- Russell Brand Sentenced to 10 and a Half Years in Prison for Rape: 1176 статей
-- Train collision in Egypt kills at least seven, injures over 100: 645 статей
-- Aramco Tower hit in heart of Saudi capital as Houthis launch fresh strikes: 567 статей
-- Teddy Riner: Why is the world's greatest judoka running for French president?: 437 статей
-- Barcelona relish their La Liga lead, but have Real Madrid turned a corner?: 428 статей
-- France says Iran behind costly grocery store refrigeration hacks: 396 статей
-- '60 Minutes' takeaways: Trump calls deportation policy 'too tough': 373 статей
-- Jeffries Backs Impeaching Hegseth as Democrats Push for Accountability: 348 статей
-- From Ahmedabad to Karachi, Colombo and Caracas: Diwali celebrations around the world: 331 статей
-- 22 Injured, Windows Shattered As 5.7-Magnitude Earthquake Hits Japan: 319 статей
-- Who Is Gadi Eisenkot, Israel's Opposition Leader?: 302 статей
-- James Gunn and Peter Safran Are Out as Heads of DC Studios: 281 статей
-- Viktor Orbán's brother reportedly detained for people-smuggling charge: 268 статей
-- James Bond: What we know so far about the next 007 film: 267 статей
+- Why U.S. Business Deals Are Unlikely to Get Putin to Give Any Ground: 1124 статей
+- Military strikes? A peace agreement? Trump opts for status quo in Iran: 922 статей
+- Katy Perry seen performing hours before ex Russell Brand was handed 10-year jail sentence: 654 статей
+- Teddy Riner: Why is the world's greatest judoka running for French president?: 639 статей
+- James Gunn and Peter Safran Are Out as Heads of DC Studios: 606 статей
+- What to Expect from Tuesday's Closely Watched Inflation Report: 496 статей
+- Anthropic Just Took a Big Step Toward Its Public Debut. Here's What You Need to Know.: 495 статей
+- The Impeachment Charges Against Defense Secretary Pete Hegseth, Explained: 494 статей
+- David Walliams, UK Celebrity, Is Accused of Sexual Misconduct: 483 статей
+- El Niño pushes world towards record heat as COP31 opens: 379 статей
+- At least 11 dead after motorway pile-ups in Bulgaria fog: 377 статей
+- Hegseth to Speak as He Faces Possible Impeachment Vote: Live Updates: 374 статей
+- Merz accused of 'blackmail' by Slovakian PM after demand for Ukraine aid in EU budget: 354 статей
+- Türkiye, Uzbekistan sign environmental cooperation agreement: 347 статей
+- Spain mulls TikTok suspension after investigation into child sex abuse videos: 325 статей
