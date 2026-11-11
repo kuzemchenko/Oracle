@@ -1284,6 +1284,13 @@
   "как": "имя компании → название страницы, просмотры есть",
   "проверено": "2026-11-10"
  },
+ "DDOG.US": {
+  "name": "Datadog Inc",
+  "page": "Datadog",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
  "DE.US": {
   "name": "Deere & Company",
   "page": "Deere_&_Company",
@@ -1985,5 +1992,987 @@
   "page": null,
   "почему": "тип ETF — у фонда нет «страницы толпы»",
   "проверено": "2026-11-10"
+ },
+ "GD.US": {
+  "name": "General Dynamics Corporation",
+  "page": "General_Dynamics",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GDX.US": {
+  "name": "VanEck Gold Miners ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "GDXJ.US": {
+  "name": "VanEck Junior Gold Miners ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "GE.US": {
+  "name": "GE Aerospace",
+  "page": "GE_Aerospace",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GEO.US": {
+  "name": "Geo Group Inc",
+  "page": "Geo_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GEV.US": {
+  "name": "GE Vernova LLC",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "GEVO.US": {
+  "name": "Gevo Inc",
+  "page": "Gevo",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GFI.US": {
+  "name": "Gold Fields Ltd ADR",
+  "page": "Gold_Fields",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GFS.US": {
+  "name": "Globalfoundries Inc",
+  "page": "Globalfoundries",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GGAL.US": {
+  "name": "Grupo Financiero Galicia SA ADR",
+  "page": "Grupo_Financiero_Galicia",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GIS.US": {
+  "name": "General Mills Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "GLD.US": {
+  "name": "SPDR® Gold Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "GLNCY.US": {
+  "name": "Glencore PLC ADR",
+  "page": "Glencore",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GLNG.US": {
+  "name": "Golar LNG Limited",
+  "page": "Golar_LNG",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GLW.US": {
+  "name": "Corning Incorporated",
+  "page": "Corning",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GM.US": {
+  "name": "General Motors Company",
+  "page": "General_Motors_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GNK.US": {
+  "name": "Genco Shipping & Trading Ltd",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "GNRC.US": {
+  "name": "Generac Holdings Inc",
+  "page": "Generac_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GOLD.US": {
+  "name": "Gold.com, Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "GOOGL.US": {
+  "name": "Alphabet Inc Class A",
+  "page": "Alphabet_(company)",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GPC.US": {
+  "name": "Genuine Parts Co",
+  "page": "Genuine_Parts",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GPI.US": {
+  "name": "Group 1 Automotive Inc",
+  "page": "Group_1_Automotive",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GS.US": {
+  "name": "Goldman Sachs Group Inc",
+  "page": "Goldman_Sachs_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GSAT.US": {
+  "name": "Globalstar, Inc. Common Stock",
+  "page": "Globalstar",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GSK.US": {
+  "name": "GSK plc",
+  "page": "GSK",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "GSL.US": {
+  "name": "Global Ship Lease Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "GUSH.US": {
+  "name": "Direxion Daily S&P Oil & Gas Exp. & Prod. Bull 2X Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "GWW.US": {
+  "name": "WW Grainger Inc",
+  "page": "WW_Grainger",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HACK.US": {
+  "name": "Amplify Cybersecurity ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "HAIN.US": {
+  "name": "The Hain Celestial Group Inc",
+  "page": "The_Hain_Celestial_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HAL.US": {
+  "name": "Halliburton Company",
+  "page": "Halliburton",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HCA.US": {
+  "name": "HCA Healthcare, Inc.",
+  "page": "HCA_Healthcare",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HCC.US": {
+  "name": "Warrior Met Coal Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "HD.US": {
+  "name": "The Home Depot Inc",
+  "page": "The_Home_Depot",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HDB.US": {
+  "name": "HDFC Bank Limited ADR",
+  "page": "HDFC_Bank",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HEI.US": {
+  "name": "Heico Corporation",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "HII.US": {
+  "name": "Huntington Ingalls Industries Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "HIMS.US": {
+  "name": "Hims Hers Health Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "HL.US": {
+  "name": "Hecla Mining Company",
+  "page": "Hecla_Mining_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HLT.US": {
+  "name": "Hilton Worldwide Holdings Inc. Common Stock",
+  "page": "Hilton_Worldwide_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HMC.US": {
+  "name": "Honda Motor Co Ltd ADR",
+  "page": "Honda_Motor",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HMY.US": {
+  "name": "Harmony Gold Mining Company Limited",
+  "page": "Harmony_Gold_Mining",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HON.US": {
+  "name": "Honeywell International Inc",
+  "page": "Honeywell",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HOOD.US": {
+  "name": "Robinhood Markets Inc",
+  "page": "Robinhood_Markets",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HPE.US": {
+  "name": "Hewlett Packard Enterprise Co",
+  "page": "Hewlett_Packard_Enterprise",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HPQ.US": {
+  "name": "HP Inc",
+  "page": "HP",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HSBC.US": {
+  "name": "HSBC Holdings PLC ADR",
+  "page": "HSBC_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HSY.US": {
+  "name": "Hershey Co",
+  "page": "Hershey",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HWM.US": {
+  "name": "Howmet Aerospace Inc",
+  "page": "Howmet_Aerospace",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "HYG.US": {
+  "name": "iShares iBoxx $ High Yield Corporate Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IAT.US": {
+  "name": "iShares U.S. Regional Banks ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IAU.US": {
+  "name": "iShares Gold Trust",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IBIT.US": {
+  "name": "iShares Bitcoin Trust",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IBKR.US": {
+  "name": "Interactive Brokers Group Inc",
+  "page": "Interactive_Brokers_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IBM.US": {
+  "name": "International Business Machines",
+  "page": "International_Business_Machines",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IBN.US": {
+  "name": "ICICI Bank Limited",
+  "page": "Icici_Bank",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "ICE.US": {
+  "name": "Intercontinental Exchange Inc",
+  "page": "Intercontinental_Exchange",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "ICLN.US": {
+  "name": "iShares Global Clean Energy ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "ICLR.US": {
+  "name": "ICON PLC",
+  "page": "ICON",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IEF.US": {
+  "name": "iShares 7-10 Year Treasury Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IFF.US": {
+  "name": "International Flavors & Fragrances Inc",
+  "page": "International_Flavors_&_Fragrances",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IFN.US": {
+  "name": "Aberdeen India Fund, Inc",
+  "page": null,
+  "почему": "тип FUND — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IFNNY.US": {
+  "name": "Infineon Technologies AG ADR",
+  "page": "Infineon_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IGF.US": {
+  "name": "iShares Global Infrastructure ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IGOV.US": {
+  "name": "iShares International Treasury Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "ILF.US": {
+  "name": "iShares Latin America 40 ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "INDA.US": {
+  "name": "iShares MSCI India ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "INDY.US": {
+  "name": "iShares India 50 ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "INFY.US": {
+  "name": "Infosys Ltd ADR",
+  "page": "Infosys",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "INGR.US": {
+  "name": "Ingredion Incorporated",
+  "page": "Ingredion",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "INR.US": {
+  "name": "Infinity Natural Resources, Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "INSW.US": {
+  "name": "International Seaways Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "INTC.US": {
+  "name": "Intel Corporation",
+  "page": "Intel",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "INVH.US": {
+  "name": "Invitation Homes Inc",
+  "page": "Invitation_Homes",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IONQ.US": {
+  "name": "IONQ Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "IPO.US": {
+  "name": "Renaissance IPO ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IPWR.US": {
+  "name": "Ideal Power Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "IRDM.US": {
+  "name": "Iridium Communications Inc",
+  "page": "Iridium_Communications",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "IREN.US": {
+  "name": "IREN Ltd",
+  "page": "IREN",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "ISRG.US": {
+  "name": "Intuitive Surgical Inc",
+  "page": "Intuitive_Surgical",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "ITA.US": {
+  "name": "iShares U.S. Aerospace & Defense ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "ITB.US": {
+  "name": "iShares U.S. Home Construction ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "ITUB.US": {
+  "name": "Itau Unibanco Banco Holding SA",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "IWD.US": {
+  "name": "iShares Russell 1000 Value ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IWM.US": {
+  "name": "iShares Russell 2000 ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IYR.US": {
+  "name": "iShares U.S. Real Estate ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IYT.US": {
+  "name": "iShares Transportation Average ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "IYZ.US": {
+  "name": "iShares U.S. Telecommunications ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "J.US": {
+  "name": "Jacobs Solutions Inc.",
+  "page": "Jacobs_Solutions",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "JBHT.US": {
+  "name": "JB Hunt Transport Services Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "JBL.US": {
+  "name": "Jabil Inc.",
+  "page": "Jabil",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "JBLU.US": {
+  "name": "JetBlue Airways Corp",
+  "page": "JetBlue_Airways",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "JCI.US": {
+  "name": "Johnson Controls International PLC",
+  "page": "Johnson_Controls_International",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "JDST.US": {
+  "name": "Direxion Daily Junior Gold Miners Index Bear 2X Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "JETS.US": {
+  "name": "U.S. Global Jets ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "JHX.US": {
+  "name": "James Hardie Industries PLC ADR",
+  "page": "James_Hardie_Industries",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "JNJ.US": {
+  "name": "Johnson & Johnson",
+  "page": "Johnson_&_Johnson",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "JNK.US": {
+  "name": "SPDR® Bloomberg High Yield Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "JPM.US": {
+  "name": "JPMorgan Chase & Co",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "KBE.US": {
+  "name": "SPDR® S&P Bank ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "KEP.US": {
+  "name": "Korea Electric Power Corp ADR",
+  "page": "Korea_Electric_Power",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KEX.US": {
+  "name": "Kirby Corporation",
+  "page": "Kirby",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KFRC.US": {
+  "name": "Kforce Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "KHC.US": {
+  "name": "The Kraft Heinz Company",
+  "page": "The_Kraft_Heinz_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KIE.US": {
+  "name": "SPDR® S&P Insurance ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "KKR.US": {
+  "name": "KKR & Co. Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "KLAC.US": {
+  "name": "KLA Corporation",
+  "page": "KLA",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KMB.US": {
+  "name": "Kimberly-Clark Corporation",
+  "page": "Kimberly-Clark",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KMI.US": {
+  "name": "Kinder Morgan Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "KMX.US": {
+  "name": "CarMax Inc",
+  "page": "CarMax",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KNX.US": {
+  "name": "Knight-Swift Transportation Holdings Inc",
+  "page": "Knight-Swift_Transportation_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KO.US": {
+  "name": "The Coca-Cola Company",
+  "page": "The_Coca-Cola_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KOS.US": {
+  "name": "Kosmos Energy Ltd",
+  "page": "Kosmos_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KR.US": {
+  "name": "Kroger Company",
+  "page": "Kroger_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KRE.US": {
+  "name": "SPDR® S&P Regional Banking ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "KSA.US": {
+  "name": "iShares MSCI Saudi Arabia ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "KSPI.US": {
+  "name": "Joint Stock Company Kaspi.kz",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "KTOS.US": {
+  "name": "Kratos Defense & Security Solutions",
+  "page": "Kratos_Defense_&_Security_Solutions",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "KWEB.US": {
+  "name": "KraneShares CSI China Internet ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "LAC.US": {
+  "name": "Lithium Americas Corp",
+  "page": "Lithium_Americas",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LAZ.US": {
+  "name": "Lazard Ltd",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LBRT.US": {
+  "name": "Liberty Energy Inc.",
+  "page": "Liberty_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LCID.US": {
+  "name": "Lucid Group Inc",
+  "page": "Lucid_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LDOS.US": {
+  "name": "Leidos Holdings Inc",
+  "page": "Leidos_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LEA.US": {
+  "name": "Lear Corporation",
+  "page": "Lear",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LEN.US": {
+  "name": "Lennar Corporation",
+  "page": "Lennar",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LEU.US": {
+  "name": "Centrus Energy Corp.",
+  "page": "Centrus_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LHX.US": {
+  "name": "L3Harris Technologies Inc",
+  "page": "L3Harris_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LIN.US": {
+  "name": "Linde plc Ordinary Shares",
+  "page": "Linde",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LIT.US": {
+  "name": "Global X Lithium & Battery Tech ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-11"
+ },
+ "LITE.US": {
+  "name": "Lumentum Holdings Inc",
+  "page": "Lumentum_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LLY.US": {
+  "name": "Eli Lilly and Company",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LMT": {
+  "name": "Lockheed Martin Corporation",
+  "page": "Lockheed_Martin",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LMT.US": {
+  "name": "Lockheed Martin Corporation",
+  "page": "Lockheed_Martin",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LNG.US": {
+  "name": "Cheniere Energy Inc",
+  "page": "Cheniere_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LOW.US": {
+  "name": "Lowe's Companies Inc",
+  "page": "Lowe's_Companies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LPG.US": {
+  "name": "Dorian LPG Ltd",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LPL.US": {
+  "name": "LG Display Co Ltd",
+  "page": "LG_Display",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LPX.US": {
+  "name": "Louisiana-Pacific Corporation",
+  "page": "Louisiana-Pacific",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LRCX": {
+  "name": "Lam Research Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LRCX.US": {
+  "name": "Lam Research Corp",
+  "page": "Lam_Research",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LSCC.US": {
+  "name": "Lattice Semiconductor Corporation",
+  "page": "Lattice_Semiconductor",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LUNR.US": {
+  "name": "Intuitive Machines Inc. ",
+  "page": "Intuitive_Machines",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LUV.US": {
+  "name": "Southwest Airlines Company",
+  "page": "Southwest_Airlines",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LUXE.US": {
+  "name": "LuxExperience B.V.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LVMUY.US": {
+  "name": "LVMH Moet Hennessy Louis Vuitton SA ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LVS.US": {
+  "name": "Las Vegas Sands Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-11"
+ },
+ "LYB.US": {
+  "name": "LyondellBasell Industries NV",
+  "page": "LyondellBasell_Industries",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
+ },
+ "LYG.US": {
+  "name": "Lloyds Banking Group PLC ADR",
+  "page": "Lloyds_Banking_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-11"
  }
 }
