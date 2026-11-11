@@ -34,7 +34,12 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         monkeypatch.setattr(st, "DECISIONS_PATH", tmp_path / "guard_decisions.jsonl")
     # аудит 03.11: журнал доставок бота — тоже мимо рабочей копии
     for name in ("ops.bot", "bot"):
-        mod = sys.modules.get(name)
+        # 11.11: модуль бота мог ещё не быть импортирован этим тестом, а импортироваться позже внутри него —
+        # тогда путь доставок оставался боевым (тест дописал строку в журнал облачной копии). Импортируем заранее.
+        try:
+            mod = importlib.import_module(name)
+        except Exception:                                    # noqa: BLE001
+            mod = sys.modules.get(name)
         if mod is not None and hasattr(mod, "DELIVERIES_PATH"):
             monkeypatch.setattr(mod, "DELIVERIES_PATH", tmp_path / "guard_deliveries.jsonl")
         if mod is not None and hasattr(mod, "POINT_VERDICTS_PATH"):
