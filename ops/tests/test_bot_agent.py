@@ -355,9 +355,12 @@ def test_record_find_idea_writes_request_and_validates(tmp_path, monkeypatch):
     t = A.Tools()
     assert t.record_find_idea("медь", "может быть", "x" * 50).startswith("ошибка")
     assert t.record_find_idea("медь", "идея", "коротко").startswith("ошибка")
-    assert "закрыт" in t.record_find_idea("Медь", "Идея", "Freeport: дефицит концентрата, рынок ждёт +5%, мы +15%", ["FCX"])
+    t.pred_path = tmp_path / "pred.jsonl"
+    out = t.record_find_idea("Медь", "Идея", "Freeport: дефицит концентрата, рынок ждёт +5%, мы +15%", ["FCX"])
+    assert "записал итог" in out and "не записан в счёт" in out     # Q-чат-в-счёт: итог без прогноза — подсказка
     rec = json.loads((tmp_path / "req.jsonl").read_text().splitlines()[-1])
     assert rec["outcome"] == "идея" and rec["tickers"] == ["FCX"] and rec["source"] == "telegram"
+    assert "закрыт" in t.record_find_idea("Медь", "нечего", "проверили три ветки: всё в цене, Freeport — шум")
     assert "record_find_idea" in A.TOOL_NAMES
 
 

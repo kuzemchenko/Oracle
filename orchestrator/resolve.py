@@ -42,6 +42,7 @@ THESIS_EVENT_KINDS = ("thesis_event",)
 # Архитектура охоты 02.11: идеи облачного охотника (печать на сервере ops/hunter_seal.py) — пятый
 # герметичный трек. Свой Brier и «счёт метода» в подаче; к §11 не приближается.
 HUNTER_KINDS = ("hunter_idea",)
+CHAT_KINDS = ("chat_idea",)                 # Q-чат-в-счёт 11.11: кандидаты разговора в Telegram — седьмой трек, не §11
 HUNTER_KILLED_KINDS = ("hunter_killed",)   # тени отвергнутых судом охотника — проверка права вето
 
 
@@ -249,6 +250,9 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
         "hunter_трек": {"исходов": len(hu_out),                                # охота 02.11, НЕ в §11
                         "brier": (None if hu_brier is None else round(hu_brier, 4)),
                         "сбылось": sum(int(o["outcome"]) for o in hu_out if o.get("outcome") in (0, 1))},
+        "chat_idea_трек": {"исходов": sum(1 for o in all_out if o.get("kind") in CHAT_KINDS),
+                           "сбылось": sum(int(o["outcome"]) for o in all_out
+                                          if o.get("kind") in CHAT_KINDS and o.get("outcome") in (0, 1))},
         "hunter_тени_трек": {"исходов": len(hk_out),                           # вето суда охотника
                              "сбылось": sum(int(o["outcome"]) for o in hk_out if o.get("outcome") in (0, 1))},
         "spec_ref": "§10.10, §16, §11 ворота/KILL; B3c герметичность треков; скилл calibrate п.5",

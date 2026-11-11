@@ -189,6 +189,7 @@ def measure(today=None, root=None):
     stages = {k: str((v or {}).get("статус")) for k, v in st.items()} if isinstance(st, dict) else {}
     thesis = track_skill("thesis_event", preds, outs)
     hunter = track_skill("hunter_idea", preds, outs)
+    chat = track_skill("chat_idea", preds, outs)   # Q-чат-в-счёт 11.11: кандидаты разговора — свой счёт
     alive = sorted({str(r.get("ts"))[:10] for r in deliveries if r.get("kind") == "бот жив"})
     n_req, n_closed, req_open = requests_closed(root, deliveries)
     srch = searches_state(root)
@@ -213,7 +214,7 @@ def measure(today=None, root=None):
                     "ответ_доставлен": n_closed, "поиск": srch},
         "определение": {"текущее": DEFINITION_CURRENT, "версии": DEFINITIONS},
         "дни_с_идеей": days, "дни_честного_ноля": zero_days, "паспорта": [list(x) for x in passports], "этапы": stages,
-        "событийный_трек": thesis, "идеи_охотника": hunter, "происхождение_связей": origins,
+        "событийный_трек": thesis, "идеи_охотника": hunter, "идеи_разговора": chat, "происхождение_связей": origins,
         "пятницы": fridays, "дни_бот_жив": alive[-10:],
         "код_sha256": hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()}
 
@@ -241,6 +242,7 @@ def render_md(m):
     L += ["", "## Умение предсказывать (против базы шума)",
           f"- Идеи охотника: печатей {m['идеи_охотника']['печатей']}; {_skill_words(m['идеи_охотника'])}.",
           f"- Событийный трек: печатей {m['событийный_трек']['печатей']}; {_skill_words(m['событийный_трек'])}.",
+          f"- Кандидаты разговоров в Telegram: записей {m['идеи_разговора']['печатей']}; {_skill_words(m['идеи_разговора'])}.",
           "", "## Запросы «найди идею»: доставлен ≠ выполнен (определение v2 с 09.11)",
           f"- Ответ доставлен: {m['запросы']['ответ_доставлен']} из {m['запросы']['всего']} (определение v1 — как считалось раньше, без пересчёта).",
           f"- Поиск выполнен (найден достойный кандидат): {m['запросы']['поиск']['выполнено']}; приостановлено: "

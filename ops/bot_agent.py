@@ -155,6 +155,8 @@ class Tools:
         self._n = 0
         self.search_dir = None     # VQ-4: каталог очереди поиска (None — reports/ideas/searches)
         self.search_id = None      # поиск, который трогали в этом ответе
+        self.pred_path = None      # Q-чат-в-счёт: журнал прогнозов (None — боевой, только на сервере)
+        self.sealed = []           # строки «записал в счёт», которые КОД допишет к ответу
 
     def _store(self, data, source, units=None):
         self._n += 1
@@ -592,6 +594,20 @@ class Tools:
             return "ошибка: outcome — «идея» (принёс идею для обсуждения) или «нечего» (честно: защищаемой нет, с причинами)"
         if not str(summary or "").strip() or len(str(summary)) < 40:
             return "ошибка: summary — суть итога разговора (идея и почему защищаю / что проверили и почему отказ), ≥40 знаков"
+        unsealed = []
+        if outcome == "идея" and tickers:
+            CS = self._cs()
+            try:
+                from ops import hunter_seal as HS
+            except ImportError:
+                import hunter_seal as HS
+            recs = CS._read(self.pred_path or HS.BATTLE_PRED)
+            today = _now()[:10]
+            for t in tickers:
+                sym = str(t).upper() if "." in str(t) else str(t).upper() + ".US"
+                if not any(r.get("kind") == CS.KIND and r.get("asset") == sym and str(r.get("resolve_by", ""))[:10] >= today
+                           for r in recs):
+                    unsealed.append(sym)
         rec = {"ts": _now(), "source": "telegram", "topic": redact(str(topic or ""))[:200], "outcome": outcome,
                "summary": redact(str(summary))[:1500], "tickers": [str(t)[:15] for t in (tickers or [])][:10]}
         # VQ-4: запись = «ответ доставлен»; выполнен ли поиск — решает статус очереди поиска (только found)
@@ -605,6 +621,10 @@ class Tools:
                 fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         except OSError as e:
             return f"не записал: {e}"
+        if unsealed:
+            return ("записал итог (" + outcome + "), НО кандидат " + ", ".join(unsealed) + " не записан в счёт: "
+                    "вызови record_bet (бумага, направление, порог, срок 3–13 недель) ДО любой сделки — иначе умение "
+                    "метода не измеряется")
         return "записал: запрос «найди идею» закрыт (" + outcome + ")"
     # — VQ-4: поиск идеи как сохраняемая очередь гипотез (ops/search_queue.py) —
     def _sq(self):
@@ -662,7 +682,46 @@ class Tools:
         self.search_id = s["id"]
         _h, msg = SQ.advance(s, hyp_id, outcome, data if isinstance(data, dict) else None, reject_kind, reason, needs)
         SQ.save(s, self.search_dir)
+        if s["статус"] == SQ.FOUND and _h is not None and not _h.get("прогноз"):
+            # Q-чат-в-счёт: найденный кандидат — в счёт ДО сделки, кодом (порог — базовый сценарий, срок — горизонт)
+            note = self._seal_worthy(s, _h)
+            SQ.save(s, self.search_dir)
+            msg = f"{msg}. {note}"
         return self._sq_view(s, msg)
+
+    def _cs(self):
+        try:
+            from ops import chat_seal as CS
+        except ImportError:
+            import chat_seal as CS
+        return CS
+
+    def _seal_worthy(self, s, h):
+        CS = self._cs()
+        spec, why = CS.from_worthy(h, search_id=s["id"])
+        if spec is None:
+            h["прогноз"] = {"не_записан": why}
+            return "В счёт не записал: " + why
+        rec, why = CS.seal(spec, predictions_path=self.pred_path)
+        if rec is None:
+            h["прогноз"] = {"не_записан": why}
+            return "В счёт не записал: " + why
+        h["прогноз"] = {"hash": rec.get("hash"), "порог": rec["threshold"], "срок": rec["resolve_by"][:10]}
+        self.sealed.append(CS.words(rec))
+        return self.sealed[-1]
+
+    def record_bet(self, ticker, direction, threshold, resolve_by, probability=None, probability_basis="", thesis=""):
+        """Q-чат-в-счёт: итоговый кандидат разговора → §9-прогноз в журнал ДО сделки (проверки — кодом)."""
+        CS = self._cs()
+        spec, why = CS.build_spec(ticker, direction, threshold, resolve_by, probability=probability,
+                                  probability_basis=probability_basis, thesis=thesis, search_id=self.search_id)
+        if spec is None:
+            return "не записал: " + why
+        rec, why = CS.seal(spec, predictions_path=self.pred_path)
+        if rec is None:
+            return "не записал: " + why
+        self.sealed.append(CS.words(rec))
+        return "записал: " + self.sealed[-1]
 
     def search_status(self):
         s = self._sq_active()
@@ -856,6 +915,12 @@ TOOL_SPECS = [
         "основание_вероятности)}. Код не пропустит этап, если чего-то не хватает, и скажет чего.",
         {"hyp_id": S, "outcome": S, "data": O, "reject_kind": S, "reason": S, "needs": A}, ("hyp_id", "outcome")),
     _fn("search_status", "Статус поиска, очередь гипотез и направлений, следующий шаг.", {}),
+    _fn("record_bet", "Записать итоговый кандидат разговора в счёт ДО сделки (§9, проверяет код): бумага, direction "
+        "'above'|'below', порог (на ещё не истинной стороне цены), срок resolve_by 3–13 недель; probability — только "
+        "субъективная оценка с основанием, можно не указывать. Без записи умение метода не измеряется. Вызывай, когда "
+        "разговор дошёл до конкретной ставки (в т.ч. «беру N акций»); найденный кандидат поиска код записывает сам.",
+        {"ticker": S, "direction": S, "threshold": N, "resolve_by": S, "probability": N, "probability_basis": S,
+         "thesis": S}, ("ticker", "direction", "threshold", "resolve_by")),
     _fn("search_cancel", "Отменить поиск — ТОЛЬКО если владелец сам сказал отменить; owner_words — его слова.",
         {"owner_words": S}, ("owner_words",)),
     _fn("search_budget", "Изменить бюджет поиска — ТОЛЬКО по прямому слову владельца (owner_words — его слова).",
@@ -889,7 +954,7 @@ SYSTEM_PROMPT = """Ты — инвест-аналитик владельца с�
 
 ДАННЫЕ — бери сам инструментами, не говори «нет доступа»: EODHD (цены, дивиденды, отчётность, консенсус аналитиков и его пересмотры, цели, опционы, календарь, новости), NewsAPI.ai, GDELT и меню горячих событий, наша база, карточки идей и отчёты (reports/ideas/*.md и *.card.json — там вся аргументация идеи), публичные сайты, наши скрипты (oracle_script analogs — похожие случаи из истории). Прежде чем спорить о свежих цифрах — проверь их. Выгрузки и длинные таблицы — файлом через send_file, в тексте коротко: что в файле, откуда, на какое время.
 
-«НАЙДЁМ ИДЕЮ»: спроси тему или покажи 3–5 горячих событий (event_menu, gdelt_hot, newsapi) со строкой «почему горячее»; по выбранному — свободно круги, выигравшие и проигравшие, неочевидные «бабочки», как было в истории и что сейчас иначе. У ветки должен быть ответ «почему рынок этого не видит» (недооценённая дата, вынужденный продавец, уже подписанные деньги, неверно понятое правило). Понравившуюся ветку можно отправить на строгую проверку с записью в счёт — это делает облачная сессия охотника. ПОИСК ДО РЕЗУЛЬТАТА: просьба «найди идею» — это search_start и очередь гипотез (search_add, search_step). Отказ первых кандидатов поиск НЕ завершает: код по виду отказа даёт новое направление, бери следующее. Быстро отсекай слабое на быстрой проверке; на углублении — что рынок уже ждёт и наше отличие с цифрами, сценарии от актуальной цены включая неблагоприятный; критика — court_check. «Два кандидата плохие», «отправил карточку», «нечего» и «ждём отчёта» — не итог поиска. Итог только: найден достойный кандидат (код проверил), пауза с причиной (ставит код, когда кончился ресурс ответа или бюджет), отмена владельцем. Не обещай, что продолжишь сам в фоне — между сообщениями исполнителя нет; не проси и не повышай бюджет сам. Когда ответ владельцу по «найди идею» отправляется, один раз вызови record_find_idea (это запись «ответ доставлен», а выполнен ли поиск — решает статус очереди).
+«НАЙДЁМ ИДЕЮ»: спроси тему или покажи 3–5 горячих событий (event_menu, gdelt_hot, newsapi) со строкой «почему горячее»; по выбранному — свободно круги, выигравшие и проигравшие, неочевидные «бабочки», как было в истории и что сейчас иначе. У ветки должен быть ответ «почему рынок этого не видит» (недооценённая дата, вынужденный продавец, уже подписанные деньги, неверно понятое правило). Понравившуюся ветку можно отправить на строгую проверку с записью в счёт — это делает облачная сессия охотника. ПОИСК ДО РЕЗУЛЬТАТА: просьба «найди идею» — это search_start и очередь гипотез (search_add, search_step). Отказ первых кандидатов поиск НЕ завершает: код по виду отказа даёт новое направление, бери следующее. Быстро отсекай слабое на быстрой проверке; на углублении — что рынок уже ждёт и наше отличие с цифрами, сценарии от актуальной цены включая неблагоприятный; критика — court_check. «Два кандидата плохие», «отправил карточку», «нечего» и «ждём отчёта» — не итог поиска. Итог только: найден достойный кандидат (код проверил), пауза с причиной (ставит код, когда кончился ресурс ответа или бюджет), отмена владельцем. Не обещай, что продолжишь сам в фоне — между сообщениями исполнителя нет; не проси и не повышай бюджет сам. Конкретный кандидат разговора (в т.ч. «беру N акций») — в счёт ДО сделки через record_bet; найденного кандидата поиска код записывает сам. Когда ответ владельцу по «найди идею» отправляется, один раз вызови record_find_idea (это запись «ответ доставлен», а выполнен ли поиск — решает статус очереди).
 
 ПРОВЕРКА ДО ОТВЕТА (код проверяет каждый твой ответ и вернёт черновик на доработку, если правило нарушено):
 • Движение цены и событие: сначала event_reaction (время публикации, сессия, ход ДО и ПОСЛЕ); причину хода без источника называй гипотезой. Исправил факт — пересмотри все выводы, которые на нём стояли.
@@ -1099,6 +1164,9 @@ class Agent:
             self.findings_left = self.findings_first
         tail = CC.footer(self.findings_left)
         line = self._close_search_turn()
+        if self.tools.sealed:
+            # строки «записал в счёт» пишет КОД — модель не может их убрать или переврать
+            line = "\n".join(self.tools.sealed) + ("\n\n" + line if line else "")
         if line and self.search_status == "paused" and FUTURE_PROMISE_RE.search(text or ""):
             # VQ-4: «вернусь с результатом» без исполнителя — неправда; код поправляет явно
             line = "⚠ Поправка кода: сам я ничего не продолжу, пока ты не напишешь. " + line
