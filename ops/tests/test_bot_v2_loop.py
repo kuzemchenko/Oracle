@@ -325,3 +325,44 @@ def test_repeat_job_every_15_minutes(paths, monkeypatch):
     assert len(started) == 1                                   # 15 минут ещё не прошло
     b._tick_scheduled_jobs(t0 + datetime.timedelta(minutes=16), popen=P)
     assert len(started) == 2
+
+
+def test_advisor_channel_separate_and_single_summary(paths, monkeypatch):
+    """Q-канал-советника: группу назначает только владелец; ответы советнику — в группу; владельцу — одна записка."""
+    import bot_agent as A
+    calls = []
+
+    def fake_answer(text, history=None, actions=None, agent=None, attachments=None, audience="owner"):
+        calls.append((audience, text[:40]))
+        return ("тех.ответ: adjusted EBITDA → EPS" if audience == "advisor" else "Итог: EQT (производитель газа)"), [], 0.1
+    monkeypatch.setattr(A, "answer", fake_answer)
+    b = _bot()
+    grp = {"chat": {"id": -100777}, "from": {"id": 999}, "text": "/советник"}
+    b._on_message(grp)
+    assert not b._advisor_chat()                                  # чужой — не назначает
+    b._on_message({**grp, "from": {"id": 555}})
+    assert b._advisor_chat() == "-100777"
+    n0 = len(b.tg.sent)
+    b._on_message({"chat": {"id": -100777}, "from": {"id": 42}, "text": "Проверь NCI и стрип по EQT"})
+    b._on_message({"chat": {"id": -100777}, "from": {"id": 42}, "text": "А консенсус на 2027?"})
+    adv = [(c, t) for c, t, _k in b.tg.sent[n0:]]
+    assert all(str(c) == "-100777" for c, _t in adv) and len(adv) == 2      # владельцу — ни одного техответа
+    assert calls == [("advisor", "Проверь NCI и стрип по EQT"), ("advisor", "А консенсус на 2027?")]
+    later = S.now_utc() + datetime.timedelta(minutes=25)
+    b._tick_advisor(later)
+    b._tick_advisor(later + datetime.timedelta(minutes=5))
+    owner = [t for c, t, _k in b.tg.sent if str(c) == "555"]
+    summaries = [t for t in owner if t.startswith("Итог разговора со вторым советником")]
+    assert len(summaries) == 1 and "EQT (производитель газа)" in summaries[0]
+    assert calls[-1][0] == "owner"
+
+
+def test_advisor_explicit_done_triggers_summary_now(paths, monkeypatch):
+    import bot_agent as A
+    def fake(text, history=None, actions=None, agent=None, attachments=None, audience="owner"):
+        return ("ок" if audience == "advisor" else "Итог: вывода нет"), [], 0.0
+    monkeypatch.setattr(A, "answer", fake)
+    b = _bot()
+    b.state["advisor_chat_id"] = "-1"
+    b._on_message({"chat": {"id": -1}, "from": {"id": 42}, "text": "Готово, итог для владельца"})
+    assert any(t.startswith("Итог разговора со вторым советником") for c, t, _k in b.tg.sent if str(c) == "555")

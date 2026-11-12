@@ -386,6 +386,15 @@ class Bot:
     def _on_message(self, msg):
         chat = (msg.get("chat") or {}).get("id")
         text = (msg.get("text") or "").strip()
+        # Q-канал-советника (11.11): второй советник (ChatGPT через свой плагин Telegram) пишет в ОТДЕЛЬНУЮ группу —
+        # там техобмен; владельцу — одна записка-итог человеческим языком. Группу владелец назначает сам: «/советник».
+        if self._advisor_chat() and str(chat) == self._advisor_chat():
+            if text:
+                self._advisor_message(chat, text)
+            return
+        if not self._allowed(chat) and text.split("@")[0].strip().lower() in ("/советник", "/advisor"):
+            self._register_advisor_chat(chat, msg)
+            return
         if not self._allowed(chat):
             # Онбординг: подсказать chat_id, если allow-list ещё не настроен.
             if self.chat_id is None and chat is not None:
@@ -723,6 +732,103 @@ class Bot:
             self.tg.send_message(chat, "Пакет предложений разобран, спасибо. Подписанное "
                                        "машинист внесёт через git с ревью и тестами.")
         self.save()
+
+    # ── Q-канал-советника (11.11) ──────────────────────────────────────────────────────
+    ADVISOR_IDLE_MIN = 20          # тишина в обмене с советником → владельцу итог одной запиской
+    ADVISOR_DONE_RE = re.compile(r"итог\s+(для\s+)?(владельц|максим)", re.I)
+
+    def _advisor_chat(self):
+        v = self.state.get("advisor_chat_id") or os.environ.get("TELEGRAM_ADVISOR_CHAT_ID")
+        return str(v) if v else None
+
+    def _register_advisor_chat(self, chat, msg):
+        """«/советник» в группе: назначить её каналом второго советника — только если пишет сам владелец
+        (личный chat_id владельца в Telegram = его user id)."""
+        sender = str((msg.get("from") or {}).get("id") or "")
+        if not self.chat_id or sender != self.chat_id:
+            return                                   # чужие команды молча игнорируем
+        self.state["advisor_chat_id"] = str(chat)
+        self.save()
+        self.tg.send_message(chat, "Эта группа — канал второго советника. Здесь отвечаю ему техническим языком; "
+                                   "владельцу после обмена пришлю одну записку-итог.")
+        self.tg.send_message(self.chat_id, "Канал второго советника назначен — техническая переписка теперь идёт "
+                                           "в отдельной группе, тебе — только итог разговора человеческим языком.")
+
+    def _advisor_message(self, chat, text):
+        sess = self.state.setdefault("advisor_session", {})
+        now = S.now_utc().isoformat(timespec="seconds")
+        if not sess.get("open"):
+            sess.update(open=True, started=now, n=0, summarized=False)
+            self.state["advisor_history"] = []
+        sess["last"] = now
+        sess["n"] = int(sess.get("n") or 0) + 1
+        self.save()
+        done = bool(self.ADVISOR_DONE_RE.search(text))
+        if not isinstance(self.tg, Telegram):                    # тесты и сухие прогоны — синхронно
+            self._advisor_now(chat, text, done)
+            return
+        import threading
+        if not hasattr(self, "_chat_lock"):
+            self._chat_lock, self._chat_q, self._chat_thread = threading.Lock(), [], None
+        with self._chat_lock:                                     # та же очередь, что у разговора с владельцем
+            self._chat_q.append((chat, ("__advisor__", text, done), None))
+            if not (self._chat_thread is not None and self._chat_thread.is_alive()):
+                self._chat_thread = threading.Thread(target=self._chat_worker, daemon=True)
+                self._chat_thread.start()
+
+    def _advisor_now(self, chat, text, done=False):
+        import bot_agent as A
+        hist = self.state.setdefault("advisor_history", [])
+        try:
+            reply, files, _cost = A.answer(text, history=list(hist), audience="advisor")
+        except Exception as e:                                   # noqa: BLE001
+            log("агент советника ошибка", repr(e))
+            self.tg.send_message(chat, "Не смог ответить: модель недоступна.")
+            return
+        for name, blob, cap in files or []:
+            if hasattr(self.tg, "send_document"):
+                self.tg.send_document(chat, name, blob, cap)
+        hist.append({"role": "user", "text": text})
+        hist.append({"role": "assistant", "text": reply})
+        self.state["advisor_history"] = hist[-2 * A.MAX_HISTORY_TURNS:]
+        self._send_long(chat, reply, kind="ответ советнику")
+        self.save()
+        if done:
+            self._advisor_summary()
+
+    def _advisor_summary(self):
+        """Итог обмена с советником — ОДНА записка владельцу: вывод, бумага с названием и ролью, что делать,
+        что опровергнет; без жаргона (проверка ответа кодом — та же, что у обычного ответа агента)."""
+        import bot_agent as A
+        sess = self.state.get("advisor_session") or {}
+        hist = self.state.get("advisor_history") or []
+        if not hist or sess.get("summarized"):
+            return
+        sess["summarized"] = True
+        sess["open"] = False
+        self.save()
+        ask = ("[система] Обмен со вторым советником закончен (" + str(sess.get("n")) + " сообщений). Напиши владельцу "
+               "ОДНУ записку человеческим языком, до 1200 знаков: к чему пришли, бумага с названием и ролью, на что "
+               "ставим и к какой дате, что опровергнет, что делать. Без жаргона и аббревиатур; числа — только из "
+               "переписки и инструментов. Если к выводу не пришли — так и скажи, одной фразой, что осталось открытым.")
+        try:
+            reply, _files, _cost = A.answer(ask, history=list(hist), audience="owner")
+        except Exception as e:                                   # noqa: BLE001
+            log("итог советника ошибка", repr(e))
+            return
+        self._send_long(self.chat_id, "Итог разговора со вторым советником.\n\n" + reply, kind="итог советника")
+
+    def _tick_advisor(self, now=None):
+        now = now or S.now_utc()
+        sess = self.state.get("advisor_session") or {}
+        if not sess.get("open") or sess.get("summarized") or not sess.get("last"):
+            return
+        try:
+            last = datetime.datetime.fromisoformat(sess["last"])
+        except ValueError:
+            return
+        if (now - last).total_seconds() >= self.ADVISOR_IDLE_MIN * 60:
+            self._advisor_summary()
 
     # ── V7 (Q-вердикт-Б1): вердикт владельца в точках Б1 (28.11) и Б (01.02.2027) ──
     POINT_VERDICTS = {"c": ("продолжаем", "Продолжаем"), "r": ("перезапуск", "Перезапуск"),
@@ -2704,6 +2810,9 @@ class Bot:
                     return
                 chat, text, att = self._chat_q.pop(0)
             try:
+                if isinstance(text, tuple) and text and text[0] == "__advisor__":
+                    self._advisor_now(chat, text[1], text[2])
+                    continue
                 self._chat_now(chat, text, att)
             except Exception as e:                               # noqa: BLE001
                 log("chat поток ошибка", repr(e))
@@ -2825,6 +2934,10 @@ class Bot:
             self._tick_point_verdict(now)
         except Exception as e:                                   # noqa: BLE001
             log("tick point verdict ошибка", repr(e))
+        try:
+            self._tick_advisor(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick advisor ошибка", repr(e))
         self.save()
 
     def _tick_alerts(self):

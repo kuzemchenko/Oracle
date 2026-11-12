@@ -1002,9 +1002,16 @@ def plain_text(text):
     return text
 
 
-def _messages(user_text, history, brief, attachments=None):
+ADVISOR_NOTE = ("СОБЕСЕДНИК СЕЙЧАС — ВТОРОЙ СОВЕТНИК (другая модель ИИ в отдельной группе), а не владелец. Можно "
+                "технический язык и аббревиатуры, коротко и по делу: данные с источниками, расчёты, где ты не согласен. "
+                "Владельцу не пиши — итог ему код отправит отдельной запиской. Правила честности и проверки — те же.")
+
+
+def _messages(user_text, history, brief, attachments=None, audience="owner"):
     # две части: постоянная персона (кэшируется между вопросами) + изменчивое состояние системы
     dyn = f"Сейчас {_now()} UTC.\n\nСОСТОЯНИЕ СИСТЕМЫ (из журналов):\n{brief}"
+    if audience == "advisor":
+        dyn = ADVISOR_NOTE + "\n\n" + dyn
     msgs = [{"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT},
                                            {"type": "text", "text": dyn}]}]
     for h in (history or [])[-2 * MAX_HISTORY_TURNS:]:
@@ -1135,12 +1142,12 @@ class Agent:
     def _complete(self, messages):
         return self._call(messages, "auto", 6000)
 
-    def run(self, user_text, history=None, brief="", attachments=None):
+    def run(self, user_text, history=None, brief="", attachments=None, audience="owner"):
         """→ (текст ответа, [(имя_файла, байты, подпись)], стоимость_usd).
         Аудит 07.11: (1) ответ, оборванный лимитом длины, продлевается с места обрыва, а не выдаётся
         «готовым»; (2) черновик проверяет КОД (ops/claim_check) — находки уходят модели на одну доработку
         с инструментами, оставшиеся код дописывает в конец ответа как непроверенное."""
-        msgs = _messages(user_text, history, brief, attachments)
+        msgs = _messages(user_text, history, brief, attachments, audience)
         text = self._loop(msgs, MAX_STEPS)
         text = self._finish(msgs, text)
         text = self._continue_search(msgs, text)
@@ -1374,7 +1381,7 @@ def log_turn(question, trace, files, cost, ok=True, error=None, path=None, reply
         pass
 
 
-def answer(user_text, history=None, actions=None, agent=None, attachments=None):
+def answer(user_text, history=None, actions=None, agent=None, attachments=None, audience="owner"):
     """Точка входа для bot.py. → (текст, файлы, стоимость)."""
     try:
         import bot_chat as C
@@ -1419,7 +1426,7 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None):
         log_turn(user_text, [], [], None, ok=False, error=e)
         raise
     try:
-        text, files, cost = ag.run(user_text, history=history, brief=brief, attachments=attachments)
+        text, files, cost = ag.run(user_text, history=history, brief=brief, attachments=attachments, audience=audience)
     except Exception as e:                                       # noqa: BLE001
         log_turn(user_text, ag.trace, list(ag.tools.files), round(ag.cost, 4), ok=False, error=e)
         raise
