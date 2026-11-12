@@ -1,856 +1,895 @@
 {
- "собрано": "2026-11-11T21:00:07+00:00",
+ "собрано": "2026-11-12T21:00:15+00:00",
  "gdelt": {
   "источник": "GDELT 2.0, файлы событий каждые 15 минут (data.gdeltproject.org)",
-  "до": "20261111210000",
+  "до": "20261112210000",
   "часов": 24,
-  "файлов_прочитано": 192,
-  "файлов_нет": 0,
+  "файлов_прочитано": 190,
+  "файлов_нет": 2,
   "больше_всего_пишут": [
    {
     "что": "страна: United States",
-    "статей_сутки": 162532,
-    "статей_прошлые_сутки": 165743,
-    "рост_раз": 0.98,
+    "статей_сутки": 155486,
+    "статей_прошлые_сутки": 162532,
+    "рост_раз": 0.96,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.sthelensstar.co.uk/news/national/26720732.driver-deadly-crash-outside-la-metro-station-arrested-three-murder-counts/",
-     "https://hot1079.iheart.com/content/2026-11-10-lisa-bringing-always-lalisa-documentary-to-youtube-premium/",
-     "https://www.hampshirechronicle.co.uk/news/national/26718158.unilever-mccormick-deal-may-harm-competition-dry-ingredients-market-says-cma/"
+     "https://www.newsshopper.co.uk/news/national/26721850.least-two-dead-building-collapses-new-york-city/",
+     "https://www.wutc.org/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal",
+     "https://www.echo-news.co.uk/news/national/26723050.firm-central-nvidia-chiefs-affair-scandal-pledges-cooperate-us-probe/"
     ]
    },
    {
     "что": "страна: United Kingdom",
-    "статей_сутки": 42510,
-    "статей_прошлые_сутки": 35117,
-    "рост_раз": 1.21,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.bicesteradvertiser.net/news/national/26718885.urgent-inquiries-threatening-email-sent-hundreds-schools-ni/",
-     "https://www.lancashiretelegraph.co.uk/news/national/26720043.scottish-dj-32-named-one-six-people-killed-krakow-shooting/",
-     "https://www.heraldseries.co.uk/news/national/26718102.burnham-hails-gbp12bn-wind-farm-investment-prepares-cop31-climate-talks/"
-    ]
-   },
-   {
-    "что": "страна: India",
-    "статей_сутки": 26571,
-    "статей_прошлые_сутки": 25397,
-    "рост_раз": 1.05,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.nepalnational.com/news/279425904/from-gen-z-to-older-investors-mutual-fund-sips-find-their-place-across-age-groups",
-     "https://www.biospectrumindia.com/news/16/28802/google-org-backs-pune-based-healthtech-startup-froncort-ai-with-2-3-m-to-triple-tb-screening-efficiency.html",
-     "https://www.hindustantimes.com/india-news/rbi-issues-domestic-transfer-norms-walk-in-customers-can-send-up-to-rs-50k-101794412658123.html"
-    ]
-   },
-   {
-    "что": "страна: China",
-    "статей_сутки": 19520,
-    "статей_прошлые_сутки": 22816,
-    "рост_раз": 0.86,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.gazettextra.com/news/nation_world/china-and-asean-make-progress-on-south-china-sea-pact/article_ad2c76c4-7077-52b2-ab17-f07096d0cd80.html",
-     "https://www.manilatimes.net/2026/11/11/tmt-newswire/pr-newswire/yeastar-day-2026-summit-unites-global-partners-to-shape-the-next-era-of-growth/2467305",
-     "https://wondradio.com/abc-politics/9fc6a9effd11c4ee51b46dbc511a3fa2"
-    ]
-   },
-   {
-    "что": "страна: Russia",
-    "статей_сутки": 19487,
-    "статей_прошлые_сутки": 18001,
-    "рост_раз": 1.08,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.royston-crow.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://www.keighleynews.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://wpde.com/news/nation-world/russia-ukraine-agree-to-major-pow-prisoner-of-war-swap-but-peace-talks-end-without-breakthrough-putin-zelenskyy-envoy-steve-witkoff-trump-son-in-law-jared-kushner-united-arab-emirates"
-    ]
-   },
-   {
-    "что": "страна: Ukraine",
-    "статей_сутки": 17973,
-    "статей_прошлые_сутки": 17776,
-    "рост_раз": 1.01,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.royston-crow.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://www.keighleynews.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://wpde.com/news/nation-world/russia-ukraine-agree-to-major-pow-prisoner-of-war-swap-but-peace-talks-end-without-breakthrough-putin-zelenskyy-envoy-steve-witkoff-trump-son-in-law-jared-kushner-united-arab-emirates"
-    ]
-   },
-   {
-    "что": "страна: Canada",
-    "статей_сутки": 17230,
-    "статей_прошлые_сутки": 18745,
-    "рост_раз": 0.92,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.dhal3.com/vb/showthread.php?s=e10bd125d4f2733bfd6b8b4cba36909f&p=1672310",
-     "https://news.crossmap.com/2026/11/11/lgb-identification-falls-sharply-among-us-teenage-girls/",
-     "https://www.simcoereformer.ca/press-releases/globe-newswire/vanguard-investments-canada-inc-announces-changes-to-vanguard-global-equity-fund/"
-    ]
-   },
-   {
-    "что": "страна: Iran",
-    "статей_сутки": 16603,
-    "статей_прошлые_сутки": 22692,
-    "рост_раз": 0.73,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://cbn.com/news/us/us-charges-3-men-plotting-20-iran-backed-terror-attacks-jews-and-us-airbase-uk",
-     "https://news.crossmap.com/2026/11/11/uk-bishops-warn-against-parliament-bill-that-would-criminalize-counseling-on-gender-identity/",
-     "http://www.shanghainews.net/news/279424210/us-aircraft-relocated-from-uk-airbase-amid-security-fears"
-    ]
-   },
-   {
-    "что": "страна: Israel",
-    "статей_сутки": 16458,
-    "статей_прошлые_сутки": 14852,
-    "рост_раз": 1.11,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://wwmt.com/news/nation-world/pennsylvania-democrat-representative-says-shes-considering-challenging-fetterman-in-2028-madeleine-dean-chris-deluzio-new-york-times-republican-rtt",
-     "https://www.durangoherald.com/articles/associated-press/us-charges-3-men-with-plotting-terror-attacks-including-planned-assault-on-uk-airbase/",
-     "https://cbn.com/news/us/us-charges-3-men-plotting-20-iran-backed-terror-attacks-jews-and-us-airbase-uk"
-    ]
-   },
-   {
-    "что": "страна: Australia",
-    "статей_сутки": 15123,
-    "статей_прошлые_сутки": 19277,
-    "рост_раз": 0.78,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.standard.net.au/story/9390185/aussie-hands-promised-as-red-carpet-rolls-out-for-aukus/",
-     "https://www.cootamundraherald.com.au/story/9389859/hope-remains-in-remote-town-mourning-indigenous-mum/",
-     "https://www.mandurahmail.com.au/story/9389823/brothers-plead-not-guilty-to-school-pick-up-murder/"
-    ]
-   },
-   {
-    "что": "страна: Nigeria",
-    "статей_сутки": 14873,
-    "статей_прошлые_сутки": 15528,
-    "рост_раз": 0.96,
-    "типы": [
-     "заявления",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://allafrica.com/stories/202611110203.html",
-     "https://news.crossmap.com/2026/11/10/european-commission-pulls-plan-to-criminalize-hate-speech/",
-     "https://www.vanguardngr.com/2026/11/nearly-64000-nigerians-flee-to-niger-over-insecurity-unhcr/"
-    ]
-   },
-   {
-    "что": "страна: France",
-    "статей_сутки": 10018,
-    "статей_прошлые_сутки": 13082,
+    "статей_сутки": 32698,
+    "статей_прошлые_сутки": 42510,
     "рост_раз": 0.77,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://fox11online.com/news/nation-world/why-french-president-emmanuel-macron-and-wife-brigitte-macron-filed-lawsuit-against-candace-owens-in-tennessee-federal-court-full-timeline-of-allegations-and-events-leading-to-the-defamation-case",
-     "https://www.kyivpost.com/post/89828",
-     "https://news.crossmap.com/2026/11/10/ai-giant-anthropic-sets-prices-for-initial-public-offering/"
+     "https://www.stourbridgenews.co.uk/news/national/26725532.pm-not-reading-much-ukraine-peace-talks-urges-focus-ceasefire/",
+     "https://www.northwalespioneer.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/",
+     "https://hot1079.iheart.com/content/2026-11-11-cara-delevingne-offers-candid-advice-for-people-who-want-to-get-sober/"
+    ]
+   },
+   {
+    "что": "страна: India",
+    "статей_сутки": 26756,
+    "статей_прошлые_сутки": 26571,
+    "рост_раз": 1.01,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://aninews.in/news/national/general-news/iit-kharagpur-becomes-first-iit-to-introduce-nmc-accredited-md-programmes20261112212126/",
+     "https://news.webindia123.com/news/Articles/India/20261112/4518946.html",
+     "https://aninews.in/news/national/politics/j-k-cm-expresses-grief-over-killing-of-2-spos-in-kishtwar-condemns-cowardly-act-of-violence20261112195400/"
+    ]
+   },
+   {
+    "что": "страна: China",
+    "статей_сутки": 25902,
+    "статей_прошлые_сутки": 19520,
+    "рост_раз": 1.33,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wutc.org/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal",
+     "https://www.tspr.org/npr-news/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal",
+     "http://www.shanghainews.net/news/279427405/daily-world-briefing-nov-12"
+    ]
+   },
+   {
+    "что": "страна: Russia",
+    "статей_сутки": 19378,
+    "статей_прошлые_сутки": 19487,
+    "рост_раз": 0.99,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.peeblesshirenews.com/news/national/26721808.fifty-heads-state-gather-dublin-major-european-summit/",
+     "https://www.dunfermlinepress.com/news/national/26721903.us-envoys-moscow-meet-putin-following-talks-abu-dhabi/"
+    ]
+   },
+   {
+    "что": "страна: Canada",
+    "статей_сутки": 18199,
+    "статей_прошлые_сутки": 17230,
+    "рост_раз": 1.06,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://calgarysun.com/news/local-news/calgary-remembrance-day-ceremony-honours-fallen-amid-wainwright-tragedy",
+     "https://torontosun.com/news/world/jensen-huangs-honeytrap-scanda-stock-market-shockwaves"
+    ]
+   },
+   {
+    "что": "страна: Israel",
+    "статей_сутки": 16497,
+    "статей_прошлые_сутки": 16458,
+    "рост_раз": 1.0,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.thetottenhamindependent.co.uk/news/national/26723768.pairs-spying-conviction-shows-iranian-intelligence-willing-use-proxies---cps/",
+     "https://news.crossmap.com/2026/11/12/churches-shouldn-t-just-ban-hillsong-bethel-and-elevation/",
+     "http://www.goskagit.com/news/world/israeli-strike-on-a-gaza-hospital-kills-6-people-including-a-doctor-health-ministry-says/article_7ad7e9c7-5fc3-50ef-bc3d-d447d6705f53.html"
+    ]
+   },
+   {
+    "что": "страна: Ukraine",
+    "статей_сутки": 16068,
+    "статей_прошлые_сутки": 17973,
+    "рост_раз": 0.89,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.dunfermlinepress.com/news/national/26721903.us-envoys-moscow-meet-putin-following-talks-abu-dhabi/",
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.eastlondonadvertiser.co.uk/news/national/26725147.pm-pledges-support-ukraine-peace-talks-pushes-european-access/"
+    ]
+   },
+   {
+    "что": "страна: Nigeria",
+    "статей_сутки": 15934,
+    "статей_прошлые_сутки": 14873,
+    "рост_раз": 1.07,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://news.crossmap.com/2026/11/12/egyptian-christian-killed-in-libya-after-refusing-to-deny-jesus/",
+     "https://news.crossmap.com/2026/11/12/help-on-the-way-leader-of-ministry-to-iranians-says-life-is-miserable-for-believers-cbn/",
+     "https://focustaiwan.tw/society/202611120008"
+    ]
+   },
+   {
+    "что": "страна: Australia",
+    "статей_сутки": 15617,
+    "статей_прошлые_сутки": 15123,
+    "рост_раз": 1.03,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.theadvocate.com.au/story/9390870/new-intelligence-hub-tackling-online-radicalisation/",
+     "https://www.narrominenewsonline.com.au/story/9390235/businesses-urged-to-keep-workers-onside-amid-ai-changes/",
+     "https://www.cootamundraherald.com.au/story/9390873/regions-a-firm-focus-as-unions-throw-labor-under-a-bus/"
+    ]
+   },
+   {
+    "что": "страна: Iran",
+    "статей_сутки": 14687,
+    "статей_прошлые_сутки": 16603,
+    "рост_раз": 0.88,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.huntspost.co.uk/news/national/26723768.pairs-spying-conviction-shows-iranian-intelligence-willing-use-proxies---cps/",
+     "https://www.burytimes.co.uk/news/national/26721736.no-war-no-peace-us-iran-stalemate-needs-end-says-ed-miliband/",
+     "https://www.stratford-herald.com/national/no-war-no-peace-us-iran-stalemate-needs-to-end-says-ed-miliband-174182/"
     ]
    },
    {
     "что": "страна: Ireland",
-    "статей_сутки": 9731,
-    "статей_прошлые_сутки": 6939,
-    "рост_раз": 1.4,
+    "статей_сутки": 11781,
+    "статей_прошлые_сутки": 9731,
+    "рост_раз": 1.21,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.darlingtonandstocktontimes.co.uk/news/national/26718094.irish-public-sector-strike-suspended-draft-pay-deal-agreed/",
-     "https://www.clactonandfrintongazette.co.uk/news/national/26718885.urgent-inquiries-threatening-email-sent-hundreds-schools/",
-     "https://www.glasgowtimes.co.uk/news/national/26718094.irish-public-sector-strike-suspended-draft-pay-deal-agreed/"
+     "https://www.gazetteherald.co.uk/news/national/26723617.poundland-secures-time-find-buyer-rescue-talks-continue/",
+     "https://www.peeblesshirenews.com/news/national/26721808.fifty-heads-state-gather-dublin-major-european-summit/",
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/"
+    ]
+   },
+   {
+    "что": "NVIDIA",
+    "статей_сутки": 10189,
+    "статей_прошлые_сутки": 3907,
+    "рост_раз": 2.6,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wutc.org/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal",
+     "https://www.echo-news.co.uk/news/national/26723050.firm-central-nvidia-chiefs-affair-scandal-pledges-cooperate-us-probe/",
+     "https://www.tspr.org/npr-news/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal"
     ]
    },
    {
     "что": "страна: Pakistan",
-    "статей_сутки": 7484,
-    "статей_прошлые_сутки": 8218,
-    "рост_раз": 0.91,
+    "статей_сутки": 9234,
+    "статей_прошлые_сутки": 7484,
+    "рост_раз": 1.23,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://english.news.cn/20261111/a2d1b66e3f0542678001cd2f45a9ff3f/c.html",
-     "https://action.amnesty.org.au/act-now/write-for-rights-2026-rokiatou-doumbia-w",
-     "https://economictimes.indiatimes.com/news/defence/internal-situation-in-pakistan-is-so-bad-they-bring-in-kashmir-card-lt-gen-retd-kjs-dhillon-on-kulgam-crpf-attack/articleshow/135738735.cms"
+     "https://news.webindia123.com/news/Articles/World/20261112/4518941.html",
+     "https://www.hindustantimes.com/world-news/pakistan-ex-pm-imran-khan-s-sisters-released-from-jail-after-detention-orders-withdrawn-report-101794478382675.html",
+     "https://english.news.cn/20261112/af8f63df381243f79338726959636cab/c.html"
     ]
    },
    {
-    "что": "страна: Germany",
-    "статей_сутки": 7115,
-    "статей_прошлые_сутки": 9633,
-    "рост_раз": 0.74,
+    "что": "страна: France",
+    "статей_сутки": 8780,
+    "статей_прошлые_сутки": 10018,
+    "рост_раз": 0.88,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.cjme.com/2026/11/11/regina-woman-documents-fathers-daring-second-world-war-escape/",
-     "https://www.bankingnews.gr/diethni/articles/910399/if-the-russians-receive-the-wrong-message-we-will-go-to-nuclear-war-shock-warning-from-france-pressure-on-germany%20title=",
-     "https://www.newswiretoday.com/news/187222/BASF-to-Shift-Polyisobutene-Production-in-Europe-Entirely-to-Renewable-Electricity-Starting-in-2027/"
-    ]
-   },
-   {
-    "что": "страна: Turkey",
-    "статей_сутки": 5848,
-    "статей_прошлые_сутки": 4696,
-    "рост_раз": 1.24,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.gazetteherald.co.uk/news/national/26718102.burnham-hails-gbp12bn-wind-farm-investment-prepares-cop31-climate-talks/",
-     "https://www.newcastleherald.com.au/story/9389722/scary-climate-protesters-clash-with-police-in-court/",
-     "https://www.jpost.com/opinion/article-913888"
-    ]
-   },
-   {
-    "что": "страна: Italy",
-    "статей_сутки": 5781,
-    "статей_прошлые_сутки": 6049,
-    "рост_раз": 0.96,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.brisbanetimes.com.au/traveller/inspiration/we-blindly-picked-an-italian-town-on-a-map-and-found-paradise-20261112-p60pm5.html",
-     "https://www.wantedinrome.com/news/microsoft-pavilion-opens-in-rome.html",
-     "https://hudsonvalleycountry.com/poughkeepsie-witchcraft-district-ban-rumors/"
-    ]
-   },
-   {
-    "что": "AFRICA",
-    "статей_сутки": 5509,
-    "статей_прошлые_сутки": 5835,
-    "рост_раз": 0.94,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "http://www.bignewsnetwork.com/news/279426556/ebola-outbreak-tops-11000-cases",
-     "https://theconversation.com/cop-31-what-south-africa-must-do-to-deliver-on-its-climate-promises-294222",
-     "https://www.cnbcafrica.com/media/okUpclnevKY/climate-resilience-how-is-nigeria-addressing-increasing-weather-related-risks"
-    ]
-   },
-   {
-    "что": "AMERICAN",
-    "статей_сутки": 5219,
-    "статей_прошлые_сутки": 5897,
-    "рост_раз": 0.89,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://krcrtv.com/news/nation-world/judge-gives-order-to-protect-dar-chapter-that-doesnt-allow-transgender-woman-texas-fox-news-daughters-of-the-american-revolution-rtt",
-     "https://www.eptrail.com/2026/11/11/united-states-losing-measles-free-status/",
-     "https://cnycentral.com/news/nation-world/manufacturers-applaud-senate-drive-to-reform-broken-permitting-system"
-    ]
-   },
-   {
-    "что": "THE US",
-    "статей_сутки": 5163,
-    "статей_прошлые_сутки": 6600,
-    "рост_раз": 0.78,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.romfordrecorder.co.uk/news/national/26717900.member-us-army-arrested-suspicion-offences-national-security-act/",
-     "https://www.brisbanetimes.com.au/world/north-america/three-charged-of-plotting-attacks-on-raf-base-jewish-communities-for-iran-20261111-p61d50.html",
-     "https://aninews.in/news/world/middle-east/iran-president-pezeshkian-arrives-in-turkiye-for-cop31-alleges-us-threatening-global-security20261111140030/"
+     "https://www.burytimes.co.uk/news/national/26721736.no-war-no-peace-us-iran-stalemate-needs-end-says-ed-miliband/",
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.stratford-herald.com/national/no-war-no-peace-us-iran-stalemate-needs-to-end-says-ed-miliband-174182/"
     ]
    },
    {
     "что": "страна: Philippines",
-    "статей_сутки": 5070,
-    "статей_прошлые_сутки": 5478,
-    "рост_раз": 0.93,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.philstar.com/nation/2026/11/12/2569636/mmda-oks-gos-transfer-dotr",
-     "https://www.philstar.com/nation/2026/11/12/2569629/6-convenience-store-robbers-arrested-laguna",
-     "https://www.philstar.com/nation/2026/11/12/2569632/davao-university-probes-bullying"
-    ]
-   },
-   {
-    "что": "страна: South Africa",
-    "статей_сутки": 4889,
-    "статей_прошлые_сутки": 5349,
-    "рост_раз": 0.91,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://theconversation.com/cop-31-what-south-africa-must-do-to-deliver-on-its-climate-promises-294222",
-     "https://www.wits.ac.za/news/latest-news/research-news/2026/2026-11/the-magnetic-effect-long-overlooked-in-fibre-optics.html",
-     "https://www.ewn.co.za/2026/11/11/wednesday-top-stories-muvhango-fraud-review-bela-act-compliance-nathaniel-julies-presentencing"
-    ]
-   },
-   {
-    "что": "EUROPEAN",
-    "статей_сутки": 4455,
-    "статей_прошлые_сутки": 5064,
-    "рост_раз": 0.88,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.royston-crow.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://www.keighleynews.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://wpde.com/news/nation-world/russia-ukraine-agree-to-major-pow-prisoner-of-war-swap-but-peace-talks-end-without-breakthrough-putin-zelenskyy-envoy-steve-witkoff-trump-son-in-law-jared-kushner-united-arab-emirates"
-    ]
-   },
-   {
-    "что": "страна: Japan",
-    "статей_сутки": 4401,
-    "статей_прошлые_сутки": 4668,
-    "рост_раз": 0.94,
+    "статей_сутки": 6492,
+    "статей_прошлые_сутки": 5070,
+    "рост_раз": 1.28,
     "типы": [
      "переговоры",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "http://www.myanmarnews.net/news/279425431/inpics-china-hands-over-remains-of-us-airmen-found-along-wwii-hump-route",
-     "https://file770.com/godzilla-minus-zero-review-by-steve-vertlieb/",
-     "http://www.shanghainews.net/news/279426233/odisha-strengthens-startup-ties-with-japan-mou-signed-between-local-startup-and-tottori-based-company"
+     "https://www.manilatimes.net/2026/11/13/tmt-newswire/up-pef-celebrate-breakthrough-study/2468233",
+     "https://www.philstar.com/movies/2026/11/12/2569678/how-rob-bank-review-mismatched-robin-hood-tale-needs-more-action",
+     "https://www.tickerreport.com/banking-finance/13660100/financial-comparison-ntt-otcmktsnttyy-pldt-nysephi.html"
     ]
    },
    {
-    "что": "UKRAINIAN",
-    "статей_сутки": 4307,
-    "статей_прошлые_сутки": 3694,
-    "рост_раз": 1.17,
+    "что": "страна: South Africa",
+    "статей_сутки": 6099,
+    "статей_прошлые_сутки": 4889,
+    "рост_раз": 1.25,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://english.news.cn/20261112/cc76d4907b3f4ee2a6fd929ecd9e3d0f/c.html",
+     "https://groundup.org.za/article/cape-town-cafe-helps-former-prisoners-brew-a-new-life/",
+     "https://www.africa-newsroom.com/press/south-africa-forestry-fisheries-and-the-environment-implements-interim-sardine-catch-recommendations"
+    ]
+   },
+   {
+    "что": "страна: Turkey",
+    "статей_сутки": 6037,
+    "статей_прошлые_сутки": 5848,
+    "рост_раз": 1.03,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.northwalespioneer.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/",
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.naroomanewsonline.com.au/story/9390848/australia-talks-up-renewables-but-fuels-climate-critics/"
+    ]
+   },
+   {
+    "что": "AFRICA",
+    "статей_сутки": 5791,
+    "статей_прошлые_сутки": 5509,
+    "рост_раз": 1.05,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://english.news.cn/20261113/fc0a2ed23f574202ae6fa28722e8d6b5/c.html",
+     "https://english.news.cn/20261112/cc76d4907b3f4ee2a6fd929ecd9e3d0f/c.html",
+     "https://www.africa-newsroom.com/press/south-africa-forestry-fisheries-and-the-environment-implements-interim-sardine-catch-recommendations"
+    ]
+   },
+   {
+    "что": "AMERICAN",
+    "статей_сутки": 5436,
+    "статей_прошлые_сутки": 5219,
+    "рост_раз": 1.04,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.dailykos.com/stories/2026/11/11/800127260/community/fascismo-trumps-white-house-counsel-threatens-democrats-with-criminal-prosecutions-for-doing-their-job/",
+     "https://news.crossmap.com/2026/11/12/churches-shouldn-t-just-ban-hillsong-bethel-and-elevation/"
+    ]
+   },
+   {
+    "что": "страна: Germany",
+    "статей_сутки": 5375,
+    "статей_прошлые_сутки": 7115,
+    "рост_раз": 0.76,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.manilatimes.net/2026/11/13/tmt-newswire/globenewswire/basf-signs-agreement-to-sell-its-mining-solutions-business-to-snf/2468960",
+     "https://www.prnewswire.com/news-releases/hsg-laser-opens-new-european-showroom-in-dusseldorf-marking-a-new-milestone-in-its-european-development-302937643.html"
+    ]
+   },
+   {
+    "что": "страна: Italy",
+    "статей_сутки": 5192,
+    "статей_прошлые_сутки": 5781,
+    "рост_раз": 0.9,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://focustaiwan.tw/society/202611120012",
+     "https://www.saltwire.com/atlantic-canada/middleton-remembers-hundreds-attend-remembrance-day-service-at-community-college",
+     "https://www.presstelegram.com/2026/11/12/here-are-six-places-to-pick-up-thanksgiving-dinner-in-the-los-angeles-area/"
+    ]
+   },
+   {
+    "что": "EUROPEAN",
+    "статей_сутки": 5148,
+    "статей_прошлые_сутки": 4455,
+    "рост_раз": 1.15,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.peeblesshirenews.com/news/national/26721808.fifty-heads-state-gather-dublin-major-european-summit/",
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.stourbridgenews.co.uk/news/national/26725532.pm-not-reading-much-ukraine-peace-talks-urges-focus-ceasefire/"
+    ]
+   },
+   {
+    "что": "THE US",
+    "статей_сутки": 5021,
+    "статей_прошлые_сутки": 5163,
+    "рост_раз": 0.97,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.thenorthernecho.co.uk/news/national/26721903.us-envoys-meet-putin-kremlin-ukraine-talks-abu-dhabi/",
+     "https://www.koreaherald.com:443/article/10935644"
+    ]
+   },
+   {
+    "что": "RUSSIAN",
+    "статей_сутки": 4737,
+    "статей_прошлые_сутки": 3937,
+    "рост_раз": 1.2,
     "типы": [
      "переговоры",
      "намерения сотрудничать"
     ],
     "примеры": [
-     "https://wpde.com/news/nation-world/russia-ukraine-agree-to-major-pow-prisoner-of-war-swap-but-peace-talks-end-without-breakthrough-putin-zelenskyy-envoy-steve-witkoff-trump-son-in-law-jared-kushner-united-arab-emirates",
-     "https://www.royston-crow.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/",
-     "https://www.keighleynews.co.uk/news/national/26717998.rubio-pushes-uk-european-allies-seat-ukraine-peace-talks/"
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "https://www.niagarafallsreview.ca/business/russian-delegation-visits-afghanistan-to-discuss-trade-and-investment-with-the-taliban/article_971a9305-0abf-533e-b72e-abf25a74031e.html",
+     "https://timesca.com/kazakhstan-coal-loses-access-russian-ports/"
     ]
    }
   ],
   "резко_выросло": [
    {
-    "что": "SCOTTISH",
-    "статей_сутки": 2336,
-    "статей_прошлые_сутки": 1026,
-    "рост_раз": 2.25,
-    "типы": [
-     "боевые действия",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.lancashiretelegraph.co.uk/news/national/26720043.scottish-dj-32-named-one-six-people-killed-krakow-shooting/",
-     "https://www.aol.co.uk/articles/scottish-man-killed-krakow-shooting-124616000.html",
-     "https://www.herefordtimes.com/news/national/26719706.scottish-man-killed-krakow-shooting-six-died/"
-    ]
-   },
-   {
-    "что": "SCOTLAND",
-    "статей_сутки": 1998,
-    "статей_прошлые_сутки": 950,
-    "рост_раз": 2.08,
+    "что": "NVIDIA",
+    "статей_сутки": 10189,
+    "статей_прошлые_сутки": 3907,
+    "рост_раз": 2.6,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.gazetteherald.co.uk/news/national/26718102.burnham-hails-gbp12bn-wind-farm-investment-prepares-cop31-climate-talks/",
-     "https://www.bicesteradvertiser.net/news/national/26718885.urgent-inquiries-threatening-email-sent-hundreds-schools-ni/",
-     "https://www.aol.co.uk/articles/scottish-man-killed-krakow-shooting-124616000.html"
+     "https://www.wutc.org/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal",
+     "https://www.echo-news.co.uk/news/national/26723050.firm-central-nvidia-chiefs-affair-scandal-pledges-cooperate-us-probe/",
+     "https://www.tspr.org/npr-news/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal"
     ]
    },
    {
-    "что": "DUBLIN",
-    "статей_сутки": 1593,
-    "статей_прошлые_сутки": 637,
-    "рост_раз": 2.46,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://wpde.com/news/nation-world/russia-ukraine-agree-to-major-pow-prisoner-of-war-swap-but-peace-talks-end-without-breakthrough-putin-zelenskyy-envoy-steve-witkoff-trump-son-in-law-jared-kushner-united-arab-emirates",
-     "https://www.royston-crow.co.uk/news/national/26721584.ukrainian-president-arrives-dublin-ahead-major-eu-presidency-event/",
-     "https://english.news.cn/europe/20261111/02ab3161a83d4c329653c71d1bd56fd5/c.html"
-    ]
-   },
-   {
-    "что": "NEW ORLEANS",
-    "статей_сутки": 812,
-    "статей_прошлые_сутки": 227,
-    "рост_раз": 3.37,
-    "типы": [
-     "переговоры",
-     "принуждение"
-    ],
-    "примеры": [
-     "https://www.republicanherald.com/2026/11/10/airplane-arrest-louisiana/",
-     "https://abc7ny.com/post/dhs-honduran-immigrant-living-bronx-accused-bomb-threat-newark-flight/20032606/",
-     "https://globalnews.ca/news/12146104/man-arrested-united-airlines-alleged-bomb-threat-newark-new-orleans/"
-    ]
-   },
-   {
-    "что": "страна: Belarus",
-    "статей_сутки": 769,
-    "статей_прошлые_сутки": 263,
-    "рост_раз": 2.79,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.delfi.lt/en/politics/drone-crossed-lithuanian-airspace-at-night-120332657",
-     "https://www.sb.by/en/lukashenko-on-danger-of-western-militarisation.html",
-     "https://www.novinite.com/articles/241544/European+Goods+Still+Reach+Russia+Through+Sanctions+Loopholes,+Report+Finds"
-    ]
-   },
-   {
-    "что": "страна: Cayman Islands",
-    "статей_сутки": 410,
-    "статей_прошлые_сутки": 63,
-    "рост_раз": 5.18,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://bworldonline.com/corporate/2026/11/11/793188/filinvest-development-plans-captive-insurer-in-cayman-islands/",
-     "https://caymannewsservice.com/2026/11/new-network-initiative-may-fuel-new-business/",
-     "https://www.jamaicaobserver.com/2026/11/11/reit-reform-gets-pms-ear/"
-    ]
-   },
-   {
-    "что": "страна: Turkmenistan",
-    "статей_сутки": 858,
-    "статей_прошлые_сутки": 389,
-    "рост_раз": 2.15,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.newscentralasia.net/2026/11/11/turkmenistan-delegation-attends-6th-hajj-conference-and-exhibition/",
-     "https://www.trend.az/casia/turkmenistan/4245252.html",
-     "https://timesca.com/rosatom-looking-for-customers-in-turkmenistan/"
-    ]
-   },
-   {
-    "что": "страна: Latvia",
-    "статей_сутки": 719,
-    "статей_прошлые_сутки": 295,
-    "рост_раз": 2.35,
-    "типы": [
-     "угрозы",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://abcnews.com/International/ukraine-russia-exchange-hundreds-drones-day-2-abu/story?id=138038984",
-     "https://www.theepochtimes.com/world/baltic-countries-issue-drone-warnings-as-ukraine-russia-exchange-strikes-overnight-6123608",
-     "https://www.delfi.lt/en/politics/drone-could-not-be-shot-down-over-built-up-area-military-official-120332665"
-    ]
-   },
-   {
-    "что": "POLISH",
-    "статей_сутки": 842,
-    "статей_прошлые_сутки": 399,
-    "рост_раз": 2.06,
-    "типы": [
-     "боевые действия",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://www.lancashiretelegraph.co.uk/news/national/26720043.scottish-dj-32-named-one-six-people-killed-krakow-shooting/",
-     "https://www.aol.co.uk/articles/scottish-man-killed-krakow-shooting-124616000.html",
-     "https://www.yorkpress.co.uk/news/26719490.york-teen-overwhelmed-support-krakow-shooting/"
-    ]
-   },
-   {
-    "что": "GENCORP",
-    "статей_сутки": 223,
-    "статей_прошлые_сутки": 0,
-    "рост_раз": 12.15,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.philstar.com/headlines/2026/11/12/2569529/witness-vp-got-p214-million-return-capital-gencorp",
-     "https://www.manilatimes.net/2026/11/12/news/defense-witness-lists-vps-davao-holdings/2467214",
-     "https://mindanews.com/top-stories/2026/11/gencorp-lawyer-says-vp-saras-saln-declaration-not-proof-of-ownership/"
-    ]
-   },
-   {
-    "что": "KENYAN",
-    "статей_сутки": 613,
-    "статей_прошлые_сутки": 253,
-    "рост_раз": 2.32,
-    "типы": [
-     "принуждение",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://punchng.com/kenya-discharges-last-ebola-patient/",
-     "https://observer.ug/news/how-thieving-workers-are-killing-businesses/",
-     "https://www.the-star.co.ke/news/2026-11-11-mps-pass-bill-to-ban-hospital-detention-of-patients-bodies"
-    ]
-   },
-   {
-    "что": "INDONESIAN",
-    "статей_сутки": 443,
-    "статей_прошлые_сутки": 125,
-    "рост_раз": 3.19,
-    "типы": [
-     "принуждение",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://wpde.com/news/nation-world/russia-ukraine-agree-to-major-pow-prisoner-of-war-swap-but-peace-talks-end-without-breakthrough-putin-zelenskyy-envoy-steve-witkoff-trump-son-in-law-jared-kushner-united-arab-emirates",
-     "https://en.antaranews.com/news/441835/indonesia-opens-convention-to-link-research-with-economic-development",
-     "https://econotimes.com/Ukraine-Reports-First-Indonesian-POW-as-Jakarta-Urges-Russia-to-Halt-Recruitment-1775086"
-    ]
-   },
-   {
-    "что": "SECURITY FORCE",
-    "статей_сутки": 619,
-    "статей_прошлые_сутки": 268,
-    "рост_раз": 2.22,
-    "типы": [
-     "боевые действия",
-     "принуждение"
-    ],
-    "примеры": [
-     "https://www.citizen.co.za/news/news-world/news-africa/end-to-tyranny-dr-congo-president-tshisekedi-opens-way-for-third-term-under-new-constitution/",
-     "https://www.jpost.com/middle-east/article-914584",
-     "https://www.jpost.com/middle-east/article-914581"
-    ]
-   },
-   {
-    "что": "REPUBLIC OF KOREA",
-    "статей_сутки": 232,
-    "статей_прошлые_сутки": 20,
-    "рост_раз": 6.3,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://thebftonline.com/article/mahama-to-launch-new-heritage-series-cedi-banknotes-on-nov-12",
-     "https://thebftonline.com/article/gra-collects-gh-185-5bn-by-october",
-     "https://thebftonline.com/article/gnpc-eyes-shared-infrastructure-model-to-unlock-stranded-oil-discoveries"
-    ]
-   },
-   {
-    "что": "страна: British Virgin Islands",
-    "статей_сутки": 232,
-    "статей_прошлые_сутки": 26,
+    "что": "BRAZILIAN",
+    "статей_сутки": 1262,
+    "статей_прошлые_сутки": 214,
     "рост_раз": 5.48,
     "типы": [
      "переговоры",
-     "неодобрение"
+     "намерения сотрудничать"
     ],
     "примеры": [
-     "https://economictimes.indiatimes.com/industry/energy/power/tata-power-says-no-provision-needed-for-650-million-kleros-award/articleshow/135747686.cms",
-     "https://www.radiocayman.gov.ky/news/island-territories-bring-practical-climate-finance-solutions-to-cop31",
-     "https://www.caribjournal.com/2026/11/10/caribbean-lobster-capital-scavenger-hunt/"
+     "https://www.thetelegraphandargus.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/",
+     "https://www.northwalespioneer.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/",
+     "https://www.islingtongazette.co.uk/news/national/26721888.burnham-commits-2050-net-zero-target-working-others-reach/"
     ]
    },
    {
-    "что": "APPEALS COURT",
-    "статей_сутки": 391,
-    "статей_прошлые_сутки": 140,
-    "рост_раз": 2.57,
+    "что": "FIREFIGHTER",
+    "статей_сутки": 1369,
+    "статей_прошлые_сутки": 630,
+    "рост_раз": 2.14,
     "типы": [
      "расследования",
-     "переговоры"
+     "помощь"
     ],
     "примеры": [
-     "https://www.clickorlando.com/business/2026/11/10/appeals-court-limits-order-for-linkedin-to-disclose-journalists-communications-in-leak-probe/",
-     "http://www.editorandpublisher.com/stories/appeals-court-rebukes-justice-dept-over-demand-for-journalists-linkedin-data,264450",
-     "https://www.herald-citizen.com/news/local/appeals-court-rules-that-putnam-county-is-proper-venue-for-methadone-clinic-challenge/article_024f24a7-56b4-5c80-b1b5-d16e85a5d53f.html"
+     "https://www.wyff4.com/article/brooklyn-building-collapses/74404444",
+     "https://nebraska.tv/news/nation-world/multiple-people-hurt-trapped-as-building-in-new-york-collapses-fdny-fire-department-firefighters-first-responders-emergency-crews-brooklyn",
+     "https://wjactv.com/news/nation-world/multiple-people-hurt-trapped-as-building-in-new-york-collapses-fdny-fire-department-firefighters-first-responders-emergency-crews-brooklyn"
     ]
    },
    {
-    "что": "CAYMAN ISLAND",
-    "статей_сутки": 222,
-    "статей_прошлые_сутки": 28,
-    "рост_раз": 5.04,
+    "что": "страна: Gaza Strip",
+    "статей_сутки": 566,
+    "статей_прошлые_сутки": 100,
+    "рост_раз": 4.88,
     "типы": [
      "переговоры",
-     "принуждение"
+     "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "https://www.jamaicaobserver.com/2026/11/11/reit-reform-gets-pms-ear/",
-     "https://caymannewsservice.com/2026/11/suspect-charged-with-conspiracy-to-murder/",
-     "https://www.radiocayman.gov.ky/news/island-territories-bring-practical-climate-finance-solutions-to-cop31"
+     "https://www.unrwa.org/what-we-do/key-areas-of-work/health",
+     "https://www.unrwa.org/news-reports/notes/unrwa-reaches-over-141000-children-gaza-self-learning-materials-support-their",
+     "https://www.mainlinemedianews.com/2026/11/12/israel-gaza-hospital-strike-mideast-news/"
     ]
    },
    {
-    "что": "SAINT HELENA",
-    "статей_сутки": 160,
-    "статей_прошлые_сутки": 0,
-    "рост_раз": 9.0,
-    "типы": [
-     "переговоры"
-    ],
-    "примеры": [
-     "https://www.radiocayman.gov.ky/news/island-territories-bring-practical-climate-finance-solutions-to-cop31"
-    ]
-   },
-   {
-    "что": "страна: French Polynesia",
-    "статей_сутки": 207,
-    "статей_прошлые_сутки": 23,
-    "рост_раз": 5.28,
+    "что": "WALL STREET JOURNAL",
+    "статей_сутки": 852,
+    "статей_прошлые_сутки": 345,
+    "рост_раз": 2.39,
     "типы": [
      "переговоры",
      "намерения сотрудничать"
     ],
     "примеры": [
-     "https://www.radiocayman.gov.ky/news/island-territories-bring-practical-climate-finance-solutions-to-cop31",
-     "https://westsidetoday.com/2026/11/11/near-miss-at-los-angeles-international-airport-prompts-faa-inquiry/",
-     "https://www.cruisehive.com/norwegian-spirit-drops-fiji-island-stop-and-trims-four-south-pacific-port-calls/223327"
+     "https://www.wsbradio.com/news/politics/trump-bluntly-tells/JTIYWBCGPY345CAZRZPERWD2GM/",
+     "http://www.theuknews.com/news/279424210/iran-threat-prompts-us-to-move-aircraft-out-of-uk-airbase",
+     "https://www.bankingnews.gr/diethni/articles/910606/you-will-not-escape-iran-shock-our-missiles-will-hit-europe-forget-hormuz-israel-ready-for-attack-2-war-plans"
     ]
    },
    {
-    "что": "DOHA",
-    "статей_сутки": 429,
-    "статей_прошлые_сутки": 182,
-    "рост_раз": 2.22,
+    "что": "LIMA",
+    "статей_сутки": 461,
+    "статей_прошлые_сутки": 93,
+    "рост_раз": 4.26,
     "типы": [
      "переговоры",
-     "призывы"
+     "намерения сотрудничать"
     ],
     "примеры": [
-     "https://www.prnewswire.com/news-releases/gsma-mwc26-doha-welcomed-over-10-000-attendees-as-world-first-itu-co-location-puts-mena-at-the-centre-of-global-connectivity-policy-and-innovation-302935636.html",
-     "https://www.islamicinvitationturkey.com/iran-proposes-global-digital-resilience-corridors-initiative-at-itu-conference/",
-     "http://thepeninsulaqatar.com/article/11/11/2026/qatar-media-corporation-chairman-meets-djiboutis-communication-minister"
+     "https://www.pressdemocrat.com/2026/11/12/pope-leo-denounces-machismo-peru/",
+     "https://www.myspiritfm.com/News?view=post&blogid=Catholic%2DNews&articleid=307239",
+     "https://aninews.in/news/world/others/pope-leo-xiv-returns-to-peru-to-big-welcome-calls-it-his-homeland20261112132147/"
     ]
    },
    {
-    "что": "TAMPA",
-    "статей_сутки": 351,
-    "статей_прошлые_сутки": 124,
-    "рост_раз": 2.58,
+    "что": "NASSER",
+    "статей_сутки": 342,
+    "статей_прошлые_сутки": 35,
+    "рост_раз": 6.58,
     "типы": [
-     "принуждение",
-     "переговоры"
+     "боевые действия",
+     "нападения"
     ],
     "примеры": [
-     "https://www.wapt.com/article/thomas-markle-ankle-monitor-arrest-child-sexual-abuse-material/74391144",
-     "https://www.mynbc5.com/article/thomas-markle-ankle-monitor-arrest-child-sexual-abuse-material/74391144",
-     "https://www.batemansbaypost.com.au/story/9389534/thomas-markle-cut-off-his-electronic-ankle-monitor/"
+     "https://www.christianpost.com/news/idf-strikes-gaza-hospital-targeting-hamas-brigade-commander.html",
+     "https://www.winnipegfreepress.com/arts-and-life/life/health/2026/11/12/an-israeli-strike-on-a-hospital-highlights-the-devastation-to-gazas-healthcare-system",
+     "https://www.middleeasteye.net/live-blog/live-blog-update/11-palestinians-killed-dawn"
     ]
    },
    {
-    "что": "страна: Moldova",
-    "статей_сутки": 414,
-    "статей_прошлые_сутки": 180,
-    "рост_раз": 2.17,
+    "что": "страна: Uruguay",
+    "статей_сутки": 442,
+    "статей_прошлые_сутки": 92,
+    "рост_раз": 4.12,
     "типы": [
      "переговоры",
-     "дипломатическое сотрудничество"
+     "намерения сотрудничать"
     ],
     "примеры": [
-     "http://www.nepalnational.com/news/279425928/dr-abhishek-verma-and-ambassador-at-large-anca-verma-host-moldova-state-secretary-for-foreign-affairs-in-new-delhi",
-     "https://euobserver.com/247967/war-of-propaganda-russia-calls-ukraine-a-burden-and-uses-moldova-as-a-testing-ground-to-sabotage-eu-enlargement/",
-     "https://www.prokerala.com/news/articles/a1835499.html"
+     "https://www.rte.ie/news/2026/1112/1598902-pope-peru-tour/",
+     "https://www.justiceinfo.net/en/168346-peruvian-pope-makes-jubilant-return-to-homeland.html",
+     "https://prospect.org/2026/11/11/blue-wave-doesnt-substitute-for-voting-rights-act/"
     ]
    },
    {
-    "что": "MILITARY BASE",
-    "статей_сутки": 320,
-    "статей_прошлые_сутки": 110,
-    "рост_раз": 2.62,
+    "что": "KABUL",
+    "статей_сутки": 375,
+    "статей_прошлые_сутки": 57,
+    "рост_раз": 5.13,
     "типы": [
-     "угрозы",
-     "переговоры"
+     "переговоры",
+     "материальное сотрудничество"
     ],
     "примеры": [
-     "https://whnz.iheart.com/content/2026-11-11-scott-bessent-moved-to-military-base-after-reported-threats/",
-     "https://vocm.com/2026/11/11/316370/",
-     "https://kilgorenewsherald.com/2026/11/11/serving-those-who-serve-why-every-texas-school-should-stand-up-for-military-children/"
+     "https://www.niagarafallsreview.ca/business/russian-delegation-visits-afghanistan-to-discuss-trade-and-investment-with-the-taliban/article_971a9305-0abf-533e-b72e-abf25a74031e.html",
+     "https://www.siliconindia.com/news/general/kabul-chawla-the-vision-behind-bptps-growth-nid-243080-cid-1.html",
+     "https://econotimes.com/Afghan-Olive-Growers-Expand-a-Cash-Crop-as-Water-Scarcity-Deepens-1775828"
     ]
    },
    {
-    "что": "страна: Guinea",
-    "статей_сутки": 306,
-    "статей_прошлые_сутки": 102,
-    "рост_раз": 2.67,
-    "типы": [
-     "заявления",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.outdoorlife.com/hunting/wwii-veterans-duck-hunt-new-guinea/",
-     "https://www.mining.com/simandous-120mtpa-export-target-faces-logistics-test/",
-     "https://blueprint.ng/guinea-prime-minister-opens-wapp-assembly-calls-for-regional-electricity-over-national-isolation/"
-    ]
-   },
-   {
-    "что": "страна: Benin",
-    "статей_сутки": 370,
-    "статей_прошлые_сутки": 153,
-    "рост_раз": 2.25,
+    "что": "ARNHEM",
+    "статей_сутки": 239,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 12.95,
     "типы": [
      "переговоры",
      "принуждение"
     ],
     "примеры": [
-     "https://www.vanguardngr.com/2026/11/nearly-64000-nigerians-flee-to-niger-over-insecurity-unhcr/",
-     "https://punchng.com/edo-gov-promises-traders-free-shop-allocation-at-renovated-market/",
-     "https://www.timesofearth.com/2026/11/11/violence-in-northern-nigeria-drives-tens-of-thousands-into-niger/"
+     "https://www.singletonargus.com.au/story/9385636/east-arnhem-land-travel-shift-how-remote-region-opens-up/",
+     "https://www.bordermail.com.au/story/9385636/east-arnhem-land-travel-shift-how-remote-region-opens-up/",
+     "https://aviationweek.com/space/budget-policy-regulation/making-it-real-bringing-australias-space-vision-fruition"
+    ]
+   },
+   {
+    "что": "страна: Guatemala",
+    "статей_сутки": 490,
+    "статей_прошлые_сутки": 133,
+    "рост_раз": 3.33,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wpr.org/news/fond-du-lac-pastor-cant-come-home-still-preaching-guatemala",
+     "https://www.santamariasun.com/food/eats/print-2026-11-12-eats-glorificate-11-12/",
+     "https://www.greaterbelize.com/another-sarstoon-showdown-is-belizes-diplomatic-approach-enough/"
+    ]
+   },
+   {
+    "что": "страна: Lesotho",
+    "статей_сутки": 389,
+    "статей_прошлые_сутки": 72,
+    "рост_раз": 4.45,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://lestimes.com/?p=92056",
+     "https://www.mediacentre.go.ug/press-room/lesotho-to-purchase-20-kiira-motors-buses-as-president-museveni-pledges-five-more",
+     "https://groundup.org.za/article/lesotho-journalist-in-hiding-brings-constitutional-challenge/"
+    ]
+   },
+   {
+    "что": "LULA DA SILVA",
+    "статей_сутки": 429,
+    "статей_прошлые_сутки": 102,
+    "рост_раз": 3.68,
+    "типы": [
+     "намерения сотрудничать",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.thetelegraphandargus.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/",
+     "https://www.northwalespioneer.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/",
+     "https://www.islingtongazette.co.uk/news/national/26721888.burnham-commits-2050-net-zero-target-working-others-reach/"
+    ]
+   },
+   {
+    "что": "PRESS ASSOCIATION",
+    "статей_сутки": 363,
+    "статей_прошлые_сутки": 68,
+    "рост_раз": 4.35,
+    "типы": [
+     "заявления",
+     "призывы"
+    ],
+    "примеры": [
+     "https://www.huntspost.co.uk/news/national/26723768.pairs-spying-conviction-shows-iranian-intelligence-willing-use-proxies---cps/",
+     "https://www.gazetteherald.co.uk/news/national/26721749.crooked-funeral-director-robert-bush-bid-appeal-prison-sentence/",
+     "https://www.islingtongazette.co.uk/news/national/26721963.jamie-dornan-says-executive-producing-new-heist-series-a-big-responsibility/"
+    ]
+   },
+   {
+    "что": "EUROPEAN UNION",
+    "статей_сутки": 555,
+    "статей_прошлые_сутки": 219,
+    "рост_раз": 2.41,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/",
+     "http://www.dailyadvance.com/news/world/dutch-coalition-near-collapse-as-1-party-is-upset-over-tax-deal-with-opposition/article_f457bd43-72df-5637-951a-677658a35c89.html",
+     "https://www.nugget.ca/press-releases/globe-newswire/medipharm-labs-reports-q3-2026-results-with-second-consecutive-quarter-of-positive-net-income-and-18-sequential-revenue-growth/"
+    ]
+   },
+   {
+    "что": "URSULA VON DER LEYEN",
+    "статей_сутки": 253,
+    "статей_прошлые_сутки": 20,
+    "рост_раз": 6.83,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.glasgowtimes.co.uk/news/national/26725147.pm-pledges-support-ukraine-peace-talks-pushes-european-access/",
+     "https://www.euronews.com/2026/11/12/commission-set-to-approve-hungarys-10bn-in-post-pandemic-recovery-fund-next-week",
+     "https://www.dailymail.com/news/article-16287117/frosty-welcome-Macron-Iceland-PM-Kristrun-Frostadottir.html"
+    ]
+   },
+   {
+    "что": "страна: Burkina Faso",
+    "статей_сутки": 259,
+    "статей_прошлые_сутки": 25,
+    "рост_раз": 6.2,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.africanews.com/2026/11/12/trial-of-more-than-1200-people-accused-of-illegal-gold-mining-opens-in-conakry/",
+     "https://www.riotimesonline.com/nigeria-adc-cash-gifts-apc-probe-request/",
+     "https://www.riotimesonline.com/burkina-receives-26624-expelled-from-guinea/"
+    ]
+   },
+   {
+    "что": "WAR MACHINE",
+    "статей_сутки": 197,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 10.85,
+    "типы": [
+     "помощь",
+     "ухудшение отношений (санкции, разрыв)"
+    ],
+    "примеры": [
+     "https://www.stourbridgenews.co.uk/news/national/26725532.pm-not-reading-much-ukraine-peace-talks-urges-focus-ceasefire/",
+     "http://www.thegazette.com/news/world/ireland-faces-pressure-to-stop-sending-russia-an-ingredient-vital-to-its-war-on-ukraine/article_5b0c403a-e5af-58e1-92b3-4ae977b1f313.html",
+     "https://www.mirror.co.uk/news/politics/andy-burnham-russia-ukraine-epc-37870960"
+    ]
+   },
+   {
+    "что": "BOSTON",
+    "статей_сутки": 547,
+    "статей_прошлые_сутки": 222,
+    "рост_раз": 2.34,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://fansided.com/mlb/grading-each-of-espn-s-perfect-mlb-free-agency-moves-including-skubal-to-the-mets",
+     "https://www.elle.com/fashion/shopping/a74208074/how-to-style-birkenstock-clogs-outfits/",
+     "https://www.boston.com/news/local-news/2026/11/12/ed-flynn-has-a-new-challenger-for-his-boston-city-council-seat/"
+    ]
+   },
+   {
+    "что": "страна: Mali",
+    "статей_сутки": 393,
+    "статей_прошлые_сутки": 109,
+    "рост_раз": 3.2,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://pjmedia.com/catherinesalgado/2026/11/12/twice-deported-bomb-threatening-alien-claimed-transgenderism-to-get-asylum-n4959278",
+     "https://www.africanews.com/2026/11/12/africa-investment-projects-rise-amid-lower-fdi-business-africa/",
+     "https://www.riotimesonline.com/burkina-receives-26624-expelled-from-guinea/"
+    ]
+   },
+   {
+    "что": "BARCELONA",
+    "статей_сутки": 574,
+    "статей_прошлые_сутки": 253,
+    "рост_раз": 2.18,
+    "типы": [
+     "боевые действия",
+     "протесты"
+    ],
+    "примеры": [
+     "https://kprcradio.iheart.com/content/2026-11-11-clashes-erupt-in-spain-amid-general-strike/",
+     "https://wrak.iheart.com/content/2026-11-11-clashes-erupt-in-spain-amid-general-strike/",
+     "https://pragativadi.com/spain-shaken-by-nationwide-general-strike-as-housing-crisis-sparks-violent-clashes/"
+    ]
+   },
+   {
+    "что": "страна: Mongolia",
+    "статей_сутки": 288,
+    "статей_прошлые_сутки": 50,
+    "рост_раз": 4.4,
+    "типы": [
+     "переговоры",
+     "боевые действия"
+    ],
+    "примеры": [
+     "http://www.stardem.com/ap/world/mongolia-protests-malaysia-s-handling-of-a-20-year-old-murder-case/article_7034a314-eaaf-5349-b1a8-ad38071802a3.html",
+     "https://www.fairobserver.com/region/europe/why-king-charles-wont-apologize-for-slavery/",
+     "https://timesca.com/uzbekistan-livestock-adb-60-million-loan/"
+    ]
+   },
+   {
+    "что": "страна: Dominica",
+    "статей_сутки": 206,
+    "статей_прошлые_сутки": 10,
+    "рост_раз": 7.53,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.riotimesonline.com/dominica-skerrit-defends-citizenship-by-investment-eu-2026/",
+     "https://www.kake.com/news/national/a-gay-sex-ban-is-overturned-in-trinidad-and-tobago-what-the-ruling-says-about/article_1994ce2d-0ec1-588c-b182-9560b02a877e.html",
+     "https://www.cruisehive.com/untouched-bed-sparks-search-for-missing-marella-voyager-guest/223429"
+    ]
+   },
+   {
+    "что": "SAMSUNG",
+    "статей_сутки": 437,
+    "статей_прошлые_сутки": 165,
+    "рост_раз": 2.47,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.morningstar.com/stocks/roco/5483/analysis",
+     "https://phandroid.com/2026/11/12/samsungs-answer-to-metas-ray-bans-finally-has-a-date-and-a-price/",
+     "https://www.zdnet.com/article/most-popular-products-from-our-readers-2026-black-friday/"
+    ]
+   },
+   {
+    "что": "SURGEON",
+    "статей_сутки": 289,
+    "статей_прошлые_сутки": 64,
+    "рост_раз": 3.68,
+    "типы": [
+     "боевые действия",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.dailymail.com/news/article-16287929/surgeon-nyc-rape-gunpoint-court.html",
+     "https://www.cubaheadlines.com/articles/345545",
+     "https://targetednews.com/pr_disp.php?pr_id=9836232"
     ]
    }
   ]
  },
  "wiki": {
   "источник": "просмотры Википедии (Wikimedia), en",
-  "день": "2026-11-10",
+  "день": "2026-11-11",
   "резко_выросло": [
    {
-    "статья": "David Walliams",
-    "просмотров_вчера": 512804,
-    "позавчера": 32765,
-    "рост_раз": 15.22
-   },
-   {
-    "статья": "Lara Stone",
-    "просмотров_вчера": 139117,
+    "статья": "Stacy Keach",
+    "просмотров_вчера": 562990,
     "позавчера": 0,
-    "рост_раз": 140.12
+    "рост_раз": 563.99
    },
    {
-    "статья": "Kirk Cousins",
-    "просмотров_вчера": 136900,
+    "статья": "James Keach",
+    "просмотров_вчера": 99527,
     "позавчера": 0,
-    "рост_раз": 137.9
+    "рост_раз": 100.53
    },
    {
-    "статья": "Carson Wentz",
-    "просмотров_вчера": 158702,
-    "позавчера": 8253,
-    "рост_раз": 17.26
-   },
-   {
-    "статья": "Adrian Peterson",
-    "просмотров_вчера": 82217,
+    "статья": "Children's Games (Bruegel)",
+    "просмотров_вчера": 75596,
     "позавчера": 0,
-    "рост_раз": 83.22
+    "рост_раз": 76.6
    },
    {
-    "статья": "SS Edmund Fitzgerald",
-    "просмотров_вчера": 163598,
-    "позавчера": 24535,
-    "рост_раз": 6.45
-   },
-   {
-    "статья": "Jim Jordan",
-    "просмотров_вчера": 61400,
+    "статья": "Harry Shum Jr.",
+    "просмотров_вчера": 73654,
     "позавчера": 0,
-    "рост_раз": 62.4
+    "рост_раз": 74.65
    },
    {
-    "статья": "Survivor Series: WarGames (2026)",
-    "просмотров_вчера": 82896,
-    "позавчера": 13030,
-    "рост_раз": 5.98
+    "статья": "Dancing with the Stars (American TV series) season 35",
+    "просмотров_вчера": 144202,
+    "позавчера": 16470,
+    "рост_раз": 8.31
    },
    {
-    "статья": "Pawan Kalyan",
-    "просмотров_вчера": 73740,
-    "позавчера": 14335,
-    "рост_раз": 4.87
+    "статья": "VisionQuest",
+    "просмотров_вчера": 240738,
+    "позавчера": 71375,
+    "рост_раз": 3.34
    },
    {
-    "статья": "The End of Everything (Harrison novel)",
-    "просмотров_вчера": 80691,
-    "позавчера": 19813,
-    "рост_раз": 3.92
+    "статья": "Danny Kelly (journalist)",
+    "просмотров_вчера": 64926,
+    "позавчера": 0,
+    "рост_раз": 65.93
    },
    {
-    "статья": "Josh Allen",
-    "просмотров_вчера": 58820,
-    "позавчера": 10107,
-    "рост_раз": 5.39
+    "статья": "Usman Nurmagomedov",
+    "просмотров_вчера": 62847,
+    "позавчера": 0,
+    "рост_раз": 63.85
+   },
+   {
+    "статья": "Jenna Dewan",
+    "просмотров_вчера": 59297,
+    "позавчера": 0,
+    "рост_раз": 60.3
+   },
+   {
+    "статья": "Tatyana Ali",
+    "просмотров_вчера": 51410,
+    "позавчера": 0,
+    "рост_раз": 52.41
+   },
+   {
+    "статья": "SS United States",
+    "просмотров_вчера": 117540,
+    "позавчера": 21728,
+    "рост_раз": 5.22
+   },
+   {
+    "статья": "Kaviya Maran",
+    "просмотров_вчера": 101460,
+    "позавчера": 16325,
+    "рост_раз": 5.91
    },
    {
     "статья": "Mauricio Pochettino",
-    "просмотров_вчера": 73306,
-    "позавчера": 20220,
-    "рост_раз": 3.5
+    "просмотров_вчера": 186714,
+    "позавчера": 73306,
+    "рост_раз": 2.53
    },
    {
-    "статья": "Toukie Smith",
-    "просмотров_вчера": 73111,
-    "позавчера": 23706,
-    "рост_раз": 3.0
+    "статья": "Lucy Beaumont (comedian)",
+    "просмотров_вчера": 87015,
+    "позавчера": 14403,
+    "рост_раз": 5.71
    },
    {
-    "статья": "M. John Harrison",
-    "просмотров_вчера": 53336,
-    "позавчера": 17007,
-    "рост_раз": 3.02
+    "статья": "Anirudh Ravichander",
+    "просмотров_вчера": 82456,
+    "позавчера": 15246,
+    "рост_раз": 5.14
    },
    {
-    "статья": "Lauren Boebert",
-    "просмотров_вчера": 78977,
-    "позавчера": 37803,
-    "рост_раз": 2.06
+    "статья": "The Lord of the Rings: The Rings of Power season 3",
+    "просмотров_вчера": 53372,
+    "позавчера": 8592,
+    "рост_раз": 5.67
+   },
+   {
+    "статья": "Veterans Day",
+    "просмотров_вчера": 70250,
+    "позавчера": 19633,
+    "рост_раз": 3.45
+   },
+   {
+    "статья": "Scott Colom",
+    "просмотров_вчера": 80972,
+    "позавчера": 28362,
+    "рост_раз": 2.79
+   },
+   {
+    "статья": "Armistice Day",
+    "просмотров_вчера": 55444,
+    "позавчера": 12673,
+    "рост_раз": 4.13
+   },
+   {
+    "статья": "Remembrance Day",
+    "просмотров_вчера": 69315,
+    "позавчера": 23257,
+    "рост_раз": 2.9
+   },
+   {
+    "статья": "Avengers: Doomsday",
+    "просмотров_вчера": 57477,
+    "позавчера": 23643,
+    "рост_раз": 2.37
    }
   ]
  },
@@ -858,154 +897,154 @@
   "источник": "NewsAPI.ai (EventRegistry), крупнейшие события суток",
   "события": [
    {
-    "событие": "Why U.S. Business Deals Are Unlikely to Get Putin to Give Any Ground",
-    "статей": 2125,
-    "дата": "2026-11-10",
-    "uri": "eng-12174789"
+    "событие": "Nvidia Stock Just Got Downgraded After Jensen Huang's Exit. Should You Sell?",
+    "статей": 4331,
+    "дата": "2026-11-11",
+    "uri": "spa-4411583"
    },
    {
-    "событие": "The Evening: House Republicans Shelve Hegseth Impeachment",
-    "статей": 1102,
-    "дата": "2026-11-10",
-    "uri": "eng-12175519"
+    "событие": "Live Updates: Jensen Huang Resigns From Nvidia After Affairs",
+    "статей": 2561,
+    "дата": "2026-11-11",
+    "uri": "eng-12173424"
    },
    {
-    "событие": "The A.I. Spy Thriller",
-    "статей": 1021,
-    "дата": "2026-11-10",
-    "uri": "eng-12172093"
+    "событие": "What We Know About the Victims of the Brooklyn Building Collapse",
+    "статей": 1195,
+    "дата": "2026-11-11",
+    "uri": "eng-12180779"
    },
    {
-    "событие": "Israeli opposition hurries to seize control as new Knesset is sworn in",
-    "статей": 874,
-    "дата": "2026-11-10",
-    "uri": "eng-12176432"
-   },
-   {
-    "событие": "David Walliams, UK Celebrity, Is Accused of Sexual Misconduct",
-    "статей": 845,
-    "дата": "2026-11-10",
-    "uri": "eng-12175455"
-   },
-   {
-    "событие": "Bomb alerts sent to schools in Italy and Northern Ireland in latest threats",
-    "статей": 536,
+    "событие": "Schools in Italy, Scotland and Northern Ireland hit by threats in suspected bomb hoax",
+    "статей": 917,
     "дата": "2026-11-11",
     "uri": "eng-12179001"
    },
    {
-    "событие": "Hegseth to Speak as He Faces Possible Impeachment Vote: Live Updates",
-    "статей": 453,
-    "дата": "2026-11-10",
-    "uri": "eng-12173642"
-   },
-   {
-    "событие": "Stacy Keach, Actor Who Embodied Hamlet and Mike Hammer, Dies at 85",
-    "статей": 430,
+    "событие": "How The Times Covered Mississippi's Senate Race, Which Unexpectedly Became a Nail-Biter",
+    "статей": 832,
     "дата": "2026-11-11",
-    "uri": "eng-12177651"
+    "uri": "eng-12177142"
    },
    {
-    "событие": "In Interview, Sonia Gandhi Recalls Love and Loss in India",
-    "статей": 428,
-    "дата": "2026-11-10",
-    "uri": "eng-12174542"
-   },
-   {
-    "событие": "At least 11 dead after motorway pile-ups in Bulgaria fog",
-    "статей": 412,
-    "дата": "2026-11-10",
-    "uri": "eng-12175021"
-   },
-   {
-    "событие": "US soldier accused of espionage linked to Russia arrested by British terror police",
-    "статей": 365,
-    "дата": "2026-11-10",
-    "uri": "eng-12176887"
-   },
-   {
-    "событие": "Merz accused of 'blackmail' by Slovakian PM after demand for Ukraine aid in EU budget",
-    "статей": 364,
-    "дата": "2026-11-10",
-    "uri": "rus-2158463"
-   },
-   {
-    "событие": "Reported Iran threat sees U.S. moves planes from second U.K. base",
-    "статей": 331,
-    "дата": "2026-11-10",
-    "uri": "eng-12174805"
+    "событие": "Pope Leo XIV Goes Home to Peru, Meeting Ghosts of His Past",
+    "статей": 594,
+    "дата": "2026-11-11",
+    "uri": "spa-4410947"
    },
    {
     "событие": "Spain sees widespread disruption in first general strike for 14 years",
-    "статей": 325,
+    "статей": 558,
     "дата": "2026-11-11",
     "uri": "eng-12177264"
    },
    {
-    "событие": "Bessent Moved to Military Base In Wake of Iranian Threats",
-    "статей": 321,
+    "событие": "Soldier Shouts Toward Hegseth to Show 'Respect' at Tomb of the Unknown Soldier",
+    "статей": 521,
     "дата": "2026-11-11",
-    "uri": "eng-12177666"
-   },
-   {
-    "событие": "Trump's Iran War draws 'disaster' warning from American veterans",
-    "статей": 305,
-    "дата": "2026-11-10",
-    "uri": "eng-12175640"
-   },
-   {
-    "событие": "Anthropic IPO: Here's What Betting Markets Are Predicting After the AI Correction",
-    "статей": 304,
-    "дата": "2026-11-10",
-    "uri": "eng-12174136"
-   },
-   {
-    "событие": "As Jim Jordan prepares to lead House Republicans, his Jan. 6 record is relevant anew",
-    "статей": 301,
-    "дата": "2026-11-10",
-    "uri": "eng-12175083"
-   },
-   {
-    "событие": "Coachella 2027: Dua Lipa set to be first female British headliner",
-    "статей": 300,
-    "дата": "2026-11-11",
-    "uri": "eng-12175095"
+    "uri": "eng-12180613"
    },
    {
     "событие": "Russia's ambassador to the United States dies, aged 66",
-    "статей": 295,
+    "статей": 486,
     "дата": "2026-11-11",
     "uri": "eng-12180058"
    },
    {
-    "событие": "NFL trade deadline winners, losers: Vikings find QB, Jags go all-in, Jonathan Taylor stranded",
-    "статей": 283,
-    "дата": "2026-11-10",
-    "uri": "eng-12175540"
+    "событие": "Stacy Keach, Actor Who Embodied Hamlet and Mike Hammer, Dies at 85",
+    "статей": 483,
+    "дата": "2026-11-11",
+    "uri": "eng-12177651"
    },
    {
-    "событие": "What's next for Endrick at Real Madrid? Might he leave in January?",
-    "статей": 275,
-    "дата": "2026-11-10",
-    "uri": "por-1362810"
+    "событие": "Is Outlook down? Widespread outage hits Microsoft and OpenAI",
+    "статей": 467,
+    "дата": "2026-11-12",
+    "uri": "eng-12183779"
    },
    {
     "событие": "'Fight Harder,' U.N. Chief António Guterres Implores, Rousing Climate Ambassadors at COP31",
-    "статей": 274,
-    "дата": "2026-11-10",
+    "статей": 443,
+    "дата": "2026-11-11",
     "uri": "eng-12175953"
    },
    {
-    "событие": "Hardik-Arshdeep trade officially confirmed as MI, PBKS complete swap",
-    "статей": 268,
-    "дата": "2026-11-10",
-    "uri": "eng-12174590"
+    "событие": "Who Is Colette Kress, the Interim Nvidia CEO Replacing Jensen Huang?",
+    "статей": 435,
+    "дата": "2026-11-12",
+    "uri": "eng-12182876"
+   },
+   {
+    "событие": "General strike over housing brings out tens of thousands in Spain",
+    "статей": 433,
+    "дата": "2026-11-11",
+    "uri": "spa-4413129"
+   },
+   {
+    "событие": "Coachella 2027: Dua Lipa set to be first female British headliner",
+    "статей": 400,
+    "дата": "2026-11-11",
+    "uri": "eng-12175095"
+   },
+   {
+    "событие": "Possible scenarios before the Italy clash: what does Zidane need to qualify at the top?",
+    "статей": 377,
+    "дата": "2026-11-11",
+    "uri": "spa-4413416"
    },
    {
     "событие": "Iran Lists Argentina's Navy, Air Force As 'Terrorist Organisations'",
-    "статей": 264,
+    "статей": 342,
     "дата": "2026-11-11",
     "uri": "spa-4413221"
+   },
+   {
+    "событие": "Hardik-Arshdeep trade officially confirmed as MI, PBKS complete swap",
+    "статей": 337,
+    "дата": "2026-11-11",
+    "uri": "eng-12174590"
+   },
+   {
+    "событие": "Trump threatens to double tariffs on Mexico if migrant caravans not stopped",
+    "статей": 324,
+    "дата": "2026-11-12",
+    "uri": "spa-4414997"
+   },
+   {
+    "событие": "Warriors' Stephen Curry to be re-evaluated in 2 weeks after MRI reveals oblique abdominal tear",
+    "статей": 313,
+    "дата": "2026-11-11",
+    "uri": "eng-12175924"
+   },
+   {
+    "событие": "1 dead, 4 injured, in Washington, DC, after shooting",
+    "статей": 311,
+    "дата": "2026-11-12",
+    "uri": "eng-12182910"
+   },
+   {
+    "событие": "Video | Midcap, Smallcap Or Largecap? Where Mutual Fund Money Is Flowing Now",
+    "статей": 307,
+    "дата": "2026-11-11",
+    "uri": "eng-12172775"
+   },
+   {
+    "событие": "Frankie Muniz Breaks His Silence on Being Hospitalized After Crash at Daytona International Speedway",
+    "статей": 303,
+    "дата": "2026-11-11",
+    "uri": "eng-12180707"
+   },
+   {
+    "событие": "Zelenskiy says Starshield speed limited again, hampering Ukraine's defences",
+    "статей": 300,
+    "дата": "2026-11-12",
+    "uri": "eng-12182132"
+   },
+   {
+    "событие": "Rising Star Reveals Surprising New UFC Contract Policy After Undefeated UFC Run",
+    "статей": 271,
+    "дата": "2026-11-11",
+    "uri": "rus-2159483"
    }
   ]
  }
