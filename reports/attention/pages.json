@@ -13,6 +13,13 @@
   "как": "имя компании → название страницы, просмотры есть",
   "проверено": "2026-11-09"
  },
+ "AAP.US": {
+  "name": "Advance Auto Parts Inc",
+  "page": "Advance_Auto_Parts",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
  "AAPL.US": {
   "name": "Apple Inc.",
   "page": "Apple",
@@ -3978,5 +3985,978 @@
   "type": "Common Stock",
   "как": "имя компании → название страницы, просмотры есть",
   "проверено": "2026-11-12"
+ },
+ "S.US": {
+  "name": "SentinelOne Inc",
+  "page": "SentinelOne",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SAIC.US": {
+  "name": "Science Applications International Corporation Common Stock",
+  "page": "Science_Applications_International",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SAN.US": {
+  "name": "Banco Santander SA ADR",
+  "page": "Banco_Santander",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SARK.US": {
+  "name": "Tuttle Capital Short Innovation ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SATL.US": {
+  "name": "Satellogic V Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SB.US": {
+  "name": "Safe Bulkers Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SBAC.US": {
+  "name": "SBA Communications Corp",
+  "page": "SBA_Communications",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SBLK.US": {
+  "name": "Star Bulk Carriers Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SBSW.US": {
+  "name": "Sibanye Gold Ltd ADR",
+  "page": "Sibanye_Gold",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SBUX.US": {
+  "name": "Starbucks Corporation",
+  "page": "Starbucks",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SCCO.US": {
+  "name": "Southern Copper Corporation",
+  "page": "Southern_Copper",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SCHD.US": {
+  "name": "Schwab U.S. Dividend Equity ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SCHH.US": {
+  "name": "Schwab U.S. REIT ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SCHW.US": {
+  "name": "Charles Schwab Corp",
+  "page": "Charles_Schwab",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SCO.US": {
+  "name": "ProShares UltraShort Bloomberg Crude Oil",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SEDG.US": {
+  "name": "SolarEdge Technologies Inc",
+  "page": "SolarEdge",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SGOV.US": {
+  "name": "iShares 0-3 Month Treasury Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SHEL.US": {
+  "name": "Shell PLC ADR",
+  "page": "Shell",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SHV.US": {
+  "name": "iShares 0–1 Year Treasury Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SHY.US": {
+  "name": "iShares 1-3 Year Treasury Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SIEGY.US": {
+  "name": "Siemens AG ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SIGI.US": {
+  "name": "Selective Insurance Group, Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SIL.US": {
+  "name": "Global X Silver Miners ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SILJ.US": {
+  "name": "Amplify Junior Silver Miners ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SITM.US": {
+  "name": "Sitime Corporation",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SIVR.US": {
+  "name": "abrdn Physical Silver Shares ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SLB.US": {
+  "name": "SLB N.V.",
+  "page": "SLB",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SLM.US": {
+  "name": "SLM Corp",
+  "page": "SLM",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SLV.US": {
+  "name": "iShares Silver Trust",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SMCI.US": {
+  "name": "Super Micro Computer Inc",
+  "page": "Super_Micro_Computer",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SMFG.US": {
+  "name": "Sumitomo Mitsui Financial Group Inc",
+  "page": "Sumitomo_Mitsui_Financial",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SMG.US": {
+  "name": "Scotts Miracle-Gro Company",
+  "page": "Scotts_Miracle-Gro_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SMH.US": {
+  "name": "VanEck Semiconductor ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SMIN.US": {
+  "name": "iShares MSCI India Small-Cap ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SMR.US": {
+  "name": "Nuscale Power Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SNPS.US": {
+  "name": "Synopsys Inc",
+  "page": "Synopsys",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SOFI.US": {
+  "name": "SoFi Technologies Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SONY.US": {
+  "name": "Sony Group Corp",
+  "page": "Sony_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SOXX.US": {
+  "name": "iShares Semiconductor ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SPCE.US": {
+  "name": "Virgin Galactic Holdings Inc",
+  "page": "Virgin_Galactic",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SPCX.US": {
+  "name": "Space Exploration Technologies Corp. Class A Common Stock",
+  "page": "Space_Exploration_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SPG.US": {
+  "name": "Simon Property Group Inc",
+  "page": "Simon_Property_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SPGI.US": {
+  "name": "S&P Global Inc",
+  "page": "S&P_Global",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SPLV.US": {
+  "name": "Invesco S&P 500® Low Volatility ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SPY.US": {
+  "name": "State Street® SPDR® S&P 500® ETF Trust",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SQM.US": {
+  "name": "Sociedad Quimica y Minera de Chile SA ADR B",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SRUUF.US": {
+  "name": "Sprott Physical Uranium Trust",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "STAG.US": {
+  "name": "STAG Industrial Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "STEM.US": {
+  "name": "Stem Inc",
+  "page": "Stem",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "STLA.US": {
+  "name": "Stellantis NV",
+  "page": "Stellantis",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "STLD.US": {
+  "name": "Steel Dynamics Inc",
+  "page": "Steel_Dynamics",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "STM.US": {
+  "name": "STMicroelectronics NV ADR",
+  "page": "STMicroelectronics",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "STNG.US": {
+  "name": "Scorpio Tankers Inc",
+  "page": "Scorpio_Tankers",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "STT.US": {
+  "name": "State Street Corp",
+  "page": "State_Street",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "STX.US": {
+  "name": "Seagate Technology PLC",
+  "page": "Seagate_Technology",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SU.US": {
+  "name": "Suncor Energy Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "SUN.US": {
+  "name": "Sunoco LP",
+  "page": "Sunoco_LP",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SVXY.US": {
+  "name": "ProShares Short VIX Short-Term Futures ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "SWKS.US": {
+  "name": "Skyworks Solutions Inc",
+  "page": "Skyworks_Solutions",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "SYF.US": {
+  "name": "Synchrony Financial",
+  "page": "Synchrony_Financial",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "T.US": {
+  "name": "AT&T Inc.",
+  "page": "AT&T",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TAN.US": {
+  "name": "Invesco Solar ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TAP.US": {
+  "name": "Molson Coors Brewing Co Class B",
+  "page": "Molson_Coors_Brewing",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TBF.US": {
+  "name": "ProShares Short 20+ Year Treasury",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TBT.US": {
+  "name": "ProShares UltraShort 20+ Year Treasury",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TD.US": {
+  "name": "Toronto Dominion Bank",
+  "page": "Toronto_Dominion_Bank",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TDG.US": {
+  "name": "Transdigm Group Incorporated",
+  "page": "Transdigm_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TDW.US": {
+  "name": "Tidewater Inc",
+  "page": "Tidewater",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TDY.US": {
+  "name": "Teledyne Technologies Incorporated",
+  "page": "Teledyne_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TE.US": {
+  "name": "T1 Energy Inc.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "TECK.US": {
+  "name": "Teck Resources Ltd Class B",
+  "page": "Teck_Resources",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TEL.US": {
+  "name": "TE Connectivity Ltd",
+  "page": "TE_Connectivity",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TER.US": {
+  "name": "Teradyne Inc",
+  "page": "Teradyne",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TEVA.US": {
+  "name": "Teva Pharma Industries Ltd ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "TGT.US": {
+  "name": "Target Corporation",
+  "page": "Target",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TIP.US": {
+  "name": "iShares TIPS Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TJX.US": {
+  "name": "The TJX Companies Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "TK.US": {
+  "name": "Teekay Corporation",
+  "page": "Teekay",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TLN.US": {
+  "name": "Talen Energy Corporation",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "TLT.US": {
+  "name": "iShares 20+ Year Treasury Bond ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TM.US": {
+  "name": "Toyota Motor Corporation ADR",
+  "page": "Toyota_Motor",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TMO.US": {
+  "name": "Thermo Fisher Scientific Inc",
+  "page": "Thermo_Fisher_Scientific",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TMV.US": {
+  "name": "Direxion Daily 20+ Year Treasury Bear 3X Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TNK.US": {
+  "name": "Teekay Tankers Ltd",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "TPR.US": {
+  "name": "Tapestry Inc",
+  "page": "Tapestry",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TRMD.US": {
+  "name": "Torm PLC Class A",
+  "page": "Torm",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TRP.US": {
+  "name": "TC Energy Corp",
+  "page": "TC_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TRV.US": {
+  "name": "The Travelers Companies Inc",
+  "page": "The_Travelers_Companies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TS.US": {
+  "name": "Tenaris SA ADR",
+  "page": "Tenaris",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TSLA.US": {
+  "name": "Tesla Inc",
+  "page": "Tesla_(company)",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TSLL.US": {
+  "name": "Daily TSLA Bull 2X ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TSM.US": {
+  "name": "Taiwan Semiconductor Manufacturing",
+  "page": "Taiwan_Semiconductor_Manufacturing",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TSN.US": {
+  "name": "Tyson Foods Inc",
+  "page": "Tyson_Foods",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TT.US": {
+  "name": "Trane Technologies plc",
+  "page": "Trane_Technologies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TTE.US": {
+  "name": "TotalEnergies SE ADR",
+  "page": "TotalEnergies_SE",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "TUR.US": {
+  "name": "iShares MSCI Turkey ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "TXN.US": {
+  "name": "Texas Instruments Incorporated",
+  "page": "Texas_Instruments",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "UAE.US": {
+  "name": "iShares MSCI UAE ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "UAL.US": {
+  "name": "United Airlines Holdings Inc",
+  "page": "United_Airlines_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "UBS.US": {
+  "name": "UBS Group AG",
+  "page": "UBS_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "UCO.US": {
+  "name": "ProShares Ultra Bloomberg Crude Oil",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "UEC.US": {
+  "name": "Uranium Energy Corp",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "UFO.US": {
+  "name": "Procure Space ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "UL.US": {
+  "name": "Unilever PLC ADR",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "ULCC.US": {
+  "name": "Frontier Group Holdings Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "UNFI.US": {
+  "name": "United Natural Foods Inc",
+  "page": "United_Natural_Foods",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "UNG.US": {
+  "name": "United States Natural Gas Fund LP",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "UNH.US": {
+  "name": "UnitedHealth Group Incorporated",
+  "page": "UnitedHealth_Group",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "UNP.US": {
+  "name": "Union Pacific Corporation",
+  "page": "Union_Pacific",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "UPS.US": {
+  "name": "United Parcel Service Inc",
+  "page": "United_Parcel_Service",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "URA.US": {
+  "name": "Global X Uranium ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "URBN.US": {
+  "name": "Urban Outfitters Inc",
+  "page": "Urban_Outfitters",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "URI.US": {
+  "name": "United Rentals Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "URNM.US": {
+  "name": "Sprott Uranium Miners ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "USMV.US": {
+  "name": "iShares MSCI USA Min Vol Factor ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "USO.US": {
+  "name": "United States Oil Fund LP",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "UUP.US": {
+  "name": "Invesco DB US Dollar Index Bullish Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "UVXY.US": {
+  "name": "ProShares Ultra VIX Short-Term Futures ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "V.US": {
+  "name": "Visa Inc. Class A",
+  "page": "Visa",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VAL.US": {
+  "name": "Valaris Ltd",
+  "page": "Valaris",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VALE.US": {
+  "name": "Vale SA ADR",
+  "page": "Vale",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VEA.US": {
+  "name": "Vanguard FTSE Developed Markets Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VFC.US": {
+  "name": "VF Corporation",
+  "page": "VF",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VGK.US": {
+  "name": "Vanguard FTSE Europe Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VIRT.US": {
+  "name": "Virtu Financial, Inc.",
+  "page": "Virtu_Financial",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VIST.US": {
+  "name": "Vista Energy, S.A.B. de C.V.",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-13"
+ },
+ "VIXY.US": {
+  "name": "ProShares VIX Short-Term Futures ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VLO.US": {
+  "name": "Valero Energy Corporation",
+  "page": "Valero_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VMC.US": {
+  "name": "Vulcan Materials Company",
+  "page": "Vulcan_Materials_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VNM.US": {
+  "name": "VanEck Vietnam ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VNQ.US": {
+  "name": "Vanguard Real Estate Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VOX.US": {
+  "name": "Vanguard Communication Services Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VRSK.US": {
+  "name": "Verisk Analytics Inc",
+  "page": "Verisk_Analytics",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VRT.US": {
+  "name": "Vertiv Holdings Co",
+  "page": "Vertiv_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VSAT.US": {
+  "name": "ViaSat Inc",
+  "page": "ViaSat",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VST.US": {
+  "name": "Vistra Corp.",
+  "page": "Vistra",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VTIP.US": {
+  "name": "Vanguard Short-Term Inflation-Protected Securities Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VTRS.US": {
+  "name": "Viatris Inc",
+  "page": "Viatris",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "VTV.US": {
+  "name": "Vanguard Value Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VWO.US": {
+  "name": "Vanguard FTSE Emerging Markets Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VXUS.US": {
+  "name": "Vanguard Total International Stock Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VXX.US": {
+  "name": "iPath® Series B S&P 500® VIX Short-Term Futures ETN",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VYM.US": {
+  "name": "Vanguard High Dividend Yield Index Fund ETF Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "VZ.US": {
+  "name": "Verizon Communications Inc",
+  "page": "Verizon_Communications",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "WDAY.US": {
+  "name": "Workday Inc",
+  "page": "Workday",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "WDC.US": {
+  "name": "Western Digital Corporation",
+  "page": "Western_Digital",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "WDS.US": {
+  "name": "Woodside Energy Group Ltd",
+  "page": "Woodside_Energy",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
+ },
+ "WEAT.US": {
+  "name": "Teucrium Wheat",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-13"
+ },
+ "WFC.US": {
+  "name": "Wells Fargo & Company",
+  "page": "Wells_Fargo_&_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-13"
  }
 }

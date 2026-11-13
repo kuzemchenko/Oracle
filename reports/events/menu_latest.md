@@ -1,71 +1,71 @@
-# Меню событий — 2026-11-12T21:00:15+00:00
+# Меню событий — 2026-11-13T21:00:19+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 190, нет 2)
-- NVIDIA: 10189 статей (было 3907, ×2.6); переговоры, заявления; https://www.wutc.org/2026-11-12/nvidia-ceo-jensen-huang-steps-down-amid-alleged-spy-scandal
-- BRAZILIAN: 1262 статей (было 214, ×5.48); переговоры, намерения сотрудничать; https://www.thetelegraphandargus.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/
-- FIREFIGHTER: 1369 статей (было 630, ×2.14); расследования, помощь; https://www.wyff4.com/article/brooklyn-building-collapses/74404444
-- страна: Gaza Strip: 566 статей (было 100, ×4.88); переговоры, дипломатическое сотрудничество; https://www.unrwa.org/what-we-do/key-areas-of-work/health
-- WALL STREET JOURNAL: 852 статей (было 345, ×2.39); переговоры, намерения сотрудничать; https://www.wsbradio.com/news/politics/trump-bluntly-tells/JTIYWBCGPY345CAZRZPERWD2GM/
-- LIMA: 461 статей (было 93, ×4.26); переговоры, намерения сотрудничать; https://www.pressdemocrat.com/2026/11/12/pope-leo-denounces-machismo-peru/
-- NASSER: 342 статей (было 35, ×6.58); боевые действия, нападения; https://www.christianpost.com/news/idf-strikes-gaza-hospital-targeting-hamas-brigade-commander.html
-- страна: Uruguay: 442 статей (было 92, ×4.12); переговоры, намерения сотрудничать; https://www.rte.ie/news/2026/1112/1598902-pope-peru-tour/
-- KABUL: 375 статей (было 57, ×5.13); переговоры, материальное сотрудничество; https://www.niagarafallsreview.ca/business/russian-delegation-visits-afghanistan-to-discuss-trade-and-investment-with-the-taliban/article_971a9305-0abf-533e-b72e-abf25a74031e.html
-- ARNHEM: 239 статей (было 0, ×12.95); переговоры, принуждение; https://www.singletonargus.com.au/story/9385636/east-arnhem-land-travel-shift-how-remote-region-opens-up/
-- страна: Guatemala: 490 статей (было 133, ×3.33); переговоры, заявления; https://www.wpr.org/news/fond-du-lac-pastor-cant-come-home-still-preaching-guatemala
-- страна: Lesotho: 389 статей (было 72, ×4.45); заявления, переговоры; https://lestimes.com/?p=92056
-- LULA DA SILVA: 429 статей (было 102, ×3.68); намерения сотрудничать, переговоры; https://www.thetelegraphandargus.co.uk/news/national/26721762.andy-burnham-pledges-new-era-british-climate-leadership-cop31-summit/
-- PRESS ASSOCIATION: 363 статей (было 68, ×4.35); заявления, призывы; https://www.huntspost.co.uk/news/national/26723768.pairs-spying-conviction-shows-iranian-intelligence-willing-use-proxies---cps/
-- EUROPEAN UNION: 555 статей (было 219, ×2.41); переговоры, дипломатическое сотрудничество; https://www.countypress.co.uk/news/national/26723949.ukraine-dominates-dublin-summit-amid-warnings-europes-security-framework/
+## GDELT: резко выросло за 24 ч (файлов 191, нет 1)
+- MICROSOFT: 5506 статей (было 769, ×7.0); заявления, переговоры; https://www.41nbc.com/microsoft-outage-outlook-teams-microsoft-365/
+- SERVER: 1124 статей (было 264, ×4.03); заявления, переговоры; http://www.utahindependent.com/news/279426778/restricted-nvidia-chips-reach-chinese-universities
+- MARK CARNEY: 1088 статей (было 252, ×4.07); переговоры, намерения сотрудничать; https://www.countypress.co.uk/news/national/26725607.zelensky-hails-real-result-prisoner-exchange-russia-secured/
+- GERMAN: 1647 статей (было 743, ×2.18); переговоры, заявления; https://www.countypress.co.uk/news/national/26725607.zelensky-hails-real-result-prisoner-exchange-russia-secured/
+- SPECIAL ENVOY: 860 статей (было 192, ×4.15); переговоры, намерения сотрудничать; https://www.sthelensstar.co.uk/news/national/26725533.can-no-progress-reaching-ukraine-peace-agreement-without-eu---martin/
+- страна: Liechtenstein: 410 статей (было 10, ×14.33); переговоры; https://www.swissinfo.ch/eng/various/national-future-day-sees-high-turnout/92374793
+- страна: Luxembourg: 721 статей (было 157, ×4.19); переговоры, заявления; https://www.chronicle.lu/category/at-home/64632-luxembourg-youth-sector-conference-highlights-municipalities-role-in-youth-policy
+- IAEA: 403 статей (было 42, ×6.82); расследования, переговоры; http://www.cecildaily.com/ap/world/iran-tells-un-nuclear-agency-that-monitoring-cannot-proceed-while-it-is-under-threat/article_9c810e64-170c-549a-9984-0cfd8afacbe4.html
+- ASSAM: 624 статей (было 189, ×3.08); заявления, переговоры; https://nypost.com/2026/11/13/world-news/bus-collision-in-indias-assam-kills-at-least-24-people/
+- ALBERT: 610 статей (было 216, ×2.67); намерения сотрудничать, переговоры; https://www.greatlakesadvocate.com.au/story/9391380/un-warns-australia-is-creating-a-new-stolen-generation/
+- CLEVELAND: 496 статей (было 155, ×2.95); переговоры, намерения сотрудничать; https://www.greatlakesadvocate.com.au/story/9391380/un-warns-australia-is-creating-a-new-stolen-generation/
+- LANDLORD: 484 статей (было 154, ×2.9); заявления, переговоры; https://www.thisisoxfordshire.co.uk/news/26728410.greggs-close-city-centre-shop-forever-within-weeks/
+- SAVA: 196 статей (было 0, ×10.8); переговоры, дипломатическое сотрудничество; https://www.wsws.org/en/articles/2026/11/12/jhpg-n12.html
+- PIRATE: 195 статей (было 1, ×10.24); переговоры, боевые действия; https://www.owensoundsuntimes.com/press-releases/newsfile/pirate-gold-expands-moby-dick-copper-gold-discovery-intersects-porphyry-within-a-2-7km-magnetite-corridor/
+- NEW JERSEY: 525 статей (было 211, ×2.36); переговоры, призывы; http://www.idahopress.com/ap_news/us/democrats-are-weighing-impeachment-of-rfk-jr-while-courting-his-supporters/article_e7288791-a87f-5be6-94ea-b990ecaa792e.html
 
 ## GDELT: больше всего пишут
-- страна: United States: 155486 статей; переговоры, заявления
-- страна: United Kingdom: 32698 статей; переговоры, заявления
-- страна: India: 26756 статей; переговоры, заявления
-- страна: China: 25902 статей; переговоры, заявления
-- страна: Russia: 19378 статей; переговоры, заявления
-- страна: Canada: 18199 статей; переговоры, заявления
-- страна: Israel: 16497 статей; переговоры, заявления
-- страна: Ukraine: 16068 статей; переговоры, намерения сотрудничать
-- страна: Nigeria: 15934 статей; заявления, переговоры
-- страна: Australia: 15617 статей; переговоры, заявления
-- страна: Iran: 14687 статей; переговоры, заявления
-- страна: Ireland: 11781 статей; переговоры, заявления
-- NVIDIA: 10189 статей; переговоры, заявления
-- страна: Pakistan: 9234 статей; переговоры, заявления
-- страна: France: 8780 статей; переговоры, заявления
+- страна: United States: 147644 статей; переговоры, заявления
+- страна: United Kingdom: 33037 статей; переговоры, заявления
+- страна: India: 29833 статей; переговоры, заявления
+- страна: China: 24225 статей; переговоры, заявления
+- страна: Russia: 17828 статей; переговоры, заявления
+- страна: Australia: 17722 статей; переговоры, заявления
+- страна: Ukraine: 17403 статей; переговоры, дипломатическое сотрудничество
+- страна: Canada: 16498 статей; переговоры, заявления
+- страна: Nigeria: 14975 статей; переговоры, заявления
+- страна: Israel: 14041 статей; переговоры, заявления
+- страна: Iran: 12746 статей; переговоры, заявления
+- страна: Ireland: 11074 статей; переговоры, заявления
+- страна: Pakistan: 8212 статей; переговоры, дипломатическое сотрудничество
+- страна: France: 7747 статей; переговоры, дипломатическое сотрудничество
+- NVIDIA: 7620 статей; переговоры, расследования
 
 ## Википедия: интерес вырос
-- Stacy Keach: 562990 просмотров (позавчера 0, ×563.99)
-- James Keach: 99527 просмотров (позавчера 0, ×100.53)
-- Children's Games (Bruegel): 75596 просмотров (позавчера 0, ×76.6)
-- Harry Shum Jr.: 73654 просмотров (позавчера 0, ×74.65)
-- Dancing with the Stars (American TV series) season 35: 144202 просмотров (позавчера 16470, ×8.31)
-- VisionQuest: 240738 просмотров (позавчера 71375, ×3.34)
-- Danny Kelly (journalist): 64926 просмотров (позавчера 0, ×65.93)
-- Usman Nurmagomedov: 62847 просмотров (позавчера 0, ×63.85)
-- Jenna Dewan: 59297 просмотров (позавчера 0, ×60.3)
-- Tatyana Ali: 51410 просмотров (позавчера 0, ×52.41)
-- SS United States: 117540 просмотров (позавчера 21728, ×5.22)
-- Kaviya Maran: 101460 просмотров (позавчера 16325, ×5.91)
-- Mauricio Pochettino: 186714 просмотров (позавчера 73306, ×2.53)
-- Lucy Beaumont (comedian): 87015 просмотров (позавчера 14403, ×5.71)
-- Anirudh Ravichander: 82456 просмотров (позавчера 15246, ×5.14)
+- Colette Kress: 463931 просмотров (позавчера 0, ×464.93)
+- Anthony Clark (actor): 374893 просмотров (позавчера 0, ×375.89)
+- Jensen Huang: 1072168 просмотров (позавчера 341625, ×3.13)
+- Alice Huang (executive): 160121 просмотров (позавчера 0, ×161.12)
+- Dan Hicks (sportscaster): 157094 просмотров (позавчера 0, ×158.09)
+- Hannah Storm: 127755 просмотров (позавчера 0, ×128.75)
+- Nvidia: 366417 просмотров (позавчера 87604, ×4.15)
+- Abu Ghraib torture and prisoner abuse: 64718 просмотров (позавчера 0, ×65.72)
+- Yes, Dear: 61246 просмотров (позавчера 0, ×62.25)
+- Scott Colom: 235409 просмотров (позавчера 80972, ×2.88)
+- American Airlines Flight 587: 59568 просмотров (позавчера 0, ×60.57)
+- Survivor 51: 51255 просмотров (позавчера 0, ×52.26)
+- Tomb of the Unknown Soldier (Arlington National Cemetery): 137779 просмотров (позавчера 35918, ×3.76)
+- SS United States: 241627 просмотров (позавчера 117540, ×2.05)
+- Lisa Su: 136248 просмотров (позавчера 40043, ×3.34)
 
 ## NewsAPI.ai: крупнейшие события
-- Nvidia Stock Just Got Downgraded After Jensen Huang's Exit. Should You Sell?: 4331 статей
-- Live Updates: Jensen Huang Resigns From Nvidia After Affairs: 2561 статей
-- What We Know About the Victims of the Brooklyn Building Collapse: 1195 статей
-- Schools in Italy, Scotland and Northern Ireland hit by threats in suspected bomb hoax: 917 статей
-- How The Times Covered Mississippi's Senate Race, Which Unexpectedly Became a Nail-Biter: 832 статей
-- Pope Leo XIV Goes Home to Peru, Meeting Ghosts of His Past: 594 статей
-- Spain sees widespread disruption in first general strike for 14 years: 558 статей
-- Soldier Shouts Toward Hegseth to Show 'Respect' at Tomb of the Unknown Soldier: 521 статей
-- Russia's ambassador to the United States dies, aged 66: 486 статей
-- Stacy Keach, Actor Who Embodied Hamlet and Mike Hammer, Dies at 85: 483 статей
-- Is Outlook down? Widespread outage hits Microsoft and OpenAI: 467 статей
-- 'Fight Harder,' U.N. Chief António Guterres Implores, Rousing Climate Ambassadors at COP31: 443 статей
-- Who Is Colette Kress, the Interim Nvidia CEO Replacing Jensen Huang?: 435 статей
-- General strike over housing brings out tens of thousands in Spain: 433 статей
-- Coachella 2027: Dua Lipa set to be first female British headliner: 400 статей
+- Who Is Colette Kress, the Interim Nvidia CEO Replacing Jensen Huang?: 6307 статей
+- Microsoft's Global Outage and Fixes: What We Know: 3249 статей
+- Mauricio Pochettino to become Man Utd manager after Michael Carrick sacked: Live updates: 2170 статей
+- Outlook, Teams and More Microsoft Programs Disrupted by Outage: 1042 статей
+- poker online live - Bing Software Store: 736 статей
+- Zelenskiy says Starshield speed limited again, hampering Ukraine's defences: 554 статей
+- Shreyas Iyer takes over as India look to wrap up series: 486 статей
+- Trump threatens to double tariffs on Mexico if migrant caravans not stopped: 458 статей
+- Watermelon Pictures Condemns Death Of American Doctor Surgeon In Gaza: 421 статей
+- Suspect in Washington, D.C., gym shooting was doctor in legal feud with condo board: 401 статей
+- GTA 6 Developers Explored Florida With Cameras To Build Realistic Game World: 389 статей
+- ATP Finals 2026: Draw, format and schedule as Carlos Alcaraz sets Alexander Zverev in his sights: 354 статей
+- At least 5 people shot as active shooter reported in Washington, D.C.'s Logan Circle: latest updates: 335 статей
+- Moscow car bomb wounds former aide to pro-Russian Ukrainian politician: 282 статей
+- Dan Hicks, our host for so much Olympic greatness, always met the golden moment: 266 статей
