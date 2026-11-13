@@ -37,7 +37,7 @@ class StubClient:
             {"thesis_id": "T1_потоки_критических_активов", "mechanism_id": "energy_supply_shock",
              "вопрос": "Нефть (фонд USO) закроется выше $80 к середине декабря",
              "актив": "USO.US", "направление": "above", "порог": 80.0,
-             "срок_недель": 6, "вероятность": 0.35,
+             "срок_недель": 6, "вероятность": 0.65,
              "почему": "Запасы низкие, а предложение зажато — дефицит толкает цену вверх."},
             {"thesis_id": None, "mechanism_id": "chokepoint_disruption",
              "вопрос": "Фрахт танкеров: Frontline выше 30 к началу января",
@@ -235,7 +235,7 @@ def test_format_week_odds_passes_lint(tmp_path):
     text, viol = R.format_week_odds(r)
     assert viol == [] and text
     assert text.startswith("Шансы недели — ")
-    assert "около 35%" in text and "около 55%" in text
+    assert "ставлю «да»: думаю, около 65%" in text and "около 55%" in text
     assert "не инвестиционная рекомендация" in text
     # базовый тикер уже назван в вопросе («фонд USO») → скобки-дубля [… (USO.US)] нет
     assert "USO" in text and "[нефть WTI (USO.US)]" not in text
@@ -359,7 +359,7 @@ def test_threshold_from_move_and_server_price_not_llm_memory():
     6/8 в брак. Теперь он задаёт ход в %, порог считает код от серверной цены, текст вопроса — код."""
     c = {"thesis_id": "T1", "mechanism_id": "energy_supply_shock",
          "вопрос": "Нефть (фонд USO) закроется выше $85 к 15 января?", "актив": "USO.US",
-         "направление": "above", "ход_проц": 8.0, "срок_недель": 6, "вероятность": 0.35,
+         "направление": "above", "ход_проц": 8.0, "срок_недель": 6, "вероятность": 0.65,
          "почему": "дефицит предложения"}
     spec, why = WO.validate_candidate(c, NOW, sealable_fn=lambda a: True, last_close_fn=lambda a: 156.87)
     assert why is None and spec["threshold"] == round(156.87 * 1.08, 2)
@@ -401,7 +401,7 @@ def test_rotation_quotas_ids_and_noise_base(tmp_path):
     def cand(asset, mid, move, weeks=4, tid=None):
         return {"thesis_id": tid, "mechanism_id": mid, "вопрос": f"{asset} закроется выше",
                 "актив": asset, "направление": "above" if move > 0 else "below", "ход_проц": move,
-                "срок_недель": weeks, "вероятность": 0.4, "почему": "потому что механизм"}
+                "срок_недель": weeks, "вероятность": 0.6, "почему": "потому что механизм"}
 
     class C:
         mode = "mock"
@@ -520,3 +520,15 @@ def test_more_than_8_questions_all_named():
     assert not viol, viol
     k = text.count("— думаю, около")
     assert 1 <= k < 12 and f"Ещё {12 - k} вопрос(а) записаны в счёт" in text
+
+
+def test_question_against_own_view_rejected():
+    """Q-шансы-формулировка (испытатель 10.11): вопрос с шансом ниже 50% — против собственного взгляда, брак."""
+    c = {"thesis_id": None, "mechanism_id": "energy_supply_shock", "вопрос": "Нефть (фонд USO) закроется выше …",
+         "актив": "USO.US", "направление": "above", "ход_проц": 8.0, "срок_недель": 6, "вероятность": 0.35,
+         "почему": "блокада пролива держит премию в цене нефти"}
+    spec, why = WO.validate_candidate(c, NOW, sealable_fn=lambda a: True, last_close_fn=lambda a: 100.0)
+    assert spec is None and "против собственного взгляда" in why
+    ok, why2 = WO.validate_candidate({**c, "вероятность": 0.62}, NOW, sealable_fn=lambda a: True,
+                                     last_close_fn=lambda a: 100.0)
+    assert ok is not None and why2 is None

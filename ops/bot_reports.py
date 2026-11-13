@@ -2604,7 +2604,8 @@ def format_week_odds(protocol, *, name_fn=None, scores=None, track=None):
             # базовый тикер уже назван в вопросе («фонд USO») → скобку-дубль не городим
             текст = f"{текст} [{имя} ({asset})]"
         p = q.get("probability")
-        строка = f"— {текст}? — думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) else f"— {текст}?"
+        строка = (f"— {текст}? — ставлю «да»: думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) and p >= 0.5
+                  else f"— {текст}? — думаю, около {p * 100:.0f}%." if isinstance(p, (int, float)) else f"— {текст}?")
         почему = _shorten(_dejargon(str(q.get("почему") or "").strip()), 170)
         if почему:
             строка += f" Почему: {почему}"
