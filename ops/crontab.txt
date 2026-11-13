@@ -48,7 +48,8 @@ MAILTO=""
 # вместо 21-агентного контура на слепых шок-источниках (там бюджет горел впустую); сломанные → провизорный.
 # --deep (решение D в.3): полный §8-контур (тайминг/манип/неочевидн./риск/синтез 13 полей + процедурное
 # вето §6) ТОЧЕЧНО на money-идеи, пережившие слепой суд — глубина тратится только на то, что идёт в деньги.
-0 9 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh event_first /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet --deep >> journal/cron.log 2>&1
+# ВЫКЛЮЧЕНО 13.11 (да владельца, Q-ревизия-мёртвого): утренний прогон ~$3/день, результат владельцу не доставлялся с 02.11
+# 0 9 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh event_first /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode event_first --k 2 --seal --vet --deep >> journal/cron.log 2>&1
 
 # Панель бюджета §15: пересборка каждое утро 07:00; код выхода 3 = превышение потолка limits.yaml
 0 7 * * *    cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/budget.py >> journal/cron.log 2>&1

@@ -23,6 +23,20 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         mod = importlib.import_module(name)
         monkeypatch.setattr(mod, "PRED", tmp_path / "guard_predictions.jsonl")
         monkeypatch.setattr(mod, "OUTC", tmp_path / "guard_outcomes.jsonl")
+        # ИНЦИДЕНТ 13.11: test_battle_journal_blocked_in_cloud передаёт ЯВНЫЙ боевой путь и ждёт отказа
+        # «только на сервере»; на самом сервере (/home/oracle/…) отказа нет — тест запечатал фальшивую
+        # EQT-запись в настоящий journal/predictions.jsonl. Под тестами боевой журнал закрыт ВСЕГДА,
+        # где бы ни шёл прогон (облако или сервер); временные пути — свободно.
+        _orig_allowed = mod._battle_write_allowed
+
+        def _deny_battle(target, _mod=mod, _orig=_orig_allowed):
+            try:
+                if pathlib.Path(target).resolve() == _mod.BATTLE_PRED.resolve():
+                    return False
+            except OSError:
+                pass
+            return _orig(target)
+        monkeypatch.setattr(mod, "_battle_write_allowed", _deny_battle)
     # ревью 02.11: состояние бота и журнал решений владельца — тоже во временную папку
     # (bot_state.json исключён из git, поэтому порча была невидима; на сервере — живое состояние)
     for name in ("ops.bot_state", "bot_state"):
