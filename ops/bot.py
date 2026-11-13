@@ -1835,11 +1835,13 @@ class Bot:
             return
         text = PR.format_card(items)
         kb = PR.build_keyboard(items)
-        if self._send_card(text, kb) is None:
+        mid = self._send_card(text, kb)
+        if mid is None:
             return                                 # не дошло — попробуем следующим tick'ом
         self.state["proposals_week"] = week
         self.state["proposals_pending"] = {k: r for k, r in items}
         self.save()
+        self._log_delivery("карточка предложений", text=text, mid=mid, buttons=True, extra={"пунктов": len(items)})
         log("карточка предложений §25 отправлена:", len(items))
 
     def _tick_week_odds(self):
@@ -1949,8 +1951,13 @@ class Bot:
             return
         text = TH.format_card(items)
         kb = TH.build_keyboard(items)
-        if self._send_card(text, kb) is None:
+        mid = self._send_card(text, kb)
+        if mid is None:
             return                                 # не дошло — попробуем следующим tick'ом
+        # машинист 13.11: карточка тем не писалась в журнал доставок — по нему нельзя было понять,
+        # видел ли владелец карточку 07.11 (а решений по темам нет ни одного) — гейт V2 слепой
+        self._log_delivery("карточка тем", ref=week, text=text, mid=mid, buttons=True,
+                           extra={"тем": len(items)})
         self.state["themes_week"] = week
         self.state["themes_pending"] = {k: r for k, r in items}
         self.save()

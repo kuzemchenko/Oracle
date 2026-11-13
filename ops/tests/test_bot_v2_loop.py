@@ -366,3 +366,17 @@ def test_advisor_explicit_done_triggers_summary_now(paths, monkeypatch):
     b.state["advisor_chat_id"] = "-1"
     b._on_message({"chat": {"id": -1}, "from": {"id": 42}, "text": "Готово, итог для владельца"})
     assert any(t.startswith("Итог разговора со вторым советником") for c, t, _k in b.tg.sent if str(c) == "555")
+
+
+def test_theme_card_delivery_is_logged(paths, monkeypatch, tmp_path):
+    """Машинист 13.11: карточка тем пишется в журнал доставок — иначе гейт V2 («пакет тем разобран»)
+    не отличает «владелец не видел карточку» от «видел и не нажал»."""
+    b = _bot()
+    monkeypatch.setattr(TH, "PROPOSED", tmp_path / "p.jsonl")
+    monkeypatch.setattr(TH, "DECISIONS", tmp_path / "d.jsonl")
+    monkeypatch.setattr(BOT, "DELIVERIES_PATH", tmp_path / "deliv.jsonl")
+    (tmp_path / "p.jsonl").write_text(
+        "\n".join(json.dumps(_theme_row(i), ensure_ascii=False) for i in range(2)), encoding="utf-8")
+    b._tick_theme_batch(datetime.datetime(2026, 11, 14, 11, 0, tzinfo=datetime.timezone.utc))
+    recs = [json.loads(x) for x in (tmp_path / "deliv.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert recs and recs[-1]["kind"] == "карточка тем" and recs[-1]["buttons"] and recs[-1]["тем"] == 2
