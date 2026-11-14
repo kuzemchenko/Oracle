@@ -95,6 +95,8 @@ SCHEDULED_JOBS = (
     ("event_menu_auto", "event_menu", ("ops/event_menu.py", "write"), (1, 2, 3, 4, 5, 6, 7), (21, 0)),
     # Q-тренды (09.11): датчик растущего внимания толпы (просмотры Википедии) — до чекпоинта, без LLM
     ("attention_watch_auto", "attention_watch", ("ops/attention_watch.py", "daily"), (1, 2, 3, 4, 5, 6, 7), (20, 30)),
+    # «Что покопать» (владелец 14.11): утром 0–3 повода с кнопками «Копаем N»/«Мимо» — после меню событий 21:00
+    ("dig_offer_auto", "dig_offer", ("ops/dig_offer.py", "run", "--mode", "live"), (1, 2, 3, 4, 5, 6, 7), (5, 0)),
 )
 # Q-тренды-быстро (09.11): ПОВТОРЯЮЩИЕСЯ задачи за флагом — каждые N минут отдельным процессом (без алерта на каждый
 # сбой: один пропущенный 15-минутный сбор — не повод будить владельца; итог виден в reports/attention/fast_latest.json)
@@ -331,6 +333,9 @@ class Bot:
             return
         if len(parts) == 3 and parts[0] == "t":
             self._on_theme_cb(cb_id, chat, msg, parts[1], parts[2])
+            return
+        if len(parts) == 3 and parts[0] == "g":
+            self._on_dig_cb(cb_id, chat, msg, parts[1], parts[2])
             return
         if len(parts) == 3 and parts[0] == "p":
             self._on_proposal_cb(cb_id, chat, msg, parts[1], parts[2])
@@ -709,6 +714,117 @@ class Bot:
             self.tg.send_message(chat, "Пакет тем разобран, спасибо. С ближайшей охоты одобренные темы "
                                        "идут первыми в зоны поиска идеи дня.")
         self.save()
+
+    DIG_DIR = ROOT / "reports" / "dig"
+    DIG_DECISIONS = ROOT / "journal" / "dig_decisions.jsonl"
+    DIG_MAX_AGE_H = 20
+
+    def _tick_dig_offer(self):
+        """«Что покопать» (владелец 14.11): свежий протокол reports/dig/dig_*.json → одно сообщение с кнопками.
+        Водяной знак по имени файла (имена растут со временем); шлём только самый свежий — вчерашнее не догоняем.
+        Протокол без текста (линт подачи не прошёл) владельцу не уходит — заметка в дозор."""
+        if not R.load_presentation().get("dig_offer_push"):
+            return
+        d = self.DIG_DIR
+        files = sorted(d.glob("dig_*.json")) if d.exists() else []
+        mark = str(self.state.get("dig_mark") or "")
+        fresh = [f for f in files if f.stem > mark]
+        if not fresh:
+            return
+        f = fresh[-1]
+        import json as _json
+        try:
+            pr = _json.loads(f.read_text(encoding="utf-8"))
+        except OSError as e:
+            log("что покопать: протокол не читается", f.name, repr(e))
+            return
+        except ValueError:
+            self.state["dig_mark"] = f.stem
+            self.save()
+            return
+        try:                                         # вчерашнее не шлём: поводы протухают за сутки
+            age_h = (S.now_utc() - datetime.datetime.fromisoformat(str(pr.get("ts")))).total_seconds() / 3600
+        except (TypeError, ValueError):
+            age_h = None
+        if age_h is None or age_h > self.DIG_MAX_AGE_H:
+            self.state["dig_mark"] = f.stem
+            self.save()
+            log("что покопать: протокол устарел — не шлю", f.name, age_h)
+            return
+        text = pr.get("текст")
+        if not text:
+            self.state["dig_mark"] = f.stem
+            self.save()
+            self._notice_owner("«Что покопать» (" + f.name + ") не прошло проверку подачи: "
+                               + "; ".join(str(v) for v in (pr.get("линт") or [])[:2]) + " — сообщение не ушло.")
+            return
+        offers = pr.get("предложения") or []
+        kb = None
+        if offers:
+            row = [{"text": f"Копаем {n}", "callback_data": f"g:{n}:{f.stem}"} for n in range(1, len(offers) + 1)]
+            kb = {"inline_keyboard": [row, [{"text": "Мимо", "callback_data": f"g:x:{f.stem}"}]]}
+        mid = self._send_card(text, kb)
+        if mid is None:
+            return                                   # сеть — повтор следующим тиком
+        self._log_delivery("что покопать", ref=f.name, text=text, mid=mid, buttons=bool(kb), lint_ok=True,
+                           extra={"предложений": len(offers)})
+        self.state["dig_mark"] = f.stem
+        self.save()
+        log("пуш «что покопать»", f.name, len(offers))
+
+    def _dig_record(self, rec):
+        import json as _json
+        rec = {"ts": S.now_utc().isoformat(timespec="seconds"), **rec}
+        try:
+            self.DIG_DECISIONS.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.DIG_DECISIONS, "a", encoding="utf-8") as fh:
+                fh.write(_json.dumps(rec, ensure_ascii=False) + "\n")
+        except OSError as e:
+            log("что покопать: решение не записано", repr(e))
+
+    def _on_dig_cb(self, cb_id, chat, msg, code, stem):
+        """Кнопки «Что покопать»: N — копаем ветку N (запрос «найди идею» агенту), x — мимо всё.
+        Решение → journal/dig_decisions.jsonl (append-only); отклонённые темы разведчик не повторяет 14 дней."""
+        import json as _json
+        done = self.state.setdefault("dig_done", [])
+        if stem in done:
+            self.tg.answer_callback(cb_id, "По этому сообщению уже решено.")
+            return
+        try:
+            pr = _json.loads((self.DIG_DIR / (stem + ".json")).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            self.tg.answer_callback(cb_id, "Сообщение устарело — протокол не найден.")
+            return
+        offers = pr.get("предложения") or []
+        if msg.get("message_id"):
+            self.tg.edit_reply_markup(chat, msg["message_id"], {"inline_keyboard": []})
+        done.append(stem)
+        self.state["dig_done"] = done[-60:]
+        self.save()
+        if code == "x":
+            for o in offers:
+                self._dig_record({"файл": stem, "решение": "мимо", "тема": o.get("тема")})
+            self.tg.answer_callback(cb_id, "Мимо — записал.")
+            self.tg.send_message(chat, "Понял, эти темы без нового факта больше не предложу. Если зацепило что-то "
+                                       "своё — напиши «найди идею про …».")
+            return
+        try:
+            n = int(code)
+            o = offers[n - 1]
+        except (ValueError, IndexError):
+            self.tg.answer_callback(cb_id, "Не нашёл эту ветку.")
+            return
+        for k, other in enumerate(offers, 1):
+            self._dig_record({"файл": stem, "решение": "копаем" if k == n else "не выбрано",
+                              "тема": other.get("тема")})
+        self.tg.answer_callback(cb_id, f"Копаем {n}.")
+        self.tg.send_message(chat, f"Копаем «{o.get('тема')}». Начинаю поиск идеи, это займёт несколько минут.")
+        src = "; ".join(s.get("url") for s in (o.get("источники") or []) if s.get("url"))
+        ask = ("Найди идею по теме «" + str(o.get("тема")) + "» — я выбрал её из утреннего «что покопать». "
+               "Повод: " + str(o.get("что_случилось")) + " Круги: " + " → ".join(o.get("круги") or []) + ". "
+               "Почему рынок может не видеть: " + str(o.get("почему_рынок_не_видит")) + ". "
+               "Что опровергнет: " + str(o.get("что_опровергнет")) + ". Источники: " + (src or "нет") + ".")
+        self._chat(chat, ask)
 
     def _on_proposal_cb(self, cb_id, chat, msg, code, key):
         """Кнопки карточки предложений §25: y=подписываю (авторизация §10, вносит машинист
@@ -2929,6 +3045,10 @@ class Bot:
             self._tick_week_odds()
         except Exception as e:                                   # noqa: BLE001
             log("tick week_odds ошибка", repr(e))
+        try:
+            self._tick_dig_offer()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick dig_offer ошибка", repr(e))
         try:
             self._tick_heartbeat(now)
         except Exception as e:                                   # noqa: BLE001

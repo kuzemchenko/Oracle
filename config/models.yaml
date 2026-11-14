@@ -89,6 +89,11 @@ roles:
     fallbacks: [google/gemini-3.5-flash, openai/gpt-5.5]   # касается; факты/числа гардит КОД (ops/story_editor.verify)
     family:    anthropic
     temperature: 0.5
+  dig_scout:                 # «Что покопать» (владелец 14.11): утренний отбор 0–3 поводов с потенциалом
+    primary:   anthropic/claude-fable-5      # неочевидного каскада + человеческое обоснование. НЕ суждение
+    fallbacks: [anthropic/claude-opus-4.8, openai/gpt-5.5]   # о рынке (ничего не печатается) — П10 не касается;
+    family:    anthropic                     # поводы и ссылки гардит КОД (ops/dig_offer.validate_offer)
+    temperature: 0.6
   voice_transcriber:         # Голосовые владельца в Telegram → текст (STT через input_audio).
     primary:   google/gemini-3.5-flash      # НЕ суждение о рынке — П10 не касается; дёшево, аудио-вход
     fallbacks: [google/gemini-2.5-flash, openai/gpt-4o-audio-preview]
