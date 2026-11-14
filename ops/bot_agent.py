@@ -57,6 +57,7 @@ CHAT_REQUESTS = ROOT / "journal" / "chat_requests.jsonl"   # запросы «н
 ROLE = "partner_chat"
 MAX_STEPS = 18                 # кругов «модель → инструменты» на один ответ
 MAX_TURN_COST_USD = 2.50       # потолок трат на ОДИН ответ (месячный лимит проверяет bot.py)
+FIND_IDEA_RE = re.compile(r"\b(?:найди|найдём|найдем|поищи|ищи)\b[^.!?\n]{0,30}?\bиде[юия]", re.IGNORECASE)
 SEARCH_ROUNDS = 4              # VQ-4: сколько раз код возвращает модель к незавершённому поиску в одном ответе
 SEARCH_STEPS = 10              # кругов инструментов на одно возвращение
 SEARCH_COST_SHARE = 0.85       # доля потолка ответа, после которой поиск ставится на паузу (остаток — на итог)
@@ -155,6 +156,7 @@ class Tools:
         self._n = 0
         self.search_dir = None     # VQ-4: каталог очереди поиска (None — reports/ideas/searches)
         self.search_id = None      # поиск, который трогали в этом ответе
+        self.search_worked = False # 14.11: поиск ДВИГАЛИ (старт/гипотеза/шаг) — только тогда стоимость ответа в его бюджет
         self.pred_path = None      # Q-чат-в-счёт: журнал прогнозов (None — боевой, только на сервере)
         self.sealed = []           # строки «записал в счёт», которые КОД допишет к ответу
 
@@ -653,6 +655,7 @@ class Tools:
         cur = SQ.active("telegram", self.search_dir)
         if cur:
             self.search_id = cur["id"]
+            self.search_worked = True
             if cur["статус"] == SQ.PAUSED:
                 cur, err = SQ.resume(cur)
                 SQ.save(cur, self.search_dir)
@@ -662,6 +665,7 @@ class Tools:
                                       "может только владелец (search_cancel с его словами)")
         s = SQ.start(topic, "telegram", d=self.search_dir)
         self.search_id = s["id"]
+        self.search_worked = True
         return self._sq_view(s, "поиск начат")
 
     def search_add(self, thesis, ticker, mechanism, beneficiary="", circle=1, direction_id=None, new_data=None):
@@ -670,6 +674,7 @@ class Tools:
         if not s:
             return "нет активного поиска — сначала search_start"
         self.search_id = s["id"]
+        self.search_worked = True
         h, err = SQ.add_hypothesis(s, thesis, ticker, mechanism, beneficiary, circle, direction_id, new_data)
         SQ.save(s, self.search_dir)
         return self._sq_view(s, err or f"гипотеза {h['id']} добавлена")
@@ -680,6 +685,7 @@ class Tools:
         if not s:
             return "нет активного поиска — сначала search_start"
         self.search_id = s["id"]
+        self.search_worked = True
         _h, msg = SQ.advance(s, hyp_id, outcome, data if isinstance(data, dict) else None, reject_kind, reason, needs)
         SQ.save(s, self.search_dir)
         if s["статус"] == SQ.FOUND and _h is not None and not _h.get("прогноз"):
@@ -1142,6 +1148,21 @@ class Agent:
     def _complete(self, messages):
         return self._call(messages, "auto", 6000)
 
+    def _auto_start_search(self, user_text, audience):
+        """14.11: просьба владельца «найди идею» — это поиск по очереди (VQ-4), а не разговор. Агент 7 раз из 9
+        отвечал без search_start — поиск не вёлся, «выполнено» по точке Б1 стояло на нуле. Если модель за первый проход
+        поиск не начала, его начинает код (если незавершённого нет), и дальше работает обычный возврат модели к
+        очереди (_continue_search)."""
+        if audience != "owner" or not FIND_IDEA_RE.search(str(user_text or "")):
+            return None
+        try:
+            SQ = self.tools._sq()
+            if SQ.active("telegram", self.tools.search_dir):
+                return None
+            return self.tools.search_start(" ".join(str(user_text).split())[:300])
+        except Exception:                                    # noqa: BLE001 — разговор живёт и без очереди
+            return None
+
     def run(self, user_text, history=None, brief="", attachments=None, audience="owner"):
         """→ (текст ответа, [(имя_файла, байты, подпись)], стоимость_usd).
         Аудит 07.11: (1) ответ, оборванный лимитом длины, продлевается с места обрыва, а не выдаётся
@@ -1150,6 +1171,8 @@ class Agent:
         msgs = _messages(user_text, history, brief, attachments, audience)
         text = self._loop(msgs, MAX_STEPS)
         text = self._finish(msgs, text)
+        if not self.tools.search_id:                 # модель не начала поиск сама — начинает код (см. ниже)
+            self._auto_start_search(user_text, audience)
         text = self._continue_search(msgs, text)
         try:
             import claim_check as CC
@@ -1218,7 +1241,9 @@ class Agent:
         s = self.tools._sq_active()
         if not s:
             return None
-        if s["статус"] in (SQ.RUNNING, SQ.PAUSED):
+        # 14.11: ответ, который лишь спросил статус поиска, в его бюджет не пишем (11.11 разговор «почему поиск
+        # остановлен» списал свою стоимость на остановленный поиск: $5.49 → $8.22 без единого шага)
+        if s["статус"] in (SQ.RUNNING, SQ.PAUSED) and self.tools.search_worked:
             SQ.charge(s, self.cost)
         if s["статус"] == SQ.RUNNING:
             SQ.pause(s, "turn", f"ответ закончился — потрачено ${self.cost:.2f} из ${MAX_TURN_COST_USD:.2f} на один "

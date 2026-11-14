@@ -284,3 +284,39 @@ def test_hunter_honest_zero_is_pause_not_success(tmp_path):
     # следующий запуск по той же теме продолжает тот же поиск и не повторяет отвергнутое
     s2 = SQ.from_hunt(none_path=p, topic="уран", date="2026-11-10", d=tmp_path / "q")
     assert s2["id"] == s["id"] and len(s2["гипотезы"]) == 3
+
+
+def test_find_idea_without_search_start_is_started_by_code(tmp_path):
+    """14.11: агент отвечал на «найди идею» без search_start — код начинает поиск сам и возвращает модель к очереди."""
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    llm = FakeLLM([_msg("Вот пара мыслей про медь, но защищать нечего.")], default="Смотрю дальше.")
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    ag.run("Найди идею по теме «медь и стройка»")
+    ss = SQ.all_searches(tmp_path)
+    assert len(ss) == 1 and "медь" in ss[0]["тема"]
+    injected = [m for b in llm.bodies for m in b["messages"]
+                if m.get("role") == "user" and "не завершён" in str(m.get("content"))]
+    assert injected
+
+
+def test_plain_question_does_not_start_search(tmp_path):
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    ag = A.Agent(post=FakeLLM([_msg("Золото дорогое.")]), tools=tools, api_key="x",
+                 log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    ag.run("что думаешь про золото?")
+    assert SQ.all_searches(tmp_path) == []
+
+
+def test_status_question_does_not_charge_paused_search(tmp_path):
+    """14.11: разговор, который лишь спросил статус поиска, не списывается в его бюджет."""
+    s = SQ.start("нефть", "telegram", d=tmp_path)
+    SQ.pause(s, "budget", "бюджет исчерпан")
+    SQ.save(s, tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    llm = FakeLLM([_msg(calls=[("search_status", {})], cost=0.7), _msg("Поиск стоит на паузе.")])
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    ag.run("почему поиск остановлен?")
+    assert SQ.load(s["id"], tmp_path)["бюджет"]["потрачено_usd"] == 0.0
