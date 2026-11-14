@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT / "ops"))
 
 KIND = "chat_idea"
 MIN_WEEKS, MAX_WEEKS = 3, 13
+MAX_WEEKS_LONG = 104         # правила поиска v2 (владелец 14.11): «полка длинных тем» — до 24 месяцев
 MIN_SIGMA_MOVE = 0.5
 MAX_ANCHOR_AGE_DAYS = 7      # ревью 14.11: якорная цена старше — прогноз от несвежей цены не пишем
 DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
@@ -69,8 +70,10 @@ def build_spec(ticker, direction, threshold, resolve_by, *, probability=None, pr
     except (TypeError, ValueError):
         return None, "порог — число, срок — дата ГГГГ-ММ-ДД"
     weeks = (rb - today).days / 7.0
-    if not (MIN_WEEKS <= weeks <= MAX_WEEKS + 0.5):
-        return None, f"срок {rb} — {weeks:.1f} недель; проверяемая зона {MIN_WEEKS}–{MAX_WEEKS} недель"
+    if not (MIN_WEEKS <= weeks <= MAX_WEEKS_LONG):
+        return None, (f"срок {rb} — {weeks:.1f} недель; проверяемо: короткий {MIN_WEEKS}–{MAX_WEEKS} недель "
+                      f"или длинный до {MAX_WEEKS_LONG} недель")
+    hclass = "short" if weeks <= MAX_WEEKS + 0.5 else "long"
     snap = snapshot if snapshot is not None else PS.lookup(sym)
     if snap.get("ошибка"):
         return None, f"нет истории цен {sym} в снимке сервера — сверять нечем (§9): {snap['ошибка']}"
@@ -105,7 +108,7 @@ def build_spec(ticker, direction, threshold, resolve_by, *, probability=None, pr
             return None, "у вероятности нет основания (≥20 знаков) — или объясни, или не указывай"
     base = BO.base_probability(px, thr, sig, days, direction)
     spec = {
-        "kind": KIND, "track": KIND, "asset": sym, "direction": direction, "threshold": round(thr, 4),
+        "kind": KIND, "track": KIND, "horizon_class": hclass, "asset": sym, "direction": direction, "threshold": round(thr, 4),
         "resolve_by": rb.isoformat() + "T20:00:00+00:00", "price_source": f"EODHD close {sym}",
         "probability": p, "probability_kind": "subjective" if p is not None else None,
         "вероятность_основание": str(probability_basis or "")[:400] if p is not None else None,

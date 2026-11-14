@@ -1192,7 +1192,9 @@ class Agent:
             cur = SQ.active("telegram", self.tools.search_dir)
             # ревью 14.11: незавершённый поиск по ДРУГОЙ теме не мешает начать новый (старый — на паузу)
             if cur and not SQ.topic_differs(user_text, cur.get("тема")):
-                return None
+                # 14.11 вечер: та же тема — ПРОДОЛЖИТЬ незавершённый поиск (раньше код молча выходил, и если модель
+                # сама не вызвала search_start, поиск по просьбе «найди идею» не двигался)
+                return self.tools.search_start(str(cur.get("тема") or user_text)[:300])
             return self.tools.search_start(" ".join(str(user_text).split())[:300])
         except Exception:                                    # noqa: BLE001 — разговор живёт и без очереди
             return None

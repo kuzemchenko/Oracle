@@ -308,8 +308,8 @@ def render_with_problems(card, update=False):
             pf = PI.played_fraction(mv if d == "вверх" else -mv, f"+{lo:g}–{hi:g}%" if lo != hi else f"+{hi:g}%")
             verdict = pf.get("вердикт")
             phase = _phase_text(verdict, d)
-        if verdict in (PI.В_ЦЕНЕ, PI.ПЕРЕЛЁТ) and not update:
-            problems.append(f"звено уже отыграно ({verdict}) — новая идея не уходит")
+        # правила поиска v2 (владелец 14.11): доля прошлого хода — не причина задержать идею; фраза о фазе
+        # остаётся в тексте (_phase_text), «уже в цене» решают ожидания рынка (market_view), не прецедент
         out["why"] = f"{WHY_HEAD} {since} бумага {verb} по ценам закрытия" + (f": {phase}." if phase else ".")
     g, l = pm.get("потенциал_от_входа"), pm.get("риск_от_входа")
     # прицельная проверка 03.11: отношение — НЕокруглённое, ровно как в шлагбауме (асимметрия 1.5

@@ -2358,6 +2358,90 @@ class Bot:
                            "записки, которую ты получил; разберу причину.")
         self._notice_dozor(tech)
 
+    # ── доведение поиска (ревью 14.11: Codex «Г», Fable п.9; да владельца «делай до упора») ──────────────
+    SEARCH_DIR = None                 # None — reports/ideas/searches (search_queue по умолчанию)
+    SEARCH_FOLLOW_GAP_H = 2           # поиск не двигали ≥2 ч — бот продолжает сам
+    SEARCH_FOLLOW_MAX_DAY = 3         # не больше 3 самостоятельных шагов поиска в сутки
+    SEARCH_QUIET_UTC = (18, 4)        # 22:00–08:00 по Дубаю — без фоновых сообщений
+    PAUSE_NOTICE_KINDS = {"budget": "кончился бюджет этого поиска",
+                          "month": "достигнут месячный лимит расходов на ИИ-модели",
+                          "queue_empty": "проверены все направления по теме — нужна новая тема или новый факт",
+                          "executor": "исполнитель поиска недоступен"}
+
+    def _tick_search_pause_notice(self):
+        """Поиск встал НЕ из-за конца ответа (бюджет, месячный лимит, направления исчерпаны, исполнитель) —
+        владельцу одна строка: что за поиск, почему стоит и что сделать. Раз на каждую паузу. Раньше поиск
+        молча стоял 09–14.11, владелец спрашивал «почему ничего не делается»."""
+        if not R.load_presentation().get("search_pause_notice"):
+            return
+        import search_queue as SQ
+        seen = self.state.setdefault("search_pause_seen", {})
+        fresh = False
+        for s in SQ.all_searches(self.SEARCH_DIR):
+            p = s.get("пауза") or {}
+            if s.get("статус") != SQ.PAUSED or p.get("вид") not in self.PAUSE_NOTICE_KINDS:
+                continue
+            key = f"{s['id']}|{p.get('когда')}"
+            if key in seen:
+                continue
+            seen[key] = S.now_utc().isoformat(timespec="seconds")
+            fresh = True
+            what = {"budget": (f"Чтобы продолжить, скажи: «подними бюджет поиска до $N» (сейчас потрачено "
+                               f"${(s.get('бюджет') or {}).get('потрачено_usd', 0):.2f} из "
+                               f"${(s.get('бюджет') or {}).get('лимит_usd', 0):.2f})."),
+                    "month": "Продолжу в начале месяца или после твоего решения о лимите.",
+                    "queue_empty": "Напиши новую тему или факт — «найди идею про …».",
+                    "executor": "Продолжу, когда исполнитель снова будет доступен."}[p["вид"]]
+            self.tg.send_message(self.chat_id, (f"Поиск «{str(s.get('тема') or '')[:120]}» остановлен: "
+                                                f"{self.PAUSE_NOTICE_KINDS[p['вид']]}. {what}"))
+            self._log_delivery("пауза поиска", None)
+        if fresh:
+            self.save()
+
+    def _tick_search_followup(self, now):
+        """Поиск, который встал лишь потому, что закончился ответ (пауза «turn»), бот продолжает сам: не чаще
+        раза в 2 ч, не больше 3 шагов в сутки, не ночью по Дубаю, в пределах бюджета поиска. Результат — обычным
+        ответом агента с пометкой «продолжил сам». За флагом search_followup_auto (правило 01.11)."""
+        if not R.load_presentation().get("search_followup_auto"):
+            return
+        h = now.hour
+        q0, q1 = self.SEARCH_QUIET_UTC
+        if h >= q0 or h < q1:
+            return
+        import search_queue as SQ
+        s = SQ.active("telegram", self.SEARCH_DIR)
+        if not s or s.get("статус") != SQ.PAUSED or (s.get("пауза") or {}).get("вид") != "turn":
+            return
+        b = s.get("бюджет") or {}
+        if b.get("потрачено_usd", 0) >= b.get("лимит_usd", 0):
+            return
+        upd = S.parse_iso(s.get("обновлён"))
+        if upd is None:
+            return
+        if (now - upd).total_seconds() < self.SEARCH_FOLLOW_GAP_H * 3600:
+            return
+        day = now.date().isoformat()
+        st = self.state.setdefault("search_followup", {})
+        if st.get("день") != day:
+            st.clear()
+            st["день"], st["шагов"] = day, 0
+        if st["шагов"] >= self.SEARCH_FOLLOW_MAX_DAY:
+            return
+        if getattr(self, "_chat_thread", None) is not None and self._chat_thread.is_alive():
+            return                                               # владелец сейчас разговаривает — не встреваем
+        s, err = SQ.resume(s, by="бот (фоновое доведение)")
+        if err:
+            return
+        SQ.save(s, self.SEARCH_DIR)
+        st["шагов"] += 1
+        self.save()
+        text = (f"Поищи идею дальше по теме «{str(s.get('тема') or '')[:200]}»: продолжай сохранённый поиск с того "
+                f"места, где он остановился (это фоновый шаг {st['шагов']} из {self.SEARCH_FOLLOW_MAX_DAY} за сутки, "
+                "владелец сейчас не писал).")
+        header = f"Продолжил поиск сам (шаг {st['шагов']} из {self.SEARCH_FOLLOW_MAX_DAY} за сутки):"
+        log("поиск: фоновое доведение", s["id"], "шаг", st["шагов"])
+        self._chat(self.chat_id, ("__search__", text, header))
+
     def _notice_owner(self, text):
         """Заметка, которую бот пушит ВЛАДЕЛЬЦУ (редкое и требующее его внимания)."""
         self._write_notice(text, owner=True)
@@ -2945,7 +3029,10 @@ class Bot:
             if last and time.time() - last[2] < self.DOC_KEEP_S:
                 attachments = [(last[0], last[1])]
         if not isinstance(self.tg, Telegram):                    # тесты и сухие прогоны — синхронно
-            self._chat_now(chat, text, attachments)
+            if isinstance(text, tuple) and text and text[0] == "__search__":
+                self._chat_now(chat, text[1], attachments, header=text[2])
+            else:
+                self._chat_now(chat, text, attachments)
             return
         import threading
         if not hasattr(self, "_chat_lock"):
@@ -2969,11 +3056,14 @@ class Bot:
                 if isinstance(text, tuple) and text and text[0] == "__advisor__":
                     self._advisor_now(chat, text[1], text[2])
                     continue
+                if isinstance(text, tuple) and text and text[0] == "__search__":
+                    self._chat_now(chat, text[1], att, header=text[2])
+                    continue
                 self._chat_now(chat, text, att)
             except Exception as e:                               # noqa: BLE001
                 log("chat поток ошибка", repr(e))
 
-    def _chat_now(self, chat, text, attachments=None):
+    def _chat_now(self, chat, text, attachments=None, header=None):
         if hasattr(self.tg, "send_chat_action"):
             self.tg.send_chat_action(chat, "typing")
         import bot_agent as A
@@ -3010,7 +3100,7 @@ class Bot:
         hist.append({"role": "assistant", "text": reply or f"(отправил файлов: {sent_files})"})
         self.state["chat_history"] = hist[-2 * A.MAX_HISTORY_TURNS:]
         self.state["last_chat_reply"] = reply
-        self._send_long(chat, reply, kind="ответ агента")
+        self._send_long(chat, (header + "\n\n" + reply) if header and reply else reply, kind="ответ агента")
         try:
             self.save()
         except Exception as e:                                   # noqa: BLE001
@@ -3082,6 +3172,14 @@ class Bot:
             self._tick_dig_offer()
         except Exception as e:                                   # noqa: BLE001
             log("tick dig_offer ошибка", repr(e))
+        try:
+            self._tick_search_pause_notice()
+        except Exception as e:                                   # noqa: BLE001
+            log("tick search pause ошибка", repr(e))
+        try:
+            self._tick_search_followup(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick search followup ошибка", repr(e))
         try:
             self._tick_heartbeat(now)
         except Exception as e:                                   # noqa: BLE001

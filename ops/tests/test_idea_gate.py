@@ -435,10 +435,11 @@ def test_render_words_only_and_honest_update_states():
     rend_u, probs_u = HS.render_with_problems(broken, update=True)
     assert not probs_u and "план уже не действует: цена уже за стопом" in rend_u["money"]
     assert "+$" not in rend_u["money"]
-    # «в цене» — новая идея нельзя, исправление пишет честную фазу
+    # правила поиска v2 (владелец 14.11): «в цене» по доле прошлого хода идею НЕ задерживает — фаза
+    # честно пишется в тексте и новой идеи, и исправления
     played = _c(trigger_close=round(39.57 / 1.5, 6))           # +50% против +30–60%
-    _r, p_new = HS.render_with_problems(played)
-    assert any("отыграно" in x for x in p_new)
+    r_new, p_new = HS.render_with_problems(played)
+    assert not any("отыграно" in x for x in p_new) and "уже пройдена" in r_new["why"]
     r_upd, p_upd = HS.render_with_problems(played, update=True)
     assert "уже пройдена" in r_upd["why"]
     # «почти не сдвинулась» — тоже ровно одно число

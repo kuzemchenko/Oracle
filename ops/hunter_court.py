@@ -32,7 +32,7 @@ VERDICTS = ("PASS", "FIX", "FATAL")
 _KEEP = ("ticker", "name", "role", "direction", "mechanism_id", "catalyst", "thesis", "facts",
          "precedent", "move_since_trigger_pct", "upside_pct", "downside_pct", "trigger_date",
          "trigger_close", "target_price", "stop_price", "entry_limit", "why_not_priced",
-         "who_sells", "kill_conditions", "entry",
+         "who_sells", "kill_conditions", "entry", "horizon_class",
          # ревью 14.11: экономика карточки («рынок ждёт X», существенность, устойчивость, цепочка) — суду
          "market_view", "materiality", "durability", "chain")
 
@@ -66,9 +66,14 @@ def _haystack(card):
 
 
 def _defense(card):
-    return (f"Тезис: {card.get('thesis')}\nПочему не в цене: {card.get('why_not_priced')}\n"
-            f"Кто продаёт и почему ошибается: {card.get('who_sells')}\n"
-            f"Что опровергнет: {json.dumps(card.get('kill_conditions'), ensure_ascii=False)}")
+    # правила поиска v2 (владелец 14.11): «кто продаёт» не обязателен — без него строку не подаём;
+    # горизонт по классу (short 3–13 нед / long до 24 мес) — чтобы суд не мерил длинную тему коротким окном
+    hz = {"long": "длинный (3–24 месяца, «полка длинных тем»)"}.get(str(card.get("horizon_class") or "").lower(),
+                                                                 "короткий (3–13 недель)")
+    who = str(card.get("who_sells") or "").strip()
+    return (f"Тезис: {card.get('thesis')}\nГоризонт: {hz}\nПочему не в цене: {card.get('why_not_priced')}\n"
+            + (f"Кто продаёт и почему ошибается: {who}\n" if who else "")
+            + f"Что опровергнет: {json.dumps(card.get('kill_conditions'), ensure_ascii=False)}")
 
 
 def parse_verdict(text, card_text=None):

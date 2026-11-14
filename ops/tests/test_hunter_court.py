@@ -103,3 +103,11 @@ def test_court_sees_economic_fields_of_card():
         assert f'"{key}"' in txt
     assert "выручка 2027" in txt and "многолетний контракт" in txt and "цена оксида неодима" in txt
     assert "цена оксида неодима" in HC._haystack(card) and "существенно" in HC._haystack(card)
+
+
+def test_rules_v2_defense_without_who_sells_and_with_horizon():
+    from ops import hunter_court as HC
+    t = HC._defense({"thesis": "т", "why_not_priced": "п", "kill_conditions": [], "horizon_class": "long"})
+    assert "Кто продаёт" not in t and "длинный" in t
+    t2 = HC._defense({"thesis": "т", "who_sells": "индексный фонд", "kill_conditions": []})
+    assert "Кто продаёт и почему ошибается: индексный фонд" in t2 and "короткий" in t2

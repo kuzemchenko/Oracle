@@ -96,3 +96,11 @@ def test_stale_anchor_price_refused():
     assert _spec(snapshot={**SNAP, "last_date": "2026-11-04"})[0] is not None      # ровно 7 дней — можно
     spec, why = _spec(snapshot={**SNAP, "last_date": None})
     assert spec is None and "нет даты" in why
+
+
+def test_rules_v2_long_horizon_class():
+    """Правила поиска v2 (владелец 14.11): длинная тема до 104 недель — пишется с классом long."""
+    spec, why = _spec(resolve_by="2027-09-01", threshold=80)
+    assert why is None and spec["horizon_class"] == "long"
+    assert _spec()[0]["horizon_class"] == "short"
+    assert "недель" in _spec(resolve_by="2029-01-01", threshold=80)[1]
