@@ -261,23 +261,48 @@ def test_bet_sheet_court_negative_does_not_kill_and_prices_in_dollars(tmp_path, 
     from ops import idea_revision as IR
     _closes(monkeypatch, [("2026-11-02", 39.9), ("2026-11-03", 40.1)])
     ideas, q = _hunter_setup(tmp_path)
+    plain = {"идея": "компания добывает редкие металлы", "против": "рост может не дотянуть до цели"}
     r = DD.run_deep_dive(now=D2, queue_path=q, notices_path=tmp_path / "n.jsonl", passports_dir=tmp_path / "pass",
                          challenge_fn=lambda a, candidate=None: _battle_challenge(a), ideas_dir=ideas,
-                         max_per_run=1, bet_sheet=True, status_dir=tmp_path / "st")
+                         max_per_run=1, bet_sheet=True, status_dir=tmp_path / "st", plain_fn=lambda th, ob: plain)
     assert not r["ошибки"] and r["день2"] == 1
     t = json.loads((tmp_path / "n.jsonl").read_text("utf-8").splitlines()[-1])["text"]
-    assert t.startswith("Лист ставки — MP Materials (MP.US)")
+    assert t.startswith("Лист ставки: MP Materials (MP.US)")
     # $500 по $40.30: цель $47.50 → +(7.2·12.407)−2 ≈ +$87; стоп $35.50 → −(4.8·12.407)−2 ≈ −$62
-    assert "+$87" in t and "−$62" in t and "выше 41%" in t
-    assert "в 15% — это ниже порога" in t                     # оценка самой карточки против порога
-    assert "Главный риск" in t and "РАЗБИТА" in t              # суд — риск, а не приговор
+    assert "заработок около $87" in t and "Потеря около $62" in t
+    assert "хотя бы в 42 из 100 случаев" in t and "42 × $87" in t and "58 × $62" in t   # пример на 100 ставках
+    assert "примерно в 15 из 100" in t and "ниже порога" in t      # оценка самой карточки против порога
+    assert "компания добывает редкие металлы" in t and "рост может не дотянуть" in t
+    assert "главный риск" in t                                    # суд — риск, а не приговор
     lst = r["листы"][0]["лист"]
     assert lst["порог_шанса"] == pytest.approx(61.55 / (87.33 + 61.55), abs=1e-3)
     cur = IR.current(str(ideas / "idea_2026-11-02_MP"), today="2026-11-03", out_dir=tmp_path / "st")
     assert cur["статус"] != "отклонена" and cur["план_действует"]   # суд статус не меняет
+    assert "покупай не дороже $40.30" in t and "выход на $35.50" in t
     rows = [json.loads(x) for x in q.read_text("utf-8").splitlines()]
     assert not any(x.get("stage") == "closed" for x in rows)
     assert (tmp_path / "pass" / "MP_US_20261103.md").read_text("utf-8").count("порог_шанса") == 1
+
+
+def test_bet_sheet_without_retell_quotes_court_and_stop_crossed_says_no_buy(tmp_path, monkeypatch):
+    _closes(monkeypatch, [("2026-11-02", 39.9), ("2026-11-03", 34.9)])     # ниже стопа $35.50
+    ideas, q = _hunter_setup(tmp_path)
+    r = DD.run_deep_dive(now=D2, queue_path=q, notices_path=tmp_path / "n.jsonl", passports_dir=tmp_path / "pass",
+                         challenge_fn=lambda a, candidate=None: _battle_challenge(a), ideas_dir=ideas,
+                         max_per_run=1, bet_sheet=True, plain_fn=lambda th, ob: None, dry=True)
+    t = r["тексты"][0]
+    assert "Его довод дословно" in t and "В чём идея" not in t
+    assert "отменилась сама" in t and "Сейчас ничего не покупать" in t and "Последняя цена закрытия — $34.90" in t
+    assert "Когда выходить сразу" not in t                         # условия выхода недействующей идеи — шум
+
+
+def test_plain_guard_rejects_new_numbers_and_tickers():
+    src = "ИДЕЯ: акция выросла на 34.1% \nДОВОД ПРОТИВНИКА: цель не достигнута"
+    assert DD._plain_guard("рост на 34.1%", src) == []
+    assert DD._plain_guard("рост на 34%", src)                     # округление — тоже новое число
+    assert DD._plain_guard("как у NVDA.US", src)
+    assert DD._plain_guard("цель $25.5 к 29 января", "ИДЕЯ: цель $25.5 к 2027-01-29") == []   # дата ≠ шансы
+    assert DD._plain_guard("шансы 3 к 1", src)
 
 
 def test_bet_sheet_dry_run_writes_nothing(tmp_path, monkeypatch):
@@ -286,7 +311,7 @@ def test_bet_sheet_dry_run_writes_nothing(tmp_path, monkeypatch):
     before = q.read_text("utf-8")
     r = DD.run_deep_dive(now=D2, queue_path=q, notices_path=tmp_path / "n.jsonl", passports_dir=tmp_path / "pass",
                          challenge_fn=lambda a, candidate=None: _stub_challenge(a), ideas_dir=ideas,
-                         max_per_run=1, bet_sheet=True, dry=True)
+                         max_per_run=1, bet_sheet=True, dry=True, plain_fn=lambda th, ob: None)
     assert r["тексты"] and "Лист ставки" in r["тексты"][0]
     assert q.read_text("utf-8") == before and not (tmp_path / "n.jsonl").exists() and not (tmp_path / "pass").exists()
 

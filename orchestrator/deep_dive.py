@@ -488,56 +488,191 @@ def bet_sheet_for_card(card, amount_usd, fees_usd=FEES_USD):
     return BS.sheet(entry, sc, size_usd=amount_usd, fees_usd=fees_usd, direction=direction)
 
 
-def _bet_sheet_text(asset, card, ch, cur, amount, plan, kills, names=None):
+def _usd0(x):
+    return f"${abs(float(x)):,.0f}".replace(",", "\u00a0")
+
+
+PLAIN_PROMPT = ROOT / "agents" / "prompts" / "bet_sheet_plain.md"
+PLAIN_MAX = 700
+BET_SHEET_MAX_LEN = 4000       # владелец 14.11: «пусть длиннее, но понятно»; Telegram — до 4096
+
+
+def _lint_bet_sheet(text):
+    """Тот же контракт подачи (секции, жаргон, тех.id, тикеры с именами), но длина до 4000 знаков."""
+    try:
+        sys.path.insert(0, str(ROOT / "ops"))
+        import presentation_lint as PL
+        viol = PL.lint_for_user(text, require_sections=PL.DAILY_SECTIONS, max_len=BET_SHEET_MAX_LEN)
+        if PL._TECH_ID_RE.search(text):
+            viol.append("тех.id в тексте для владельца")
+        bare = PL._bare_tickers(text)
+        if bare:
+            viol.append("тикеры без имени: " + ", ".join(bare))
+        return viol
+    except Exception:                                              # noqa: BLE001
+        return ["линт подачи недоступен"]
+
+
+def _plain_guard(text, source):
+    """Пересказ — только язык: ни одного числа, тикера или количественного слова, которых нет во входе (П8)."""
+    try:
+        from ops import story_editor as SE, presentation_lint as PL
+    except ImportError:
+        import story_editor as SE
+        import presentation_lint as PL
+    t = str(text or "").strip()
+    if not t:
+        return ["пусто"]
+    viol = []
+    if SE._nums(t) - SE._nums(source):
+        viol.append("числа не из входа: " + ", ".join(sorted(SE._nums(t) - SE._nums(source))[:4]))
+    if SE._tickers(t) - SE._tickers(source):
+        viol.append("тикеры не из входа")
+    _dates = re.compile(r"\bк\s+\d{1,2}\s+(?:январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)",
+                        re.I)                               # «$25.5 к 29 января» — дата, а не шансы «5 к 29»
+    extra_q = (PL.quantity_markers(_dates.sub("к ДАТА", t), include_quotes=True)
+               - PL.quantity_markers(_dates.sub("к ДАТА", source), include_quotes=True))
+    if extra_q:
+        viol.append("количественные слова не из входа: " + ", ".join(sorted(extra_q)[:4]))
+    if len(t) > PLAIN_MAX * 2:
+        viol.append("слишком длинно")
+    return viol
+
+
+def plain_retell(thesis, objection, *, mode="auto"):
+    """Модель-редактор (роль story_editor, НЕ аналитик) пересказывает идею и довод противника простыми словами.
+    → {"идея": str, "против": str} или None (сбой/бюджет/нарушение гарда — тогда код печатает короткую цитату)."""
+    src = f"ИДЕЯ:\n{thesis}\n\nДОВОД ПРОТИВНИКА:\n{objection}"
+    try:
+        system = PLAIN_PROMPT.read_text(encoding="utf-8")
+        from orchestrator.openrouter import make_client
+        from orchestrator import run_budget as RB
+        client = make_client(mode=mode, run_id="bet_sheet_plain")
+        if getattr(client, "mode", None) == "live":
+            d = RB.precheck("story_editor")
+            if not d.get("allowed"):
+                return None
+            client.cost_guard = RB.RunBudgetGuard("story_editor", d["cap_usd"])
+        try:
+            resp = client.complete("story_editor", system, src, agent_id="bet_sheet_plain",
+                                   output_kind="plain_retell")
+        except RB.RunBudgetExceeded:
+            return None
+        txt = (resp.get("text") if isinstance(resp, dict) else resp) or ""
+    except Exception:                                              # noqa: BLE001 — пересказ не обязателен
+        return None
+    m = re.search(r"ИДЕЯ:\s*(.+?)\s*ПРОТИВ:\s*(.+)", txt, re.S)
+    if not m:
+        return None
+    out = {"идея": _clean_text(m.group(1), PLAIN_MAX), "против": _clean_text(m.group(2), PLAIN_MAX)}
+    if _plain_guard(out["идея"] + "\n" + out["против"], src):
+        return None
+    return out
+
+
+_STATUS_PLAIN = {
+    "ждёт входа": "Цена сейчас выше уровня, по которому идея предлагала покупать. Догонять не стоит: ждём, пока цена "
+                  "опустится до {entry}.",
+    "отменена условием": "Цена уже опускалась ниже {stop} — это уровень, при котором мы заранее договорились выходить. "
+                         "По правилам идеи она отменилась сама, покупать сейчас нельзя.",
+    "отклонена": "Идею сняли раньше, по итогам прежней проверки противником. Покупать по ней сейчас нельзя.",
+    "устарела": "Срок идеи прошёл — она больше не действует.",
+    "нужны данные": "Для решения не хватает фактов — пока их нет, не покупать.",
+    "проверить результат катализатора": "Событие, ради которого затевалась идея, уже прошло, а его итог система ещё "
+                                         "не проверила. Пока не проверим — не покупать.",
+}
+
+
+def _bet_sheet_text(asset, card, ch, cur, amount, plan=None, kills=None, names=None, plain=None):
+    """Лист ставки языком обычного человека (владелец 14.11: «пусть длиннее, но понятно»). Все числа — код."""
     label = _card_label(asset, card)
     вердикт, разбор, смерть = _extract_challenge(ch or {})
     bs = bet_sheet_for_card(card, amount)
     spec = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
-    L = [f"Лист ставки — {label}.", "",
-         "Что это значит для тебя. Ты нажал «Качаем». Вместо вердикта «жить или умереть» — расчёт в деньгах: "
-         "что получишь и что потеряешь, и при каком шансе ставка того стоит. Решение твоё."]
-    if bs.get("ok"):
-        rows = {r["name"]: r for r in bs["сценарии"]}
-        pos = bs["позиция"]
-        L += ["", f"Ставка. ${pos['вложено_usd']:,.0f} по цене входа {_money(pos['цена_входа'])} "
-                  f"(комиссия брокера принята ${bs['позиция']['комиссии_usd']:.0f} туда-обратно — ориентир)."]
-        for nm, what in (("цель", "Дошла до цели"), ("без движения", "Осталась на месте"), ("стоп", "Сработал стоп")):
-            r = rows.get(nm)
-            if r:
-                sign = "+" if r["pnl_usd"] >= 0 else "−"
-                L.append(f"{what} ({_money(r['price'])}): {sign}${abs(r['pnl_usd']):,.0f}.")
-        L += ["", "Порог. " + bs["порог_словами"].capitalize() + "."]
+    up = spec.get("direction", "above") == "above"
+    role = _flat(card.get("role"), 300) if card.get("role") else ""
+    L = [f"Лист ставки: {label}" + (f" — {role}" if role and not (plain and plain.get("идея")) else "") + ".", "",
+         "Что это значит для тебя. Не приговор «хорошая идея или плохая», а расчёт: сколько заработаешь, если идея "
+         "сработает, сколько потеряешь, если нет, и как часто она должна срабатывать, чтобы игра стоила свеч."]
+    if plain and plain.get("идея"):
+        L += ["", "В чём идея (пересказ моделью-редактором; числа сверены кодом, полный текст — в карточке идеи). "
+              + plain["идея"]]
+    if not bs.get("ok"):
+        L += ["", f"Посчитать ставку не получилось: {bs.get('причина')}.",
+              "", "Что делать. Ничего — без цен входа, цели и выхода ставку не оценить.",
+              "Это исследовательский инструмент, не инвестиционная рекомендация."]
+        return "\n".join(L), bs
+    rows = {r["name"]: r for r in bs["сценарии"]}
+    pos = bs["позиция"]
+    entry, tgt, stp = pos["цена_входа"], rows["цель"]["price"], rows["стоп"]["price"]
+    win, loss = rows["цель"]["pnl_usd"], rows["стоп"]["pnl_usd"]
+    fee = pos["комиссии_usd"]
+    qty = pos["кол_во"]
+    till = f" до {_ru_date(spec['resolve_by'])}" if spec.get("resolve_by") else ""
+    L += ["", "Что предлагается. " + (f"Купить акции примерно на {_usd0(pos['вложено_usd'])} (около {qty:.0f} шт.) "
+          f"по цене не выше {_money(entry)}." if up else
+          f"Сыграть на падение (продать «в долг», шорт) примерно на {_usd0(pos['вложено_usd'])} по цене не ниже "
+          f"{_money(entry)}.") + f" Сумма — фиксированная, полпроцента от условного капитала: пока система не "
+          f"доказала, что умеет угадывать, больше на одну идею не ставим.",
+          "", "Три возможных исхода:",
+          f"1) Хороший: цена {'дорастает' if up else 'опускается'} до {_money(tgt)} "
+          f"({'+' if up else '−'}{abs(tgt / entry - 1) * 100:.0f}% от входа). Продаёшь — заработок около {_usd0(win)}.",
+          f"2) Плохой: цена {'падает' if up else 'растёт'} до {_money(stp)}. Здесь мы заранее договариваемся выйти "
+          f"(это называется «стоп» — чтобы не потерять больше). Потеря около {_usd0(loss)}.",
+          f"3) Ничего не происходит{till}: выходишь примерно по цене входа и теряешь только комиссию брокера — "
+          f"около {_usd0(fee)} (это моя прикидка комиссии, а не данные)."]
+    pstar, n = bs.get("порог_шанса"), None
+    if pstar is not None and win > 0 > loss:
+        n = min(99, max(1, int(-(-pstar * 100 // 1))))           # округление вверх до целого «из 100»
+        ratio = win / -loss
+        L += ["", "Когда такая ставка выгодна. "
+              + (f"Выигрыш в хорошем исходе больше потери в плохом (в {ratio:.1f} раза). Поэтому выигрывать чаще, "
+                 f"чем проигрывать, не обязательно. " if ratio > 1 else
+                 f"Потеря в плохом исходе больше выигрыша в хорошем. Поэтому выигрывать нужно чаще, чем проигрывать. ")
+              + f"Порог — хороший исход хотя бы в {n} из 100 случаев. Проверка на примере: если из 100 таких ставок {n} закончатся "
+                f"хорошо, а {100 - n} плохо, то заработок {n} × {_usd0(win)} = {_usd0(n * win)}, потеря "
+                f"{100 - n} × {_usd0(loss)} = {_usd0((100 - n) * loss)} — примерно в ноль. "
+                f"Чаще, чем в {n} из 100 случаев, — ставка в плюсе, реже — в минусе."]
         p = spec.get("probability")
-        if bs.get("порог_шанса") is not None and isinstance(p, (int, float)):
-            side = "выше" if p > bs["порог_шанса"] else "ниже"
-            L.append(f"Сама карточка оценивала шанс закрыться за целью к сроку в {p * 100:.0f}% — это {side} "
-                     f"порога (оценки близки по смыслу, но не одно и то же: порог — цель раньше стопа).")
-    else:
-        L += ["", f"Расчёт ставки не получился: {bs.get('причина')}."]
+        if isinstance(p, (int, float)):
+            k = round(p * 100)
+            verdict_words = ("выше порога — по оценке самой системы ставка скорее выгодна" if k > n else
+                             "ниже порога — значит, по оценке самой системы ставка скорее убыточна" if k < n else
+                             "ровно на пороге — ставка примерно в ноль")
+            L += ["", f"Насколько вероятен хороший исход. Когда система выдавала идею, она оценила шанс "
+                      f"примерно в {k} из 100, что{till} цена {'будет выше' if up else 'будет ниже'} {_money(tgt)}. "
+                      f"Это {verdict_words}. Оговорка: оценка шанса — мнение модели, умение угадывать ещё не доказано."]
     if разбор or смерть:
-        L += ["", "Главный риск — довод сильнейшего противника"
-              + (f" (его итог: {вердикт})" if вердикт else "") + ":"]
-        if разбор:
-            L.append(f"«{_clean_text(_humanize_tickers(разбор, names), 360).rstrip('.')}».")
-        if смерть:
-            L.append("Идея умирает, если: " + "; ".join(_clean_text(_humanize_tickers(x, names), 180)
-                                                        for x in list(смерть)[:2]) + ".")
-    if plan:
-        L += [""] + list(plan)
-    if kills:
-        L.append("Когда идея мертва по её карточке: " + "; ".join(kills) + ".")
+        L += ["", "Что против идеи. Перед этим идею атаковал «противник» — другая модель, которой поручено найти "
+                  "самое сильное возражение."]
+        if plain and plain.get("против"):
+            L.append("Его довод простыми словами: " + plain["против"])
+        elif разбор:
+            L.append("Его довод дословно: «" + _clean_text(_humanize_tickers(разбор, names), 300).rstrip(".") + "».")
+        L.append("Раньше такой довод сам закрывал идею. Теперь это главный риск, который ты взвешиваешь сам.")
+    if kills and (not cur or cur.get("план_действует")):          # у недействующей идеи условия выхода — шум
+        L += ["", "Когда выходить сразу, не дожидаясь стопа: " + "; ".join(kills) + "."]
+    st = (cur or {}).get("статус")
+    L.append("")
     if cur and not cur.get("план_действует"):
-        L += ["", f"Что делать. Сейчас не входить: статус идеи «{cur.get('статус')}» (перепроверка кодом)."]
+        last = cur.get("последняя_цена")
+        last_s = (f" Последняя цена закрытия — {_money(last[1])} ({_ru_date(last[0])})."
+                  if isinstance(last, (list, tuple)) and len(last) == 2 else "")
+        L.append("Что сейчас. " + _STATUS_PLAIN.get(st, f"Статус идеи — «{st}», покупать сейчас нельзя.").format(
+            entry=_money(entry), stop=_money(stp)) + last_s)
+        L += ["", "Что делать. Сейчас ничего не покупать. Расчёт выше — чтобы ты видел, как устроена ставка."]
     else:
-        L += ["", "Что делать. Если твой шанс хорошего исхода выше порога — ставка разумна по деньгам; "
-                  "если нет — мимо. Решение за тобой."]
+        L += ["Что сейчас. План в силе: проверка свежих цен кодом не нашла причин его отменить.", "",
+              (f"Что делать. Если ты сам считаешь, что хороший исход случится чаще, чем в {n} из 100 случаев, — "
+               if n else "Что делать. Если веришь в хороший исход — ") + f"ставка разумна, покупай не дороже {_money(entry)} и сразу ставь выход на {_money(stp)}. "
+              f"Если не веришь — мимо. Решение за тобой."]
     L.append("Это исследовательский инструмент, не инвестиционная рекомендация.")
     return "\n".join(L), bs
 
 
 def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                   passports_dir=None, challenge_fn=None, max_per_run=MAX_PER_RUN,
-                  ideas_dir=None, dry=False, status_dir=None, challenges_dir=None, bet_sheet=None):
+                  ideas_dir=None, dry=False, status_dir=None, challenges_dir=None, bet_sheet=None, plain_fn=None):
     """Продвинуть очередь прокачки: день 1 (испытание) → по вердикту: УСТОЯЛА — экономика сразу в тот же
     прогон; РАЗБИТА/ВЕТО — идея «отклонена», плана нет; неясно — «нужны данные», плана нет (VQ-4).
 
@@ -589,7 +724,9 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                 names = {asset: card["name"]} if card and card.get("name") else None
                 if bet_sheet and card is not None:
                     _bet_sheet_step(asset, run_id, card, ch, now, итог, dry, queue_path, notices_path,
-                                    passports_dir, ideas_dir, status_dir, names)
+                                    passports_dir, ideas_dir, status_dir, names,
+                                    plain_fn=plain_fn if plain_fn is not None else
+                                    (lambda th, ob: plain_retell(th, ob, mode=mode)))
                     итог["продвинуто"] += 1
                     continue
                 text = _day1_text(asset, ch, now, label=_card_label(asset, card), names=names)
@@ -672,7 +809,7 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
 
 
 def _bet_sheet_step(asset, run_id, card, ch, now, итог, dry, queue_path, notices_path, passports_dir,
-                    ideas_dir, status_dir, names):
+                    ideas_dir, status_dir, names, plain_fn=None):
     """Один шаг «Качаем» в режиме листа ставки: суд → риск в тексте, экономика кодом, статус не трогаем."""
     from mathlib import kelly as K
     try:
@@ -686,8 +823,13 @@ def _bet_sheet_step(asset, run_id, card, ch, now, итог, dry, queue_path, not
     if stem:
         cur = IR.current(stem, card=card, today=now.date().isoformat(), out_dir=status_dir)
         plan = IR.plan_or_archive(card, cur, plan)
-    text, bs = _bet_sheet_text(asset, card, ch, cur, amount, plan, _hunter_kills(card)[:2], names)
-    viol = _lint_or_fallback(text)
+    вердикт0, разбор0, _ = _extract_challenge(ch or {})
+    who = _flat(card.get("role"), 300)
+    plain = (plain_fn((f"Кто это: {who}. " if who else "") + _flat(card.get("thesis"), 1500), _clean_text(разбор0, 1500))
+             if plain_fn else None)
+    kills = _hunter_kills(card)[:2]
+    text, bs = _bet_sheet_text(asset, card, ch, cur, amount, plan, kills, names, plain=plain)
+    viol = _lint_bet_sheet(text)
     if viol:
         итог["ошибки"].append({"asset": asset, "этап": "лист ставки", "ошибка": f"линт: {viol[:2]}"})
         return
