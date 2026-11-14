@@ -48,7 +48,7 @@ REJECT_KINDS = {
 }
 # виды паузы: turn — кончился один ответ (продолжится на «продолжай»); budget — исчерпан бюджет поиска
 # (повышать может только владелец); month — месячный лимит; queue_empty — направления исчерпаны
-PAUSE_KINDS = {"turn", "budget", "month", "queue_empty", "executor"}
+PAUSE_KINDS = {"turn", "budget", "month", "queue_empty", "executor", "new_topic"}
 SEARCH_BUDGET_USD = 10.0    # суб-потолок одного поиска (строже месячного лимита; поднимает только владелец; 5→10 по слову владельца 14.11)
 STALE_DAYS = 3              # факт или цена старше 3 дней — перепроверить перед выдачей
 MIN_FACTS = 2
@@ -114,7 +114,75 @@ def active(executor=None, d=None):
     """Последний незавершённый поиск (running/paused) исполнителя — его продолжаем, а не начинаем заново."""
     rows = [s for s in all_searches(d) if s["статус"] in (RUNNING, PAUSED)
             and (executor is None or s.get("исполнитель") == executor)]
-    return sorted(rows, key=lambda s: s.get("обновлён") or "")[-1] if rows else None
+    # отложенный ради новой темы (set_aside) уступает текущему — иначе старая тема вернулась бы сама
+    return sorted(rows, key=lambda s: (not is_set_aside(s), s.get("обновлён") or ""))[-1] if rows else None
+
+
+# ── ревью 14.11: новая тема владельца не подмешивается к старому поиску ───────────────────────────
+TOPIC_DIFF_THR = 0.3        # доля общих значимых слов ниже — тема «явно другая»
+# слова просьбы, а не темы («найди идею про …», «продолжай») — в сравнение тем не идут
+_TOPIC_STOP = ("найд", "найт", "поищ", "ищи", "иска", "поиск", "иде", "тем", "продолж", "дальш", "дава",
+               "пожал", "нов", "друг", "хоч", "мож", "нибуд", "какую", "какой", "какая", "интерес", "сегод",
+               "сейчас", "тепер", "вместо", "лучше", "прост", "очень", "туда", "этой", "этом", "этот", "вернис",
+               "вернём", "вернем", "обратн")
+
+
+def topic_words(text):
+    """Значимые слова темы: ≥4 букв, без слов самой просьбы."""
+    return {w for w in (x.lower().replace("ё", "е") for x in _WORD.findall(str(text or "")))
+            if not w.isdigit() and not w.startswith(tuple(x.replace("ё", "е") for x in _TOPIC_STOP))}
+
+
+def _same_word(a, b):
+    """Одно слово в разных формах («медь»/«меди», «Японии»/«Япония»): общий префикс без окончания."""
+    need = max(3, min(len(a), len(b)) - 2)
+    return a[:need] == b[:need]
+
+
+def topic_similarity(a, b):
+    """Доля значимых слов более короткой темы, найденных в другой (0..1); None — сравнивать нечего
+    (в одной из тем нет значимых слов: «продолжай», «найди идею»). Без LLM (Инв#6)."""
+    wa, wb = topic_words(a), topic_words(b)
+    if not wa or not wb:
+        return None
+    small, big = (wa, wb) if len(wa) <= len(wb) else (wb, wa)
+    return sum(1 for w in small if any(_same_word(w, x) for x in big)) / len(small)
+
+
+def topic_differs(new_topic, old_topic):
+    """True только когда тема ЯВНО другая; неясно (нет значимых слов) — False, поиск продолжается."""
+    sim = topic_similarity(new_topic, old_topic)
+    return sim is not None and sim < TOPIC_DIFF_THR
+
+
+def is_set_aside(s):
+    p = s.get("пауза") or {}
+    return s.get("статус") == PAUSED and (p.get("вид") == "new_topic" or bool(p.get("отложен")))
+
+
+def set_aside(s, new_topic):
+    """Отложить поиск: владелец начал новую тему. Ничего не удаляется; уже стоящая пауза (например, по
+    бюджету) сохраняет свой вид и причину — к ней только дописывается пометка."""
+    reason = f"владелец начал новую тему: {str(new_topic or '')[:200]}"
+    if s["статус"] in (FOUND, CANCELLED):
+        return s
+    if s["статус"] == PAUSED and s.get("пауза"):
+        s["пауза"]["отложен"] = reason
+        _log(s, "отложен", причина=reason)
+        return s
+    return pause(s, "new_topic", reason)
+
+
+def similar_unfinished(topic, executor, d=None, exclude_id=None):
+    """Незавершённый поиск исполнителя с той же/похожей темой (к нему возвращаемся, третий не плодим)."""
+    rows = [s for s in all_searches(d) if s["статус"] in (RUNNING, PAUSED) and s.get("исполнитель") == executor
+            and s["id"] != exclude_id]
+    best = None
+    for s in sorted(rows, key=lambda s: s.get("обновлён") or ""):
+        sim = topic_similarity(topic, s.get("тема"))
+        if sim is not None and sim >= TOPIC_DIFF_THR and (best is None or sim >= best[0]):
+            best = (sim, s)
+    return best[1] if best else None
 
 
 def _log(s, event, **kw):
@@ -469,7 +537,11 @@ def status_line(s):
                "budget": "Бюджет поиска сам не повышаю — реши, поднимать ли.",
                "month": "Месячный лимит расходов исчерпан — до решения владельца поиск стоит.",
                "queue_empty": "Направления по теме исчерпаны — нужна новая тема или новый факт.",
-               "executor": "Исполнитель недоступен — продолжу, когда он снова будет запущен."}.get(p.get("вид"), "")
+               "executor": "Исполнитель недоступен — продолжу, когда он снова будет запущен.",
+               "new_topic": "Поиск отложен, ничего не удалено — назови эту тему снова, и продолжу с этого места."
+               }.get(p.get("вид"), "")
+        if p.get("отложен") and p.get("вид") != "new_topic":
+            how = (how + f" Поиск отложен ({p['отложен']}), ничего не удалено.").strip()
         return head + f": {p.get('причина')}." + tail + " " + how
     return head + "." + tail
 

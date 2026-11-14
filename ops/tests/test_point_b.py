@@ -121,3 +121,24 @@ def test_one_conversation_recorded_many_times_counts_once(tmp_path):
     rows.append({"ts": "2026-11-13T10:39:00+00:00", "outcome": "идея", "topic": "свежие идеи", "summary": "y" * 50})
     (j / "chat_requests.jsonl").write_text("\n".join(_json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
     assert PB.requests_closed(tmp_path, [])[:2] == (2, 2)
+
+
+def test_track_skill_counts_outcomes_without_author_probability():
+    """Ревью 14.11: исход прогноза без авторской вероятности (кандидат разговора) выпадал из «сбылось».
+    Счётчики — по всем сверенным исходам трека; Brier/умение — только где вероятность есть."""
+    preds = [{"kind": "chat_idea", "hash": "c1", "probability": None, "вероятность_база": 0.3,
+              "resolve_by": "2026-12-20"}]
+    outs = [{"kind": "chat_idea", "hash": "c1", "outcome": 1}]
+    t = PB.track_skill("chat_idea", preds, outs)
+    assert t["исходов"] == 1 and t["сбылось"] == 1
+    assert t["с_базой"] == 1 and t["база_ожидание"] == 0.3 and t["с_вероятностью"] == 0
+    assert t["умение"]["verdict"] == "данных мало"                 # умение без вероятности не считается
+    w = PB._skill_words(t)
+    assert "сбылось 1 из 1" in w and "около 0.3" in w
+    # исход без базы в печати тоже в «исходов/сбылось»; сравнение с шумом — только по тем, где база есть
+    preds.append({"kind": "chat_idea", "hash": "c2", "probability": None, "вероятность_база": None,
+                  "resolve_by": "2026-12-21"})
+    outs.append({"kind": "chat_idea", "hash": "c2", "outcome": 0})
+    t2 = PB.track_skill("chat_idea", preds, outs)
+    assert (t2["исходов"], t2["сбылось"], t2["с_базой"], t2["сбылось_с_базой"]) == (2, 1, 1, 1)
+    assert "сбылось 1 из 2; из 1 с базой шума сбылось 1" in PB._skill_words(t2)

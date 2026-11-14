@@ -438,6 +438,13 @@ def test_chance_line_from_code_and_lint_exempt():
     card = _c(spec9={**CARD["spec9"], "base_probability": 0.0682})
     cs = HS.chance_sentence(card)
     assert cs and "примерно в 7 случаях из 100" in cs and "15 декабря" in cs
+    # ревью 14.11: база — шанс ЗАКРЫТЬСЯ за порогом в день сверки, не «дойти/коснуться» по пути
+    thr = float(CARD["spec9"]["threshold"])
+    side = "выше" if CARD["spec9"]["direction"] == "above" else "ниже"
+    assert cs.startswith(f"Шанс, что к 15 декабря цена закроется {side} ${thr:.2f}:")
+    assert "дойти" not in cs and "дойд" not in cs
+    assert "закроется за порогом прогноза" in HS.chance_sentence(
+        _c(spec9={"base_probability": 0.2, "resolve_by": "2026-12-15"}))
     assert HS.chance_sentence(CARD) is None
     body = ("Идея дня — 2 ноября. MP Materials (MP) — добытчик: ставлю на рост.\n\n"
             "Что это значит для тебя. Сегодня ничего.\n\n"

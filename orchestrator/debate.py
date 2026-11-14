@@ -28,6 +28,7 @@ RUBRIC_PATH = ROOT / "config" / "rubric.yaml"
 import sys
 sys.path.insert(0, str(ROOT))
 from orchestrator import agents as A          # noqa: E402
+from orchestrator import context as C         # noqa: E402
 from orchestrator import openrouter as OR     # noqa: E402
 from mathlib import base_rate as BR           # noqa: E402  (F2#17: детерминир. base_rate, Инв#6)
 
@@ -136,6 +137,11 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
     вид = candidate.get("вид_дела")
     if дело:
         idea_slice["каскадное_дело_проверяемое"] = дело
+    # ревью 14.11: тезис владельца («проверь идею …») — данные дела, как возражение владельца:
+    # слепоту судьи не нарушает (это не авторство аргумента), подаётся как гипотеза, не факт (П8)
+    owner_thesis = (ctx or {}).get("owner_thesis")
+    if owner_thesis:
+        idea_slice["тезис_владельца_на_проверку"] = C.owner_thesis_block(owner_thesis)
 
     # 1. Генератор
     gen = A.call_agent("e_generator", ctx, client, user_prompt=_user_for("e_generator", idea_slice))
@@ -207,6 +213,11 @@ def run_debate(candidate, ctx, client, *, run_id, costs=None, rubric=None, model
         # проверяемое дело каскада судье ЯВНО (факты, не авторство — П10 цел): событие-исток+механизм+
         # edge/r²/lag. Чтобы вердикт «нет первоисточника/расчёта» выносился только когда их РЕАЛЬНО нет.
         judge_payload["каскадное_дело_проверяемое"] = дело
+    if owner_thesis:
+        judge_payload["тезис_владельца_на_проверку"] = C.owner_thesis_block(owner_thesis)
+        judge_payload["напоминание"] += (
+            "; проверяется тезис владельца (поле 'тезис_владельца_на_проверку') — в выводе ЯВНО скажи, "
+            "подтверждают ли его аргументы и данные дела; сам тезис — не доказательство")
     if eval_context:
         judge_payload["контекст_оценки"] = eval_context
     if user_doubt:

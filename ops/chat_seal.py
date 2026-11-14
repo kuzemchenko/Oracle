@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT / "ops"))
 KIND = "chat_idea"
 MIN_WEEKS, MAX_WEEKS = 3, 13
 MIN_SIGMA_MOVE = 0.5
+MAX_ANCHOR_AGE_DAYS = 7      # ревью 14.11: якорная цена старше — прогноз от несвежей цены не пишем
 DEDUP_FIELDS = ("track", "asset", "direction", "threshold", "resolve_by")
 
 
@@ -76,6 +77,13 @@ def build_spec(ticker, direction, threshold, resolve_by, *, probability=None, pr
     px, last_d, sig = snap.get("last_close"), snap.get("last_date"), snap.get("sigma_daily")
     if not px or not sig:
         return None, f"нет цены или колебаний {sym} — прогноз не измерим против шума"
+    try:
+        age = (today - datetime.date.fromisoformat(str(last_d)[:10])).days
+    except (TypeError, ValueError):
+        return None, f"у цены {sym} в снимке нет даты — давность якоря не проверить, прогноз не пишу"
+    if age > MAX_ANCHOR_AGE_DAYS:
+        return None, (f"последняя цена {sym} в снимке — от {str(last_d)[:10]}, ей {age} дн. (допустимо до "
+                      f"{MAX_ANCHOR_AGE_DAYS}): от устаревшей цены прогноз не пишу — нужен свежий снимок цен")
     if not (0.5 * px <= thr <= 2.0 * px):
         return None, f"порог {thr} не заякорен к цене ~{px:.2f} (допустимо ×0.5–×2)"
     if (direction == "above" and thr <= px) or (direction == "below" and thr >= px):

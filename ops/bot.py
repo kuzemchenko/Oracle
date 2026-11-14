@@ -2458,24 +2458,29 @@ class Bot:
 
     def _cmd_check_idea(self, chat, idea_text):
         """R9c: проверка ИДЕИ пользователя полным состязательным контуром (21 агент + слепой суд §8).
-        Тикер из идеи → добор истории (B2.6) → run_funnel theme-focused → вердикт. seal НЕ делаем."""
+        Тикер из идеи → добор истории (B2.6) → run_funnel theme-focused → вердикт. seal НЕ делаем.
+        Ревью 14.11: → (True, None), если проверка ЗАПУЩЕНА, иначе (False, причина словами) — вызывающий
+        (агент court_check) не должен говорить «запущено», когда запуска не было; текст тезиса владельца
+        уходит в проверку (run_funnel thesis=) и в итоговое сообщение."""
         if self._job_busy():
             self._busy_notice(chat)
-            return
+            return False, f"уже идёт задача «{self._job_label}» — параллельный запуск не делаю"
         if self._budget_blocked(chat, "проверку идеи"):
-            return
+            return False, "достигнут месячный лимит расходов на ИИ-модели"
         if not os.environ.get("OPENROUTER_API_KEY"):
             self.tg.send_message(chat, "Нет ключа OpenRouter — проверка идеи невозможна.")
-            return
+            return False, "нет ключа OpenRouter"
         import bot_introspect as INTRO
         ticker = INTRO._ticker(idea_text)
         if not ticker:
             self.tg.send_message(chat, "Не вижу тикер в идее. Например: «проверь идею: CLF» или "
                                        "«проверь идею NUE — сталь вырастет на пошлинах».")
-            return
+            return False, "в тексте идеи не найден тикер"
+        thesis = self._idea_thesis(idea_text, ticker)
+        quoted = f" Проверяю твой тезис: «{thesis}»." if thesis else ""
         self.tg.send_message(
             chat, f"🔬 Проверяю идею по {ticker} полным состязательным контуром (генератор → критик → "
-                  f"слепой судья, §8). Несколько минут — вердикт пришлю сюда. «Не проходит» — тоже "
+                  f"слепой судья, §8).{quoted} Несколько минут — вердикт пришлю сюда. «Не проходит» — тоже "
                   f"честный результат.")
 
         def _job():
@@ -2490,15 +2495,43 @@ class Bot:
                 con.close()
             rid = ("idea_" + ticker.split(".")[0] + "_"
                    + _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
-            p = run_funnel(theme=ticker, mode="live", theme_focused=True, write=True, run_id=rid)
+            p = run_funnel(theme=ticker, mode="live", theme_focused=True, write=True, run_id=rid,
+                           thesis=thesis)
             ideas = (p.get("этап6_синтез") or {}).get("отчёты") or []
             log("проверка идеи завершена:", rid, "· идей:", len(ideas))
-            if not ideas:                                    # карточки §8 пушит _tick_reports; здесь — «не прошло»
-                self.tg.send_message(
-                    self.chat_id, f"🔬 Идея по {ticker}: контур НЕ выдал прошедшую идею — слепой суд / "
-                                  f"фильтры её зарезали (честный результат, не поломка). Разбор: /progress.")
+            self.tg.send_message(self.chat_id, self._check_idea_result(ticker, thesis, p))
 
-        self._start_job("проверка идеи", _job)
+        if not self._start_job("проверка идеи", _job):
+            return False, "фоновая задача не стартовала — уже идёт другая"
+        return True, None
+
+    @staticmethod
+    def _idea_thesis(idea_text, ticker):
+        """Тезис владельца из текста идеи: всё, кроме голого тикера. Один тикер без слов → None."""
+        t = " ".join(str(idea_text or "").split())
+        base = str(ticker or "").split(".")[0]
+        rest = re.sub(rf"(?<![A-Za-z]){re.escape(base)}(?:\.[A-Za-z]{{1,4}})?(?![A-Za-z])", " ", t, flags=re.I)
+        if not re.search(r"[A-Za-zА-Яа-яЁё]{3,}", rest):
+            return None
+        return t[:800]
+
+    @staticmethod
+    def _check_idea_result(ticker, thesis, p):
+        """Итог проверки идеи словами — по протоколу прогона (ревью 14.11: отказ до суда не выдаём
+        за «суд зарезал»; тезис владельца повторяем, чтобы было видно, ЧТО проверялось)."""
+        p = p or {}
+        head = f"🔬 Идея по {ticker}" + (f" (твой тезис: «{thesis}»)" if thesis else "") + ": "
+        for key, what in (("ОТКАЗ_тема", "проверка НЕ выполнена — по бумаге нет данных для разбора"),
+                          ("ОТКАЗ_бюджет", "проверка НЕ выполнена — не хватает бюджета на прогон"),
+                          ("ОСТАНОВ_бюджет", "проверка ОСТАНОВЛЕНА по бюджету, до суда не дошла")):
+            if p.get(key):
+                why = (p[key] or {}).get("reason") if isinstance(p[key], dict) else None
+                return head + what + (f": {str(why)[:400]}" if why else "") + ". Суд идею не рассматривал."
+        ideas = (p.get("этап6_синтез") or {}).get("отчёты") or []
+        if not ideas:                                    # карточки §8 пушит _tick_reports; здесь — «не прошло»
+            return head + ("контур НЕ выдал прошедшую идею — слепой суд / фильтры её зарезали "
+                           "(честный результат, не поломка). Разбор: /progress.")
+        return head + f"контур выдал идей: {len(ideas)} — карточка с вердиктом суда придёт следом."
 
     def _cmd_devops(self, chat):
         """§R6: последние devops-ПРЕДЛОЖЕНИЯ (анализ террейна/калибровки на подпись). Нет отчёта —

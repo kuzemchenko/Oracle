@@ -164,18 +164,27 @@ def track_skill(kind, preds, outs):
     by_hash = {r.get("hash"): r for r in sealed}
     res = [o for o in outs if o.get("kind") == kind and o.get("outcome") in (0, 1) and o.get("hash") in by_hash]
     ps, bs, ys, cl = [], [], [], []
+    # ревью 14.11: «исходов/сбылось» — по ВСЕМ сверенным исходам трека; ожидание шума — по всем, где в
+    # печати есть база; Brier/умение — только там, где есть ещё и авторская вероятность
+    hits = sum(o["outcome"] for o in res)
+    exp, n_base, hits_base = [], 0, 0
     for o in res:
         s = by_hash[o["hash"]]
-        if s.get("вероятность_база") is None or s.get("probability") is None:
+        if s.get("вероятность_база") is None:
+            continue
+        exp.append(s["вероятность_база"])
+        n_base += 1
+        hits_base += o["outcome"]
+        if s.get("probability") is None:
             continue
         ps.append(s["probability"])
         bs.append(s["вероятность_база"])
         ys.append(o["outcome"])
         cl.append(_week(s.get("resolve_by")) + "|" + str(s.get("mechanism_id") or s.get("thesis_id") or "?"))
     sk = SK.brier_skill_vs_base(ps, bs, ys, clusters=cl)
-    hits = sum(ys)
-    return {"печатей": len(sealed), "исходов": len(res), "с_базой": len(ys), "сбылось": hits,
-            "база_ожидание": round(sum(bs), 2) if bs else None, "умение": sk}
+    return {"печатей": len(sealed), "исходов": len(res), "сбылось": hits,
+            "с_базой": n_base, "сбылось_с_базой": hits_base, "с_вероятностью": len(ys),
+            "база_ожидание": round(sum(exp), 2) if exp else None, "умение": sk}
 
 
 def measure(today=None, root=None):
@@ -242,9 +251,13 @@ def _skill_words(t):
     sk = t["умение"]
     if t["исходов"] == 0:
         return "исходов ещё нет"
-    base = f"сбылось {t['сбылось']} из {t['с_базой']}"
+    base = f"сбылось {t['сбылось']} из {t['исходов']}"
     if t["база_ожидание"] is not None:
-        base += f", от обычной качки цен сбылось бы около {t['база_ожидание']}"
+        if t["с_базой"] == t["исходов"]:
+            base += f", от обычной качки цен сбылось бы около {t['база_ожидание']}"
+        else:                                           # база есть не у всех — сравниваем подобное с подобным
+            base += (f"; из {t['с_базой']} с базой шума сбылось {t['сбылось_с_базой']}, от обычной качки цен "
+                     f"сбылось бы около {t['база_ожидание']}")
     if sk["verdict"] == "данных мало":
         return base + "; данных мало — вердикт об умении отложен"
     return base + f"; вердикт: {sk['verdict']}"

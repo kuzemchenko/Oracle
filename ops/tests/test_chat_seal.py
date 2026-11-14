@@ -86,3 +86,13 @@ def test_find_idea_outcome_without_bet_warns(tmp_path):
     t.pred_path = tmp_path / "pred.jsonl"
     out = t.record_find_idea("газ", "идея", "EQT — производитель газа, беру 4 акции, рынок не учёл контракт", ["EQT"])
     assert "не записан в счёт" in out and "record_bet" in out
+
+
+def test_stale_anchor_price_refused():
+    """Ревью 14.11: прогноз нельзя записать от старой цены — якорь старше MAX_ANCHOR_AGE_DAYS → отказ словами."""
+    assert CS.MAX_ANCHOR_AGE_DAYS == 7
+    spec, why = _spec(snapshot={**SNAP, "last_date": "2026-11-03"})       # 8 дней до 11.11
+    assert spec is None and "2026-11-03" in why and "8 дн" in why and "свежий снимок" in why
+    assert _spec(snapshot={**SNAP, "last_date": "2026-11-04"})[0] is not None      # ровно 7 дней — можно
+    spec, why = _spec(snapshot={**SNAP, "last_date": None})
+    assert spec is None and "нет даты" in why

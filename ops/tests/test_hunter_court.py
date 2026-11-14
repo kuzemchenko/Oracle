@@ -89,3 +89,17 @@ def test_fatal_evidence_found_despite_quotes_and_newlines():
                           ensure_ascii=False))
     assert HC.judge_card(card, client=st)[0]["verdict"] == "FATAL"
     assert HC._norm("«А»\n  Б") == "а б"
+
+
+def test_court_sees_economic_fields_of_card():
+    """Ревью 14.11: суд охотника не видел «рынок ждёт X», существенность, устойчивость и цепочку — теперь
+    они в тексте дела и в стоге для дословной улики FATAL."""
+    card = dict(CARD, market_view={"metric": "выручка 2027", "market": {"value": 410}, "ours": {"value": 520}},
+                materiality={"verdict": "СУЩЕСТВЕННО", "share_of_earnings": 0.31},
+                durability={"kind": "многолетний контракт", "years": 7},
+                chain=[{"step": "пошлина на редкозёмы"}, {"step": "цена оксида неодима"}])
+    txt = HC._card_text(card)
+    for key in ("market_view", "materiality", "durability", "chain"):
+        assert f'"{key}"' in txt
+    assert "выручка 2027" in txt and "многолетний контракт" in txt and "цена оксида неодима" in txt
+    assert "цена оксида неодима" in HC._haystack(card) and "существенно" in HC._haystack(card)
