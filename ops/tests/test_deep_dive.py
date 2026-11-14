@@ -244,3 +244,53 @@ def test_show_mode_writes_nothing_and_returns_both_days(tmp_path, monkeypatch):
     assert q.read_text("utf-8") == before
     assert not (tmp_path / "n.jsonl").exists() and not (tmp_path / "pass").exists()
     assert len(r["тексты"]) == 2 and "день первый" in r["тексты"][0] and "$47.50" in r["тексты"][1]
+
+
+# ── лист ставки вместо суда-убийцы (ревью 14.11; флаг deep_dive_bet_sheet) ─────────────────────
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _bet_sheet_off_by_default(monkeypatch, request):
+    """Прежние тесты закрепляют путь без листа ставки — не зависят от боевого значения флага."""
+    if "bet_sheet" not in request.node.name:
+        monkeypatch.setattr(DD, "_bet_sheet_flag", lambda: False)
+
+
+def test_bet_sheet_court_negative_does_not_kill_and_prices_in_dollars(tmp_path, monkeypatch):
+    from ops import idea_revision as IR
+    _closes(monkeypatch, [("2026-11-02", 39.9), ("2026-11-03", 40.1)])
+    ideas, q = _hunter_setup(tmp_path)
+    r = DD.run_deep_dive(now=D2, queue_path=q, notices_path=tmp_path / "n.jsonl", passports_dir=tmp_path / "pass",
+                         challenge_fn=lambda a, candidate=None: _battle_challenge(a), ideas_dir=ideas,
+                         max_per_run=1, bet_sheet=True, status_dir=tmp_path / "st")
+    assert not r["ошибки"] and r["день2"] == 1
+    t = json.loads((tmp_path / "n.jsonl").read_text("utf-8").splitlines()[-1])["text"]
+    assert t.startswith("Лист ставки — MP Materials (MP.US)")
+    # $500 по $40.30: цель $47.50 → +(7.2·12.407)−2 ≈ +$87; стоп $35.50 → −(4.8·12.407)−2 ≈ −$62
+    assert "+$87" in t and "−$62" in t and "выше 41%" in t
+    assert "в 15% — это ниже порога" in t                     # оценка самой карточки против порога
+    assert "Главный риск" in t and "РАЗБИТА" in t              # суд — риск, а не приговор
+    lst = r["листы"][0]["лист"]
+    assert lst["порог_шанса"] == pytest.approx(61.55 / (87.33 + 61.55), abs=1e-3)
+    cur = IR.current(str(ideas / "idea_2026-11-02_MP"), today="2026-11-03", out_dir=tmp_path / "st")
+    assert cur["статус"] != "отклонена" and cur["план_действует"]   # суд статус не меняет
+    rows = [json.loads(x) for x in q.read_text("utf-8").splitlines()]
+    assert not any(x.get("stage") == "closed" for x in rows)
+    assert (tmp_path / "pass" / "MP_US_20261103.md").read_text("utf-8").count("порог_шанса") == 1
+
+
+def test_bet_sheet_dry_run_writes_nothing(tmp_path, monkeypatch):
+    _closes(monkeypatch, [("2026-11-02", 39.9)])
+    ideas, q = _hunter_setup(tmp_path)
+    before = q.read_text("utf-8")
+    r = DD.run_deep_dive(now=D2, queue_path=q, notices_path=tmp_path / "n.jsonl", passports_dir=tmp_path / "pass",
+                         challenge_fn=lambda a, candidate=None: _stub_challenge(a), ideas_dir=ideas,
+                         max_per_run=1, bet_sheet=True, dry=True)
+    assert r["тексты"] and "Лист ставки" in r["тексты"][0]
+    assert q.read_text("utf-8") == before and not (tmp_path / "n.jsonl").exists() and not (tmp_path / "pass").exists()
+
+
+def test_bet_sheet_flag_in_real_loader():
+    from ops import bot_reports as R
+    assert "deep_dive_bet_sheet" in R.JOB_FLAGS

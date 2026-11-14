@@ -454,9 +454,90 @@ def _hunter_kills(card):
     return rows
 
 
+# ── лист ставки вместо «суда, который убивает» (ревью 14.11: Fable п.4, Codex «экономика кодом»; да владельца
+# 14.11 на шаг, ВКЛЮЧЕНИЕ — флаг deep_dive_bet_sheet после ручного прогона и «ок»). Суд остаётся, но его итог
+# больше не закрывает идею: довод противника печатается как главный риск, а решение — за владельцем по
+# деньгам: сколько выигрыш при цели, сколько проигрыш при стопе, при каком шансе ставка в плюс (считает
+# mathlib/bet_sheet, Инв#6). Статус идеи по-прежнему решает только перепроверка кодом (idea_revision.current).
+FEES_USD = 2.0                 # ориентир комиссии брокера туда-обратно; честно помечается в тексте
+
+
+def _bet_sheet_flag():
+    try:
+        from ops import bot_reports as R
+    except ImportError:
+        sys.path.insert(0, str(ROOT / "ops"))
+        import bot_reports as R
+    try:
+        return bool((R.load_presentation() or {}).get("deep_dive_bet_sheet"))
+    except Exception:                                              # noqa: BLE001 — нет конфига = прежний путь
+        return False
+
+
+def bet_sheet_for_card(card, amount_usd, fees_usd=FEES_USD):
+    """Сценарии из ЦЕН карточки: цель / без движения / стоп при входе по границе плана → mathlib.bet_sheet."""
+    from mathlib import bet_sheet as BS
+    spec = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+    entry = card.get("entry_limit")
+    direction = "long" if spec.get("direction", "above") == "above" else "short"
+    sc = [{"name": "цель", "price": card.get("target_price")},
+          {"name": "без движения", "price": entry},
+          {"name": "стоп", "price": card.get("stop_price")}]
+    if any(x.get("price") is None for x in sc):
+        return {"ok": False, "причина": "в карточке нет цены входа, цели или стопа"}
+    return BS.sheet(entry, sc, size_usd=amount_usd, fees_usd=fees_usd, direction=direction)
+
+
+def _bet_sheet_text(asset, card, ch, cur, amount, plan, kills, names=None):
+    label = _card_label(asset, card)
+    вердикт, разбор, смерть = _extract_challenge(ch or {})
+    bs = bet_sheet_for_card(card, amount)
+    spec = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
+    L = [f"Лист ставки — {label}.", "",
+         "Что это значит для тебя. Ты нажал «Качаем». Вместо вердикта «жить или умереть» — расчёт в деньгах: "
+         "что получишь и что потеряешь, и при каком шансе ставка того стоит. Решение твоё."]
+    if bs.get("ok"):
+        rows = {r["name"]: r for r in bs["сценарии"]}
+        pos = bs["позиция"]
+        L += ["", f"Ставка. ${pos['вложено_usd']:,.0f} по цене входа {_money(pos['цена_входа'])} "
+                  f"(комиссия брокера принята ${bs['позиция']['комиссии_usd']:.0f} туда-обратно — ориентир)."]
+        for nm, what in (("цель", "Дошла до цели"), ("без движения", "Осталась на месте"), ("стоп", "Сработал стоп")):
+            r = rows.get(nm)
+            if r:
+                sign = "+" if r["pnl_usd"] >= 0 else "−"
+                L.append(f"{what} ({_money(r['price'])}): {sign}${abs(r['pnl_usd']):,.0f}.")
+        L += ["", "Порог. " + bs["порог_словами"].capitalize() + "."]
+        p = spec.get("probability")
+        if bs.get("порог_шанса") is not None and isinstance(p, (int, float)):
+            side = "выше" if p > bs["порог_шанса"] else "ниже"
+            L.append(f"Сама карточка оценивала шанс закрыться за целью к сроку в {p * 100:.0f}% — это {side} "
+                     f"порога (оценки близки по смыслу, но не одно и то же: порог — цель раньше стопа).")
+    else:
+        L += ["", f"Расчёт ставки не получился: {bs.get('причина')}."]
+    if разбор or смерть:
+        L += ["", "Главный риск — довод сильнейшего противника"
+              + (f" (его итог: {вердикт})" if вердикт else "") + ":"]
+        if разбор:
+            L.append(f"«{_clean_text(_humanize_tickers(разбор, names), 360).rstrip('.')}».")
+        if смерть:
+            L.append("Идея умирает, если: " + "; ".join(_clean_text(_humanize_tickers(x, names), 180)
+                                                        for x in list(смерть)[:2]) + ".")
+    if plan:
+        L += [""] + list(plan)
+    if kills:
+        L.append("Когда идея мертва по её карточке: " + "; ".join(kills) + ".")
+    if cur and not cur.get("план_действует"):
+        L += ["", f"Что делать. Сейчас не входить: статус идеи «{cur.get('статус')}» (перепроверка кодом)."]
+    else:
+        L += ["", "Что делать. Если твой шанс хорошего исхода выше порога — ставка разумна по деньгам; "
+                  "если нет — мимо. Решение за тобой."]
+    L.append("Это исследовательский инструмент, не инвестиционная рекомендация.")
+    return "\n".join(L), bs
+
+
 def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                   passports_dir=None, challenge_fn=None, max_per_run=MAX_PER_RUN,
-                  ideas_dir=None, dry=False, status_dir=None, challenges_dir=None):
+                  ideas_dir=None, dry=False, status_dir=None, challenges_dir=None, bet_sheet=None):
     """Продвинуть очередь прокачки: день 1 (испытание) → по вердикту: УСТОЯЛА — экономика сразу в тот же
     прогон; РАЗБИТА/ВЕТО — идея «отклонена», плана нет; неясно — «нужны данные», плана нет (VQ-4).
 
@@ -465,6 +546,8 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
     показывает сразу оба дня (день-2 — по итогам дня-1 этого же показа)."""
     now = now or _now()
     today = now.date().isoformat()
+    if bet_sheet is None:
+        bet_sheet = _bet_sheet_flag()
     итог = {"ts": now.isoformat(timespec="seconds"), "продвинуто": 0, "день1": 0, "день2": 0,
             "пропущено": [], "ошибки": [], "тексты": []}
     state = queue_state(queue_path)
@@ -504,6 +587,11 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
                     continue
                 _верд, _разбор, смерть = _extract_challenge(ch)   # боевая структура протокола
                 names = {asset: card["name"]} if card and card.get("name") else None
+                if bet_sheet and card is not None:
+                    _bet_sheet_step(asset, run_id, card, ch, now, итог, dry, queue_path, notices_path,
+                                    passports_dir, ideas_dir, status_dir, names)
+                    итог["продвинуто"] += 1
+                    continue
                 text = _day1_text(asset, ch, now, label=_card_label(asset, card), names=names)
                 viol = _lint_or_fallback(text)
                 if viol:
@@ -583,13 +671,58 @@ def run_deep_dive(mode="auto", now=None, queue_path=None, notices_path=None,
     return итог
 
 
+def _bet_sheet_step(asset, run_id, card, ch, now, итог, dry, queue_path, notices_path, passports_dir,
+                    ideas_dir, status_dir, names):
+    """Один шаг «Качаем» в режиме листа ставки: суд → риск в тексте, экономика кодом, статус не трогаем."""
+    from mathlib import kelly as K
+    try:
+        from ops import idea_revision as IR
+    except ImportError:
+        import idea_revision as IR
+    size = K.position_size(0.5, 1.0, CAPITAL_USD, gate_passed=False)
+    amount = size.get("amount_usd") or CAPITAL_USD * 0.005
+    cur, plan = None, _hunter_plan_lines(card)
+    stem = IR.stem_for_run_id(run_id, ideas_dir)
+    if stem:
+        cur = IR.current(stem, card=card, today=now.date().isoformat(), out_dir=status_dir)
+        plan = IR.plan_or_archive(card, cur, plan)
+    text, bs = _bet_sheet_text(asset, card, ch, cur, amount, plan, _hunter_kills(card)[:2], names)
+    viol = _lint_or_fallback(text)
+    if viol:
+        итог["ошибки"].append({"asset": asset, "этап": "лист ставки", "ошибка": f"линт: {viol[:2]}"})
+        return
+    вердикт, разбор, смерть = _extract_challenge(ch)
+    fname = f"{str(asset).replace('.', '_')}_{now.strftime('%Y%m%d')}.md"
+    итог.setdefault("листы", []).append({"asset": asset, "вердикт": вердикт, "лист": bs})
+    if dry:
+        итог["тексты"].append(text)
+        return
+    d = pathlib.Path(passports_dir or PASSPORTS)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / fname).write_text(f"# Лист ставки — {_card_label(asset, card)}\nСоздан: {now.date().isoformat()} · "
+                           f"прогон {run_id}\n\n" + text + "\n\n## Расчёт (mathlib/bet_sheet)\n```\n"
+                           + json.dumps(bs, ensure_ascii=False, indent=1) + "\n```\n", encoding="utf-8")
+    _notice(text, notices_path, now)
+    ts = now.isoformat(timespec="seconds")
+    _append(queue_path or QUEUE, {"ts": ts, "run_id": run_id, "asset": asset, "stage": "day1",
+                                  "challenge_run_id": ch.get("run_id"), "резюме": разбор[:2000],
+                                  "смерть": list(смерть)[:5], "вердикт": str(вердикт)[:80],
+                                  "класс": verdict_class(вердикт), "режим": "лист ставки"})
+    _append(queue_path or QUEUE, {"ts": ts, "run_id": run_id, "asset": asset, "stage": "day2",
+                                  "passport": fname, "режим": "лист ставки"})
+    итог["день1"] += 1
+    итог["день2"] += 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="V3 «качаем 2 дня»: продвижение очереди прокачки")
     ap.add_argument("--mode", default="auto", choices=["auto", "live", "mock"])
     ap.add_argument("--show", action="store_true",
                     help="показать владельцу-тексты обоих дней БЕЗ записи (заметки/стадии/паспорта)")
+    ap.add_argument("--bet-sheet", action="store_true",
+                    help="режим листа ставки (как при флаге deep_dive_bet_sheet) — для ручного показа")
     a = ap.parse_args(argv)
-    r = run_deep_dive(mode=a.mode, dry=a.show)
+    r = run_deep_dive(mode=a.mode, dry=a.show, bet_sheet=True if a.bet_sheet else None)
     for t in r.get("тексты") or []:
         print("\n" + "─" * 60 + "\n" + t)
     for e in r.get("ошибки") or []:
