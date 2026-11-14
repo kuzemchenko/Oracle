@@ -10,17 +10,21 @@
 
 Жёсткие критерии (Инв#6 — проверка кодом, не мнением):
   1. карточка полная (тикер, направление, катализатор, факты, прецедент, стоп-условия, §9);
-  2. катализатор датирован и лежит в окне [сегодня … +13 недель];
-  3. горизонт сверки 3–13 недель (зона Тетлока);
+  2. катализатор датирован и лежит в окне [сегодня … +13 недель] (короткий класс); у длинного
+     класса (horizon_class: long — «полка длинных тем») дата не обязательна, описание — обязательно;
+  3. горизонт сверки по классу: short 3–13 недель (зона Тетлока), long 92–730 дней;
   4. ≥3 факта с URL и датой, ≥2 разных источника (П8);
-  5. прецедент с ЧИСЛОВОЙ амплитудой, и ход с даты повода НЕ съел её (mathlib.priced_in:
-     вердикт «большая часть в цене»/«перелёт» — провал); ход считает КОД из закрытия в день
-     повода и последней цены (перепроверка №2 03.11: раньше — число со слов LLM);
+  5. прецедент с ЧИСЛОВОЙ амплитудой и URL; ход с даты повода считает КОД из закрытия в день
+     повода и последней цены (перепроверка №2 03.11: раньше — число со слов LLM); доля
+     прецедентного хода «в цене»/«перелёт» и потенциал выше прецедента — ПОМЕТКА (warnings),
+     не отказ: прошлый ход не потолок нового эпизода (правила поиска v2, владелец 14.11);
   6. асимметрия: потенциал/риск ≥ 1.5 от ХУДШЕГО входа — из цен цели, стопа и входа, кодом;
   7. ≥1 стоп-условие с датой проверки не позже сверки;
   8. §9-спека разрешима, порог заякорен к свежей цене (0.5×..2×, не на уже-истинной
      стороне), направление согласовано с идеей; сырая вероятность в [0.05..0.95] —
      только для печати и счёта, владельцу НЕ показывается.
+Правила поиска v2 (владелец 14.11): «кто продаёт и почему ошибается» не обязателен (пусто —
+пометка); посчитанная существенность эффекта обязательна для охот с RULES_V2_FROM.
 
 CLI: python3 ops/idea_gate.py card.json [--today YYYY-MM-DD] → JSON-вердикт; код выхода 0/1.
 """
@@ -47,8 +51,16 @@ except ImportError:                          # запуск из ops/ (бот)
 # внезапно браковаться новыми полями; по ним доказательства показываются предупреждением.
 EVIDENCE_FROM = datetime.date(2026, 11, 8)
 
+# Правила поиска v2 (владелец 14.11): НОВОЕ требование (посчитанная существенность эффекта) — только
+# для охот с этой даты, по образцу EVIDENCE_FROM; ослабления (первый круг, «в цене» пометкой,
+# who_sells не обязателен, длинный горизонт) действуют для всех.
+RULES_V2_FROM = EV.RULES_V2_FROM
+
 TICKER_RE = re.compile(r"^[A-Z][A-Z0-9\-]{0,9}\.US$")
-MIN_DAYS, MAX_DAYS = 21, 91                  # 3–13 недель
+MIN_DAYS, MAX_DAYS = 21, 91                  # 3–13 недель — класс short (по умолчанию)
+MAX_DAYS_LONG = 730                          # класс long: 92–730 дней (правила поиска v2, владелец 14.11)
+HORIZONS = {"short": (MIN_DAYS, MAX_DAYS, "3–13 недель"),
+            "long": (MAX_DAYS + 1, MAX_DAYS_LONG, f"{MAX_DAYS + 1}–{MAX_DAYS_LONG} дней")}
 MIN_FACTS, MIN_DOMAINS = 3, 2
 MIN_ASYM = 1.5
 P_MIN, P_MAX = 0.05, 0.95
@@ -60,7 +72,7 @@ DIR_MAP = {"вверх": "above", "вниз": "below"}
 # несёт ЦЕНЫ (закрытие в день повода, цель, стоп, худший вход), а проценты считает этот код; на
 # сервере цены заменяются серверными котировками (hunter_seal.server_check).
 REQUIRED = ("ticker", "name", "direction", "catalyst", "thesis", "facts", "precedent",
-            "move_since_trigger_pct", "upside_pct", "downside_pct", "who_sells",
+            "move_since_trigger_pct", "upside_pct", "downside_pct",
             "kill_conditions", "spec9", "trigger_date", "trigger_close", "target_price", "stop_price")
 
 
@@ -114,7 +126,7 @@ def price_math(direction, last_close, trigger_close, target, stop, entry_limit=N
 
 def check(card, today=None, horizon_from=None, evidence=None):
     """Карточка → {'pass', 'fails', 'warnings', 'computed'}. Пустой fails = прошла шлагбаум.
-    horizon_from — дата, от которой мерить горизонт 3–13 недель (на сервере — дата охоты: сервер
+    horizon_from — дата, от которой мерить горизонт класса (на сервере — дата охоты: сервер
     печатает с лагом ≤3 дней, и честная идея на нижней границе не должна умирать от задержки
     доставки — перепроверка №2); по умолчанию — today.
     evidence: True — проверка доказательств обязательна (брак), False — только предупреждения,
@@ -137,16 +149,26 @@ def check(card, today=None, horizon_from=None, evidence=None):
     if direction not in DIR_MAP:
         fails.append(f"направление не «вверх»/«вниз»: {direction!r}")
 
-    # 2. катализатор в окне
+    # горизонт: два класса (правила поиска v2, владелец 14.11); нет поля — short, как раньше
+    hclass = str(card.get("horizon_class") or "short").strip().lower()
+    if hclass not in HORIZONS:
+        fails.append(f"horizon_class не «short»/«long»: {hclass!r}")
+        hclass = "short"
+    h_min, h_max, h_txt = HORIZONS[hclass]
+    comp["класс_горизонта"] = hclass
+
+    # 2. катализатор в окне класса; у long дата не обязательна (описание — обязательно)
     cat = card["catalyst"] if isinstance(card["catalyst"], dict) else {}
     cd = _date(cat.get("date"))
     if cd is None:
-        fails.append("катализатор без даты (YYYY-MM-DD)")
+        if hclass == "short" or str(cat.get("date") or "").strip():
+            fails.append("катализатор без даты (YYYY-MM-DD)")
     else:
         delta = (cd - today).days
         comp["катализатор_через_дней"] = delta
-        if delta < 0 or delta > MAX_DAYS:
-            fails.append(f"катализатор {cd} вне окна [сегодня … +13 нед] ({delta} дн)")
+        if delta < 0 or delta > h_max:
+            win = "+13 нед" if hclass == "short" else f"+{h_max} дн"
+            fails.append(f"катализатор {cd} вне окна [сегодня … {win}] ({delta} дн)")
     if not str(cat.get("what") or "").strip():
         fails.append("катализатор без описания")
 
@@ -225,7 +247,9 @@ def check(card, today=None, horizon_from=None, evidence=None):
         if "ОТКАЗ" in pf:
             fails.append("доля отыгранности не посчитана: " + pf["ОТКАЗ"])
         elif pf.get("вердикт") in (PI.В_ЦЕНЕ, PI.ПЕРЕЛЁТ):
-            fails.append(f"звено уже отыграно числом: {pf['вердикт']} ({pf.get('строка')})")
+            # правила поиска v2 (владелец 14.11): доля прошлого хода — пометка, а не отказ; вопрос
+            # «уже в цене» решают ожидания рынка по прибыли и сроку (market_view), не прецедент
+            warns.append(f"звено уже отыграно числом: {pf['вердикт']} ({pf.get('строка')})")
 
     # 6. асимметрия — от ХУДШЕГО входа (то, что владелец реально получит), по ценам
     asym = pm.get("асимметрия")
@@ -235,7 +259,8 @@ def check(card, today=None, horizon_from=None, evidence=None):
             fails.append(f"асимметрия {asym if asym is not None else '—'} < {MIN_ASYM} "
                          f"(потенциал {up_eb:g}% / риск {dn_eb:g}% от входа {pm.get('вход'):g})")
         if far and up_eb > far * 1.05:
-            fails.append(f"потенциал {up_eb:g}% больше прецедентного хода {far:g}% — питч без основы")
+            # правила поиска v2 (владелец 14.11): прецедент не потолок нового эпизода — пометка
+            warns.append(f"потенциал {up_eb:g}% больше прецедентного хода {far:g}% — питч без основы")
 
     # 8. §9-спека
     rb = _date(spec.get("resolve_by"))
@@ -252,8 +277,9 @@ def check(card, today=None, horizon_from=None, evidence=None):
         hfrom = horizon_from or today
         hd = (rb - hfrom).days
         comp["горизонт_дней"] = hd
-        if not MIN_DAYS <= hd <= MAX_DAYS:
-            fails.append(f"§9: горизонт {hd} дн от {hfrom} вне 3–13 недель")
+        if not h_min <= hd <= h_max:
+            fails.append(f"§9: горизонт {hd} дн от {hfrom} вне {h_txt}"
+                         + ("" if hclass == "short" else " (класс long)"))
         if rb <= today:
             fails.append("§9: дата сверки уже наступила")
         if cd is not None and cd > rb:
@@ -295,12 +321,14 @@ def check(card, today=None, horizon_from=None, evidence=None):
     elif rb is not None and all(_date(k["check_by"]) > rb for k in dated):
         fails.append("все стоп-условия проверяются позже сверки")
 
-    if not str(card["who_sells"]).strip():
-        fails.append("не сказано, кто продаёт нам и почему")
+    # правила поиска v2 (владелец 14.11): «кто продаёт» не обязателен — пусто = пометка
+    if not str(card.get("who_sells") or "").strip():
+        warns.append("не сказано, кто продаёт нам и почему")
 
     # 9. доказательства (аудит 07.11): цитаты регуляторики и исключения, проверка «отсутствия»,
     # базис показателей, время события, причинность хода, расчёт цели, вид вероятности
-    ev = EV.check(card)
+    # существенность (правила поиска v2): обязательна для охот с RULES_V2_FROM, старым — оговорка
+    ev = EV.check(card, rules_v2=(horizon_from or today) >= RULES_V2_FROM)
     enforce = evidence if evidence is not None else (horizon_from or today) >= EVIDENCE_FROM
     comp["доказательства"] = {"обязательны": bool(enforce), "брак": ev["fails"], "оговорки": ev["labels"],
                               "цель": (ev.get("target") or {}).get("status")}

@@ -69,12 +69,24 @@ def test_good_offer_passes_and_sources_come_from_code(tmp_path):
     ({"повод_ids": ["N9"]}, "не из меню"),
     ({"повод_ids": []}, "повод не указан"),
     ({"тип": "интуиция"}, "тип"),
-    ({"круги": ["только сама новость"]}, "меньше двух кругов"),
+    ({"круги": []}, "ни один круг"),          # правила поиска v2 (14.11): один круг уже годится, ноль — нет
     ({"что_опровергнет": ""}, "что_опровергнет"),
 ])
 def test_bad_offers_rejected(tmp_path, bad, why):
     _, pr = _run(tmp_path, {"предложения": [_offer(**bad)]})
     assert not pr["предложения"] and why in pr["брак"][0]["причина"]
+
+
+def test_first_circle_direct_beneficiary_allowed(tmp_path):
+    """Правила поиска v2 (владелец 14.11): прямой бенефициар (один 1-й круг) с типом «масштаб или срок»
+    проходит — раньше код браковал «меньше двух кругов»."""
+    _, pr = _run(tmp_path, {"предложения": [_offer(круги=["1-й круг: добытчики нефти"], тип="масштаб или срок")]})
+    assert len(pr["предложения"]) == 1 and not pr.get("брак")
+    o = pr["предложения"][0]
+    assert o["круги"] == ["1-й круг: добытчики нефти"] and o["тип"] == "масштаб или срок"
+    assert "размер или длительность" in pr["текст"]
+    prompt = (D.ROOT / "agents" / "prompts" / "dig_scout.md").read_text(encoding="utf-8")
+    assert "масштаб или срок" in prompt and "1-й круг" in prompt and "тоже\nгодится" in prompt
 
 
 def test_repeat_of_recent_topic_rejected(tmp_path):
