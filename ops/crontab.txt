@@ -35,7 +35,7 @@ MAILTO=""
 50 6 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh eodhd /home/oracle/oracle/.venv/bin/python data/eodhd.py --extras --options --known >> journal/cron.log 2>&1
 
 # Калибровочный режим §17.3 (мелкие недельные §9-прогнозы, запечатывание): вторник и пятница 08:00
-0 8 * * 2,5  cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh calibrate /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
+# ВЫКЛ 14.11 (да владельца по итогам ревью Codex+Fable) 0 8 * * 2,5  cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh calibrate /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode calibrate >> journal/cron.log 2>&1
 
 # Сверка исходов §10.10 (дозревшие прогнозы → close из oracle.db → outcomes.jsonl): ежедневно 21:00
 0 21 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh resolve /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode resolve >> journal/cron.log 2>&1
@@ -58,7 +58,7 @@ MAILTO=""
 # §9-прогнозы (kind=edge_forward, свой герметичный трек) кормят форвард-промоушен §10. LLM нет, ~$0.
 # Активация: |shock|≥0.5·σ_ист·√окна И unpriced_fraction>0 (P1#5) И |edge|≥0.5·σ_h; кулдаун — один
 # открытый прогноз на ребро. 07:30 — после фетча котировок (06:50), до боевого прогона (09:00).
-30 7 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh edge_forward /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode edge_forward --seal >> journal/cron.log 2>&1
+# ВЫКЛ 14.11 (да владельца по итогам ревью Codex+Fable) 30 7 * * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh edge_forward /home/oracle/oracle/.venv/bin/python orchestrator/run.py --mode edge_forward --seal >> journal/cron.log 2>&1
 
 # Devops-петля-предложитель §R6 (автономия 0): еженедельный анализ террейна/калибровки → ПРЕДЛОЖЕНИЯ
 # на подпись в journal/proposals/. НИЧЕГО не применяет сам (П16/§10/инвариант 5). Воскресенье 08:00.
@@ -67,19 +67,19 @@ MAILTO=""
 # Форвард-промоушен рёбер C→A (решение 28.06): DRY-предложения по запечатанным форвард-исходам
 # (N≥30, §10). НЕ применяет — пишет ops/reports/promotions/. Применение — рукой владельца
 # `ops/promote_edges.py --apply` ежемесячно (§25, инвариант 5). Воскресенье 08:30 (после devops-петли).
-30 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
+# ВЫКЛ 14.11 (да владельца по итогам ревью Codex+Fable) 30 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/promote_edges.py >> journal/cron.log 2>&1
 
 # Ежемесячная пере-подгонка шкалы уверенности (П-1, ПОДПИСЬ 09.07 — авто-apply авторизован
 # именно для этого цикла): walk-forward λ/p0 по сверенным исходам → knowledge/prob_shrink.yaml.
 # 1-е число, 07:45 (после budget 07:00, до edge_forward не влияет — тот вне applies_to).
-45 7 1 * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh refit_prob_shrink /home/oracle/oracle/.venv/bin/python ops/refit_prob_shrink.py --apply >> journal/cron.log 2>&1
+# ВЫКЛ 14.11 (да владельца по итогам ревью Codex+Fable) 45 7 1 * *   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh refit_prob_shrink /home/oracle/oracle/.venv/bin/python ops/refit_prob_shrink.py --apply >> journal/cron.log 2>&1
 
 # Э4(е) «перебор мира»: еженедельный пере-скрин активных карт мира (journal/world_maps.jsonl) —
 # новые инструменты/изменившаяся ликвидность, дифф в протокол journal/world_enum_logs/. Расписание —
 # ВОСКРЕСЕНЬЕ 09:00 (решение владельца 13.07, Вопрос 6; после воскресного блока 08:00/08:30), без
 # сообщений владельцу. LLM нет, детерминированный код. УСТАНОВКА crontab — действие основной сессии
 # при мерже Э4 (crontab -u oracle ops/crontab.txt); до мержа строка живёт только в файле.
-0 9 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh rescan_maps /home/oracle/oracle/.venv/bin/python ops/rescan_maps.py >> journal/cron.log 2>&1
+# ВЫКЛ 14.11 (да владельца по итогам ревью Codex+Fable) 0 9 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh rescan_maps /home/oracle/oracle/.venv/bin/python ops/rescan_maps.py >> journal/cron.log 2>&1
 
 # АВТОПЕТЛЯ §25 (решение владельца 09.07): система сама запускает разборы и инсайты.
 # Еженедельный авторазбор (детерминированный, LLM нет): пятница 18:00 → отчёт в
