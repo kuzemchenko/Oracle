@@ -108,3 +108,16 @@ def test_delivered_is_not_completed_and_definitions_are_versioned(tmp_path):
     assert "бюджет поиска исчерпан" in m["запросы"]["поиск"]["причины_пауз"][0]
     assert m["определение"]["текущее"] == "v2" and "v1" in m["определение"]["версии"]
     assert "доставлен ≠ выполнен" in PB.render_md(m)
+
+
+def test_one_conversation_recorded_many_times_counts_once(tmp_path):
+    """14.11: 09.11 агент записал один разговор 4 раза за 11 минут с разными названиями темы — один запрос."""
+    import json as _json
+    import point_b as PB
+    j = tmp_path / "journal"
+    j.mkdir()
+    rows = [{"ts": f"2026-11-09T18:{m}:00+00:00", "outcome": "идея", "topic": f"Вечерний обзор вариант {m}",
+             "summary": "x" * 50} for m in (25, 28, 32, 36)]
+    rows.append({"ts": "2026-11-13T10:39:00+00:00", "outcome": "идея", "topic": "свежие идеи", "summary": "y" * 50})
+    (j / "chat_requests.jsonl").write_text("\n".join(_json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
+    assert PB.requests_closed(tmp_path, [])[:2] == (2, 2)

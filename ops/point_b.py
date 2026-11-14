@@ -98,11 +98,28 @@ def requests_closed(root, deliveries):
             open_.append(day)
     # поправка 07.11 (да владельца): разговор «найди идею» в Telegram, дошедший до итога (идея для обсуждения
     # или честное «нечего»), — закрытый запрос; один в сутки на тему (journal/chat_requests.jsonl, пишет агент)
-    chats = set()
-    for r in _jsonl(pathlib.Path(root) / "journal" / "chat_requests.jsonl"):
-        if r.get("outcome") in ("идея", "нечего") and str(r.get("summary") or "").strip():
-            chats.add((str(r.get("ts"))[:10], str(r.get("topic") or "").strip().lower()[:60]))
+    # 14.11 (поправка счёта, в сторону строгости): агент записывал ОДИН разговор несколько раз с разной
+    # формулировкой темы (09.11 — 4 записи за 11 минут). Один запрос = та же тема в тот же день ИЛИ запись
+    # меньше чем через CHAT_SAME_GAP_MIN минут после предыдущей (продолжение того же разговора).
+    chats = []
+    rows = [r for r in _jsonl(pathlib.Path(root) / "journal" / "chat_requests.jsonl")
+            if r.get("outcome") in ("идея", "нечего") and str(r.get("summary") or "").strip()]
+    last, seen = None, set()
+    for r in sorted(rows, key=lambda x: str(x.get("ts"))):
+        try:
+            t = datetime.datetime.fromisoformat(str(r.get("ts")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        key = (str(r.get("ts"))[:10], str(r.get("topic") or "").strip().lower()[:60])
+        cont = last is not None and (t - last).total_seconds() < CHAT_SAME_GAP_MIN * 60
+        if key not in seen and not cont:
+            chats.append(t)
+        seen.add(key)
+        last = t
     return len(days) + len(chats), len(days) - len(open_) + len(chats), open_
+
+
+CHAT_SAME_GAP_MIN = 30
 
 
 def searches_state(root, since=None):
