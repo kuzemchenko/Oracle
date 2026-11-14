@@ -197,3 +197,12 @@ def test_bot_skips_stale_protocol(tmp_path, bot, monkeypatch):
     monkeypatch.setattr(S, "now_utc", lambda: NOW + datetime.timedelta(hours=30))
     bot._tick_dig_offer()
     assert not bot.tg.sent and bot.state.get("dig_mark")
+
+
+def test_real_presentation_loader_passes_dig_flags():
+    """Регресс 14.11: загрузчик подачи пропускает только известные ключи — новые флаги терялись."""
+    import bot_reports as RR
+    pres = RR.load_presentation()
+    assert "dig_offer_push" in pres and "dig_offer_auto" in pres
+    names = [j[0] for j in BOT.SCHEDULED_JOBS]
+    assert "dig_offer_auto" in names
