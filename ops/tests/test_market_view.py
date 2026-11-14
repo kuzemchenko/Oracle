@@ -52,8 +52,10 @@ def test_missing_market_view_is_brak():
 
 
 def test_same_as_market_and_no_source_and_no_numbers():
+    # правила поиска v2 (владелец 14.11): расхождение с рынком меньше 5% — пометка в пуш, а не брак
     c = dict(GOOD, market_view=dict(GOOD["market_view"], ours={"value": 2.15}))
-    assert any("почти совпадает" in f for f in _run(c)[0])
+    f, lab, _o = _run(c)
+    assert f == [] and any("почти совпадает" in x for x in lab)
     c = dict(GOOD, market_view=dict(GOOD["market_view"], market={"value": 2.1}))
     assert any("нет источника" in f for f in _run(c)[0])
     c = dict(GOOD, market_view=dict(GOOD["market_view"], ours={"value": "больше"}))
@@ -159,3 +161,23 @@ def test_honest_zero_shows_checked_branches(tmp_path, monkeypatch):
         if isinstance(text, str):
             break
     assert isinstance(text, str) and "Что ещё смотрел" in text and "Вернусь, если" in text
+
+
+def test_rules_v2_materiality_required_from_date():
+    """Правила поиска v2 (владелец 14.11): не посчитанная существенность — брак, но только для охот с
+    RULES_V2_FROM (required=True); по старым карточкам — прежняя оговорка. «Шум» — брак всегда."""
+    assert str(EV.RULES_V2_FROM) == "2026-11-15"
+    no_mat = {k: v for k, v in GOOD.items() if k != "materiality"}
+    for card in (no_mat, dict(GOOD, materiality={"effect_profit_per_year": 120})):      # нет поля / не посчитать
+        f, lab = [], []
+        EV.check_materiality(card, f, lab)                       # старое поведение
+        assert f == [] and any("не посчитана" in x for x in lab)
+        f, lab = [], []
+        EV.check_materiality(card, f, lab, required=True)
+        assert any("не посчитана — без неё не ясно, стоит ли идея внимания" in x for x in f) and lab == []
+    f = []
+    assert EV.check_materiality(GOOD, f, [], required=True) and f == []
+    assert any("существенность" in x and "не посчитана" in x for x in EV.check(no_mat, rules_v2=True)["fails"])
+    assert not any("существенность" in x for x in EV.check(no_mat)["fails"])
+    noise = dict(GOOD, materiality={"effect_profit_per_year": 1, "years": 1, "net_income": 900, "market_cap": 250000})
+    assert any("шум" in x for x in EV.check(noise)["fails"])

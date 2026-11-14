@@ -34,6 +34,10 @@ from mathlib import target_calc as TC     # noqa: E402
 from mathlib import expectations as EX    # noqa: E402
 from mathlib import materiality as MAT    # noqa: E402
 
+# Правила поиска v2 (владелец 14.11): новое требование — посчитанная существенность эффекта — только
+# для охот с этой даты (по образцу idea_gate.EVIDENCE_FROM); уже запечатанные идеи не бракуются.
+RULES_V2_FROM = datetime.date(2026, 11, 15)
+
 # ── детекторы ────────────────────────────────────────────────────────────────
 REGULATORY_RE = re.compile(
     r"указ|прокламац|раздел\w*\s*232|section\s*232|пошлин|тариф|tariff|federal register|"
@@ -270,7 +274,7 @@ def check_probability(card, fails, labels):
 # ── VQ-2 (владелец 07.11): «рынок ждёт X, мы ждём Y», существенность, устойчивость, глубина цепочки ──
 MARKET_KINDS = {"magnitude", "timing", "flow", "rule"}
 MIN_GAP_REL = 0.05          # наш сценарий отличается от рынка меньше чем на 5% — расхождения нет
-MAX_CHAIN = 3               # звеньев от повода до бумаги (idea_bar: «2–3 звена»)
+MAX_CHAIN = 3               # звеньев от повода до бумаги (idea_bar: «1–3 звена»; первый круг разрешён)
 MAX_HYPOTHESIS_LINKS = 1    # жёсткая остановка: не больше одного неподтверждённого звена
 
 
@@ -280,7 +284,9 @@ def _num(x):
 
 def check_market_view(card, fails, labels):
     """Главный вопрос инвестора: что уже заложено в цену и почему мы ждём другого. Нет ответа с цифрами и
-    источником ожидания рынка — брак (идея уходит владельцу «для обсуждения», в счёт не пишется)."""
+    источником ожидания рынка — брак (идея уходит владельцу «для обсуждения», в счёт не пишется).
+    Правила поиска v2 (владелец 14.11): расхождение меньше MIN_GAP_REL — пометка, не брак (для свежего
+    события разницу с рынком числом часто не показать; вопрос — масштаб и срок эффекта)."""
     mv = card.get("market_view") if isinstance(card.get("market_view"), dict) else None
     if not mv:
         fails.append("рынок/мы: не показано, что рынок уже ждёт и чем отличается наш сценарий (market_view: "
@@ -306,8 +312,8 @@ def check_market_view(card, fails, labels):
         rel = (ov - mv_) / abs(mv_) if mv_ else None
         out["разрыв_отн"] = None if rel is None else round(rel, 4)
         if rel is not None and abs(rel) < MIN_GAP_REL:
-            fails.append(f"рынок/мы: наш сценарий почти совпадает с рынком ({rel * 100:+.1f}%) — "
-                         f"идее нечем отличаться от уже заложенного в цену")
+            labels.append(f"Наш сценарий почти совпадает с ожиданиями рынка ({rel * 100:+.1f}%) — "
+                          f"отличие от уже заложенного в цену цифрами не показано")
     elif kind == "timing":
         if not (_date(m.get("date")) and _date(o.get("date"))) or str(m.get("date")) == str(o.get("date")):
             fails.append("рынок/мы: расхождение по срокам без двух разных дат (market.date — когда ждёт рынок, ours.date — мы)")
@@ -327,16 +333,25 @@ def check_market_view(card, fails, labels):
     return out
 
 
-def check_materiality(card, fails, labels):
+def check_materiality(card, fails, labels, required=False):
+    """required (правила поиска v2, владелец 14.11; охоты с RULES_V2_FROM): не посчитанная существенность —
+    брак, а не оговорка. «Шум» — брак всегда."""
     mt = card.get("materiality") if isinstance(card.get("materiality"), dict) else None
     if not mt:
-        labels.append("Существенность эффекта для компании не посчитана")
+        if required:
+            fails.append("существенность эффекта для компании не посчитана — без неё не ясно, стоит ли идея внимания")
+        else:
+            labels.append("Существенность эффекта для компании не посчитана")
         return None
     r = MAT.materiality(effect_profit_per_year=mt.get("effect_profit_per_year"),
                         effect_revenue_per_year=mt.get("effect_revenue_per_year"), years=mt.get("years"),
                         net_income=mt.get("net_income"), revenue=mt.get("revenue"), market_cap=mt.get("market_cap"))
     if not r.get("ok"):
-        labels.append("Существенность эффекта не посчитана: " + str(r.get("причина")))
+        if required:
+            fails.append("существенность эффекта для компании не посчитана — без неё не ясно, стоит ли идея "
+                         "внимания: " + str(r.get("причина")))
+        else:
+            labels.append("Существенность эффекта не посчитана: " + str(r.get("причина")))
     elif r["вердикт"] == MAT.ШУМ:
         fails.append(f"существенность: эффект — шум для размера компании ({r['основание']}: "
                      f"{r['мерила'][r['основание']]})")
@@ -397,8 +412,10 @@ def check_options(card, fails, labels):
     return ov
 
 
-def check(card):
-    """Карточка → {'fails', 'labels', 'target', 'regulatory'}. Пустой fails = доказательства в порядке."""
+def check(card, rules_v2=False):
+    """Карточка → {'fails', 'labels', 'target', 'regulatory'}. Пустой fails = доказательства в порядке.
+    rules_v2=True — охота с RULES_V2_FROM: существенность обязана быть посчитана (дату охоты знает
+    вызывающий — ops/idea_gate.check; без неё — прежнее поведение, старые карточки не бракуются)."""
     fails, labels = [], []
     if not isinstance(card, dict):
         return {"fails": ["карточка не объект"], "labels": [], "target": None, "regulatory": False}
@@ -410,7 +427,7 @@ def check(card):
     tgt = check_target(card, fails, labels)
     check_probability(card, fails, labels)
     mv = check_market_view(card, fails, labels)
-    mat = check_materiality(card, fails, labels)
+    mat = check_materiality(card, fails, labels, required=bool(rules_v2))
     check_durability(card, fails, labels)
     check_chain(card, fails, labels)
     opt = check_options(card, fails, labels)

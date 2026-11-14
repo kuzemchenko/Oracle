@@ -65,7 +65,6 @@ def test_each_hard_criterion_fails_with_reason():
         (_c(facts=CARD["facts"][:2]), "фактов с URL"),
         (_c(facts=[{**f, "url": "https://www.reuters.com/" + str(i)} for i, f in enumerate(CARD["facts"])]),
          "разных источников"),
-        (_c(move_since_trigger_pct=55.0, trigger_close=round(39.57 / 1.55, 6)), "уже отыграно"),
         (_c(upside_pct=12, target_price=round(39.57 * 1.12, 6)), "асимметрия"),
         (_c(upside_pct=25), "не сходится с ценами"),                 # заявлено ≠ цены карточки
         (_c(move_since_trigger_pct=-15.0), "не сходится с ценами"),
@@ -147,15 +146,110 @@ def test_priced_in_by_idea_direction_and_potential_caps():
                 upside_pct=20, downside_pct=8,
                 spec9={**CARD["spec9"], "direction": "below", "threshold": 35.0})
     down_played = _c(move_since_trigger_pct=-55.0, trigger_close=round(39.57 / 0.45, 6), **down)
+    # правила поиска v2 (владелец 14.11): доля прошлого хода — пометка (warnings), а не отказ
     r = G.check(down_played, today=TODAY)
-    assert any("уже отыграно" in f for f in r["fails"]), r["fails"]
+    assert any("уже отыграно" in w for w in r["warnings"]), r
+    assert not any("уже отыграно" in f for f in r["fails"])
     # та же идея, бумага пока −4% — не отыграно
     down_fresh = _c(move_since_trigger_pct=-4.0, **down)
     assert G.check(down_fresh, today=TODAY)["pass"], G.check(down_fresh, today=TODAY)["fails"]
+    # потолок «потенциал больше прецедента» — тоже пометка: прошлый ход не потолок нового эпизода
     r2 = G.check(_c(upside_pct=90, target_price=round(39.57 * 1.9, 6)), today=TODAY)
-    assert any("больше прецедентного хода" in f for f in r2["fails"])
+    assert any("больше прецедентного хода" in w for w in r2["warnings"]), r2
+    assert not any("больше прецедентного хода" in f for f in r2["fails"])
     r3 = G.check(_c(spec9={**CARD["spec9"], "threshold": 60.0}), today=TODAY)
     assert any("больше потенциала до цели" in f for f in r3["fails"])
+
+
+def test_rules_v2_priced_in_and_who_sells_are_warnings():
+    """Правила поиска v2 (владелец 14.11): бумага прошла ≥70% прецедентного хода — шлагбаум пропускает
+    с пометкой (R3); пустой «кто продаёт» — пометка (R4). Прецедент без URL — по-прежнему брак (П8)."""
+    played = _c(move_since_trigger_pct=55.0, trigger_close=round(39.57 / 1.55, 6))
+    r = G.check(played, today=TODAY)
+    assert r["pass"], r["fails"]
+    assert any("уже отыграно числом" in w for w in r["warnings"])
+    for empty in ("", "  ", None):
+        r = G.check(_c(who_sells=empty), today=TODAY)
+        assert r["pass"], r["fails"]
+        assert any("кто продаёт" in w for w in r["warnings"])
+    no_field = {k: v for k, v in CARD.items() if k != "who_sells"}
+    assert G.check(no_field, today=TODAY)["pass"]
+    assert not any("кто продаёт" in w for w in G.check(CARD, today=TODAY)["warnings"])
+    r = G.check(_c(precedent={**CARD["precedent"], "url": ""}), today=TODAY)
+    assert any("прецедент без URL" in f for f in r["fails"])
+
+
+def test_rules_v2_horizon_classes():
+    """Правила поиска v2 (владелец 14.11), R2: horizon_class short (по умолчанию, 21–91 день, датированный
+    катализатор) и long (92–730 дней, дата катализатора не обязательна, описание — обязательно)."""
+    assert (G.MIN_DAYS, G.MAX_DAYS, G.MAX_DAYS_LONG) == (21, 91, 730)
+    assert G.check(CARD, today=TODAY)["computed"]["класс_горизонта"] == "short"
+    long_spec = {**CARD["spec9"], "resolve_by": "2027-11-01"}                      # 364 дня
+    # short с таким сроком и без даты катализатора — брак, как раньше
+    r = G.check(_c(spec9=long_spec, catalyst={"what": "цикл заказов оборудования"}), today=TODAY)
+    assert any("катализатор без даты" in f for f in r["fails"]) and any("вне 3–13 недель" in f for f in r["fails"])
+    # long: без даты катализатора проходит
+    lc = _c(horizon_class="long", spec9=long_spec, catalyst={"what": "цикл заказов оборудования"},
+            kill_conditions=[{"what": "заказы падают два квартала подряд", "check_by": "2027-08-01"}])
+    r = G.check(lc, today=TODAY)
+    assert r["pass"], r["fails"]
+    assert r["computed"]["класс_горизонта"] == "long" and r["computed"]["горизонт_дней"] == 364
+    # long: описание катализатора обязательно; дата, если есть, — в окне класса и разборчива
+    assert any("без описания" in f for f in G.check({**lc, "catalyst": {"what": " ", "type": "other"}}, today=TODAY)["fails"])
+    ok = G.check({**lc, "catalyst": {"what": "отчёт", "date": "2027-07-20"}}, today=TODAY)
+    assert ok["pass"] and ok["computed"]["катализатор_через_дней"] == 260
+    far = G.check({**lc, "catalyst": {"what": "x", "date": "2029-01-01"}}, today=TODAY)
+    assert any("вне окна" in f for f in far["fails"])
+    assert any("катализатор без даты" in f
+               for f in G.check({**lc, "catalyst": {"what": "x", "date": "весной"}}, today=TODAY)["fails"])
+    # границы long: 92..730 дней; короткий срок под long и срок дальше двух лет — брак
+    def horizon(days):
+        rb = str(TODAY + datetime.timedelta(days=days))
+        return G.check({**lc, "spec9": {**CARD["spec9"], "resolve_by": rb},
+                        "kill_conditions": [{"what": "x", "check_by": rb}]}, today=TODAY)
+    assert horizon(92)["pass"] and horizon(730)["pass"]
+    for d in (91, 731):
+        assert any("вне 92–730 дней" in f for f in horizon(d)["fails"]), d
+    # неизвестный класс — брак
+    assert any("horizon_class" in f for f in G.check(_c(horizon_class="вечно"), today=TODAY)["fails"])
+
+
+def test_rules_v2_materiality_required_only_for_new_hunts():
+    """R5: существенность обязательна для охот с RULES_V2_FROM (2026-11-15); карточки раньше этой даты
+    (в т.ч. уже запечатанные, сервер мерит от даты охоты) новым требованием не бракуются."""
+    assert G.RULES_V2_FROM == datetime.date(2026, 11, 15)
+    new_day = datetime.date(2026, 11, 16)
+    spec = {**CARD["spec9"], "last_close_date": "2026-11-13", "resolve_by": "2026-12-20"}
+    c = _c(spec9=spec, catalyst={"what": "x", "date": "2026-11-25"},
+           kill_conditions=[{"what": "x", "check_by": "2026-11-25"}])
+    r = G.check(c, today=new_day)
+    assert any("существенность эффекта для компании не посчитана" in f for f in r["fails"]), r["fails"]
+    c["materiality"] = {"effect_profit_per_year": 120, "years": 3, "net_income": 900, "market_cap": 2500}
+    assert not any("существенность" in f for f in G.check(c, today=new_day)["fails"])
+    del c["materiality"]
+    # та же карточка, охота 14.11 (сервер печатает 16.11 с датой охоты) — существенность не брак
+    old = G.check(c, today=new_day, horizon_from=datetime.date(2026, 11, 14))
+    assert not any("существенность" in f for f in old["fails"])
+    assert not any("существенность" in f for f in G.check(CARD, today=TODAY)["fails"] + G.check(CARD, today=TODAY)["warnings"])
+
+
+def test_rules_v2_texts_allow_first_circle_and_two_horizons():
+    """Тексты планки и воркфлоу охоты согласованы с кодом (правила поиска v2, владелец 14.11)."""
+    import yaml
+    bar = yaml.safe_load((ROOT / "knowledge" / "idea_bar.yaml").read_text(encoding="utf-8"))
+    hard, soft, court = " ".join(bar["hard"]), " ".join(bar["soft"]), " ".join(bar["court_rules"])
+    assert "1–3 звена" in soft and "2–3 звена" not in soft and "Первый круг" in soft
+    assert "horizon_class" in hard and "92–730" in hard and "ПОМЕТКА" in hard
+    assert "Честный ответ «он, скорее всего, прав» = идея не годится" not in hard
+    assert "Почему рынок может недооценивать" in soft
+    assert "НЕ основание FATAL" in court and "звено отыграно ЧИСЛОМ (≥70%" not in court
+    js = (ROOT / ".claude" / "workflows" / "hunt-idea.js").read_text(encoding="utf-8")
+    assert "horizon_class" in js and "прямой бенефициар" in js.lower()
+    assert "≥70% или катализатор уже разрешён → FATAL" not in js
+    assert "звено уже отыграно ЧИСЛОМ (ход этой бумаги с даты повода ≥70%" not in js
+    assert "Кто продаёт и почему ошибается — убедительно?" not in js
+    assert "'who_sells', 'kill_conditions'" not in js.split("const CARD_REQ")[1].split("\n")[0]
+    assert "'materiality'" in js.split("const CARD_REQ")[1].split("\n")[0]
 
 
 def test_server_check_uses_server_price_and_rejects_undated():
