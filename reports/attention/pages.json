@@ -4958,5 +4958,241 @@
   "type": "Common Stock",
   "как": "имя компании → название страницы, просмотры есть",
   "проверено": "2026-11-13"
+ },
+ "WHD.US": {
+  "name": "Cactus Inc",
+  "page": "Cactus",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WIT.US": {
+  "name": "Wipro Limited ADR",
+  "page": "Wipro",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WKC.US": {
+  "name": "World Kinect Corporation",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-14"
+ },
+ "WLK.US": {
+  "name": "Westlake Chemical Corporation",
+  "page": "Westlake_Chemical",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WMB.US": {
+  "name": "Williams Companies Inc",
+  "page": "Williams_Companies",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WMT.US": {
+  "name": "Walmart Inc.",
+  "page": "Walmart",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WPM.US": {
+  "name": "Wheaton Precious Metals Corp",
+  "page": "Wheaton_Precious_Metals",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WU.US": {
+  "name": "Western Union Co",
+  "page": "Western_Union",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "WULF.US": {
+  "name": "Terawulf Inc",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-14"
+ },
+ "WY.US": {
+  "name": "Weyerhaeuser Company",
+  "page": "Weyerhaeuser_Company",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "XAR.US": {
+  "name": "SPDR® S&P Aerospace & Defense ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XBI.US": {
+  "name": "SPDR® S&P Biotech ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XES.US": {
+  "name": "SPDR® S&P Oil & Gas Equipment & Services ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XHB.US": {
+  "name": "SPDR® S&P Homebuilders ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLB.US": {
+  "name": "Materials Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLE.US": {
+  "name": "State Street® Energy Select Sector SPDR® ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLF.US": {
+  "name": "Financial Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLI.US": {
+  "name": "Industrial Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLK.US": {
+  "name": "Technology Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLP.US": {
+  "name": "Consumer Staples Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLRE.US": {
+  "name": "The Real Estate Select Sector SPDR Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLU.US": {
+  "name": "Utilities Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLV.US": {
+  "name": "Health Care Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XLY.US": {
+  "name": "Consumer Discretionary Select Sector SPDR® Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XME.US": {
+  "name": "SPDR® S&P Metals and Mining ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XOM.US": {
+  "name": "ExxonMobil Holdings Corporation",
+  "page": "ExxonMobil_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "XOP.US": {
+  "name": "SPDR® S&P Oil & Gas Exploration & Production ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XPO.US": {
+  "name": "XPO Logistics Inc",
+  "page": "XPO_Logistics",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "XRT.US": {
+  "name": "SPDR® S&P Retail ETF",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "XYL.US": {
+  "name": "Xylem Inc",
+  "page": "Xylem",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "YETI.US": {
+  "name": "YETI Holdings Inc",
+  "page": "YETI_(company)",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "YINN.US": {
+  "name": "Direxion Daily FTSE China Bull 3X Shares",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "YPF.US": {
+  "name": "YPF Sociedad Anonima",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-14"
+ },
+ "YUMC.US": {
+  "name": "Yum China Holdings Inc",
+  "page": "Yum_China_Holdings",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
+ },
+ "ZIM.US": {
+  "name": "ZIM Integrated Shipping Services Ltd",
+  "page": null,
+  "почему": "страница с таким именем в Википедии не нашлась",
+  "проверено": "2026-11-14"
+ },
+ "ZROZ.US": {
+  "name": "PIMCO 25+ Year Zero Coupon U.S. Treasury Index Exchange-Traded Fund",
+  "page": null,
+  "почему": "тип ETF — у фонда нет «страницы толпы»",
+  "проверено": "2026-11-14"
+ },
+ "ZS.US": {
+  "name": "Zscaler Inc",
+  "page": "Zscaler",
+  "type": "Common Stock",
+  "как": "имя компании → название страницы, просмотры есть",
+  "проверено": "2026-11-14"
  }
 }
