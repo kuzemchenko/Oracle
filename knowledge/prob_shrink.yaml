@@ -4,8 +4,8 @@
 # будут перезаписаны. Сырая уверенность хранится в probability_raw печатей.
 applies_to: [cascade_money, cascade_provisional]
 lambda: 0.0
-p0: 0.4669
-fitted_at: "2026-10-01"
-fit: {n_fit: 876, n_oos: 584, brier_oos_raw: 0.2527, brier_oos_shrunk: 0.2519, split: 0.6}
+p0: 0.4791
+fitted_at: "2026-11-01"
+fit: {n_fit: 1173, n_oos: 783, brier_oos_raw: 0.2543, brier_oos_shrunk: 0.25, split: 0.6}
 signed_by: "владелец, 09.07.2026 (П-1: ежемесячная пере-подгонка авторизована)"
 spec_ref: "§10; П-1 09.07; mathlib/calibration/prob_shrink.py"
