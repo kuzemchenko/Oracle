@@ -524,6 +524,13 @@ class Tools:
         rid = self._store(res, "mathlib.materiality")
         return self._view(rid, res, "mathlib.materiality")
 
+    def bet_sheet(self, entry_price, scenarios, size_usd=None, qty=None, fees_usd=0.0, direction="long"):
+        """Ревью 14.11 (Fable п.4): лист ставки — выигрыш/проигрыш в $ по сценариям, порог шанса, ожидание (кодом)."""
+        from mathlib import bet_sheet as BS
+        res = BS.sheet(entry_price, scenarios, size_usd=size_usd, qty=qty, fees_usd=fees_usd, direction=direction)
+        rid = self._store(res, "mathlib.bet_sheet")
+        return self._view(rid, res, "mathlib.bet_sheet")
+
     def options_expectations(self, ticker, resolve_by, threshold=None, direction="above", spot=None):
         """Q-в-цене 09.11: что опционы закладывают к дате идеи (ops/options_view → mathlib/options_implied)."""
         try:
@@ -925,6 +932,13 @@ TOOL_SPECS = [
         "прибыли, выручки, капитализации → СУЩЕСТВЕННО / ПОГРАНИЧНЫЙ / ШУМ. Все суммы в одной валюте и масштабе.",
         {"effect_profit_per_year": N, "effect_revenue_per_year": N, "years": N, "net_income": N, "revenue": N,
          "market_cap": N}),
+    _fn("bet_sheet", "Лист ставки (расчёт кодом): цена входа + 2–5 сценариев с ценой (и шансом, если есть основание) + "
+        "размер ($ или штук) + комиссии → выигрыш/проигрыш в $ и % по каждому сценарию, при каком шансе лучшего исхода "
+        "ставка не в минусе, ожидание (только если шансы даны и в сумме 1). Используй для любой конкретной ставки "
+        "вместо подсчёта в уме; цены сценариев обоснуй фактами.",
+        {"entry_price": N, "scenarios": {"type": "array", "items": {"type": "object", "properties": {
+            "name": S, "price": N, "probability": N}}}, "size_usd": N, "qty": N, "fees_usd": N, "direction": S},
+        ("entry_price", "scenarios")),
     _fn("checked_branches", "Журнал проверенных веток охотника за N дней: что смотрели, вердикт, почему отказ, при каком "
         "факте вернуться. Используй, чтобы не предлагать уже отвергнутое и честно говорить «уже смотрели, вот почему нет».",
         {"days": I}),

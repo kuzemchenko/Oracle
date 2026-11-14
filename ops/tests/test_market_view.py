@@ -181,3 +181,14 @@ def test_rules_v2_materiality_required_from_date():
     assert not any("существенность" in x for x in EV.check(no_mat)["fails"])
     noise = dict(GOOD, materiality={"effect_profit_per_year": 1, "years": 1, "net_income": 900, "market_cap": 250000})
     assert any("шум" in x for x in EV.check(noise)["fails"])
+
+
+def test_agent_bet_sheet_tool_by_code():
+    """Ревью 14.11: лист ставки — инструмент агента, расчёт кодом (mathlib/bet_sheet)."""
+    import bot_agent as A
+    assert "bet_sheet" in A.TOOL_NAMES
+    t = A.Tools()
+    t.call("bet_sheet", {"entry_price": 96.24, "qty": 2, "fees_usd": 4,
+                         "scenarios": [{"name": "эскалация", "price": 120}, {"name": "мир", "price": 80}]})
+    rec = t.results["r1"]["data"]
+    assert rec["ok"] and 0 < rec["порог_шанса"] < 1 and "эскалация" in rec["порог_словами"]
