@@ -380,3 +380,60 @@ def test_theme_card_delivery_is_logged(paths, monkeypatch, tmp_path):
     b._tick_theme_batch(datetime.datetime(2026, 11, 14, 11, 0, tzinfo=datetime.timezone.utc))
     recs = [json.loads(x) for x in (tmp_path / "deliv.jsonl").read_text(encoding="utf-8").splitlines()]
     assert recs and recs[-1]["kind"] == "карточка тем" and recs[-1]["buttons"] and recs[-1]["тем"] == 2
+
+
+# ── ревью 14.11: проверка идеи — честный статус запуска и тезис владельца в проверке ───────────────
+def test_check_idea_returns_status_and_passes_thesis(paths, monkeypatch):
+    import orchestrator.funnel as FN
+    from data import eodhd as E
+    b = _bot()
+    # занято → (False, причина), запуска нет
+    monkeypatch.setattr(b, "_job_busy", lambda: True)
+    b._job_label = "прогон"
+    ok, why = b._cmd_check_idea("555", "NUE — сталь вырастет на пошлинах")
+    assert ok is False and "прогон" in why
+    monkeypatch.setattr(b, "_job_busy", lambda: False)
+    # лимит месяца
+    monkeypatch.setattr(b, "_budget_blocked", lambda chat, what: True)
+    assert b._cmd_check_idea("555", "NUE — сталь")[0] is False
+    monkeypatch.setattr(b, "_budget_blocked", lambda chat, what: False)
+    # нет ключа
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    ok, why = b._cmd_check_idea("555", "NUE — сталь")
+    assert ok is False and "ключа" in why
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    # нет тикера
+    ok, why = b._cmd_check_idea("555", "сталь вырастет на пошлинах")
+    assert ok is False and "тикер" in why
+    # запуск: тезис уходит в run_funnel и в оба сообщения владельцу
+    seen = {}
+    monkeypatch.setattr(E, "ensure_history", lambda *a, **k: None)
+    (paths / "storage").mkdir(exist_ok=True)
+
+    def fake_funnel(**kw):
+        seen.update(kw)
+        return {"этап6_синтез": {"отчёты": []}}
+    monkeypatch.setattr(FN, "run_funnel", fake_funnel)
+    monkeypatch.setattr(b, "_start_job", lambda label, target: (target(), True)[1])
+    n = len(b.tg.sent)
+    ok, why = b._cmd_check_idea("555", "NUE — сталь вырастет на пошлинах")
+    assert (ok, why) == (True, None)
+    assert seen["theme"].startswith("NUE") and seen["thesis"] == "NUE — сталь вырастет на пошлинах"
+    msgs = [m[1] for m in b.tg.sent[n:]]
+    assert "сталь вырастет на пошлинах" in msgs[0] and "сталь вырастет на пошлинах" in msgs[-1]
+    assert "НЕ выдал" in msgs[-1]
+    # голый тикер — тезиса нет, поведение прежнее (thesis=None)
+    seen.clear()
+    b._cmd_check_idea("555", "NUE")
+    assert seen["thesis"] is None
+
+
+def test_check_idea_result_refusal_is_not_court_kill():
+    """Отказ до суда (нет данных по бумаге / бюджет) не выдаётся за «суд зарезал»."""
+    t = BOT.Bot._check_idea_result("XYZ.US", "тезис про XYZ", {"ОТКАЗ_тема": {"reason": "вне универсума"}})
+    assert "НЕ выполнена" in t and "вне универсума" in t and "Суд идею не рассматривал" in t and "тезис про XYZ" in t
+    assert "зарезали" not in t
+    t = BOT.Bot._check_idea_result("XYZ.US", None, {"ОСТАНОВ_бюджет": {"reason": "потолок"}})
+    assert "ОСТАНОВЛЕНА" in t and "твой тезис" not in t
+    t = BOT.Bot._check_idea_result("NUE.US", None, {"этап6_синтез": {"отчёты": [{}]}})
+    assert "выдал идей: 1" in t

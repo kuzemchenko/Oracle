@@ -417,6 +417,22 @@ def build_context(theme="brent", asof=None, theme_focused=False):
     return ctx
 
 
+OWNER_THESIS_MAX = 800
+
+
+def clean_owner_thesis(text):
+    """Тезис владельца для проверки: одна строка, ≤ OWNER_THESIS_MAX знаков; пусто → None."""
+    t = " ".join(str(text or "").split())
+    return t[:OWNER_THESIS_MAX] or None
+
+
+def owner_thesis_block(thesis):
+    """Блок для агентов/суда: текст тезиса + рамка «это гипотеза, а не поданный факт» (П8)."""
+    return {"текст": thesis,
+            "как_использовать": ("это утверждение владельца, которое ПРОВЕРЯЕТСЯ: не факт и не источник; "
+                                 "оцени именно его по поданным данным, подтверждается ли оно — скажи явно")}
+
+
 # ── §5.5: непересекающиеся проекции для разных агентов ───────────────────────────
 def _common(ctx):
     """Минимальное ядро, видимое всем: универсум, статус калибровки, реестр пробелов, ЯКОРЬ ТЕМЫ."""
@@ -429,6 +445,9 @@ def _common(ctx):
     }
     if ctx.get("theme_anchor"):
         base["ЯКОРЬ_ТЕМЫ"] = ctx["theme_anchor"]   # против дрейфа к новости дня (§17.2)
+    if ctx.get("owner_thesis"):
+        # ревью 14.11: тезис владельца из «проверь идею» — ГИПОТЕЗА на проверку, не факт (П8)
+        base["ТЕЗИС_ВЛАДЕЛЬЦА_НА_ПРОВЕРКУ"] = owner_thesis_block(ctx["owner_thesis"])
     return base
 
 

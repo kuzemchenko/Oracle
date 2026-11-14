@@ -182,9 +182,22 @@ def test_unknown_tool_and_bad_args():
 
 def test_court_check_goes_through_bot_action():
     got = []
-    t = A.Tools(actions={"court_check": got.append})
+    t = A.Tools(actions={"court_check": lambda idea: (got.append(idea), (True, None))[1]})
     assert "суд запущен" in t.court_check("DHT — ставки фрахта")
     assert got == ["DHT — ставки фрахта"]
+
+
+def test_court_check_reports_honest_status():
+    """Ревью 14.11: «суд запущен» — только при явном статусе; отказ и молчание действия — не запуск."""
+    no = A.Tools(actions={"court_check": lambda idea: (False, "уже идёт задача «прогон»")}).court_check("DHT")
+    assert "суд НЕ запущен" in no and "уже идёт задача «прогон»" in no and "суд запущен" not in no
+    silent = A.Tools(actions={"court_check": lambda idea: None}).court_check("DHT")
+    assert "НЕ подтверждён" in silent and "суд запущен" not in silent
+
+    def boom(idea):
+        raise RuntimeError("сеть")
+    assert "суд НЕ запущен: сеть" in A.Tools(actions={"court_check": boom}).court_check("DHT")
+    assert "не запускается" in A.Tools().court_check("DHT")
 
 
 # ── интеграция с ботом ─────────────────────────────────────────────────────────────

@@ -32,7 +32,9 @@ VERDICTS = ("PASS", "FIX", "FATAL")
 _KEEP = ("ticker", "name", "role", "direction", "mechanism_id", "catalyst", "thesis", "facts",
          "precedent", "move_since_trigger_pct", "upside_pct", "downside_pct", "trigger_date",
          "trigger_close", "target_price", "stop_price", "entry_limit", "why_not_priced",
-         "who_sells", "kill_conditions", "entry")
+         "who_sells", "kill_conditions", "entry",
+         # ревью 14.11: экономика карточки («рынок ждёт X», существенность, устойчивость, цепочка) — суду
+         "market_view", "materiality", "durability", "chain")
 
 
 def _card_text(card):

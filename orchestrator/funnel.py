@@ -216,6 +216,8 @@ def _candidate_slice_for(agent_id, candidate, ctx, thresholds):
         "опционы": (ctx or {}).get("options", {}).get(asset),   # IV/skew/OI по активу идеи (где есть)
         "news": (ctx or {}).get("news", [])[:6],
     }
+    if (ctx or {}).get("owner_thesis"):
+        payload["тезис_владельца_на_проверку"] = C.owner_thesis_block(ctx["owner_thesis"])
     if agent_id == "d_timeliness":
         payload["timing_thresholds"] = (thresholds.get("timing") or {})
     elif agent_id == "c_non_obviousness":
@@ -432,14 +434,14 @@ class _GuardChain:
 
 
 def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
-               theme_focused=False, cost_guard=None):
+               theme_focused=False, cost_guard=None, thesis=None):
     """Обёртка graceful-стопа бюджета (§24, долг[HIGH] из stage-review F0): RunBudgetGuard рвёт
     прогон на лету через RunBudgetExceeded(BaseException) — ловим ЯВНО здесь и отдаём протокол-стоп
     (не крэш). Вся логика — в _run_funnel."""
     try:
         return _run_funnel(theme=theme, mode=mode, agent_ids=agent_ids, run_id=run_id,
                            write=write, full=full, theme_focused=theme_focused,
-                           cost_guard=cost_guard)
+                           cost_guard=cost_guard, thesis=thesis)
     except RB.RunBudgetExceeded as e:
         rid = run_id or f"funnel_{_now_compact()}"
         if PROG.active():
@@ -456,7 +458,7 @@ def run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=Tr
 
 
 def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=True, full=True,
-                theme_focused=False, cost_guard=None):
+                theme_focused=False, cost_guard=None, thesis=None):
     """Сквозной прогон полной воронки §6 (этапы 1–6).
 
     full=True (по умолчанию): этапы 1–6 — скан+FDR → кандидаты → грубый фильтр → скоринг §7 →
@@ -467,6 +469,11 @@ def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=T
     """
     run_id = run_id or f"funnel_{_now_compact()}"
     ctx = C.build_context(theme=theme, theme_focused=theme_focused)
+    # ревью 14.11: тезис владельца («проверь идею NUE — сталь вырастет на пошлинах») доходит до
+    # аналитиков, дебатов и суда как гипотеза на проверку; без тезиса поведение прежнее
+    thesis = C.clean_owner_thesis(thesis)
+    if thesis:
+        ctx["owner_thesis"] = thesis
     client = OR.make_client(mode=mode, run_id=run_id)
     thresholds = C._load_yaml("config/thresholds.yaml")
     limits = PF.lim.load_limits()
@@ -581,6 +588,8 @@ def _run_funnel(theme="brent", mode="auto", agent_ids=None, run_id=None, write=T
                               else "без эскалаций противоречий на этом прогоне"),
         "этап1_скан_FDR": scan,
     }
+    if thesis:
+        protocol["тезис_владельца"] = thesis
 
     if not full:
         protocol["следующий_шаг"] = "full=False: этапы 3–6 не выполнялись (дешёвый режим поля суждений)"

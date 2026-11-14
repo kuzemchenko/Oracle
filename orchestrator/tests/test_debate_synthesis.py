@@ -298,3 +298,35 @@ def test_field_only_mode_skips_stages_3_6():
     p = F.run_funnel(theme="brent", mode="mock", run_id="pytest_fieldonly", write=False, full=False)
     assert "воронка_отсева" not in p
     assert "поле_суждений" in p                              # этапы 1–2 есть
+
+
+# ── ревью 14.11: тезис владельца из «проверь идею» доходит до аналитиков, дебатов и суда ──────────
+def test_owner_thesis_reaches_agents_and_judge(monkeypatch):
+    thesis = "сталь вырастет на пошлинах, рынок этого не учёл"
+    seen = {}
+    real = OR.make_client
+
+    def spy_client(*a, **k):
+        cl = real(*a, **k)
+        orig = cl.complete
+
+        def complete(role, system, user, **kw):
+            seen.setdefault(kw.get("agent_id"), []).append(user)
+            return orig(role, system, user, **kw)
+        cl.complete = complete
+        return cl
+    monkeypatch.setattr(OR, "make_client", spy_client)
+    p = F.run_funnel(theme="brent", mode="mock", run_id="pytest_thesis", write=False, full=True,
+                     thesis="  " + thesis + "\n")
+    assert p["тезис_владельца"] == thesis
+    for aid in ("b_technical", "e_generator", "e_critic", "e_judge"):
+        assert seen.get(aid) and all(thesis in u for u in seen[aid]), aid
+    assert "ТЕЗИС_ВЛАДЕЛЬЦА_НА_ПРОВЕРКУ" in seen["b_technical"][0]
+    assert "не доказательство" in seen["e_judge"][0]              # рамка «гипотеза, а не довод» (П8)
+
+
+def test_no_thesis_keeps_prompts_unchanged(full_protocol):
+    assert "тезис_владельца" not in full_protocol
+    ctx = C.build_context(theme="brent")
+    assert "ТЕЗИС_ВЛАДЕЛЬЦА_НА_ПРОВЕРКУ" not in C._common(ctx)
+    assert C.clean_owner_thesis("   ") is None and len(C.clean_owner_thesis("я" * 5000)) == C.OWNER_THESIS_MAX

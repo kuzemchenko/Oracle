@@ -320,3 +320,78 @@ def test_status_question_does_not_charge_paused_search(tmp_path):
     ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
     ag.run("почему поиск остановлен?")
     assert SQ.load(s["id"], tmp_path)["бюджет"]["потрачено_usd"] == 0.0
+
+
+# ── ревью 14.11: новая тема не подмешивается к старому поиску ─────────────────────────────────────
+def test_topic_similarity_is_code_not_llm():
+    assert SQ.topic_differs("найди идею про уран", "медь и стройка")
+    assert not SQ.topic_differs("найди идею про медь", "Найди идею по теме «медь и стройка»")
+    assert not SQ.topic_differs("что с ценами меди", "медь")                    # форма слова — та же тема
+    assert not SQ.topic_differs("продолжай", "медь")                             # сравнивать нечего — продолжаем
+    assert not SQ.topic_differs("найди идею", "уран")
+    assert SQ.topic_similarity("продолжай", "медь") is None
+
+
+def test_new_topic_pauses_old_search_and_starts_new(tmp_path):
+    t1 = A.Tools()
+    t1.search_dir = tmp_path
+    t1.search_start("медь и стройка")
+    t1.search_add("Переработчики лома получают маржу от разрыва цен", "SCHN", "разрыв цены лома и катодной меди")
+    old_id = t1.search_id
+    t2 = A.Tools()                                   # следующий ответ владельцу — другая тема
+    t2.search_dir = tmp_path
+    out = json.loads(t2.search_start("обогащение урана"))
+    assert t2.search_id != old_id and "новую тему" in out["сообщение"]
+    old = SQ.load(old_id, tmp_path)
+    assert old["статус"] == SQ.PAUSED and old["пауза"]["вид"] == "new_topic"
+    assert "владелец начал новую тему: обогащение урана" in old["пауза"]["причина"]
+    assert len(old["гипотезы"]) == 1                                             # ничего не удалено
+    new = SQ.load(t2.search_id, tmp_path)
+    assert new["статус"] == SQ.RUNNING and new["гипотезы"] == [] and "урана" in new["тема"]
+    assert SQ.active("telegram", tmp_path)["id"] == new["id"]                    # текущий — новый, не отложенный
+    assert "отложен" in SQ.status_line(old).lower()
+    # возврат к прежней теме — продолжается отложенный поиск, третий не создаётся
+    t3 = A.Tools()
+    t3.search_dir = tmp_path
+    t3.search_start("вернёмся к меди")
+    assert t3.search_id == old_id and len(SQ.all_searches(tmp_path)) == 2
+    assert SQ.load(old_id, tmp_path)["статус"] == SQ.RUNNING
+    assert SQ.is_set_aside(SQ.load(new["id"], tmp_path))
+
+
+def test_same_topic_continues_and_budget_pause_survives_set_aside(tmp_path):
+    t1 = A.Tools()
+    t1.search_dir = tmp_path
+    t1.search_start("медь и стройка")
+    sid = t1.search_id
+    for topic in ("медь", "найди идею про медь", "продолжай"):                   # та же/неясная тема — тот же поиск
+        t = A.Tools()
+        t.search_dir = tmp_path
+        t.search_start(topic)
+        assert t.search_id == sid
+    assert len(SQ.all_searches(tmp_path)) == 1
+    # в пределах одного ответа переформулировка темы моделью поиск не меняет
+    t1.search_start("редкоземельные металлы")
+    assert t1.search_id == sid and len(SQ.all_searches(tmp_path)) == 1
+    # пауза по бюджету не затирается пометкой «отложен»: вид и причина целы
+    s = SQ.load(sid, tmp_path)
+    s["бюджет"]["потрачено_usd"] = s["бюджет"]["лимит_usd"]
+    SQ.pause(s, "budget", "бюджет поиска исчерпан")
+    SQ.save(s, tmp_path)
+    t4 = A.Tools()
+    t4.search_dir = tmp_path
+    t4.search_start("обогащение урана")
+    s = SQ.load(sid, tmp_path)
+    assert s["пауза"]["вид"] == "budget" and "новую тему" in s["пауза"]["отложен"]
+    assert SQ.resume(s)[1]                                                       # бюджетный запрет на продолжение цел
+
+
+def test_find_idea_on_new_topic_started_by_code_despite_old_search(tmp_path):
+    SQ.start("медь и стройка", "telegram", d=tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    llm = FakeLLM([_msg("Пара мыслей про уран.")], default="Смотрю дальше.")
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    ag.run("Найди идею про обогащение урана")
+    ss = {s["тема"]: s for s in SQ.all_searches(tmp_path)}
+    assert len(ss) == 2 and SQ.is_set_aside(ss["медь и стройка"])

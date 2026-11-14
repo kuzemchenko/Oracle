@@ -480,10 +480,20 @@ class Tools:
         if not fn:
             return "суд из этого окружения не запускается"
         try:
-            fn(str(idea))
+            res = fn(str(idea))
         except Exception as e:                                   # noqa: BLE001
-            return f"суд не запустился: {e}"
-        return "суд запущен: генератор → критик → слепой судья других семейств; вердикт придёт отдельным сообщением"
+            return f"суд НЕ запущен: {e}"
+        # ревью 14.11: «запущен» — только по явному статусу действия (ok, причина); молчаливый выход
+        # (занято/бюджет/нет ключа/нет тикера) раньше выдавался модели за запуск
+        ok, why = res if isinstance(res, tuple) and len(res) == 2 else (None, None)
+        if ok is True:
+            return ("суд запущен: генератор → критик → слепой судья других семейств; вердикт придёт "
+                    "отдельным сообщением")
+        if ok is False:
+            return (f"суд НЕ запущен: {why or 'причина не названа'}. Не говори владельцу, что проверка идёт; "
+                    "назови причину")
+        return ("запуск суда НЕ подтверждён (действие не вернуло статус) — не утверждай, что суд идёт; "
+                "скажи владельцу, что статус запуска неизвестен")
 
     # — VQ-2 (2g): что рынок уже ждёт, существенность, проверенные ветки — расчёт КОДОМ (mathlib) —
     def implied_expectations(self, market_cap, base_earnings=None, revenue=None, terminal_margin=None,
@@ -653,6 +663,27 @@ class Tools:
     def search_start(self, topic):
         SQ = self._sq()
         cur = SQ.active("telegram", self.search_dir)
+        # ревью 14.11: тема ЯВНО другая (мало общих значимых слов, без LLM) → старый поиск на паузу с
+        # причиной, ничего не удаляется; новая тема не подмешивается к старой очереди гипотез. В пределах
+        # одного ответа поиск не меняем (модель могла лишь переформулировать тему, начатую кодом).
+        same_answer = bool(cur) and self.search_worked and self.search_id == cur["id"]
+        if cur and not same_answer and SQ.topic_differs(topic, cur.get("тема")):
+            old_topic = str(cur.get("тема") or "")[:80]
+            SQ.set_aside(cur, topic)
+            SQ.save(cur, self.search_dir)
+            back = SQ.similar_unfinished(topic, "telegram", self.search_dir, exclude_id=cur["id"])
+            if back:                                   # к этой теме уже есть отложенный поиск — возвращаемся
+                back, err = SQ.resume(back)
+                SQ.save(back, self.search_dir)
+                self.search_id = back["id"]
+                self.search_worked = True
+                return self._sq_view(back, err or (f"тема другая: поиск «{old_topic}» поставлен на паузу (ничего не "
+                                                   "удалено); продолжаю отложенный поиск по этой теме"))
+            s = SQ.start(topic, "telegram", d=self.search_dir)
+            self.search_id = s["id"]
+            self.search_worked = True
+            return self._sq_view(s, f"владелец начал новую тему: прежний поиск «{old_topic}» поставлен на паузу "
+                                    "(ничего не удалено, к нему можно вернуться), начат новый поиск")
         if cur:
             self.search_id = cur["id"]
             self.search_worked = True
@@ -902,7 +933,8 @@ TOOL_SPECS = [
         "честно: защищаемой нет, с проверенными направлениями и причинами отказа. Это засчитывается владельцу как закрытый "
         "запрос. Не вызывай для обычных вопросов и без итога.",
         {"topic": S, "outcome": S, "summary": S, "tickers": A}, ("topic", "outcome", "summary")),
-    _fn("search_start", "Начать поиск идеи по теме (или продолжить незавершённый). Поиск — сохраняемая очередь гипотез: "
+    _fn("search_start", "Начать поиск идеи по теме (или продолжить незавершённый; при явно другой теме прежний поиск код ставит "
+        "на паузу и начинает новый). Поиск — сохраняемая очередь гипотез: "
         "генерация → быстрая проверка → углубление → критика → оценка → результат. Закончить его можно только "
         "найденным достойным кандидатом, паузой по лимиту (код сам ставит) или отменой владельцем.", {"topic": S}, ("topic",)),
     _fn("search_add", "Добавить гипотезу в очередь поиска: тезис, тикер, механизм (через что меняется прибыль), "
@@ -1157,7 +1189,9 @@ class Agent:
             return None
         try:
             SQ = self.tools._sq()
-            if SQ.active("telegram", self.tools.search_dir):
+            cur = SQ.active("telegram", self.tools.search_dir)
+            # ревью 14.11: незавершённый поиск по ДРУГОЙ теме не мешает начать новый (старый — на паузу)
+            if cur and not SQ.topic_differs(user_text, cur.get("тема")):
                 return None
             return self.tools.search_start(" ".join(str(user_text).split())[:300])
         except Exception:                                    # noqa: BLE001 — разговор живёт и без очереди
@@ -1442,7 +1476,8 @@ def answer(user_text, history=None, actions=None, agent=None, attachments=None, 
         if cur:
             brief += ("\n\nПОИСК ИДЕИ (очередь, пишет код): " + SQ.status_line(cur) + " Следующий шаг: "
                       + SQ.next_action(cur)["текст"] + " — если владелец просит продолжать или искать, вызови "
-                      "search_start (продолжит этот поиск).")
+                      "search_start (продолжит этот поиск; если владелец назвал ДРУГУЮ тему — передай её в topic: "
+                      "код сам поставит прежний поиск на паузу и начнёт новый).")
     except Exception:                                            # noqa: BLE001
         pass
     try:
