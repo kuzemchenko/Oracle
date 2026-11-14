@@ -167,8 +167,10 @@ def measure(today=None, root=None):
     j = root / "journal"
     deliveries = _jsonl(j / "deliveries.jsonl")
     preds = _jsonl(j / ("predictions" + ".jsonl"))
+    from mathlib import sealing as _SEAL                 # 14.11: помеченные владельцем (тестовые) — вне счёта
+    preds = _SEAL.drop_voided(preds, j / ("predictions" + ".jsonl"))
     outs = _jsonl(j / ("outcomes" + ".jsonl"))
-    dd = _jsonl(j / "deep_dive.jsonl")
+    dd =_jsonl(j / "deep_dive.jsonl")
     edges = _jsonl(root / "knowledge" / "edge_candidates.jsonl")
     days = idea_days(deliveries, preds, until=today)
     zero_days = sorted({str(r.get("ts"))[:10] for r in deliveries if r.get("kind") == "честный ноль"})

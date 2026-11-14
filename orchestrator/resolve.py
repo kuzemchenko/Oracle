@@ -104,7 +104,8 @@ def run_resolve(write=True, predictions_path=None, outcomes_path=None):
     """Сверить все «дозревшие» прогнозы. Возвращает сводку; новые исходы пишет в outcomes.jsonl."""
     preds = SEAL.read_predictions(predictions_path)
     done = {o["hash"] for o in read_outcomes(outcomes_path) if o.get("hash")}
-    opath = pathlib.Path(outcomes_path) if outcomes_path else OUTCOMES_PATH
+    done |= SEAL.voided_hashes(predictions_path)     # 14.11: помеченные владельцем (тестовые) — без исхода
+    opath =pathlib.Path(outcomes_path) if outcomes_path else OUTCOMES_PATH
 
     # F2#21/§8.2: ВЕРИФИКАЦИЯ ПЕЧАТИ перед вынесением исхода. verify_all ловит правку записи (content-
     # hash), а также удаление/перестановку/вставку (hash-chain). По прогнозу с битой печатью/разорванной

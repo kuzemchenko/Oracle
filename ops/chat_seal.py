@@ -121,7 +121,7 @@ def seal(spec, predictions_path=None, today=None):
     if not HS._battle_write_allowed(target):
         return None, "запись в боевой журнал — только на сервере"
     today = str(today or datetime.datetime.now(datetime.timezone.utc).date())[:10]
-    open_same = [r for r in _read(target) if r.get("kind") == KIND and r.get("asset") == spec["asset"]
+    open_same = [r for r in SEAL.drop_voided(_read(target), target) if r.get("kind") == KIND and r.get("asset") == spec["asset"]
                  and str(r.get("resolve_by") or "")[:10] >= today]
     if open_same:
         return None, (f"по {spec['asset']} уже идёт прогноз разговора до {str(open_same[-1]['resolve_by'])[:10]} — "

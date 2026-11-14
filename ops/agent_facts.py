@@ -65,7 +65,8 @@ def _track(rec):
 def track_record(pred_path=None, out_path=None):
     """Счёт КАЖДОГО механизма отдельно: N записано/сверено, попадания, Brier прогноза против Brier
     постоянной базы (доля попаданий того же механизма), период. Без смешения механизмов."""
-    preds = _jsonl(pred_path or PRED)
+    from mathlib import sealing as _SEAL              # 14.11: помеченные владельцем (тестовые) — вне счёта
+    preds = _SEAL.drop_voided(_jsonl(pred_path or PRED), pred_path or PRED)
     outs = {o.get("hash"): o for o in _jsonl(out_path or OUTC) if o.get("outcome") in (0, 1)}
     groups = {}
     for p in preds:

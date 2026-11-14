@@ -199,6 +199,61 @@ def seal(prediction, path=None, sealed_at=None, dedup_fields=None, dedup_normali
     return record
 
 
+# ─── Аннулирование записей (владелец 14.11: фальшивая EQT от теста 13.11 — «пометь как тестовую») ───
+# Журнал прогнозов НЕ редактируется (П16). Пометка — отдельный append-only журнал voided.jsonl рядом
+# с журналом прогнозов: hash записи + причина + слова владельца. Сверка не выносит исход по помеченной
+# записи, счёт её не видит. Пометить можно только существующую запись и только со словами владельца.
+VOIDED_NAME = "voided.jsonl"
+
+
+def voided_path_for(predictions_path=None):
+    p = pathlib.Path(predictions_path) if predictions_path is not None else PREDICTIONS_PATH
+    return p.parent / VOIDED_NAME
+
+
+def voided_hashes(predictions_path=None):
+    p = voided_path_for(predictions_path)
+    out = set()
+    if not p.exists():
+        return out
+    with open(p, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                h = json.loads(line).get("hash")
+            except ValueError:
+                continue
+            if h:
+                out.add(h)
+    return out
+
+
+def drop_voided(recs, predictions_path=None):
+    v = voided_hashes(predictions_path)
+    return [r for r in recs if r.get("hash") not in v] if v else list(recs)
+
+
+def void(pred_hash, reason, owner_words, predictions_path=None):
+    """Пометить запечатанную запись как недействительную (тестовая/ошибочная). → запись пометки.
+    Исходная строка журнала остаётся как есть; пометка — append-only, повтор — ValueError."""
+    if not str(owner_words or "").strip():
+        raise ValueError("пометку ставит только владелец — нужны его слова")
+    if not str(reason or "").strip():
+        raise ValueError("нужна причина пометки")
+    recs = [r for r in read_predictions(predictions_path) if r.get("hash") == pred_hash]
+    if not recs:
+        raise ValueError(f"записи с hash {str(pred_hash)[:12]} в журнале прогнозов нет")
+    if pred_hash in voided_hashes(predictions_path):
+        raise ValueError("эта запись уже помечена")
+    r = recs[0]
+    mark = {"ts": now_utc_iso(), "hash": pred_hash, "asset": r.get("asset"), "kind": r.get("kind"),
+            "sealed_at": r.get("sealed_at"), "причина": str(reason), "слова_владельца": str(owner_words)}
+    p = voided_path_for(predictions_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:   # ТОЛЬКО append
+        f.write(json.dumps(mark, ensure_ascii=False) + "\n")
+    return mark
+
+
 def read_predictions(path=None):
     """Прочитать журнал прогнозов (список dict в порядке записи)."""
     path = pathlib.Path(path) if path is not None else PREDICTIONS_PATH
