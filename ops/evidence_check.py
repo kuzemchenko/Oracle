@@ -416,23 +416,30 @@ def check(card, rules_v2=False):
     """Карточка → {'fails', 'labels', 'target', 'regulatory'}. Пустой fails = доказательства в порядке.
     rules_v2=True — охота с RULES_V2_FROM: существенность обязана быть посчитана (дату охоты знает
     вызывающий — ops/idea_gate.check; без неё — прежнее поведение, старые карточки не бракуются)."""
-    fails, labels = [], []
+    fails, labels, tagged = [], [], []
     if not isinstance(card, dict):
-        return {"fails": ["карточка не объект"], "labels": [], "target": None, "regulatory": False}
-    reg = check_regulatory(card, fails, labels)
-    check_absence(card, fails, labels)
-    check_metrics(card, fails, labels)
-    check_event_timing(card, fails, labels)
-    check_price_causality(card, fails, labels)
-    tgt = check_target(card, fails, labels)
-    check_probability(card, fails, labels)
-    mv = check_market_view(card, fails, labels)
-    mat = check_materiality(card, fails, labels, required=bool(rules_v2))
-    check_durability(card, fails, labels)
-    check_chain(card, fails, labels)
-    opt = check_options(card, fails, labels)
+        return {"fails": ["карточка не объект"], "labels": [], "target": None, "regulatory": False,
+                "по_правилам": [("ФАКТЫ", "карточка не объект")]}
+
+    def run(tag, fn, *a, **kw):              # правила v3: каждый раздел — свой номер правила (knowledge/idea_rules.yaml)
+        n = len(fails)
+        r = fn(card, fails, labels, *a, **kw)
+        tagged.extend((tag, m) for m in fails[n:])
+        return r
+    reg = run("ФАКТЫ", check_regulatory)
+    run("ФАКТЫ", check_absence)
+    run("ФАКТЫ", check_metrics)
+    run("ФАКТЫ", check_event_timing)
+    run("ФАКТЫ", check_price_causality)
+    tgt = run("ЦЕЛЬ", check_target)
+    run("СЧЁТ", check_probability)
+    mv = run("РЫНОК", check_market_view)
+    mat = run("СУЩЕСТВЕННОСТЬ", check_materiality, required=bool(rules_v2))
+    run("УСТОЙЧИВОСТЬ", check_durability)
+    run("ЦЕПОЧКА", check_chain)
+    opt = run("РЫНОК", check_options)
     return {"fails": fails, "labels": labels, "target": tgt, "regulatory": reg, "market_view": mv,
-            "materiality": mat, "options": opt}
+            "materiality": mat, "options": opt, "по_правилам": tagged}
 
 
 CAVEATS_HEAD = "Оговорки проверки."

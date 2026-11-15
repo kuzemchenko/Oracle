@@ -15,6 +15,7 @@
 бот НЕ шлёт непроверенное (fail-closed по П10) и повторит позже.
 Бюджет: RB.precheck("hunter_court") + суб-потолок + стоп-на-лету (Инв#5).
 """
+import datetime
 import hashlib
 import json
 import pathlib
@@ -76,7 +77,23 @@ def _defense(card):
             + f"Что опровергнет: {json.dumps(card.get('kill_conditions'), ensure_ascii=False)}")
 
 
-def parse_verdict(text, card_text=None):
+def _fatal_points(today=None):
+    """Пункты рубрики, за которые суд вправе «убить»: правила v3 (knowledge/idea_rules.yaml) — только из файла
+    правил; до их включения — прежние 1–4."""
+    try:
+        try:
+            from ops import idea_rules as IR
+        except ImportError:
+            import idea_rules as IR
+        d = today or datetime.datetime.now(datetime.timezone.utc).date()
+        if IR.active(d):
+            return IR.court_fatal_points() or (1,)
+    except Exception:                                              # noqa: BLE001 — нет файла правил = прежнее
+        pass
+    return (1, 2, 3, 4)
+
+
+def parse_verdict(text, card_text=None, fatal_points=(1, 2, 3, 4)):
     """ПЕРВЫЙ JSON-объект ответа → нормализованный вердикт или None (П8: мусор не голос).
     FATAL засчитывается, только если пункт рубрики 1–4 и улика ДОСЛОВНО есть в карточке
     (перепроверка 02.11: «казнь» кодом не сверялась) — иначе это FIX."""
@@ -99,19 +116,30 @@ def parse_verdict(text, card_text=None):
     except (TypeError, ValueError):
         point = 0
     # перепроверка №5: улика — содержательная цитата (≥12 знаков после нормализации), а не «а»/«MP»
-    if verdict == "FATAL" and (not ev or point not in (1, 2, 3, 4) or len(_norm(ev)) < 12
+    if verdict == "FATAL" and (not ev or point not in tuple(fatal_points) or len(_norm(ev)) < 12
                                or (card_text is not None and _norm(ev) not in _norm(card_text))):
         verdict = "FIX"                    # FATAL без проверяемой улики — не казнь, а запрос
     return {"verdict": verdict, "point": v.get("point"), "evidence": str(v.get("evidence") or ""),
             "objection": str(v.get("objection") or ""), "answer": str(v.get("answer") or "")}
 
 
-def judge_card(card, *, client=None, mode="auto", run_id=None):
+def judge_card(card, *, client=None, mode="auto", run_id=None, today=None):
     """Карточка → (вердикт судьи dict | None, причина | None). Критик и судья — разные семейства."""
     try:
         system = PROMPT.read_text(encoding="utf-8")
     except OSError as e:
         return None, f"нет промпта суда: {e}"
+    fp = _fatal_points(today)
+    if fp != (1, 2, 3, 4):                                         # правила v3 — одна правда с кодом
+        try:
+            try:
+                from ops import idea_rules as IR
+            except ImportError:
+                import idea_rules as IR
+            system += ("\n\nПРАВИЛА v3 (главнее рубрики выше там, где расходятся):\n" + IR.text_for_prompt()
+                       + f"\nFATAL вправе только по пунктам рубрики {', '.join(map(str, fp))}; остальное — FIX.")
+        except Exception:                                          # noqa: BLE001
+            pass
     from orchestrator import run_budget as RB
     try:
         if client is None:
@@ -131,7 +159,7 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
                                    exclude_family={GENERATOR_FAMILY})
             crit_txt = crit.get("text") if isinstance(crit, dict) else str(crit or "")
             hay = _haystack(card)
-            crit_v = parse_verdict(crit_txt, hay)
+            crit_v = parse_verdict(crit_txt, hay, fp)
             if crit_v is None:
                 return None, "критик дал невалидный ответ — суд не состоялся (П10)"
             excl = {GENERATOR_FAMILY}
@@ -152,7 +180,7 @@ def judge_card(card, *, client=None, mode="auto", run_id=None):
                                  output_kind="hunter_court", exclude_family=excl)
         except RB.RunBudgetExceeded as e:                  # BaseException — отдельная ветка (Инв#5)
             return None, f"ОСТАНОВ бюджета §24: {e.spent_usd:.4f} при потолке {e.cap_usd}"
-        jv = parse_verdict(jr.get("text") if isinstance(jr, dict) else jr, hay)
+        jv = parse_verdict(jr.get("text") if isinstance(jr, dict) else jr, hay, fp)
         if jv is None:
             return None, "судья дал невалидный ответ — суд не состоялся (П10)"
         jv["critic"] = crit_v

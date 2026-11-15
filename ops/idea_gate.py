@@ -43,8 +43,10 @@ from mathlib import sealing as SEAL          # noqa: E402
 
 try:
     from ops import evidence_check as EV     # noqa: E402
+    from ops import idea_rules as IR         # noqa: E402
 except ImportError:                          # запуск из ops/ (бот)
     import evidence_check as EV              # noqa: E402
+    import idea_rules as IR                  # noqa: E402
 
 # Аудит 07.11: проверка СОДЕРЖАНИЯ доводов (ops/evidence_check.py) обязательна для охот с этой даты.
 # Идеи раньше неё уже запечатаны и ведутся своими проверками — их плановые обновления не должны
@@ -71,6 +73,10 @@ DIR_MAP = {"вверх": "above", "вниз": "below"}
 # Перепроверка №2 (03.11): ход с повода, потенциал и риск больше НЕ берутся со слов LLM — карточка
 # несёт ЦЕНЫ (закрытие в день повода, цель, стоп, худший вход), а проценты считает этот код; на
 # сервере цены заменяются серверными котировками (hunter_seal.server_check).
+REQ_TAG = {"ticker": "ТОРГУЕМОСТЬ", "name": "ТОРГУЕМОСТЬ", "direction": "ТОРГУЕМОСТЬ", "thesis": "ФАКТЫ",
+           "facts": "ФАКТЫ", "catalyst": "КАТАЛИЗАТОР", "precedent": "ПРЕЦЕДЕНТ", "move_since_trigger_pct": "ПРОЦЕНТЫ",
+           "upside_pct": "ПРОЦЕНТЫ", "downside_pct": "ПРОЦЕНТЫ", "kill_conditions": "ВЫХОД", "spec9": "СЧЁТ",
+           "trigger_date": "ПРЕЦЕДЕНТ", "trigger_close": "ПРЕЦЕДЕНТ", "target_price": "ВЫХОД", "stop_price": "ВЫХОД"}
 REQUIRED = ("ticker", "name", "direction", "catalyst", "thesis", "facts", "precedent",
             "move_since_trigger_pct", "upside_pct", "downside_pct",
             "kill_conditions", "spec9", "trigger_date", "trigger_close", "target_price", "stop_price")
@@ -97,13 +103,13 @@ def price_math(direction, last_close, trigger_close, target, stop, entry_limit=N
     out = {"fails": []}
     px, tc, tp, sp = (_num(x) for x in (last_close, trigger_close, target, stop))
     el = _num(entry_limit)
-    if None in (px, tc, tp, sp) or min(px, tc, tp, sp) <= 0:
-        out["fails"].append("нет цен для расчёта (закрытие, закрытие в день повода, цель, стоп)")
+    if None in (px, tp, sp) or min(px, tp, sp) <= 0:
+        out["fails"].append("нет цен для расчёта (закрытие, цель, стоп)")
         return out
     up = direction == "вверх"
     eb = el if el and el > 0 else px
     out["вход"] = eb
-    out["ход_с_повода"] = round((px / tc - 1) * 100, 2)
+    out["ход_с_повода"] = round((px / tc - 1) * 100, 2) if tc and tc > 0 else None   # нет цены повода — пометка
 
     def gain(x):
         return (tp / x - 1) * 100 if up else (1 - tp / x) * 100
@@ -124,56 +130,65 @@ def price_math(direction, last_close, trigger_close, target, stop, entry_limit=N
     return out
 
 
-def check(card, today=None, horizon_from=None, evidence=None):
+def check(card, today=None, horizon_from=None, evidence=None, rules_v3=None):
     """Карточка → {'pass', 'fails', 'warnings', 'computed'}. Пустой fails = прошла шлагбаум.
     horizon_from — дата, от которой мерить горизонт класса (на сервере — дата охоты: сервер
     печатает с лагом ≤3 дней, и честная идея на нижней границе не должна умирать от задержки
     доставки — перепроверка №2); по умолчанию — today.
     evidence: True — проверка доказательств обязательна (брак), False — только предупреждения,
-    None — по дате охоты (horizon_from или today) против EVIDENCE_FROM."""
+    None — по дате охоты (horizon_from или today) против EVIDENCE_FROM.
+    rules_v3: True/False — правила v3 (knowledge/idea_rules.yaml: брак только ФАКТЫ/ТОРГУЕМОСТЬ/ВЫХОД/СЧЁТ,
+    остальное — пометки); None — по дате охоты против «действует_с» файла правил.
+    Каждое нарушение помечено номером правила (computed["по_правилам"])."""
     today = today or datetime.datetime.now(datetime.timezone.utc).date()
-    fails, warns, comp = [], [], {}
+    fails, warns, comp, tagged = [], [], {}, []
     if not isinstance(card, dict):
         return {"pass": False, "fails": ["карточка не объект"], "warnings": [], "computed": {}}
+    v3 = IR.active(horizon_from or today) if rules_v3 is None else bool(rules_v3)
+
+    def F(tag, msg):
+        tagged.append((tag, msg))
     for f in REQUIRED:
         v = card.get(f)
         if v is None or (isinstance(v, (str, list, dict)) and not v):
-            fails.append(f"нет поля «{f}»")
-    if fails:
-        return {"pass": False, "fails": fails, "warnings": warns, "computed": comp}
+            F(REQ_TAG.get(f, "ВЫХОД"), f"нет поля «{f}»")
+    if tagged and (not v3 or any(IR.kind(t) == IR.HARD for t, _ in tagged)):
+        hard, soft = IR.split(tagged, v3)
+        comp["по_правилам"] = [[t, m] for t, m in tagged]
+        return {"pass": False, "fails": hard, "warnings": warns + soft, "computed": comp}
 
     ticker = str(card["ticker"]).strip().upper()
     if not TICKER_RE.match(ticker):
-        fails.append(f"тикер не в формате EODHD *.US: {ticker!r}")
+        F("ТОРГУЕМОСТЬ", f"тикер не в формате EODHD *.US: {ticker!r}")
     direction = str(card["direction"]).strip().lower()
     if direction not in DIR_MAP:
-        fails.append(f"направление не «вверх»/«вниз»: {direction!r}")
+        F("ТОРГУЕМОСТЬ", f"направление не «вверх»/«вниз»: {direction!r}")
 
     # горизонт: два класса (правила поиска v2, владелец 14.11); нет поля — short, как раньше
     hclass = str(card.get("horizon_class") or "short").strip().lower()
     if hclass not in HORIZONS:
-        fails.append(f"horizon_class не «short»/«long»: {hclass!r}")
+        F("СЧЁТ", f"horizon_class не «short»/«long»: {hclass!r}")
         hclass = "short"
     h_min, h_max, h_txt = HORIZONS[hclass]
     comp["класс_горизонта"] = hclass
 
     # 2. катализатор в окне класса; у long дата не обязательна (описание — обязательно)
-    cat = card["catalyst"] if isinstance(card["catalyst"], dict) else {}
+    cat = card.get("catalyst") if isinstance(card.get("catalyst"), dict) else {}
     cd = _date(cat.get("date"))
     if cd is None:
         if hclass == "short" or str(cat.get("date") or "").strip():
-            fails.append("катализатор без даты (YYYY-MM-DD)")
+            F("КАТАЛИЗАТОР", "катализатор без даты (YYYY-MM-DD)")
     else:
         delta = (cd - today).days
         comp["катализатор_через_дней"] = delta
         if delta < 0 or delta > h_max:
             win = "+13 нед" if hclass == "short" else f"+{h_max} дн"
-            fails.append(f"катализатор {cd} вне окна [сегодня … {win}] ({delta} дн)")
+            F("КАТАЛИЗАТОР", f"катализатор {cd} вне окна [сегодня … {win}] ({delta} дн)")
     if not str(cat.get("what") or "").strip():
-        fails.append("катализатор без описания")
+        F("КАТАЛИЗАТОР", "катализатор без описания")
 
     # 4. факты с источниками
-    facts = card["facts"] if isinstance(card["facts"], list) else []
+    facts = card.get("facts") if isinstance(card.get("facts"), list) else []
     # перепроверка №3: «из будущего» — относительно ДНЯ ОХОТЫ (+1 день: охота может перейти через
     # полночь UTC), а не серверного сегодня — иначе через 3 дня проходили бы факты «из завтра»
     facts_until = (horizon_from or today) + datetime.timedelta(days=1)
@@ -193,49 +208,50 @@ def check(card, today=None, horizon_from=None, evidence=None):
             domains.add(urlparse(url).netloc.lower().removeprefix("www."))
     comp["фактов_с_источником"], comp["источников"] = good, len(domains)
     if future:
-        fails.append(f"факты датированы позже дня охоты ({', '.join(sorted(set(future))[:3])}) — "
+        F("ФАКТЫ", f"факты датированы позже дня охоты ({', '.join(sorted(set(future))[:3])}) — "
                      "дата факта = дата публикации, не проверки (П8)")
     if good < MIN_FACTS:
-        fails.append(f"фактов с URL и датой {good} < {MIN_FACTS} (П8)")
+        F("ФАКТЫ", f"фактов с URL и датой {good} < {MIN_FACTS} (П8)")
     if len(domains) < MIN_DOMAINS:
-        fails.append(f"разных источников {len(domains)} < {MIN_DOMAINS} (П8)")
+        F("ФАКТЫ", f"разных источников {len(domains)} < {MIN_DOMAINS} (П8)")
 
-    spec = card["spec9"] if isinstance(card["spec9"], dict) else {}
+    spec = card.get("spec9") if isinstance(card.get("spec9"), dict) else {}
     px, thr = _num(spec.get("last_close")), _num(spec.get("threshold"))
     pxd = _date(spec.get("last_close_date"))
 
     # 5–6. ЦЕНЫ → проценты кодом; заявленные проценты обязаны с ними сходиться
     td = _date(card.get("trigger_date"))
     if td is None:
-        fails.append("нет даты повода (trigger_date) — ход «с повода» не от чего мерить")
+        F("ПРЕЦЕДЕНТ", "нет даты повода (trigger_date) — ход «с повода» не от чего мерить")
     elif pxd is not None and td > pxd:
-        fails.append(f"дата повода {td} позже цены закрытия {pxd}")
+        F("ПРЕЦЕДЕНТ", f"дата повода {td} позже цены закрытия {pxd}")
     pm = price_math(direction, px, card.get("trigger_close"), card.get("target_price"),
                     card.get("stop_price"), card.get("entry_limit")) if direction in DIR_MAP else {"fails": []}
-    fails += pm["fails"]
+    for m in pm["fails"]:
+        F("ВЫХОД", m)
     comp["цены"] = {k: v for k, v in pm.items() if k != "fails"}
     move = pm.get("ход_с_повода")
     up_px, up_eb, dn_eb = pm.get("потенциал"), pm.get("потенциал_от_входа"), pm.get("риск_от_входа")
     for key, calc in (("move_since_trigger_pct", move), ("upside_pct", up_px), ("downside_pct", pm.get("риск"))):
         decl = _num(card.get(key))
         if calc is not None and (decl is None or abs(decl - calc) > TOL_PP):
-            fails.append(f"«{key}» = {card.get(key)} не сходится с ценами карточки ({calc:g}%) — "
+            F("ПРОЦЕНТЫ", f"«{key}» = {card.get(key)} не сходится с ценами карточки ({calc:g}%) — "
                          "проценты считает код, не автор")
 
     # 5. прецедент и «что уже в цене»
-    prec = card["precedent"] if isinstance(card["precedent"], dict) else {}
+    prec = card.get("precedent") if isinstance(card.get("precedent"), dict) else {}
     amp = str(prec.get("amplitude") or "")
     if not str(prec.get("url") or "").startswith("http"):
-        fails.append("прецедент без URL (П8)")
+        F("ПРЕЦЕДЕНТ", "прецедент без URL (П8)")
     ranges = PI.parse_amplitude(amp)
     # потолок потенциала — дальний край ПЕРВОГО диапазона прецедента (тот же, что для «в цене»),
     # а не максимум любого процента в строке (перепроверка 02.11)
     far = max(abs(ranges[0]["низ"]), abs(ranges[0]["верх"])) if ranges else 0.0
     comp["амплитуда_дальний_край_пп"] = far
     if move is None:
-        fails.append("ход с даты повода не посчитан — без него «не отыграно» не доказать")
+        F("ПРЕЦЕДЕНТ", "ход с даты повода не посчитан — без него «не отыграно» не доказать")
     elif not ranges:
-        fails.append("амплитуда прецедента не распознана числом")
+        F("ПРЕЦЕДЕНТ", "амплитуда прецедента не распознана числом")
     elif direction in DIR_MAP:
         # Ревью 02.11: доля «в цене» считается ПО НАПРАВЛЕНИЮ ИДЕИ — ход бумаги в сторону идеи против
         # модуля прецедентной амплитуды.
@@ -245,7 +261,7 @@ def check(card, today=None, horizon_from=None, evidence=None):
         pf = PI.played_fraction(in_dir, f"+{lo:g}–{hi:g}%" if lo != hi else f"+{hi:g}%")
         comp["что_в_цене"] = pf
         if "ОТКАЗ" in pf:
-            fails.append("доля отыгранности не посчитана: " + pf["ОТКАЗ"])
+            F("ПРЕЦЕДЕНТ", "доля отыгранности не посчитана: " + pf["ОТКАЗ"])
         elif pf.get("вердикт") in (PI.В_ЦЕНЕ, PI.ПЕРЕЛЁТ):
             # правила поиска v2 (владелец 14.11): доля прошлого хода — пометка, а не отказ; вопрос
             # «уже в цене» решают ожидания рынка по прибыли и сроку (market_view), не прецедент
@@ -256,7 +272,7 @@ def check(card, today=None, horizon_from=None, evidence=None):
     if up_eb is not None and dn_eb is not None:
         comp["асимметрия"] = round(asym, 2) if asym is not None else None
         if asym is None or asym < MIN_ASYM - 1e-6:
-            fails.append(f"асимметрия {asym if asym is not None else '—'} < {MIN_ASYM} "
+            F("АСИММЕТРИЯ", f"асимметрия {asym if asym is not None else '—'} < {MIN_ASYM} "
                          f"(потенциал {up_eb:g}% / риск {dn_eb:g}% от входа {pm.get('вход'):g})")
         if far and up_eb > far * 1.05:
             # правила поиска v2 (владелец 14.11): прецедент не потолок нового эпизода — пометка
@@ -266,60 +282,61 @@ def check(card, today=None, horizon_from=None, evidence=None):
     rb = _date(spec.get("resolve_by"))
     probs = SEAL.validate_resolvable({**spec, "price_source": spec.get("price_source")
                                       or f"EODHD close {ticker}"})
-    fails += [f"§9: {p}" for p in probs]
+    for p_ in probs:
+        F("СЧЁТ", f"§9: {p_}")
     if str(spec.get("asset") or "").upper() != ticker:
-        fails.append(f"§9: актив спеки {spec.get('asset')!r} ≠ тикер идеи {ticker!r}")
+        F("СЧЁТ", f"§9: актив спеки {spec.get('asset')!r} ≠ тикер идеи {ticker!r}")
     if direction in DIR_MAP and str(spec.get("direction") or "").lower() != DIR_MAP[direction]:
-        fails.append(f"§9: направление спеки {spec.get('direction')!r} не согласовано с «{direction}»")
+        F("СЧЁТ", f"§9: направление спеки {spec.get('direction')!r} не согласовано с «{direction}»")
     if rb is None:
-        fails.append("§9: resolve_by без даты")
+        F("СЧЁТ", "§9: resolve_by без даты")
     else:
         hfrom = horizon_from or today
         hd = (rb - hfrom).days
         comp["горизонт_дней"] = hd
         if not h_min <= hd <= h_max:
-            fails.append(f"§9: горизонт {hd} дн от {hfrom} вне {h_txt}"
+            F("СЧЁТ", f"§9: горизонт {hd} дн от {hfrom} вне {h_txt}"
                          + ("" if hclass == "short" else " (класс long)"))
         if rb <= today:
-            fails.append("§9: дата сверки уже наступила")
+            F("СЧЁТ", "§9: дата сверки уже наступила")
         if cd is not None and cd > rb:
-            fails.append("§9: сверка раньше катализатора — вопрос разрешится до события")
+            F("СЧЁТ", "§9: сверка раньше катализатора — вопрос разрешится до события")
     p = _num(spec.get("probability"))
     if p is None or not P_MIN <= p <= P_MAX:
-        fails.append(f"§9: сырая вероятность вне [{P_MIN}..{P_MAX}] (для счёта, не для показа)")
+        F("СЧЁТ", f"§9: сырая вероятность вне [{P_MIN}..{P_MAX}] (для счёта, не для показа)")
     if px is None or px <= 0 or pxd is None:
-        fails.append("§9: нет свежей цены закрытия с датой — порог не заякорить (§10)")
+        F("СЧЁТ", "§9: нет свежей цены закрытия с датой — порог не заякорить (§10)")
     else:
         if px < MIN_PRICE:
-            fails.append(f"цена {px} < ${MIN_PRICE:g}: копеечная бумага не годится в идею дня")
+            F("ТОРГУЕМОСТЬ", f"цена {px} < ${MIN_PRICE:g}: копеечная бумага не годится в идею дня")
         age = (today - pxd).days
         comp["возраст_цены_дней"] = age
         if age > MAX_PRICE_AGE_DAYS:
-            fails.append(f"§9: цена закрытия устарела ({age} дн > {MAX_PRICE_AGE_DAYS})")
+            F("СЧЁТ", f"§9: цена закрытия устарела ({age} дн > {MAX_PRICE_AGE_DAYS})")
         if thr is not None:
             if not 0.5 * px <= thr <= 2.0 * px:
-                fails.append(f"§9: порог {thr} не заякорен к цене {px} (вне 0.5×..2×)")
+                F("СЧЁТ", f"§9: порог {thr} не заякорен к цене {px} (вне 0.5×..2×)")
             sd = str(spec.get("direction") or "").lower()
             if (sd == "above" and thr <= px) or (sd == "below" and thr >= px):
-                fails.append(f"§9: порог {thr} на уже-истинной стороне цены {px} — тривиальный вопрос")
+                F("СЧЁТ", f"§9: порог {thr} на уже-истинной стороне цены {px} — тривиальный вопрос")
             elif up_px is not None and up_px > 0:
                 # цель прогноза — в пределах потенциала (иначе питч +40%, а печать — другое)
                 thr_move = (thr / px - 1) * 100 if sd == "above" else (1 - thr / px) * 100
                 comp["ход_до_порога_пп"] = round(thr_move, 2)
                 if thr_move > up_px * 1.05:
-                    fails.append(f"§9: порог требует хода {thr_move:.1f}% — больше потенциала до цели {up_px:g}%")
+                    F("СЧЁТ", f"§9: порог требует хода {thr_move:.1f}% — больше потенциала до цели {up_px:g}%")
                 elif thr_move < max(0.25 * up_px, 2.0):
-                    fails.append(f"§9: порог всего в {thr_move:.1f}% от цены — вопрос «закроется ли выше "
+                    F("СЧЁТ", f"§9: порог всего в {thr_move:.1f}% от цены — вопрос «закроется ли выше "
                                  f"сегодняшнего» не проверяет обещанный ход {up_px:g}%")
 
     # 7. стоп-условия
-    kills = card["kill_conditions"] if isinstance(card["kill_conditions"], list) else []
+    kills = card.get("kill_conditions") if isinstance(card.get("kill_conditions"), list) else []
     dated = [k for k in kills if isinstance(k, dict) and str(k.get("what") or "").strip()
              and _date(k.get("check_by"))]
     if not dated:
-        fails.append("нет стоп-условия с датой проверки («что меня опровергнет и когда проверю»)")
+        F("ВЫХОД", "нет стоп-условия с датой проверки («что меня опровергнет и когда проверю»)")
     elif rb is not None and all(_date(k["check_by"]) > rb for k in dated):
-        fails.append("все стоп-условия проверяются позже сверки")
+        F("ВЫХОД", "все стоп-условия проверяются позже сверки")
 
     # правила поиска v2 (владелец 14.11): «кто продаёт» не обязателен — пусто = пометка
     if not str(card.get("who_sells") or "").strip():
@@ -333,9 +350,15 @@ def check(card, today=None, horizon_from=None, evidence=None):
     comp["доказательства"] = {"обязательны": bool(enforce), "брак": ev["fails"], "оговорки": ev["labels"],
                               "цель": (ev.get("target") or {}).get("status")}
     if enforce:
-        fails += [f"доказательства: {x}" for x in ev["fails"]]
+        for t, x in ev.get("по_правилам") or [("ФАКТЫ", x) for x in ev["fails"]]:
+            F(t, f"доказательства: {x}")
     else:
         warns += [f"доказательства (для охот с {EVIDENCE_FROM}): {x}" for x in ev["fails"]]
+    hard, soft = IR.split(tagged, v3)
+    fails += hard
+    warns += soft
+    comp["правила_v3"] = v3
+    comp["по_правилам"] = [[t, m] for t, m in tagged]
     return {"pass": not fails, "fails": fails, "warnings": warns, "computed": comp}
 
 

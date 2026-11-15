@@ -346,9 +346,35 @@ def render_with_problems(card, update=False):
     # аудит 07.11: оговорки доказательной базы (цель предварительная, «документа нет» только по
     # вторичным источникам) пишет КОД отдельным абзацем — модель не может их убрать или смягчить
     cav = _caveats(card)
+    weak = _weak_paragraph(card)                       # правила v3: пометки — абзацем кода «что слабо»
+    if weak:
+        cav = (cav + " " + weak) if cav else weak
     if cav:
         out["caveats"] = cav
     return out, problems
+
+
+WEAK_HEAD = "Что слабо (проверка кодом):"
+
+
+def _weak_paragraph(card, today=None):
+    """Правила v3 (knowledge/idea_rules.yaml, владелец 15.11 «Б»): то, что раньше было браком, а теперь пометка,
+    владелец видит простыми словами. До включения v3 — ничего (прежнее поведение)."""
+    try:
+        try:
+            from ops import idea_gate as G, idea_rules as IR
+        except ImportError:
+            import idea_gate as G
+            import idea_rules as IR
+        d = today or datetime.datetime.now(datetime.timezone.utc).date()
+        if not IR.active(d):
+            return None
+        res = G.check(card, today=d, rules_v3=True)
+        soft = [(t, m) for t, m in (res.get("computed") or {}).get("по_правилам") or [] if IR.kind(t) == IR.SOFT]
+        words = IR.weak_points(soft)
+        return (WEAK_HEAD + " " + "; ".join(words) + ".") if words else None
+    except Exception:                                  # noqa: BLE001 — пометка не валит рендер
+        return None
 
 
 def _caveats(card):
@@ -485,7 +511,15 @@ def preview(stem, today=None, strict_evidence=False):
     warnings = [gap] if gap else []
     ev = EV.check(card)
     hd = hunt_date_from_name(pathlib.Path(str(stem)).name)
-    if strict_evidence or (hd is not None and hd >= G.EVIDENCE_FROM):
+    try:
+        from ops import idea_rules as IR
+    except ImportError:
+        import idea_rules as IR
+    if hd is not None and IR.active(hd):               # правила v3: брак — только номера «брак» файла правил
+        tagged = ev.get("по_правилам") or [("ФАКТЫ", x) for x in ev["fails"]]
+        problems += [f"доказательства: {x}" for t, x in tagged if IR.kind(t) == IR.HARD]
+        warnings += [f"пометка ({t.lower()}): {x}" for t, x in tagged if IR.kind(t) == IR.SOFT]
+    elif strict_evidence or (hd is not None and hd >= G.EVIDENCE_FROM):
         problems += [f"доказательства: {x}" for x in ev["fails"]]
     else:
         warnings += [f"доказательства (для охот с {G.EVIDENCE_FROM}): {x}" for x in ev["fails"]]
