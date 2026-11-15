@@ -41,7 +41,7 @@ def test_statuses_and_text(tmp_path):
     assert st == {"AAA.US": "зона входа", "BBB.US": "тезис под вопросом"}
     assert not r["линт"] and r["отправлено"]
     t = json.loads((tmp_path / "n.jsonl").read_text("utf-8").splitlines()[0])["text"]
-    assert "Альфа (AAA.US) — ЗОНА ВХОДА: -30% от максимума за год" in t and "прогноз прибыли срезали на 15%" in t
+    assert "Альфа (AAA.US) — СЕЙЧАС В ЗОНЕ ВХОДА: -30% от максимума за год" in t and "прогноз прибыли срезали на 15%" in t
     assert "Альфа — 22 ноября" in t                                         # проверка тезиса после отчёта
     assert "сразу 1 из 2 бумаг" in t                                       # половина полки — оговорка про сектор
     assert (tmp_path / "sh" / "latest.json").exists() and (tmp_path / "sh" / "2026-11-15.json").exists()
@@ -54,6 +54,7 @@ def test_no_push_without_flag_and_week_change(tmp_path):
     r = LS.tick(TODAY, push=False, fetch=_fetch({"AAA.US": -0.30, "BBB.US": -0.05}, {}), **kw)
     assert not r["отправлено"] and not (tmp_path / "n.jsonl").exists()
     assert "Альфа — было «ждать», стало «зона входа»" in r["текст"]
+    assert "Бета (BBB.US) — ЖДАТЬ" in r["текст"] and "зона входа начнётся при цене ниже $80.00 (сейчас $95.00)" in r["текст"]
 
 
 def test_source_failure_is_honest(tmp_path):
