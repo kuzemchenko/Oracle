@@ -44,6 +44,10 @@ def view(ticker, years=5, today=None, get=None):
         return out
     dates = [str(r["date"])[:10] for r in px if r.get("close") is not None]
     closes = [float(r["close"]) for r in px if r.get("close") is not None]
+    c4, splits = get(BASE + f"splits/{sym}", {"from": frm, "fmt": "json", **key})
+    if c4 == 200 and isinstance(splits, list) and splits:
+        closes = MH.split_adjust(dates, closes, splits)          # число акций в отчётности уже пересчитано
+        out["дробления"] = [f"{s_.get('date')} {s_.get('split')}" for s_ in splits]
     shares = MH.quarterly(bal, "commonStockSharesOutstanding")
     pe = MH.history(dates, closes, MH.ttm(MH.quarterly(inc, "netIncome")), shares, years, today)
     ps = MH.history(dates, closes, MH.ttm(MH.quarterly(inc, "totalRevenue")), shares, years, today)

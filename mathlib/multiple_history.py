@@ -22,6 +22,24 @@ def _f(x):
         return None
 
 
+def split_adjust(dates, closes, splits):
+    """Цены до дробления → в нынешних акциях (EODHD пересчитывает число акций в отчётности задним числом, а сырой
+    close — нет: без поправки KLAC после дробления 10:1 в 06.2026 выглядела «дешевле, чем 100% своей истории»).
+    splits — [{"date", "split": "10.000000/1.000000"}]. → новый список цен."""
+    out = list(closes)
+    for sp in splits or []:
+        try:
+            a, b = str(sp.get("split")).split("/")
+            ratio = float(a) / float(b)
+            day = str(sp.get("date"))[:10]
+        except (AttributeError, TypeError, ValueError, ZeroDivisionError):
+            continue
+        if ratio <= 0 or ratio == 1:
+            continue
+        out = [c / ratio if d < day else c for d, c in zip(dates, out)]
+    return out
+
+
 def quarterly(rows, field):
     """EODHD Financials::…::quarterly (словарь по датам) → [(дата_квартала, дата_подачи, значение)] по возрастанию."""
     out = []

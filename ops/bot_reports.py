@@ -560,7 +560,7 @@ field_help = {
 EMPTY_MARK = "[поле пустое]"   # П8: пусто → честно, ничего не выдумываем
 
 
-JOB_FLAGS = ("deep_dive_auto", "deep_dive_bet_sheet", "scenario_watch_auto", "week_odds_auto", "point_b_auto", "price_snapshot_auto", "event_menu_auto",
+JOB_FLAGS = ("deep_dive_auto", "deep_dive_bet_sheet", "scenario_watch_auto", "long_shelf_auto", "long_shelf_push", "week_odds_auto", "point_b_auto", "price_snapshot_auto", "event_menu_auto",
              "attention_watch_auto", "attention_fast_auto", "dig_offer_auto", "dig_offer_push",
              "search_pause_notice", "search_followup_auto")
 

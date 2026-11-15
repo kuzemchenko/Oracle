@@ -36,3 +36,11 @@ def test_history_percentile_and_loss_refusal():
                       MH.quarterly(sh, "commonStockSharesOutstanding"), today="2025-12-28")
     assert not loss["ok"] and "убыток" in loss["причина"]
     assert not MH.history([], [], [], [])["ok"]
+
+
+def test_split_adjust_divides_prices_before_split():
+    from mathlib import multiple_history as MH
+    dates = ["2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15"]
+    adj = MH.split_adjust(dates, [1000.0, 1010.0, 101.0, 102.0], [{"date": "2026-06-12", "split": "10.000000/1.000000"}])
+    assert adj == [100.0, 101.0, 101.0, 102.0]
+    assert MH.split_adjust(dates, [1.0, 2.0, 3.0, 4.0], [{"date": "x", "split": "bad"}]) == [1.0, 2.0, 3.0, 4.0]
