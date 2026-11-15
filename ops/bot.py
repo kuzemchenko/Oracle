@@ -102,6 +102,8 @@ SCHEDULED_JOBS = (
 # сбой: один пропущенный 15-минутный сбор — не повод будить владельца; итог виден в reports/attention/fast_latest.json)
 REPEAT_JOBS = (
     ("attention_fast_auto", "attention_fast", ("ops/attention_fast.py", "tick"), 15),
+    # Q-сторож-сценариев (владелец 15.11): заготовки «если X — бумага Y» против новостей и цен раз в 6 часов
+    ("scenario_watch_auto", "scenario_watch", ("ops/scenario_watch.py", "tick"), 360),
 )
 CHECKPOINT_CODES = {   # ops/checkpoint.sh
     "3": "репозиторий в середине слияния — нужна ручная протяжка: " + OWNER_PULL_CMD,

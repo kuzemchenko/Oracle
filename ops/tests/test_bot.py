@@ -535,7 +535,7 @@ def test_debate_runs_contour_and_returns_verdict(challenge_paths):
                      "text": "/debate это же просто ставка на нефть, всё уже в цене"})
     # Разбор идёт в ФОНОВОМ потоке (не морозит опрос Telegram) — дождёмся доставки вердикта.
     if bot._job is not None:
-        bot._job.join(timeout=30)
+        bot._job.join(timeout=90)          # под нагрузкой полного прогона 30 с не хватало (ложные падения)
     joined = "\n".join(s[1] for s in bot.tg.sent)
     assert "состязательн" in joined.lower()                     # анонс запуска
     assert "Вердикт слепого судьи" in joined                    # резюме контура доставлено
