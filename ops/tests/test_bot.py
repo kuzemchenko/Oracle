@@ -431,66 +431,28 @@ def challenge_paths(paths, monkeypatch):
 
 
 # ── запуск тяжёлых задач из чата (прогон/калибровка/сверка) ───────────────────────────
-def test_intent_run_funnel_matches_natural_phrasing():
-    yes = ["сделай прогон", "Да, сделай прогон", "запусти прогон", "прогон",
-           "сделай прогон воронки", "новый прогон"]
-    # 04.11 «сними рельсы»: «найди идеи» — разговор с агентом диалога, а не старый конвейер
-    no = ["найди идеи", "поищи идеи", "что у нас с бюджетом?", "объясни последнюю идею про прогон воронки и почему медь",
-          "почему ты не нашёл идей вчера", "расскажи как устроен прогон", ""]
-    for t in yes:
-        assert BOT.Bot._intent_run_funnel(t) is True, t
-    for t in no:
-        assert BOT.Bot._intent_run_funnel(t) is False, t
-
-
-def test_run_funnel_refuses_without_key(paths, monkeypatch):
+def test_retired_old_pipeline_commands_and_free_text_goes_to_agent(paths, monkeypatch):
+    """Уборка 15.11 («да» владельца): /run-funnel, /session, /calibrate убраны; «прогон», «дай идеи» — разговор с агентом."""
     bot = _fresh_bot()
-    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 0})
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    bot._cmd_run_funnel(555)
-    assert any("ключ" in s[1].lower() for s in bot.tg.sent)
-    assert not bot._job_busy()                              # задача не запущена
-
-
-def test_run_funnel_blocked_by_budget(paths, monkeypatch):
-    bot = _fresh_bot()
-    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 3})
-    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
-    bot._cmd_run_funnel(555)
-    assert any("лимит расходов" in s[1] for s in bot.tg.sent)
-    assert not bot._job_busy()
-
-
-def test_run_funnel_launches_background_job(paths, monkeypatch):
-    import orchestrator.event_first as EF
-    called = {}
-
-    def _stub(mode="mock", k=3, skip_contour=False, write=True, **kw):
-        called.update(mode=mode, k=k, skip_contour=skip_contour, write=write)
-        return {"run_id": "ef_test", "итог": "источников 0; идей 0"}
-
-    monkeypatch.setattr(EF, "run_event_first", _stub)
-    bot = _fresh_bot()
-    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 0})
-    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
-    bot._cmd_run_funnel(555)
-    assert any("Запускаю боевой прогон" in s[1] for s in bot.tg.sent)   # моментальный ack
-    bot._job.join(timeout=5)
-    assert called == {"mode": "live", "k": 2, "skip_contour": True, "write": True}
+    for c in ("/run-funnel", "/session", "/calibrate"):
+        bot._command(555, c)
+    assert sum("убрали 15.11" in s[1] for s in bot.tg.sent) == 3 and not bot._job_busy()
+    talked = []
+    monkeypatch.setattr(bot, "_chat", lambda chat, text, attachments=None: talked.append(text))
+    for t in ("дай идеи", "сделай прогон"):
+        bot._on_message({"chat": {"id": 555}, "text": t})
+    assert talked == ["дай идеи", "сделай прогон"]
 
 
 def test_only_one_heavy_job_at_a_time(paths, monkeypatch):
-    import orchestrator.event_first as EF
+    import orchestrator.resolve as RES
     release = __import__("threading").Event()
-    monkeypatch.setattr(EF, "run_event_first",
-                        lambda **kw: release.wait(timeout=5) and {"run_id": "x", "итог": ""})
+    monkeypatch.setattr(RES, "run_resolve", lambda write=True: release.wait(timeout=5) and {})
     bot = _fresh_bot()
-    monkeypatch.setattr(bot, "_budget_status", lambda: {"exit_code": 0})
-    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
-    bot._cmd_run_funnel(555)                                # первая — стартует
+    bot._cmd_resolve(555)                                   # первая — стартует
     assert bot._job_busy()
     n = len(bot.tg.sent)
-    bot._cmd_calibrate(555)                                 # вторая (любая тяжёлая) — отказ
+    bot._cmd_resolve(555)                                   # вторая (любая тяжёлая) — отказ
     assert any("Уже идёт задача" in s[1] for s in bot.tg.sent[n:])
     release.set()
     bot._job.join(timeout=5)
@@ -518,7 +480,8 @@ def test_help_lists_new_run_commands():
     bot = _fresh_bot()
     bot._command(555, "/help")
     txt = " ".join(s[1] for s in bot.tg.sent)
-    assert "/run-funnel" in txt and "/calibrate" in txt and "/resolve" in txt
+    assert "/resolve" in txt and "/debate" in txt and "/run-funnel" not in txt and "/calibrate" not in txt
+    assert "найди идею про медь" in txt
     assert "веса и лимиты" in txt.lower()                    # инвариант: не из чата
 
 

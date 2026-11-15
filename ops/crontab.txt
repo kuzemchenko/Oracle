@@ -62,7 +62,7 @@ MAILTO=""
 
 # Devops-петля-предложитель §R6 (автономия 0): еженедельный анализ террейна/калибровки → ПРЕДЛОЖЕНИЯ
 # на подпись в journal/proposals/. НИЧЕГО не применяет сам (П16/§10/инвариант 5). Воскресенье 08:00.
-0 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/devops_loop.py >> journal/cron.log 2>&1
+# ВЫКЛ 15.11 (уборка, «да» владельца: разбирает утренний конвейер, выключенный 13.11) 0 8 * * 0   cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/devops_loop.py >> journal/cron.log 2>&1
 
 # Форвард-промоушен рёбер C→A (решение 28.06): DRY-предложения по запечатанным форвард-исходам
 # (N≥30, §10). НЕ применяет — пишет ops/reports/promotions/. Применение — рукой владельца

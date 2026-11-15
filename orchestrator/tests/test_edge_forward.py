@@ -18,7 +18,6 @@ from orchestrator import cascade_build as CB      # noqa: E402
 from orchestrator import forecast as FC           # noqa: E402
 from orchestrator import resolve as RES           # noqa: E402
 from mathlib import sealing as SEAL               # noqa: E402
-from ops import promote_edges as PE               # noqa: E402
 
 NOW = datetime.datetime(2026, 7, 5, 7, 30, tzinfo=datetime.timezone.utc)
 
@@ -221,9 +220,9 @@ def test_no_cross_track_dedup_collision(tmp_path, monkeypatch):
     assert SEAL.seal(spec3, path=preds, dedup_fields=EFW.DEDUP_FIELDS) is None
 
 
-def test_resolve_third_track_and_promotion_feed(tmp_path, monkeypatch):
+def test_resolve_third_track(tmp_path, monkeypatch):
     # созревший edge_forward → resolve кладёт исход в СВОЙ трек (не money, не провизорный),
-    # а promote_edges видит его как корм однозвенной атрибуции ребра.
+    # (с 15.11 корм promote_edges не проверяется — модуль в архиве)
     preds = tmp_path / "pred.jsonl"
     outs = tmp_path / "out.jsonl"
     dbfile = tmp_path / "q.db"
@@ -250,11 +249,7 @@ def test_resolve_third_track_and_promotion_feed(tmp_path, monkeypatch):
     assert s["edge_forward_трек"]["brier"] is not None
     assert s["brier"] is None                                  # §11/money не тронут
     assert s["провизорный_трек"]["исходов"] == 1               # у выдачи свой счёт
-    # …но в КОРМ промоушена ребра одно рыночное событие входит ОДИН раз (high-а stage-review)
-    rows, stats = PE.collect_rows(preds, outs)
-    assert len(rows) == 1 and rows[0]["edge_key"] == "AAA.US->BBB.US@lag0"
-    assert rows[0]["outcome"] == 1 and rows[0]["probability"] == 0.7
-    assert stats["дубль_событий_между_треками"] == 1
+    # (проверка корма promote_edges ушла в архив вместе с модулем — уборка 15.11)
 
 
 def test_seal_flag_off_never_touches_journal(tmp_path, monkeypatch):

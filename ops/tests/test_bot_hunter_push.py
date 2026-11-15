@@ -1197,12 +1197,11 @@ def test_regate2_on_demand_retry_and_one_idea_per_day(tmp_path, monkeypatch):
     from test_idea_gate import CARD
     b, _n = _setup(tmp_path, monkeypatch, [])
     assert BOT.Bot._intent_hunt("найди идею про медь") and not BOT.Bot._intent_hunt("прогон")
-    ran, talked = [], []
-    monkeypatch.setattr(b, "_cmd_run_funnel", lambda chat: ran.append(chat))
+    talked = []
     monkeypatch.setattr(b, "_chat", lambda chat, text: talked.append(text))
     b._on_message({"chat": {"id": b.chat_id}, "text": "найди идею про медь"})
     # 04.11 «сними рельсы»: «найди идею» = разговор «круги на воде» с агентом диалога, не старый прогон
-    assert talked == ["найди идею про медь"] and not ran
+    assert talked == ["найди идею про медь"]
     monkeypatch.setattr(BOT.R, "load_presentation", lambda: {"server_observation_push": False})
     n0 = len(b.tg.sent)
     b._tick_idea_day_watchdog(_dt.datetime(2026, 11, 4, 16, 0, tzinfo=_dt.timezone.utc))

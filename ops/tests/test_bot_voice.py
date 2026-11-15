@@ -74,14 +74,14 @@ def with_key(monkeypatch):
 
 # ── роутинг распознанного текста ────────────────────────────────────────────────────
 def test_voice_routes_to_session(monkeypatch, budget_ok, with_key):
-    """«дай идеи» голосом = «дай идеи» текстом: интент П3 срабатывает."""
+    """«дай идеи» голосом = «дай идеи» текстом: с уборки 15.11 это разговор с агентом."""
     b = _fresh_bot()
     b.tg.files["f1"] = b"OGGDATA"
     monkeypatch.setattr(V, "voice_to_text", lambda tg, voice, run_id=None: "дай идеи")
     called = []
-    monkeypatch.setattr(BOT.Bot, "_cmd_session", lambda self, chat: called.append(chat))
+    monkeypatch.setattr(BOT.Bot, "_chat", lambda self, chat, text, attachments=None: called.append(text))
     b._on_message(_voice_msg())
-    assert called, "интент «дай идеи» из голосового не дошёл до сессии партнёра"
+    assert called == ["дай идеи"], "распознанный текст голосового не дошёл до агента"
     echoes = [t for _, t, _ in b.tg.sent if "Услышал" in t]
     assert echoes and "дай идеи" in echoes[0], "нет эха «что услышал» (П8)"
 

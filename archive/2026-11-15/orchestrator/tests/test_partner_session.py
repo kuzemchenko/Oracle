@@ -153,17 +153,6 @@ def test_render_partner_session():
     assert "не собралась" in R.format_partner_session({"ОТКАЗ": "нет протокола"})
 
 
-def test_bot_session_intent():
-    import bot as B
-    yes = ["сессия", "дай идеи", "Идеи дня", "ок, дай идеи", "покажи идеи"]
-    no = ["найди идеи", "сделай прогон", "что думаешь про уран?", "разбери GEV",
-          "дай идеи по нефти на завтра с обоснованием"]
-    for t in yes:
-        assert B.Bot._intent_session(t), t
-    for t in no:
-        assert not B.Bot._intent_session(t), t
-
-
 def test_unprovable_or_future_ts_refused():
     # Кросс-ревью №2 (BLOCKER): свежесть ДОКАЗЫВАЕТСЯ — нечитаемый/будущий ts = отказ, не идеи.
     bad_ts = _proto(); bad_ts["ts"] = "not-a-date"
