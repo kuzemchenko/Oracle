@@ -256,6 +256,11 @@ def tick(today=None, push=None, out_dir=None, notices_path=None, fetch=None, the
             f.write(json.dumps({"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
                                 "text": text, "source": "long_shelf"}, ensure_ascii=False) + "\n")
         sent = True
+    if sent:                                                       # один счёт (ops/ledger): что ушло владельцу
+        snap["отправлено"] = True
+        body = json.dumps(snap, ensure_ascii=False, indent=1)
+        (d / f"{today.isoformat()}.json").write_text(body, encoding="utf-8")
+        (d / "latest.json").write_text(body, encoding="utf-8")
     return {"снимок": snap, "текст": text, "линт": viol, "отправлено": sent}
 
 

@@ -170,7 +170,50 @@ def bench_return(prices, date_from, date_to=None):
 
 
 # ── сборка ──
-def proposals(pred_path=PRED, manual_path=MANUAL):
+SCENARIO_FIRES = ROOT / "journal" / "scenario_fires.jsonl"
+SHELF_DIR = ROOT / "reports" / "long_shelf"
+
+
+def _scenario_proposals(path=None):
+    """Сторож сценариев: только ушедшие владельцу срабатывания и только бумаги с листом ставки (вход посчитан)."""
+    out = []
+    for r in _read(path or SCENARIO_FIRES):
+        if not r.get("отправлено"):
+            continue
+        for b in r.get("ставки") or []:
+            if b.get("вход") is None:
+                continue
+            out.append({"тикер": b["бумага"], "direction": b.get("направление") or "above",
+                        "дата": str(r.get("ts"))[:10], "цена": b["вход"], "цель": b.get("цель"), "стоп": b.get("стоп"),
+                        "источник": f"сторож сценариев «{r.get('id')}» {str(r.get('ts'))[:16]}", "трек": "сторож"})
+    return out
+
+
+def _shelf_proposals(shelf_dir=None):
+    """Полка длинных тем: бумага впервые «в зоне входа» в ОТПРАВЛЕННОЙ владельцу сводке — по цене снимка."""
+    d = pathlib.Path(shelf_dir or SHELF_DIR)
+    if not d.is_dir():
+        return []
+    out, was = [], {}
+    for p in sorted(d.glob("20*.json")):
+        try:
+            snap = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not snap.get("отправлено"):
+            continue
+        for t in snap.get("темы") or []:
+            for b in t.get("бумаги") or []:
+                sym, st = b.get("бумага"), b.get("статус")
+                if st == "зона входа" and was.get(sym) != "зона входа" and (b.get("годовой") or {}).get("сейчас"):
+                    out.append({"тикер": sym, "direction": "above", "дата": snap["дата"],
+                                "цена": b["годовой"]["сейчас"], "источник": f"полка длинных тем {snap['дата']}",
+                                "трек": "полка", "тезис": t.get("название")})
+                was[sym] = st
+    return out
+
+
+def proposals(pred_path=PRED, manual_path=MANUAL, fires_path=None, shelf_dir=None):
     from mathlib import sealing as SEAL
     recs = SEAL.drop_voided(_read(pred_path), pred_path)
     out = []
@@ -184,6 +227,7 @@ def proposals(pred_path=PRED, manual_path=MANUAL):
         out.append({"тикер": m["тикер"], "direction": m["direction"], "дата": m["дата"], "цена": m.get("цена"),
                     "источник": m["источник"], "трек": "разговор", "тезис": m.get("тезис"),
                     "срок": m.get("горизонт")})
+    out += _scenario_proposals(fires_path) + _shelf_proposals(shelf_dir)
     return sorted(out, key=lambda x: x["дата"])
 
 
@@ -200,10 +244,10 @@ def positions(trades):
     return pos
 
 
-def build(prices=None, pred_path=PRED, manual_path=MANUAL, trades_path=TRADES):
+def build(prices=None, pred_path=PRED, manual_path=MANUAL, trades_path=TRADES, fires_path=None, shelf_dir=None):
     prices = prices or Prices()
     rows = []
-    for pr in proposals(pred_path, manual_path):
+    for pr in proposals(pred_path, manual_path, fires_path, shelf_dir):
         r = _ret(prices.series(pr["тикер"], pr["дата"]), pr.get("цена"), pr.get("стоп"), pr["direction"])
         b, _ = bench_return(prices, pr["дата"], r[3] if r else None)
         row = dict(pr)
@@ -243,6 +287,10 @@ def build(prices=None, pred_path=PRED, manual_path=MANUAL, trades_path=TRADES):
     return {"построено": _now(), "предложения": rows, "сделки": trades, "позиции": pos_rows, "итог": summ}
 
 
+TRACK_WORDS = {"hunter_idea": "идея охотника", "chat_idea": "идея из разговора", "разговор": "из разговора",
+               "сторож": "сторож сценариев", "полка": "полка длинных тем"}
+
+
 def _pct(x):
     return "—" if x is None else f"{x * 100:+.1f}%"
 
@@ -257,7 +305,7 @@ def render(rep):
             L.append(f"• {r['тикер']} ({side}, с {r['дата']}): нет цены — пересчитать нечем")
         else:
             now = "вышли по стопу" if r.get("по_стопу") else "сейчас"
-            L.append(f"• {r['тикер']} ({side}, с {r['дата']} по {r['вход']:g}): {now} {r['последняя']:g} "
+            L.append(f"• {r['тикер']} ({side}, {TRACK_WORDS.get(r.get('трек'), r.get('трек'))}, с {r['дата']} по {r['вход']:g}): {now} {r['последняя']:g} "
                      f"на {r['на_дату']} → {_pct(r['доходность'])}, эталон {_pct(r['эталон'])}")
     for p in rep["позиции"]:
         if p.get("нет_цены"):

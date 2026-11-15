@@ -222,15 +222,19 @@ def test_rules_v2_materiality_required_only_for_new_hunts():
     spec = {**CARD["spec9"], "last_close_date": "2026-11-13", "resolve_by": "2026-12-20"}
     c = _c(spec9=spec, catalyst={"what": "x", "date": "2026-11-25"},
            kill_conditions=[{"what": "x", "check_by": "2026-11-25"}])
-    r = G.check(c, today=new_day)
+    r = G.check(c, today=new_day, rules_v3=False)
     assert any("существенность эффекта для компании не посчитана" in f for f in r["fails"]), r["fails"]
     c["materiality"] = {"effect_profit_per_year": 120, "years": 3, "net_income": 900, "market_cap": 2500}
-    assert not any("существенность" in f for f in G.check(c, today=new_day)["fails"])
+    assert not any("существенность" in f for f in G.check(c, today=new_day, rules_v3=False)["fails"])
     del c["materiality"]
     # та же карточка, охота 14.11 (сервер печатает 16.11 с датой охоты) — существенность не брак
-    old = G.check(c, today=new_day, horizon_from=datetime.date(2026, 11, 14))
+    old = G.check(c, today=new_day, rules_v3=False, horizon_from=datetime.date(2026, 11, 14))
     assert not any("существенность" in f for f in old["fails"])
     assert not any("существенность" in f for f in G.check(CARD, today=TODAY)["fails"] + G.check(CARD, today=TODAY)["warnings"])
+    # правила v3 (владелец 15.11 «Б», в силе с 16.11): та же нехватка — пометка, а не брак
+    v3 = G.check(c, today=new_day)
+    assert not any("существенность" in f for f in v3["fails"])
+    assert any(w.startswith("пометка (существенность)") for w in v3["warnings"])
 
 
 def test_rules_v2_texts_allow_first_circle_and_two_horizons():

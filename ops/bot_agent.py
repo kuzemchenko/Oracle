@@ -531,6 +531,19 @@ class Tools:
         rid = self._store(res, "mathlib.bet_sheet")
         return self._view(rid, res, "mathlib.bet_sheet")
 
+    def ledger(self):
+        """Ревью 14.11 (Fable п.5): один счёт — все предложения системы (идеи, разговоры, сторож, полка) по цене на
+        момент сообщения и реальные сделки владельца против эталона 60/40 (ops/ledger.py, расчёт кодом)."""
+        try:
+            from ops import ledger as LG
+        except ImportError:
+            import ledger as LG
+        rep = LG.build()
+        res = {"итог": rep["итог"], "словами": LG.render(rep), "предложений": len(rep["предложения"]),
+               "позиции": rep["позиции"]}
+        rid = self._store(res, "ops.ledger")
+        return self._view(rid, res, "ops.ledger")
+
     def options_expectations(self, ticker, resolve_by, threshold=None, direction="above", spot=None):
         """Q-в-цене 09.11: что опционы закладывают к дате идеи (ops/options_view → mathlib/options_implied)."""
         try:
@@ -939,6 +952,9 @@ TOOL_SPECS = [
         {"entry_price": N, "scenarios": {"type": "array", "items": {"type": "object", "properties": {
             "name": S, "price": N, "probability": N}}}, "size_usd": N, "qty": N, "fees_usd": N, "direction": S},
         ("entry_price", "scenarios")),
+    _fn("ledger", "Общий счёт (расчёт кодом): всё, что предлагала система — идеи, разговоры, срабатывания сторожа сценариев, "
+        "входы бумаг полки длинных тем — по цене на момент предложения, и реальные сделки владельца; против эталона "
+        "60% SPY + 40% DBC. Используй на вопросы «как мы идём», «что с моими сделками», «стоит ли система денег».", {}),
     _fn("checked_branches", "Журнал проверенных веток охотника за N дней: что смотрели, вердикт, почему отказ, при каком "
         "факте вернуться. Используй, чтобы не предлагать уже отвергнутое и честно говорить «уже смотрели, вот почему нет».",
         {"days": I}),

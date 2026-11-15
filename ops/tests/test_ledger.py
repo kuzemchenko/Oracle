@@ -27,7 +27,7 @@ def _seal(pp):
 def test_sealed_proposal_against_benchmark(tmp_path):
     pp = tmp_path / "p.jsonl"
     _seal(pp)
-    rep = L.build(L.Prices(fetch=_series(TABLE)), pred_path=pp, manual_path=tmp_path / "m.jsonl",
+    rep = L.build(L.Prices(fetch=_series(TABLE)), fires_path=tmp_path / "f.jsonl", shelf_dir=tmp_path / "sh", pred_path=pp, manual_path=tmp_path / "m.jsonl",
                   trades_path=tmp_path / "t.jsonl")
     r = rep["предложения"][0]
     assert r["доходность"] == pytest.approx(0.2)
@@ -41,7 +41,7 @@ def test_voided_proposal_not_counted(tmp_path):
     pp = tmp_path / "p.jsonl"
     rec = _seal(pp)
     SEAL.void(rec["hash"], "тест", "слова", predictions_path=pp)
-    rep = L.build(L.Prices(fetch=_series(TABLE)), pred_path=pp, manual_path=tmp_path / "m.jsonl",
+    rep = L.build(L.Prices(fetch=_series(TABLE)), fires_path=tmp_path / "f.jsonl", shelf_dir=tmp_path / "sh", pred_path=pp, manual_path=tmp_path / "m.jsonl",
                   trades_path=tmp_path / "t.jsonl")
     assert rep["предложения"] == []
 
@@ -52,7 +52,7 @@ def test_trade_needs_source_and_is_separate_from_model(tmp_path):
         L.add_trade("BRNT.LSE", "buy", 2, 93.61, path=tp)
     L.add_trade("BRNT.LSE", "buy", 2, 93.61, fee=4, date="2026-11-10", source="подтверждение брокера",
                 path=tp)
-    rep = L.build(L.Prices(fetch=_series(TABLE)), pred_path=tmp_path / "p.jsonl",
+    rep = L.build(L.Prices(fetch=_series(TABLE)), fires_path=tmp_path / "f.jsonl", shelf_dir=tmp_path / "sh", pred_path=tmp_path / "p.jsonl",
                   manual_path=tmp_path / "m.jsonl", trades_path=tp)
     p = rep["позиции"][0]
     assert p["кол_во"] == 2 and p["стоимость"] == pytest.approx(190.0)
@@ -63,7 +63,7 @@ def test_trade_needs_source_and_is_separate_from_model(tmp_path):
 def test_missing_price_is_honest(tmp_path):
     mp = tmp_path / "m.jsonl"
     L.add_proposal("ZZZ", "above", "2026-11-09", source="chat_agent.jsonl:58", path=mp)
-    rep = L.build(L.Prices(fetch=_series(TABLE)), pred_path=tmp_path / "p.jsonl", manual_path=mp,
+    rep = L.build(L.Prices(fetch=_series(TABLE)), fires_path=tmp_path / "f.jsonl", shelf_dir=tmp_path / "sh", pred_path=tmp_path / "p.jsonl", manual_path=mp,
                   trades_path=tmp_path / "t.jsonl")
     assert rep["предложения"][0]["нет_цены"] is True
     assert "нет цены" in L.render(rep)
@@ -80,8 +80,30 @@ def test_stop_closes_paper_position(tmp_path):
                "resolve_by": "2026-12-20T20:00:00+00:00", "price_source": "EODHD close AAA.US",
                "якорь_цена": 10.0, "якорь_дата": "2026-11-02", "стоп": 9.0}, path=pp)
     table = dict(TABLE, **{"AAA.US": [("2026-11-02", 10.0), ("2026-11-05", 8.5), ("2026-11-10", 12.0)]})
-    rep = L.build(L.Prices(fetch=_series(table)), pred_path=pp, manual_path=tmp_path / "m.jsonl",
+    rep = L.build(L.Prices(fetch=_series(table)), fires_path=tmp_path / "f.jsonl", shelf_dir=tmp_path / "sh", pred_path=pp, manual_path=tmp_path / "m.jsonl",
                   trades_path=tmp_path / "t.jsonl")
     r = rep["предложения"][0]
     assert r["по_стопу"] is True and r["доходность"] == pytest.approx(-0.15) and r["на_дату"] == "2026-11-05"
     assert "вышли по стопу" in L.render(rep)
+
+
+def test_scenario_and_shelf_proposals_only_when_sent(tmp_path):
+    import json
+    fp = tmp_path / "f.jsonl"
+    fp.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in [
+        {"ts": "2026-11-02T12:00:00+00:00", "id": "hormuz_threat", "отправлено": True,
+         "ставки": [{"бумага": "BNO.US", "вход": 100.0, "цель": 110.0, "стоп": 95.0, "направление": "above"},
+                    {"бумага": "DHT.US", "вход": None}]},
+        {"ts": "2026-11-02T13:00:00+00:00", "id": "draft", "отправлено": False,
+         "ставки": [{"бумага": "SPY.US", "вход": 100.0}]}]) + "\n", encoding="utf-8")
+    sh = tmp_path / "sh"
+    sh.mkdir()
+    def snap(d, st, sent):
+        return {"дата": d, "отправлено": sent, "темы": [{"название": "т", "бумаги": [
+            {"бумага": "ASML.US", "статус": st, "годовой": {"сейчас": 1000.0}}]}]}
+    (sh / "2026-11-01.json").write_text(json.dumps(snap("2026-11-01", "зона входа", False)), encoding="utf-8")
+    (sh / "2026-11-08.json").write_text(json.dumps(snap("2026-11-08", "зона входа", True)), encoding="utf-8")
+    (sh / "2026-11-15.json").write_text(json.dumps(snap("2026-11-15", "зона входа", True)), encoding="utf-8")
+    pr = L.proposals(tmp_path / "p.jsonl", tmp_path / "m.jsonl", fp, sh)
+    got = [(p["тикер"], p["трек"], p["дата"], p["цена"]) for p in pr]
+    assert got == [("BNO.US", "сторож", "2026-11-02", 100.0), ("ASML.US", "полка", "2026-11-08", 1000.0)]

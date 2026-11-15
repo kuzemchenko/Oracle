@@ -192,3 +192,16 @@ def test_agent_bet_sheet_tool_by_code():
                          "scenarios": [{"name": "эскалация", "price": 120}, {"name": "мир", "price": 80}]})
     rec = t.results["r1"]["data"]
     assert rec["ok"] and 0 < rec["порог_шанса"] < 1 and "эскалация" in rec["порог_словами"]
+
+
+def test_agent_ledger_tool(monkeypatch):
+    """Один счёт — инструмент агента (только чтение, ops/ledger)."""
+    import bot_agent as A
+    from ops import ledger as LG
+    assert "ledger" in A.TOOL_NAMES
+    monkeypatch.setattr(LG, "build", lambda: {"итог": {"предложений": 0, "с_ценой": 0, "средняя_доходность": None,
+                                                       "средняя_сверх_эталона": None, "вывод": "рано судить"},
+                                              "предложения": [], "сделки": [], "позиции": []})
+    t = A.Tools()
+    t.call("ledger", {})
+    assert t.results["r1"]["data"]["итог"]["вывод"] == "рано судить"

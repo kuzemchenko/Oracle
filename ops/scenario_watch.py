@@ -359,7 +359,8 @@ def bet_block(sc, bet, episodes, snapshot, live, ev, horizon, day=None):
              + (f" Ставка в плюсе, если хороший исход случается хотя бы в {n100} из 100 случаев." if n100 else "")
              + (f" Обычный ход мал ({typical:+.0f}%) — такая ставка почти ничего не даёт." if small else ""))
     return "\n".join(L), {"бумага": sym, "вход": entry, "до_повода": base, "цель": lv["цель"], "стоп": lv["стоп"],
-                          "пройдено": frac, "порог_шанса": n, "ход": summ}
+                          "пройдено": frac, "порог_шанса": n, "ход": summ,
+                          "направление": "above" if up else "below"}
 
 
 def render(sc, ev, episodes, snapshot, live=None, horizon=20, draft=False):
