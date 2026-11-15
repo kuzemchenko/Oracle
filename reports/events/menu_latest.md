@@ -1,65 +1,67 @@
-# Меню событий — 2026-11-14T21:00:06+00:00
+# Меню событий — 2026-11-15T21:00:20+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 189, нет 3)
-- TRAVELER: 2027 статей (было 385, ×5.05); переговоры, заявления; https://92q.com/5920064/faa-nationwide-ground-stop-flights-communication-outage/
-- AIRLINE: 2701 статей (было 843, ×3.15); переговоры, заявления; https://www.clactonandfrintongazette.co.uk/news/national/26729102.us-authorities-say-flight-departures-can-resume-following-nationwide-ground-stop/
-- NEW ORLEANS: 1455 статей (было 375, ×3.73); переговоры, помощь; https://www.1011now.com/2026/11/13/river-cruiser-carrying-nearly-150-passengers-taking-water-near-port-new-orleans-rescue-efforts-underway/
-- страна: Trinidad And Tobago: 1218 статей (было 451, ×2.63); заявления, переговоры; https://www.cnc3.co.tt/
-- TANKER: 1129 статей (было 393, ×2.78); переговоры, боевые действия; http://www.hngnews.com/nation_world/new-orleans-port-sues-to-get-control-of-tanker-that-crashed-into-cruise-ship-on/article_e37fbb82-e332-5bf5-9422-ab4de211813b.html
-- XI JINPING: 883 статей (было 298, ×2.84); намерения сотрудничать, переговоры; https://www.wisbechstandard.co.uk/news/national/26729167.trump-xi-putin-plan-unprecedented-joint-meeting-apec-white-house-says/
-- VLADIMIR PUTIN: 776 статей (было 311, ×2.4); намерения сотрудничать, переговоры; https://www.winnipegfreepress.com/world/2026/11/14/with-shifting-iran-rhetoric-following-us-elections-trump-leaves-mideast-in-limbo-about-path-ahead
-- MISSISSIPPI RIVER: 350 статей (было 53, ×5.07); боевые действия, помощь; http://www.hngnews.com/nation_world/new-orleans-port-sues-to-get-control-of-tanker-that-crashed-into-cruise-ship-on/article_e37fbb82-e332-5bf5-9422-ab4de211813b.html
-- KIMBERLEY: 184 статей (было 10, ×6.8); переговоры, заявления; https://lethbridgeherald.com/news/national-news/2026/11/14/a-terrible-mistake-b-c-isis-bride-kimberley-polman-in-her-own-words/
-- POLICE FORCE: 340 статей (было 129, ×2.42); заявления, переговоры; https://www.leaderlive.co.uk/news/national/26729265.microsoft-says-service-fully-restored-major-global-outage/
-- UNESCO: 336 статей (было 141, ×2.21); переговоры, дипломатическое сотрудничество; https://english.news.cn/asiapacific/20261114/f19f21524f4d4c9da7ea42670ae3f4ed/c.html
-- ARUNACHAL PRADESH: 197 статей (было 40, ×3.62); переговоры, заявления; https://organiser.org/2026/11/14/426384/culture/arunachal-pradesh-sacred-piprahwa-relics-arrive-at-golden-pagoda-in-namsai-for-final-leg-of-exposition/
-- DAKOTA: 171 статей (было 30, ×3.82); переговоры, намерения сотрудничать; https://www.hometownsource.com/psa/dakota-county-historical-society-to-host-presentation-on-how-christmas-won-the-civil-war/article_6116c2c5-e024-4a51-aca1-5cf261e75fc7.html
-- DONBAS: 244 статей (было 84, ×2.54); намерения сотрудничать, уступки; https://www.aljazeera.com/news/2026/11/14/us-suggested-ukraine-cede-parts-of-donbas-to-russia-to-become-part-of-nato
-- IMAM: 173 статей (было 44, ×3.02); переговоры, призывы; https://punchng.com/2027-makinde-urges-nigerians-to-shun-religious-division/
+## GDELT: резко выросло за 24 ч (файлов 190, нет 2)
+- страна: Bahrain: 2364 статей (было 737, ×3.15); переговоры, боевые действия; https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=15-Nov-2026-09-32-00
+- OTTAWA: 1587 статей (было 272, ×5.5); дипломатическое сотрудничество, заявления; https://www.orleansonline.ca/pages/N2023091401.htm
+- страна: Jordan: 2108 статей (было 664, ×3.11); боевые действия, принуждение; http://www.idahopress.com/ap_news/us/israel-kills-a-top-hamas-commander-as-jordan-sentences-3-in-church-attack-and-other/article_23c6b822-c10d-5f15-839f-c35f790c0e33.html
+- MUNDA: 657 статей (было 20, ×16.93); заявления, дипломатическое сотрудничество; https://www.illawarramercury.com.au/story/9391671/cheers-to-culture-indigenous-businesses-take-on-world/
+- страна: Estonia: 679 статей (было 95, ×6.08); неодобрение, переговоры; https://www.readingchronicle.co.uk/news/national/26730804.starshield-restrictions-threaten-ukraines-energy-defences-ahead-winter/
+- AUSTRALIAN: 1202 статей (было 461, ×2.54); переговоры, дипломатическое сотрудничество; https://www.northweststar.com.au/story/9391969/supporters-become-sceptics-as-aussies-turn-on-ai/
+- ANTHONY ALBANESE: 605 статей (было 84, ×6.01); переговоры, отказ; https://www.bordermail.com.au/story/9391961/end-of-year-deadline-looms-for-gas-reserve-fight/
+- страна: Czech Republic: 751 статей (было 225, ×3.15); переговоры, заявления; https://www.euronews.com/2026/11/15/hundreds-of-thousands-in-prague-protest-czech-governments-public-media-funding-plans
+- страна: Myanmar: 784 статей (было 309, ×2.44); переговоры, заявления; https://economictimes.indiatimes.com/news/india/raisina-hill-from-heart-of-power-to-yuge-yugeen-bharats-journey/articleshow/135863849.cms
+- страна: Guatemala: 651 статей (было 244, ×2.54); переговоры, дипломатическое сотрудничество; http://www.goskagit.com/news/world/a-mayan-ceremony-in-guatemala-honors-nobel-winner-miguel-ngel-asturias-as-his-ashes-return/article_1222dc7a-e646-5c13-9d52-c72700b73c1c.html
+- JORDANIAN: 396 статей (было 71, ×4.57); боевые действия, принуждение; https://news.crossmap.com/2026/11/15/canadian-catholics-retain-identity-more-than-u-s-catholics-but-decline-in-practice-is-similar/
+- FREEDOM FIGHTER: 285 статей (было 30, ×6.1); заявления, дипломатическое сотрудничество; https://www.thehindu.com/news/national/bjp-attacks-congresss-absence-at-birsa-munda-tribute-event-in-parliament-complex/article71704649.ece
+- IGAD: 180 статей (было 0, ×10.0); заявления, дипломатическое сотрудничество; https://horseedmedia.net/somalia-hosts-igad-regional-conflict-early-warning-meeting-for-first-time/427595/
+- страна: Cameroon: 233 статей (было 31, ×4.96); переговоры, намерения сотрудничать; https://www.businessincameroon.com/energy/1511-17185-parlym-lands-third-major-lpg-contract-in-cameroon-worth-cfaf-11-14-billion
+- JHARKHAND: 280 статей (было 74, ×3.19); переговоры, заявления; https://news.webindia123.com/news/Articles/India/20261115/4520045.html
 
 ## GDELT: больше всего пишут
-- страна: United States: 106859 статей; переговоры, заявления
-- страна: India: 25011 статей; переговоры, заявления
-- страна: United Kingdom: 20072 статей; переговоры, заявления
-- страна: China: 17216 статей; переговоры, намерения сотрудничать
-- страна: Nigeria: 12037 статей; заявления, переговоры
-- страна: Russia: 11897 статей; переговоры, намерения сотрудничать
-- страна: Canada: 11876 статей; переговоры, заявления
-- страна: Israel: 9027 статей; переговоры, боевые действия
-- страна: Iran: 8248 статей; переговоры, заявления
-- страна: Pakistan: 7848 статей; переговоры, дипломатическое сотрудничество
-- страна: Ukraine: 7841 статей; переговоры, намерения сотрудничать
-- страна: Australia: 6340 статей; переговоры, заявления
-- страна: France: 5947 статей; переговоры, дипломатическое сотрудничество
-- страна: Philippines: 5199 статей; переговоры, намерения сотрудничать
-- страна: Ireland: 4937 статей; переговоры, заявления
+- страна: United States: 60740 статей; переговоры, заявления
+- страна: India: 20387 статей; переговоры, заявления
+- страна: United Kingdom: 17408 статей; переговоры, заявления
+- страна: China: 13334 статей; переговоры, заявления
+- страна: Nigeria: 12151 статей; переговоры, заявления
+- страна: Israel: 10885 статей; переговоры, заявления
+- страна: Iran: 9672 статей; переговоры, заявления
+- страна: Australia: 9038 статей; переговоры, заявления
+- страна: Russia: 7945 статей; переговоры, заявления
+- страна: Canada: 7308 статей; переговоры, заявления
+- страна: Philippines: 7251 статей; переговоры, дипломатическое сотрудничество
+- страна: Pakistan: 6349 статей; переговоры, заявления
+- страна: Ukraine: 5478 статей; переговоры, заявления
+- страна: France: 4796 статей; переговоры, дипломатическое сотрудничество
+- PHILIPPINE: 4584 статей; переговоры, дипломатическое сотрудничество
 
 ## Википедия: интерес вырос
-- Piracy: 201972 просмотров (позавчера 0, ×202.97)
-- Sam Hartman: 191577 просмотров (позавчера 0, ×192.58)
-- Avril Lavigne: 120937 просмотров (позавчера 0, ×121.94)
-- Chris Van Hollen: 204913 просмотров (позавчера 22271, ×8.85)
-- 2026 Streamer Awards: 84725 просмотров (позавчера 0, ×85.72)
-- Cam Skattebo: 77860 просмотров (позавчера 0, ×78.86)
-- J. J. McCarthy: 59502 просмотров (позавчера 0, ×60.5)
-- Sharad Kapoor: 53339 просмотров (позавчера 0, ×54.34)
-- Avengers Endgame: Encore: 54372 просмотров (позавчера 13232, ×3.89)
+- Sean Duffy: 434101 просмотров (позавчера 37183, ×11.4)
+- Rachel Campos-Duffy: 86460 просмотров (позавчера 0, ×87.46)
+- James Botham: 75245 просмотров (позавчера 0, ×76.25)
+- Will Joseph (rugby union, born 2002): 51525 просмотров (позавчера 0, ×52.52)
+- 2026 FAA communication outage: 78787 просмотров (позавчера 12395, ×5.96)
+- Eurovision Song Contest Asia: 71577 просмотров (позавчера 9680, ×6.8)
+- Markwayne Mullin: 113475 просмотров (позавчера 35255, ×3.16)
+- Survivor Series: WarGames (2026): 55872 просмотров (позавчера 13074, ×4.04)
+- UFC 334: 69147 просмотров (позавчера 25288, ×2.67)
+- The End of Oak Street: 71870 просмотров (позавчера 27570, ×2.55)
+- Noel Fielding: 50103 просмотров (позавчера 23998, ×2.04)
 
 ## NewsAPI.ai: крупнейшие события
-- Democrats pledge to investigate nationwide aviation ground stop: 2977 статей
-- FAA orders nationwide ground stop amid communication outage: 2139 статей
-- Ship Crashes Into Docked Riverboat in New Orleans Port: 944 статей
-- World Diabetes Day: Parents urge others to watch for the signs: 865 статей
-- SpaceX's Starship soars into orbit after double catch thwarted by booster malfunction: 457 статей
-- Avril Lavigne reveals she welcomed first child in surprise announcement: 405 статей
-- Carlo Ancelotti, Raphinha sent off as Brazil lose to Japan to stoppage-time goal: 392 статей
-- Serbia 1-3 Germany: Florian Wirtz scores to help Jurgen Klopp earn second win: 369 статей
-- India joins 50 UN nations seeking call to action on humanitarian aid for Gaza: 321 статей
-- Moscow car bomb wounds former aide to pro-Russian Ukrainian politician: 299 статей
-- How to watch the women's Akron WTA Finals Guadalajara: Streaming options for the Semifinal: 290 статей
-- Ronaldinho: Brazil legend set for first start for Italian club Ravenna aged 46: 274 статей
-- Italy fines Meta $887 million over Android users' data access: 259 статей
-- India prevail in last-ball thriller against Pakistan to clinch U19 Asia Cup: 247 статей
-- 'The captain threw Uzzy under the bus': Australian cricket is tearing itself apart: 227 статей
+- Jorge Jesus Breaks Silence On Cristiano Ronaldo Question Following Denmark Loss: 882 статей
+- US has floated Ukraine ceding Donbas for Nato membership, Zelensky says: 542 статей
+- Two Planes Collide on a Taxiway at Miami International Airport: 476 статей
+- The real Vinicius Junior stood up for Brazil. Can he turn his season around with Real Madrid?: 428 статей
+- Italy fines Meta $887 million over Android users' data access: 409 статей
+- Ciryl Gane defends UFC heavyweight championship in grueling battle vs. Josh Hokit: 300 статей
+- India prevail in last-ball thriller against Pakistan to clinch U19 Asia Cup: 297 статей
+- 'Gadi, lets set aside differences': Netanyahu pushes for unity govt; Eisenkot rejects 'spin move': 269 статей
+- After Lions' dominating win, how will Patriots get by without injured Drake Maye?: 258 статей
+- Hungarian authorities uncover $20m during probe of Orbán-era minister: 240 статей
+- SpaceX not being honest about 'political' reasons for slowing Starshield, says Zelenskyy: 236 статей
+- Jensen Huang discusses comeback as Nvidia CEO with allies, FT reports: 216 статей
+- Arch Manning, Texas rally late to knock LSU out of Playoff race in Lane Kiffin's first year: 202 статей
+- Wales end 73-year New Zealand jinx with stunning 35-28 win: 'I've never seen anything like it': 190 статей
+- Judge Blocks Immediate Closure of East Potomac Park for Trump Golf Project: 189 статей
