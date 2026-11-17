@@ -1379,3 +1379,31 @@ def test_card_older_than_window_is_not_shown(tmp_path, monkeypatch):
     monkeypatch.setattr(HS, "MAX_SEAL_LAG_DAYS", 3)
     b._tick_hunter_ideas()
     assert not b.tg.sent and any("шлагбаум" in n for n in notes)
+
+
+def test_status_back_from_waiting_to_active_is_announced(tmp_path, monkeypatch):
+    """Испытатель 17.11: цена вернулась к границе входа → «действует» — владелец получает одну строку,
+    а не остаётся с последним «по плану не входить»."""
+    import datetime as _dt
+    from ops import idea_revision as IR
+    b, _notes = _setup(tmp_path, monkeypatch, [])
+    d = b._ideas_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "idea_2026-11-04_FSLR.card.json").write_text(
+        (ROOT / "reports" / "ideas" / "idea_2026-11-04_FSLR.card.json").read_text("utf-8"), encoding="utf-8")
+    monkeypatch.setattr(IR, "REV_DIR", tmp_path / "rev")
+    d0 = _dt.datetime.now(_dt.timezone.utc).date()                 # _idea_current смотрит на сегодняшнюю дату
+    day1, day2 = str(d0 - _dt.timedelta(days=2)), str(d0 - _dt.timedelta(days=1))
+    prices = {"v": [(day1, 201.14)]}
+    monkeypatch.setattr(IR, "closes_from_snapshot", lambda *a, **k: prices["v"])
+    b.state["hunter_lids"] = {"h_2026-11-04_FSLR": {"run_id": "h_2026-11-04_FSLR", "lead": "FSLR.US",
+                                                    "source": "hunter", "sealed": True, "name": "First Solar"}}
+    t = _dt.datetime(2026, 11, 9, 12, 0, tzinfo=_dt.timezone.utc)
+    b._tick_idea_status(t)
+    assert "«ждёт входа»" in b.tg.sent[-1][1]
+    prices["v"] = [(day1, 201.14), (day2, 171.39)]
+    b._idea_status_at = None
+    n = len(b.tg.sent)
+    b._tick_idea_status(t + _dt.timedelta(days=5))
+    new = [m for _c, m, _k in b.tg.sent[n:]]
+    assert len(new) == 1 and "«действует»" in new[0] and "снова действует" in new[0]

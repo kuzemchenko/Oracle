@@ -311,6 +311,11 @@ def current(stem, card=None, closes=None, today=None, out_dir=None, persist=Fals
     doc = _status_doc(stem, out_dir)
     stored = doc.get("текущий")
     found = recheck(card, closes, today, start=start, history=doc.get("история"))
+    # испытатель 17.11: «ждёт входа» — состояние цены, а не решение. Сохранённое, оно залипало навсегда
+    # (FSLR 13.11: $171 ниже границы $190, а статус всё ещё «ждёт входа»). Если перепроверка его больше
+    # не находит — он снимается, и идея снова «действует» (если нет более тяжёлых причин).
+    if stored and stored.get("статус") == "ждёт входа" and not any(f[0] == "ждёт входа" for f in found):
+        stored = None
     cands = [(stored["статус"], stored.get("основания") or [], stored.get("вопросы") or [], stored.get("источник"),
               stored.get("дата"))] if stored else [(ACTIVE, ["карточка прошла проверку при выдаче"], [], "карточка",
                                                     str(start) if start else None)]
@@ -323,7 +328,10 @@ def current(stem, card=None, closes=None, today=None, out_dir=None, persist=Fals
     out = {"статус": top[0], "дата": top[4], "основания": reasons, "вопросы": questions, "источник": top[3],
            "план_действует": top[0] == ACTIVE, "перепроверка": [f[0] for f in found],
            "последняя_цена": closes[-1] if closes else None}
-    if persist and (not stored or stored["статус"] != top[0]) and top[3] == "перепроверка кода":
+    if persist and (doc.get("текущий") or {}).get("статус") == "ждёт входа" and top[0] == ACTIVE:
+        set_status(stem, ACTIVE, ["цена вернулась к границе входа — план снова действует"], [],
+                   source="перепроверка кода", date=today, out_dir=out_dir)
+    elif persist and (not stored or stored["статус"] != top[0]) and top[3] == "перепроверка кода":
         set_status(stem, top[0], reasons, questions, source="перепроверка кода", date=today, out_dir=out_dir)
     return out
 

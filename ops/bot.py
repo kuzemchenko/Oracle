@@ -1779,13 +1779,21 @@ class Bot:
             if not (lid.get("sealed") or lid.get("unrecorded")) or lid.get("action") == "skip":
                 continue
             cur = self._idea_current(rid, persist=True)
-            if not cur or cur["статус"] == lid.get("status_seen") or cur.get("план_действует"):
+            # испытатель 17.11: возврат из «ждёт входа» в «действует» — тоже новость для владельца (план снова
+            # исполним), иначе он помнит последнее сообщение «по плану не входить»
+            back = bool(cur and cur.get("план_действует") and lid.get("status_seen") == "ждёт входа")
+            if not cur or cur["статус"] == lid.get("status_seen") or (cur.get("план_действует") and not back):
                 if cur:
                     lid["status_seen"] = cur["статус"]
                 continue
             base = str(lid.get("lead") or "").split(".")[0]
             parts = [f"Идея {lid.get('name') or base} ({base}): статус сменился на «{cur['статус']}»."]
-            parts += self._idea_archive_lines(rid, cur)
+            if back:
+                lp = cur.get("последняя_цена") or [None, None]
+                parts.append(f"Цена вернулась к границе входа (закрытие {lp[0]} — ${lp[1]}): план из записки снова "
+                             "действует. Решение за тобой.")
+            else:
+                parts += self._idea_archive_lines(rid, cur)
             parts.append("Исходный прогноз и его счёт не меняются — это текущее решение, не переписанная история. "
                          "Это исследовательский инструмент, не инвестиционная рекомендация.")
             _txt = "\n\n".join(parts)

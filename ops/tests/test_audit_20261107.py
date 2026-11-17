@@ -343,3 +343,24 @@ def test_status_waits_for_entry_when_market_ran_away(tmp_path):
     assert lines[0].startswith("Сейчас по плану не входить") and "Архивные" not in " ".join(lines)
     near = IR.current(IDEAS / CARDS["FSLR"], card=c, closes=[("2026-11-06", 192.0)], today="2026-11-09", out_dir=tmp_path)
     assert near["статус"] == "действует"
+
+
+# ── испытатель 17.11 ─────────────────────────────────────────────────────────────────
+def test_dig_offer_technical_failure_is_human():
+    import dig_offer as DO
+    t = DO.render({"предложения": [], "ОТКАЗ": "модель недоступна: PermissionError"})
+    assert "PermissionError" not in t and "технический сбой" in t
+    assert "бюджет" in DO.render({"предложения": [], "ОТКАЗ": "бюджет: потолок режима"})
+
+
+def test_waiting_status_clears_when_price_returns(tmp_path):
+    """Испытатель 17.11: «ждёт входа» залипал после возврата цены к границе (FSLR $171 при границе $190)."""
+    c = card("FSLR")
+    stem = IDEAS / CARDS["FSLR"]
+    w = IR.current(stem, card=c, closes=[("2026-11-06", 201.14)], today="2026-11-09", out_dir=tmp_path, persist=True)
+    assert w["статус"] == "ждёт входа"
+    back = IR.current(stem, card=c, closes=[("2026-11-06", 201.14), ("2026-11-13", 171.39)], today="2026-11-14",
+                      out_dir=tmp_path, persist=True)
+    assert back["статус"] == "действует" and back["план_действует"]
+    again = IR.current(stem, card=c, closes=[("2026-11-13", 171.39)], today="2026-11-15", out_dir=tmp_path)
+    assert again["статус"] == "действует"
