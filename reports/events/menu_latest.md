@@ -1,71 +1,71 @@
-# Меню событий — 2026-11-16T21:00:05+00:00
+# Меню событий — 2026-11-17T21:00:22+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 192, нет 0)
-- страна: China: 27315 статей (было 13508, ×2.02); переговоры, намерения сотрудничать; https://www.kzyx.org/npr-news/2026-11-16/u-s-tightens-controls-on-remote-access-to-ai-technology-amid-nvidia-fallout
-- страна: Ireland: 7035 статей (было 2926, ×2.39); переговоры, намерения сотрудничать; https://www.dunmowbroadcast.co.uk/news/national/26733439.dup-urged-not-punish-people-ni-take-part-cross-border-meeting/
-- страна: Germany: 6345 статей (было 2561, ×2.47); намерения сотрудничать, переговоры; https://www.knau.org/npr-news/2026-11-16/u-n-talks-seek-to-rein-in-killer-robots-as-fears-over-ai-weapons-grow
-- страна: Armenia: 1604 статей (было 57, ×21.09); переговоры, дипломатическое сотрудничество; https://armenianweekly.com/2026/11/16/camp-haiastan-receives-unprecedented-1-5-million-gift-from-manguikian-family/
-- страна: Mexico: 3544 статей (было 1032, ×3.39); переговоры, намерения сотрудничать; https://www.knau.org/npr-news/2026-11-16/u-n-talks-seek-to-rein-in-killer-robots-as-fears-over-ai-weapons-grow
-- страна: Liberia: 1825 статей (было 188, ×8.87); дипломатическое сотрудничество, призывы; https://newsradio967.iheart.com/content/2026-11-16-feds-target-tankers-steering-in-riverboat-crash/
-- страна: Azerbaijan: 2455 статей (было 532, ×4.48); переговоры, дипломатическое сотрудничество; https://www.trend.az/azerbaijan/4247130.html
-- страна: Indonesia: 3016 статей (было 1095, ×2.72); переговоры, дипломатическое сотрудничество; https://www.jcnnewswire.com/pressrelease/111600/3/Indonesias-AI-gap:-54-percent-use-it,-14-percent-work-with-it
-- страна: Uzbekistan: 1724 статей (было 289, ×5.64); переговоры, дипломатическое сотрудничество; https://www.omanobserver.om/article/1199808/oman/president-of-uzbekistan-meets-with-investors-business-leaders
-- страна: Malaysia: 3283 статей (было 1444, ×2.26); переговоры, дипломатическое сотрудничество; https://www.newsday.com/news/nation/cambodia-france-macron-francophonie-congo-rwanda-c26652
-- страна: Thailand: 2603 статей (было 937, ×2.74); переговоры, дипломатическое сотрудничество; https://www.kacu.org/2026-11-16/trump-heads-to-asia-to-meet-with-xi-and-putin-amid-nvidia-fallout
-- страна: Austria: 1576 статей (было 304, ×4.93); переговоры, намерения сотрудничать; https://www.journal-advocate.com/2026/11/16/houthis-saudi-arabia-strikes-mideast-news/
-- EUROPEAN: 2936 статей (было 1237, ×2.35); переговоры, заявления; http://www.bignewsnetwork.com/news/279435268/india-has-its-own-institutions-judiciary-italian-legislator-deborah-bergamini-calls-out-european-socialist-leader-over-vote-thieves-remark-against-bjp
-- страна: North Korea: 1748 статей (было 410, ×4.11); переговоры, намерения сотрудничать; https://cbs2iowa.com/news/nation-world/trump-says-north-koreas-kim-jong-un-may-join-asia-talks-putin-jensen-huang
-- страна: Rwanda: 1351 статей (было 228, ×5.53); переговоры, заявления; https://www.newsday.com/news/nation/cambodia-france-macron-francophonie-congo-rwanda-c26652
+## GDELT: резко выросло за 24 ч (файлов 189, нет 3)
+- VIETNAM: 2255 статей (было 848, ×2.62); переговоры, намерения сотрудничать; https://www.dailyadvertiser.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/
+- страна: Rwanda: 2716 статей (было 1351, ×2.0); переговоры, дипломатическое сотрудничество; http://www.zimbabwestar.com/news/279438525/eu-states-seek-to-deport-asylum-seekers-to-rwanda
+- страна: West Bank: 1746 статей (было 589, ×2.9); боевые действия, заявления; https://www.newburytoday.co.uk/national/uk-hits-firms-building-west-bank-settlements-with-sanctions-174377/
+- страна: Oman: 2406 статей (было 1163, ×2.05); переговоры, боевые действия; http://www.bignewsnetwork.com/news/279439199/oman-evacuates-24-crew-from-tanker-after-fire-off-musandam
+- CALIFORNIA: 2282 статей (было 1101, ×2.05); переговоры, призывы; https://wiba.iheart.com/content/2026-11-16-powerful-storms-to-slam-west-coast/
+- JAPANESE: 1345 статей (было 481, ×2.72); переговоры, намерения сотрудничать; http://www.stardem.com/ap/world/tokyo-protests-after-two-suspected-russian-aircraft-violate-japanese-airspace-in-southwestern-japan/article_ed763a8c-1d28-5533-a913-24e765de5eb4.html
+- страна: El Salvador: 1332 статей (было 505, ×2.58); дипломатическое сотрудничество, заявления; https://slguardian.org/amid-war-strains-washington-and-moscow-experiment-with-a-new-tactic/
+- ASSOCIATION OF SOUTHEAST ASIAN NATIONS: 1238 статей (было 443, ×2.72); переговоры, дипломатическое сотрудничество; https://www.narrominenewsonline.com.au/story/9393527/appalling-albanese-panned-for-russian-minister-photo/
+- COUNSEL: 1293 статей (было 508, ×2.49); переговоры, заявления; https://indiankanoon.org/doc/183006964/
+- страна: Malta: 625 статей (было 91, ×5.81); переговоры, заявления; https://timesofmalta.com/article/malta-corruption-investigations-slow-european-parliament-mission.1137260
+- страна: Mongolia: 559 статей (было 73, ×6.23); уступки, неодобрение; https://english.news.cn/asiapacific/20261117/084853412b714eafab3a7820f58f7a7f/c.html
+- TOKYO: 840 статей (было 281, ×2.86); расследования, угрозы; https://www.dailyadvertiser.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/
+- A US: 1123 статей (было 522, ×2.11); боевые действия, переговоры; https://www.breakingnews.ie/world/iran-attacks-us-military-radar-system-in-bahrain-with-drones-1958914.html
+- страна: Cameroon: 712 статей (было 211, ×3.17); переговоры, заявления; https://www.riotimesonline.com/cameroon-parties-urged-add-women-candidate-lists/
+- ONTARIO: 790 статей (было 270, ×2.79); переговоры, призывы; https://www.wellandtribune.ca/news/canada/opp-cruiser-hit-in-secondary-highway-11-collision/article_b975ac9f-a258-5e56-a4a5-c7508686240b.html
 
 ## GDELT: больше всего пишут
-- страна: United States: 103312 статей; переговоры, заявления
-- страна: United Kingdom: 30365 статей; переговоры, заявления
-- страна: India: 30143 статей; переговоры, заявления
-- страна: China: 27315 статей; переговоры, намерения сотрудничать
-- страна: Nigeria: 15735 статей; заявления, переговоры
-- страна: Australia: 15479 статей; переговоры, дипломатическое сотрудничество
-- страна: Israel: 15393 статей; переговоры, заявления
-- страна: Russia: 14090 статей; переговоры, намерения сотрудничать
-- страна: Canada: 13810 статей; переговоры, заявления
-- страна: Iran: 12735 статей; переговоры, заявления
-- страна: Philippines: 10030 статей; переговоры, намерения сотрудничать
-- страна: Ukraine: 9413 статей; переговоры, заявления
-- страна: Pakistan: 9377 статей; переговоры, заявления
-- страна: Ireland: 7035 статей; переговоры, намерения сотрудничать
-- страна: South Africa: 6990 статей; переговоры, заявления
+- страна: United States: 156323 статей; переговоры, заявления
+- страна: United Kingdom: 35090 статей; переговоры, заявления
+- страна: India: 32046 статей; переговоры, заявления
+- страна: China: 30838 статей; переговоры, намерения сотрудничать
+- страна: Russia: 18253 статей; переговоры, намерения сотрудничать
+- страна: Nigeria: 17845 статей; заявления, переговоры
+- страна: Canada: 17767 статей; переговоры, заявления
+- страна: Australia: 16574 статей; переговоры, заявления
+- страна: Iran: 15308 статей; переговоры, заявления
+- страна: Israel: 14781 статей; переговоры, заявления
+- страна: Philippines: 13975 статей; переговоры, дипломатическое сотрудничество
+- страна: Ukraine: 12607 статей; переговоры, боевые действия
+- страна: Japan: 9285 статей; переговоры, дипломатическое сотрудничество
+- PHILIPPINE: 8774 статей; переговоры, намерения сотрудничать
+- страна: Pakistan: 7668 статей; переговоры, заявления
 
 ## Википедия: интерес вырос
-- 9/11: 673012 просмотров (позавчера 0, ×674.01)
-- List of Nazi concentration camps: 534193 просмотров (позавчера 0, ×535.19)
-- Archive of Our Own: 860729 просмотров (позавчера 43198, ×19.5)
-- Stephen Thompson (fighter): 106236 просмотров (позавчера 0, ×107.24)
-- UFC 334: 321149 просмотров (позавчера 69147, ×4.59)
-- Arch Manning: 83253 просмотров (позавчера 0, ×84.25)
-- Full Gear (2026): 175811 просмотров (позавчера 25901, ×6.57)
-- James Trafford: 68822 просмотров (позавчера 0, ×69.82)
-- Hannah Fry: 65480 просмотров (позавчера 0, ×66.48)
-- Kayla Harrison: 145493 просмотров (позавчера 25488, ×5.53)
-- Amon-Ra St. Brown: 112331 просмотров (позавчера 11829, ×8.83)
-- Kirk Cousins: 121498 просмотров (позавчера 16038, ×7.19)
-- Josh Hokit: 168260 просмотров (позавчера 48063, ×3.45)
-- John Mulaney: 89468 просмотров (позавчера 8527, ×9.5)
-- Richard Sterban: 96199 просмотров (позавчера 12752, ×7.07)
+- Robert Pattinson: 1363657 просмотров (позавчера 23698, ×55.25)
+- Suki Waterhouse: 378948 просмотров (позавчера 9432, ×36.42)
+- Robert Pattinson filmography: 191139 просмотров (позавчера 0, ×192.14)
+- Saturn Devouring His Son: 176155 просмотров (позавчера 0, ×177.16)
+- Mordechai Vanunu: 132656 просмотров (позавчера 0, ×133.66)
+- 69th Annual Grammy Awards: 92752 просмотров (позавчера 0, ×93.75)
+- Palestine national football team: 83074 просмотров (позавчера 0, ×84.07)
+- Lizzy Pattinson: 76545 просмотров (позавчера 0, ×77.55)
+- James Bond: 76019 просмотров (позавчера 0, ×77.02)
+- Joe Burrow: 75566 просмотров (позавчера 0, ×76.57)
+- Portrayal of James Bond in film: 69500 просмотров (позавчера 0, ×70.5)
+- Ricky Wilson (singer): 68908 просмотров (позавчера 0, ×69.91)
+- Denis Villeneuve: 65188 просмотров (позавчера 0, ×66.19)
+- Aaron Rodgers: 65183 просмотров (позавчера 0, ×66.18)
+- Daniel Craig: 107838 просмотров (позавчера 9629, ×10.24)
 
 ## NewsAPI.ai: крупнейшие события
-- Is Jensen Huang Plotting a Comeback?: 1959 статей
-- There's a New James Bond, Again. How Did the Last Ones Fare?: 1772 статей
-- Thomas Tuchel: England winning Nations League would be 'best preparation' for Euros: 737 статей
-- Trump's Asia Trip Will Bring Him to the Table With Xi and Putin: 676 статей
-- Football's cold war against Russia is showing no sign of thawing: 621 статей
-- Raye, Rosalía and Ella Langley Top a Women-Led 2027 Grammys Field: 476 статей
-- Russell Brand's wife breaks her silence, reveals his message from prison: 448 статей
-- Pope Leo in Lima: We are all called to proclaim the Good News: 414 статей
-- Saudi-Backed Forces in Yemen Retreat From Red Sea as Houthis Advance: 414 статей
-- Belgium's Romelu Lukaku retires from international football: 'I went through every possible emotion': 414 статей
-- Vulcan rocket fails in major setback for United Launch Alliance: 398 статей
-- Customers at nation's largest banks report difficulty accessing accounts: 378 статей
-- ATP Finals: Carlos Alcaraz begins title bid with statement win over Frances Tiafoe: 373 статей
-- Kate Middleton Recreates Iconic Cricket Moment in India 10 Years After Playing in Sky-High Heels: 370 статей
-- Zelensky says Ukraine drones knocked out 55% of Russian oil refining capacity: 357 статей
+- A Famous Actor Allegedly Dropped Out Of The James Bond Race At The Last Minute: 1743 статей
+- What to Know About APEC, ASEAN and the Quad: 1424 статей
+- Ukraine Attacks Kerch Bridge Linking Russia to Occupied Crimea: 1268 статей
+- Pope Leo XIV hit in the face by flying rosary during farewell Mass in Peru, video shows: 1018 статей
+- Has Gianni Infantino already won the Fifa presidential election?: 878 статей
+- Robert Pattinson Named as the Next James Bond: 793 статей
+- U.S. Loses Its Measles Elimination Status, a Historic Setback for American Health: 752 статей
+- Five European Countries Plan to Deport Migrants to Rwanda: 743 статей
+- For Frances Tiafoe, the ATP Finals is the destination of a journey into the unknown: 629 статей
+- Video: Raye vs. Rosalía: Do the Grammys Want Tradition or Progress?: 618 статей
+- Chase says software bug took down online banking and Zelle for thousands of customers: 615 статей
+- 'Peace through strength': Albanese and Trump hail progress on Quad alliance: 613 статей
+- Trump says US taking 'very seriously' any Iranian plot against Washington: 572 статей
+- United Halts Flights as It Addresses 'Widespread System Outage': 519 статей
+- Jensen Huang Says He Would Return to Nvidia if Asked: 510 статей
