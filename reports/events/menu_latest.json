@@ -1,919 +1,832 @@
 {
- "собрано": "2026-11-17T21:00:22+00:00",
+ "собрано": "2026-11-18T21:00:08+00:00",
  "gdelt": {
   "источник": "GDELT 2.0, файлы событий каждые 15 минут (data.gdeltproject.org)",
-  "до": "20261117210000",
+  "до": "20261118210000",
   "часов": 24,
-  "файлов_прочитано": 189,
-  "файлов_нет": 3,
+  "файлов_прочитано": 191,
+  "файлов_нет": 1,
   "больше_всего_пишут": [
    {
     "что": "страна: United States",
-    "статей_сутки": 156323,
-    "статей_прошлые_сутки": 103312,
-    "рост_раз": 1.51,
+    "статей_сутки": 170108,
+    "статей_прошлые_сутки": 161965,
+    "рост_раз": 1.05,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://1037theq.iheart.com/content/2026-11-16-florida-man-arrested-for-sending-peanut-butter-laced-letter-to-women-with-peanut-allergy/",
-     "https://www.ilfordrecorder.co.uk/news/national/26735182.us-citizens-uk-warned-embassy-keep-low-profile-amid-terror-threat/",
-     "https://www.kazu.org/npr-news/2026-11-17/she-went-to-college-to-become-a-social-worker-now-shes-joined-the-skilled-trades"
+     "https://us1035.iheart.com/content/2026-11-18-how-to-watch-listen-to-the-60th-cma-awards-tonight/",
+     "https://star1029.iheart.com/content/2026-11-17-jennifer-lawrence-josh-hutcherson-reunite-at-new-hunger-games-premiere/",
+     "https://570wkbn.iheart.com/content/2026-11-17-duffy-updates-nationwide-ground-stop-urges-for-more-funding/"
     ]
    },
    {
     "что": "страна: United Kingdom",
-    "статей_сутки": 35090,
-    "статей_прошлые_сутки": 30365,
-    "рост_раз": 1.16,
+    "статей_сутки": 36503,
+    "статей_прошлые_сутки": 36125,
+    "рост_раз": 1.01,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.lancashiretelegraph.co.uk/news/national/26735176.burnham-criticises-hard-brexit-deal-diminished-uks-global-standing/",
-     "https://wtag.iheart.com/content/2026-11-16-russell-brand-declares-innocence-from-prison/",
-     "https://www.ilfordrecorder.co.uk/news/national/26735182.us-citizens-uk-warned-embassy-keep-low-profile-amid-terror-threat/"
-    ]
-   },
-   {
-    "что": "страна: India",
-    "статей_сутки": 32046,
-    "статей_прошлые_сутки": 30143,
-    "рост_раз": 1.06,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://indiankanoon.org/doc/183006964/",
-     "https://indiankanoon.org/doc/26439908/",
-     "https://indiankanoon.org/doc/168195582/"
+     "https://www.northsomersettimes.co.uk/news/national/26739274.william-kate-visit-craft-school-mumbai-earthshot-prize-ceremony/",
+     "https://www.thurrockgazette.co.uk/news/national/26739345.mahmood-sets-plans-tackle-corrosive-perception-two-tier-policing/",
+     "https://www.stroudnewsandjournal.co.uk/news/national/26741702.home-secretary-tells-police-leave-politics-politicians/"
     ]
    },
    {
     "что": "страна: China",
-    "статей_сутки": 30838,
-    "статей_прошлые_сутки": 27315,
-    "рост_раз": 1.13,
+    "статей_сутки": 33160,
+    "статей_прошлые_сутки": 31372,
+    "рост_раз": 1.06,
     "типы": [
      "переговоры",
      "намерения сотрудничать"
     ],
     "примеры": [
-     "https://13wham.com/news/nation-world/trump-xi-and-putins-historic-meeting-breakthrough-or-photo-op",
-     "https://okcfox.com/news/nation-world/fact-check-team-trump-xi-and-putin-prepare-for-historic-meeting-washington-beijing",
-     "https://www.wbaa.org/npr-news/2026-11-16/u-s-tightens-controls-on-remote-access-to-ai-technology-amid-nvidia-fallout"
+     "https://www.wimbledonguardian.co.uk/news/national/26738711.nvidia-chairman-says-board-not-intend-reinstate-jensen-huang/",
+     "https://www.sthelensstar.co.uk/news/national/26738711.nvidia-chairman-says-board-not-intend-reinstate-jensen-huang/",
+     "https://wflanews.iheart.com/content/2026-11-17-nvidia-exceeds-q3-expectations-amid-ceo-huangs-exit/"
     ]
    },
    {
-    "что": "страна: Russia",
-    "статей_сутки": 18253,
-    "статей_прошлые_сутки": 14090,
-    "рост_раз": 1.3,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.sthelensstar.co.uk/news/national/26735858.russian-air-defences-1-400-drones-kyiv-hits-key-crimean-bridge/",
-     "http://www.coloradostar.com/news/279438900/trump-warns-iran-over-possible-washington-attack",
-     "https://www.narrominenewsonline.com.au/story/9393527/appalling-albanese-panned-for-russian-minister-photo/"
-    ]
-   },
-   {
-    "что": "страна: Nigeria",
-    "статей_сутки": 17845,
-    "статей_прошлые_сутки": 15735,
-    "рост_раз": 1.13,
-    "типы": [
-     "заявления",
-     "переговоры"
-    ],
-    "примеры": [
-     "http://www.thegazette.com/news/world/a-canadian-teen-was-blackmailed-after-sending-nude-images-ap-frontline-found-his-scammer-in/article_55a30ddf-e34a-5ae0-8c44-17d2d46d1593.html",
-     "https://leadership.ng/experts-urge-nigeria-to-invest-in-care-for-every-childs-better-start/",
-     "https://saharareporters.com/2026/11/16/jigawa-police-corporal-resigns-after-seven-years-cites-poor-salary-inadequate-welfare"
-    ]
-   },
-   {
-    "что": "страна: Canada",
-    "статей_сутки": 17767,
-    "статей_прошлые_сутки": 13810,
-    "рост_раз": 1.29,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://torontosun.com/news/world/lindsay-clancy-will-be-retried-in-march-for-killing-her-three-kids",
-     "https://www.cnc3.co.tt/carney-says-canada-could-turn-to-chinese-auto-makers-if-trump-trade-talks-fail/",
-     "https://calgarysun.com/news/crime/guilty-plea-fatal-stabbing-calgary-uber-driver"
-    ]
-   },
-   {
-    "что": "страна: Australia",
-    "статей_сутки": 16574,
-    "статей_прошлые_сутки": 15479,
-    "рост_раз": 1.07,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.singletonargus.com.au/story/9393465/unions-frantic-job-hunt-for-punted-david-jones-staff/",
-     "https://www.narrominenewsonline.com.au/story/9393527/appalling-albanese-panned-for-russian-minister-photo/",
-     "https://www.cessnockadvertiser.com.au/story/9392967/backpacker-backtrack-welcomed-but-regions-want-more/"
-    ]
-   },
-   {
-    "что": "страна: Iran",
-    "статей_сутки": 15308,
-    "статей_прошлые_сутки": 12735,
-    "рост_раз": 1.2,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.dunfermlinepress.com/news/national/26734948.third-us-aircraft-carrier-arrives-middle-east-trump-keeps-options-open/",
-     "https://www.leaderlive.co.uk/news/national/26736144.two-month-lull-ends-irans-third-strike-us-targets-bahrain/",
-     "https://13wham.com/news/nation-world/iran-threats-prompt-us-officials-to-shelter-on-bases-raising-alarms-for-trumps-security-strait-hormuz"
-    ]
-   },
-   {
-    "что": "страна: Israel",
-    "статей_сутки": 14781,
-    "статей_прошлые_сутки": 15393,
+    "что": "страна: India",
+    "статей_сутки": 31320,
+    "статей_прошлые_сутки": 32652,
     "рост_раз": 0.96,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.goulburnpost.com.au/story/9393365/warning-after-minor-parties-confuse-voters/",
-     "https://www.bordermail.com.au/story/9393155/palestinian-woman-killed-10-wounded-in-west-bank/",
-     "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=17-Nov-2026-09-59-00"
+     "https://www.northsomersettimes.co.uk/news/national/26739274.william-kate-visit-craft-school-mumbai-earthshot-prize-ceremony/",
+     "https://www.romfordrecorder.co.uk/news/national/26740482.william-kate-create-silk-napkins-visit-mumbai-crafts-school/",
+     "https://www.legallyindia.com/convos/topic/501913-link-legal-3-main-people-leave"
     ]
    },
    {
-    "что": "страна: Philippines",
-    "статей_сутки": 13975,
-    "статей_прошлые_сутки": 10030,
-    "рост_раз": 1.39,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.times-series.co.uk/news/national/26738711.ousted-jensen-huang-says-honoured-return-nvidia/",
-     "http://www.coloradostar.com/news/279438900/trump-warns-iran-over-possible-washington-attack",
-     "https://calgarysun.com/news/crime/guilty-plea-fatal-stabbing-calgary-uber-driver"
-    ]
-   },
-   {
-    "что": "страна: Ukraine",
-    "статей_сутки": 12607,
-    "статей_прошлые_сутки": 9413,
-    "рост_раз": 1.34,
-    "типы": [
-     "переговоры",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://www.examiner.com.au/story/9393538/second-ship-in-as-many-days-sunk-off-bulgarias-coast/",
-     "https://www.theadvocate.com.au/story/9393518/ukraine-partly-topples-russias-strategic-crimea-bridge/",
-     "https://www.sthelensstar.co.uk/news/national/26735858.russian-air-defences-1-400-drones-kyiv-hits-key-crimean-bridge/"
-    ]
-   },
-   {
-    "что": "страна: Japan",
-    "статей_сутки": 9285,
-    "статей_прошлые_сутки": 4666,
-    "рост_раз": 1.99,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.dailyadvertiser.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/",
-     "https://1037theq.iheart.com/content/2026-11-16-heather-mcmahan-just-planned-your-perfect-day-in-tokyo-japan/",
-     "https://www.narrominenewsonline.com.au/story/9393527/appalling-albanese-panned-for-russian-minister-photo/"
-    ]
-   },
-   {
-    "что": "PHILIPPINE",
-    "статей_сутки": 8774,
-    "статей_прошлые_сутки": 5882,
-    "рост_раз": 1.49,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "http://www.coloradostar.com/news/279438900/trump-warns-iran-over-possible-washington-attack",
-     "https://calgarysun.com/news/crime/guilty-plea-fatal-stabbing-calgary-uber-driver",
-     "https://www.yourlocalguardian.co.uk/news/national/26736946.trump-arrives-philippines-kick-off-asia-trip-economic-deals/"
-    ]
-   },
-   {
-    "что": "страна: Pakistan",
-    "статей_сутки": 7668,
-    "статей_прошлые_сутки": 9377,
-    "рост_раз": 0.82,
+    "что": "страна: Canada",
+    "статей_сутки": 19246,
+    "статей_прошлые_сутки": 18417,
+    "рост_раз": 1.04,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://english.news.cn/20261117/6dd8d338c8db4b35b486a67127874cbb/c.html",
-     "https://www.huntspost.co.uk/news/26736314.police-robbery-lala-jewellers-peterborough/",
-     "https://www.prokerala.com/news/articles/a1837723.html"
+     "https://calgarysun.com/news/politics/preston-manning-says-bc-conservative-victory-strengthens-western-provinces-bargaining-power-ottawa",
+     "https://www.hertsad.co.uk/news/national/26741500.donald-trump-plans-meet-separately-vladimir-putin-china-trip/",
+     "https://torontosun.com/news/world/irish-anti-war-activist-charged-axe-chemicals-damage-u-s-military-plane"
     ]
    },
    {
-    "что": "страна: South Africa",
-    "статей_сутки": 7018,
-    "статей_прошлые_сутки": 6990,
-    "рост_раз": 1.0,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.politicsweb.co.za/news/guidelines-for-promotion-of-stable-municipal-coalitions-velenkosini-hlabisa",
-     "https://defenceweb.co.za/sa-defence-sa-defence/dmv-questioned-on-court-ordered-military-veteran-database-registration/",
-     "https://circleid.com/posts/microsoft-365-outage-raises-questions-about-africas-digital-sovereignty"
-    ]
-   },
-   {
-    "что": "THE US",
-    "статей_сутки": 6648,
-    "статей_прошлые_сутки": 5359,
-    "рост_раз": 1.24,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.leaderlive.co.uk/news/national/26736144.two-month-lull-ends-irans-third-strike-us-targets-bahrain/",
-     "https://www.worcesternews.co.uk/news/national/26735315.imperial-brands-cut-2-500-jobs-2030-savings-drive/",
-     "https://www.dunfermlinepress.com/news/national/26734948.third-us-aircraft-carrier-arrives-middle-east-trump-keeps-options-open/"
-    ]
-   },
-   {
-    "что": "страна: France",
-    "статей_сутки": 6620,
-    "статей_прошлые_сутки": 6144,
-    "рост_раз": 1.08,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://deadline.com/print-article/1237226434/",
-     "http://www.bignewsnetwork.com/news/279437852/french-troops-secretly-operating-in-ukraine-media",
-     "https://cnycentral.com/news/nation-world/strategic-response-group-srg-zohran-mamdani-riots-new-york-city-former-nyc-mayor-adams-slams-decision-to-disband-nypds-rtt"
-    ]
-   },
-   {
-    "что": "AFRICA",
-    "статей_сутки": 6589,
-    "статей_прошлые_сутки": 6012,
+    "что": "страна: Australia",
+    "статей_сутки": 18860,
+    "статей_прошлые_сутки": 17174,
     "рост_раз": 1.1,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://indiankanoon.org/doc/183006964/",
-     "https://indiankanoon.org/doc/168195582/",
-     "https://isp.netscape.com:443/news/world/story/0001/20261117/ff6a8fd627eb559f961704ec43517131"
+     "https://www.nynganobserver.com.au/story/9394217/man-charged-over-stolen-1948-caulfield-cup/",
+     "https://www.standard.net.au/story/9393946/magistrate-waves-need-for-terror-accused-to-see-police/",
+     "https://www.hardenexpress.com.au/story/9393114/regional-stays-sweep-the-2026-australian-airbnb-host-awards/"
     ]
    },
    {
-    "что": "страна: Germany",
-    "статей_сутки": 6356,
-    "статей_прошлые_сутки": 6345,
-    "рост_раз": 1.0,
+    "что": "страна: Nigeria",
+    "статей_сутки": 17456,
+    "статей_прошлые_сутки": 19025,
+    "рост_раз": 0.92,
     "типы": [
-     "переговоры",
-     "намерения сотрудничать"
+     "заявления",
+     "переговоры"
     ],
     "примеры": [
-     "https://isp.netscape.com:443/news/world/story/0001/20261117/ff6a8fd627eb559f961704ec43517131",
-     "https://www.prnewswire.com/news-releases/eqt-to-acquire-flatiron-energy-a-leading-developer-and-operator-of-battery-energy-storage-in-the-eastern-us-302942414.html",
-     "http://www.zimbabwestar.com/news/279438525/eu-states-seek-to-deport-asylum-seekers-to-rwanda"
+     "http://www.iraqsun.com/news/279439653/daily-world-briefing-nov-18",
+     "https://punchng.com/nigeria-gets-unesco-centre-to-fight-fake-news/",
+     "https://tradearabia.com:443/News/489867/Govts-pledge-additional-%24200m-to-boost-climate-adaptation-finance-at-COP31"
     ]
    },
    {
-    "что": "NVIDIA",
-    "статей_сутки": 6184,
-    "статей_прошлые_сутки": 5857,
-    "рост_раз": 1.06,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.times-series.co.uk/news/national/26738711.ousted-jensen-huang-says-honoured-return-nvidia/",
-     "https://www.wbaa.org/npr-news/2026-11-16/u-s-tightens-controls-on-remote-access-to-ai-technology-amid-nvidia-fallout",
-     "https://talk1200boston.iheart.com/content/2026-11-16-report-nvidia-not-considering-reinstating-huang/"
-    ]
-   },
-   {
-    "что": "страна: Ireland",
-    "статей_сутки": 5928,
-    "статей_прошлые_сутки": 7035,
-    "рост_раз": 0.84,
+    "что": "страна: Russia",
+    "статей_сутки": 17407,
+    "статей_прошлые_сутки": 18466,
+    "рост_раз": 0.94,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.clactonandfrintongazette.co.uk/news/national/26736307.sister-man-killed-omagh-bomb-wants-put-irish-inquiry-case-taoiseach/",
-     "https://www.irishcentral.com/roots/history/irish-schindler-jews-nazis-world-war-ii",
-     "https://www.irishcentral.com/news/half-irelands-gen-z-marry"
+     "https://www.rferl.org/a/trump-putin-xi-usa-russia-china-meeting-shenzhen-/33899555.html",
+     "https://newsradio910wltp.iheart.com/content/2026-11-18-us-launches-unarmed-icbm-test-during-president-trumps-trip-to-asia/",
+     "https://www.theleader.com.au/story/9393545/pm-convinced-australia-will-shine-amid-superpower-talks/"
     ]
    },
    {
-    "что": "CHINESE",
-    "статей_сутки": 5672,
-    "статей_прошлые_сутки": 4410,
-    "рост_раз": 1.28,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.wbaa.org/npr-news/2026-11-16/u-s-tightens-controls-on-remote-access-to-ai-technology-amid-nvidia-fallout",
-     "https://13wham.com/news/nation-world/trump-xi-and-putins-historic-meeting-breakthrough-or-photo-op",
-     "https://okcfox.com/news/nation-world/fact-check-team-trump-xi-and-putin-prepare-for-historic-meeting-washington-beijing"
-    ]
-   },
-   {
-    "что": "страна: Turkey",
-    "статей_сутки": 5203,
-    "статей_прошлые_сутки": 3793,
-    "рост_раз": 1.37,
+    "что": "страна: Israel",
+    "статей_сутки": 16962,
+    "статей_прошлые_сутки": 15367,
+    "рост_раз": 1.1,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://erkansaka.net/tag/incarceration/",
-     "http://www.reflector.com/news/national/turkish-authorities-raid-another-opposition-television-station-and-appoint-trustees/article_bd38bdab-c28b-51f6-8253-a183ea50369c.html",
-     "https://www.timescitizen.com/ackley_world_journal/obituaries/bartling-morris-aug-31-2026/article_a5e44940-1fee-4b11-a9c7-7f892b194b9c.html"
+     "https://www.readingchronicle.co.uk/news/national/26736144.two-month-lull-ends-another-iranian-strike-bahrain-us-retaliation/",
+     "https://www.halsteadgazette.co.uk/news/national/26736144.two-month-lull-ends-another-iranian-strike-bahrain-us-retaliation/",
+     "https://www.hardenexpress.com.au/story/9393568/sanctions-first-for-construction-firm-in-west-bank/"
     ]
    },
    {
-    "что": "ASEAN",
-    "статей_сутки": 5057,
-    "статей_прошлые_сутки": 4742,
-    "рост_раз": 1.07,
+    "что": "страна: Iran",
+    "статей_сутки": 16174,
+    "статей_прошлые_сутки": 15918,
+    "рост_раз": 1.02,
+    "типы": [
+     "переговоры",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://www.lancashiretelegraph.co.uk/news/national/26740606.iran-widens-gulf-attacks-fires-us-base-kuwait-targets-bahrain/",
+     "https://www.halsteadgazette.co.uk/news/national/26736144.two-month-lull-ends-another-iranian-strike-bahrain-us-retaliation/",
+     "https://www.koat.com/article/why-web-systems-going-down-nationwide-more-outages/74457980"
+    ]
+   },
+   {
+    "что": "страна: Philippines",
+    "статей_сутки": 12736,
+    "статей_прошлые_сутки": 14118,
+    "рост_раз": 0.9,
     "типы": [
      "переговоры",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "https://13wham.com/news/nation-world/trump-xi-and-putins-historic-meeting-breakthrough-or-photo-op",
-     "https://theconservativetreehouse.com/blog/2026/11/17/president-trump-delivers-remarks-during-asean-special-summit-dinner/",
-     "https://tribune.net.ph/topic/asean-power-grid"
+     "https://calgarysun.com/news/politics/preston-manning-says-bc-conservative-victory-strengthens-western-provinces-bargaining-power-ottawa",
+     "https://www.hertsad.co.uk/news/national/26741500.donald-trump-plans-meet-separately-vladimir-putin-china-trip/",
+     "https://www.sthelensstar.co.uk/news/national/26738711.nvidia-chairman-says-board-not-intend-reinstate-jensen-huang/"
+    ]
+   },
+   {
+    "что": "страна: Ukraine",
+    "статей_сутки": 11475,
+    "статей_прошлые_сутки": 12852,
+    "рост_раз": 0.89,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.lancashiretelegraph.co.uk/news/national/26742843.pope-celebrates-mass-mark-400th-anniversary-st-peters-basilica-dedication/",
+     "https://www.chesterstandard.co.uk/news/national/26735858.ukraine-strikes-major-russian-bridge-aerial-attacks-escalate/",
+     "http://www.brazilsun.com/news/279439376/zelenskyy-says-ukraine-preparing-for-prisoner-exchange-with-russia-afterabu-dhabi-talks"
+    ]
+   },
+   {
+    "что": "страна: Pakistan",
+    "статей_сутки": 8576,
+    "статей_прошлые_сутки": 7717,
+    "рост_раз": 1.11,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.clactonandfrintongazette.co.uk/news/national/26742317.muslims-projected-outnumber-christians-2035-worlds-largest-religion/",
+     "https://katv.com/news/nation-world/pakistani-man-asif-merchant-sentenced-to-over-27-years-for-iran-backed-plot-to-assassinate-president-donald-trump-other-politicians-2024-islamic-revolutionary-guard-corps-justice-department-fbi",
+     "https://article.wn.com/view/2026/11/18/Pakistani_man_gets_27_years_in_US_prison_over_Iranbacked_Tru/"
+    ]
+   },
+   {
+    "что": "страна: Ireland",
+    "статей_сутки": 8496,
+    "статей_прошлые_сутки": 6133,
+    "рост_раз": 1.38,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.newsandstar.co.uk/news/national/26740076.bryant-labels-stormont-ministers-commentators-amid-budget-frustrations/",
+     "https://www.yourlocalguardian.co.uk/news/national/26739203.dups-attempted-abuse-stormont-brake-destined-fail---alliance/",
+     "https://wtag.iheart.com/content/2026-11-17-man-charged-for-allegedly-destroying-us-military-plane-parked-at-irish-airport/"
+    ]
+   },
+   {
+    "что": "PHILIPPINE",
+    "статей_сутки": 8316,
+    "статей_прошлые_сутки": 8901,
+    "рост_раз": 0.93,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://calgarysun.com/news/politics/preston-manning-says-bc-conservative-victory-strengthens-western-provinces-bargaining-power-ottawa",
+     "https://www.hertsad.co.uk/news/national/26741500.donald-trump-plans-meet-separately-vladimir-putin-china-trip/",
+     "https://klvi.iheart.com/content/2026-11-18-president-touts-trade-deal-with-philippines/"
+    ]
+   },
+   {
+    "что": "THE US",
+    "статей_сутки": 7978,
+    "статей_прошлые_сутки": 6825,
+    "рост_раз": 1.17,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.clactonandfrintongazette.co.uk/news/national/26742317.muslims-projected-outnumber-christians-2035-worlds-largest-religion/",
+     "https://www.hertsad.co.uk/news/national/26741500.donald-trump-plans-meet-separately-vladimir-putin-china-trip/",
+     "https://www.oberonreview.com.au/story/9393715/amanda-vanstone-donald-trump-rebuke-has-a-lesson-for-anthony-albanese-great-thunberg/"
+    ]
+   },
+   {
+    "что": "страна: Japan",
+    "статей_сутки": 7129,
+    "статей_прошлые_сутки": 9349,
+    "рост_раз": 0.76,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.clactonandfrintongazette.co.uk/news/national/26742317.muslims-projected-outnumber-christians-2035-worlds-largest-religion/",
+     "https://www.hardenexpress.com.au/story/9393568/sanctions-first-for-construction-firm-in-west-bank/",
+     "https://www.macleayargus.com.au/story/9393568/sanctions-first-for-construction-firm-in-west-bank/"
+    ]
+   },
+   {
+    "что": "страна: France",
+    "статей_сутки": 6646,
+    "статей_прошлые_сутки": 6864,
+    "рост_раз": 0.97,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.winnipegfreepress.com/business/2026/11/18/how-three-leaders-donated-the-20-million-melinda-french-gates-gave-them-with-no-strings-attached",
+     "https://www.dailymirror.lk/breaking-news/BBC-and-Ikea-among-nearly-200-websites-hit-by-hackers/107-355125",
+     "https://hotair.com/david-strom/2026/11/18/whats-the-crime-prosecutorcongressman-well-find-it-somehow-n3821112"
+    ]
+   },
+   {
+    "что": "AFRICA",
+    "статей_сутки": 6468,
+    "статей_прошлые_сутки": 6755,
+    "рост_раз": 0.96,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://thebftonline.com/article/afcfta-calls-for-real-trade-opportunities-for-africa-s-small-businesses",
+     "http://www.iraqsun.com/news/279439653/daily-world-briefing-nov-18",
+     "https://www.dailygazette.com/leader_herald/ap/national/muslims-are-projected-to-outnumber-christians-by-2035-as-the-worlds-largest-religion/article_f14c9bd4-c8de-59a9-8b5e-e538d75b78aa.html"
+    ]
+   },
+   {
+    "что": "страна: Germany",
+    "статей_сутки": 5929,
+    "статей_прошлые_сутки": 6590,
+    "рост_раз": 0.9,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "http://www.goskagit.com/news/world/top-un-court-to-deliver-judgment-in-case-alleging-myanmar-committed-genocide-against-rohingya/article_7dd0de9b-68b9-5576-b48f-67b80fe5ce9f.html",
+     "https://tradearabia.com:443/News/489867/Govts-pledge-additional-%24200m-to-boost-climate-adaptation-finance-at-COP31",
+     "https://www.pfonline.com/articles/what-humanoid-robotics-means-for-surface-finishing"
+    ]
+   },
+   {
+    "что": "AMERICAN",
+    "статей_сутки": 5688,
+    "статей_прошлые_сутки": 4946,
+    "рост_раз": 1.15,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://en.apa.az/america/us-national-security-agency-confirms-outage-in-classified-network-updated-536750",
+     "https://fox23maine.com/news/nation-world/cascade-of-tech-outages-raises-alarm-over-reliability-of-digital-infrastructure",
+     "https://www.wmur.com/article/rubio-zero-information-us-outages-linked-malign-actor/74459227"
+    ]
+   },
+   {
+    "что": "страна: South Africa",
+    "статей_сутки": 5506,
+    "статей_прошлые_сутки": 7097,
+    "рост_раз": 0.78,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.news4jax.com/news/world/2026/11/18/migrants-face-severe-health-tolls-amid-south-africas-anti-illegal-migration-tensions/",
+     "https://themediaonline.co.za/2026/11/evidence-based-marketing-theory-practice/",
+     "https://allafrica.com/stories/202611180597.html"
+    ]
+   },
+   {
+    "что": "NVIDIA",
+    "статей_сутки": 5458,
+    "статей_прошлые_сутки": 6429,
+    "рост_раз": 0.85,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.sthelensstar.co.uk/news/national/26738711.nvidia-chairman-says-board-not-intend-reinstate-jensen-huang/",
+     "https://wflanews.iheart.com/content/2026-11-17-nvidia-exceeds-q3-expectations-amid-ceo-huangs-exit/",
+     "https://www.wncw.org/2026-11-17/nvidia-board-says-it-does-not-intend-to-reinstate-jensen-huang-as-ceo"
+    ]
+   },
+   {
+    "что": "CHINESE",
+    "статей_сутки": 5226,
+    "статей_прошлые_сутки": 5788,
+    "рост_раз": 0.9,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.theleader.com.au/story/9393545/pm-convinced-australia-will-shine-amid-superpower-talks/",
+     "https://www.nytimes.com/live/2026/11/17/technology/nvidia-earnings-stock-price/commerce-secretary-howard-lutnick-took-a-softer-line-on-nvidia-as-calls-for-tougher-controls-grew",
+     "https://www.nytimes.com/live/2026/11/18/world/trump-china-asia-apec/a-tropical-chinese-city-is-half-empty-and-ready-for-the-summit"
+    ]
+   },
+   {
+    "что": "RUSSIAN",
+    "статей_сутки": 4882,
+    "статей_прошлые_сутки": 4755,
+    "рост_раз": 1.03,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.chesterstandard.co.uk/news/national/26735858.ukraine-strikes-major-russian-bridge-aerial-attacks-escalate/",
+     "https://en.interfax.com.ua/news/general/1238281.html",
+     "https://www.hometownregister.com/news/national/jensen-huang-scandal-illustrates-why-human-nature-is-cybersecurity-s-weakest-link/article_4cd38aad-fc57-5f86-b42d-a7055e192e58.html"
     ]
    }
   ],
   "резко_выросло": [
    {
-    "что": "VIETNAM",
-    "статей_сутки": 2255,
-    "статей_прошлые_сутки": 848,
-    "рост_раз": 2.62,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.dailyadvertiser.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/",
-     "https://www.inverelltimes.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/",
-     "https://en.people.cn/n3/2026/1117/c90000-20519928.html"
-    ]
-   },
-   {
-    "что": "страна: Rwanda",
-    "статей_сутки": 2716,
-    "статей_прошлые_сутки": 1351,
-    "рост_раз": 2.0,
+    "что": "страна: Ecuador",
+    "статей_сутки": 1923,
+    "статей_прошлые_сутки": 367,
+    "рост_раз": 5.02,
     "типы": [
      "переговоры",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "http://www.zimbabwestar.com/news/279438525/eu-states-seek-to-deport-asylum-seekers-to-rwanda",
-     "https://allafrica.com/stories/202611170105.html",
-     "https://english.news.cn/20261117/b643dddfee754224a03a2f5de4635742/c.html"
+     "https://www.cotswoldjournal.co.uk/news/national/26739182.ecuador-ambassador-praises-kings-energy-inviting-monarch-nation/",
+     "https://www.london-now.co.uk/news/national/26739182.ecuador-ambassador-praises-kings-energy-inviting-monarch-nation/",
+     "https://www.yorkpress.co.uk/news/national/26739182.ecuador-ambassador-praises-kings-energy-inviting-monarch-nation/"
     ]
    },
    {
-    "что": "страна: West Bank",
-    "статей_сутки": 1746,
-    "статей_прошлые_сутки": 589,
-    "рост_раз": 2.9,
+    "что": "MERCHANT",
+    "статей_сутки": 1479,
+    "статей_прошлые_сутки": 182,
+    "рост_раз": 7.42,
     "типы": [
-     "боевые действия",
-     "заявления"
+     "принуждение",
+     "переговоры"
     ],
     "примеры": [
-     "https://www.newburytoday.co.uk/national/uk-hits-firms-building-west-bank-settlements-with-sanctions-174377/",
-     "https://www.irvinetimes.com/news/national/26735922.uk-hits-firms-building-west-bank-settlements-sanctions/",
-     "https://www.jpost.com/israel-news/defense-news/article-915225"
+     "https://970kfbx.iheart.com/content/2026-11-18-pakistani-man-sentenced-for-plot-to-kill-trump/",
+     "https://www.arabnews.com/world/pakistani-man-convicted-of-plotting-to-kill-trump-is-sentenced-to-over-27-years-in-prison-3012618",
+     "https://www.theepochtimes.com/us/pakistani-man-gets-27-years-in-prison-for-foiled-plot-to-kill-trump-other-us-politicians-6126329"
     ]
    },
    {
-    "что": "страна: Oman",
-    "статей_сутки": 2406,
-    "статей_прошлые_сутки": 1163,
-    "рост_раз": 2.05,
+    "что": "страна: Kuwait",
+    "статей_сутки": 1981,
+    "статей_прошлые_сутки": 479,
+    "рост_раз": 4.01,
     "типы": [
      "переговоры",
      "боевые действия"
     ],
     "примеры": [
-     "http://www.bignewsnetwork.com/news/279439199/oman-evacuates-24-crew-from-tanker-after-fire-off-musandam",
-     "https://www.omanobserver.om/article/1199839/oman/municipal-councils-key-to-community-partnership",
-     "https://www.omanobserver.om/article/1199837/oman/oman-egypt-discuss-media-collaboration"
+     "https://isp.netscape.com:443/pf/story/0001/20261118/b1f0b530cffe951e6fcc1e27b2e1af94",
+     "https://www.lancashiretelegraph.co.uk/news/national/26740606.iran-widens-gulf-attacks-fires-us-base-kuwait-targets-bahrain/",
+     "https://www.easternriverinachronicle.com.au/story/9394287/iran-fires-at-kuwait-after-us-strike-on-iranian-island/"
     ]
    },
    {
-    "что": "CALIFORNIA",
-    "статей_сутки": 2282,
-    "статей_прошлые_сутки": 1101,
-    "рост_раз": 2.05,
-    "типы": [
-     "переговоры",
-     "призывы"
-    ],
-    "примеры": [
-     "https://wiba.iheart.com/content/2026-11-16-powerful-storms-to-slam-west-coast/",
-     "https://katv.com/news/nation-world/california-rep-calls-for-refund-checks-to-be-given-to-americans-due-to-the-iran-war-jd-vance-donald-trump-ro-khanna-house-senate-rtt",
-     "https://laist.com/brief/news/education/lausd-cellphone-ban-outcomes-survey-middle-high-school-students-staff"
-    ]
-   },
-   {
-    "что": "JAPANESE",
-    "статей_сутки": 1345,
-    "статей_прошлые_сутки": 481,
-    "рост_раз": 2.72,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "http://www.stardem.com/ap/world/tokyo-protests-after-two-suspected-russian-aircraft-violate-japanese-airspace-in-southwestern-japan/article_ed763a8c-1d28-5533-a913-24e765de5eb4.html",
-     "https://ianslive.in/quad-to-shape-future-of-indo-pacific-with-regional-partners-japanese-pm--20261117173430",
-     "https://economictimes.indiatimes.com/markets/bonds/jgb-yields-climb-as-buyers-hold-back-on-long-dated-debt/articleshow/135910809.cms"
-    ]
-   },
-   {
-    "что": "страна: El Salvador",
-    "статей_сутки": 1332,
-    "статей_прошлые_сутки": 505,
-    "рост_раз": 2.58,
-    "типы": [
-     "дипломатическое сотрудничество",
-     "заявления"
-    ],
-    "примеры": [
-     "https://slguardian.org/amid-war-strains-washington-and-moscow-experiment-with-a-new-tactic/",
-     "https://www.clickondetroit.com/news/world/2026/11/17/thousands-demonstrate-in-haitis-capital-to-praise-bukele-and-salvadoran-troops-fighting-gangs/",
-     "https://www.riotimesonline.com/el-salvador-diaspora-six-assembly-seats-2027-election/"
-    ]
-   },
-   {
-    "что": "ASSOCIATION OF SOUTHEAST ASIAN NATIONS",
-    "статей_сутки": 1238,
-    "статей_прошлые_сутки": 443,
-    "рост_раз": 2.72,
+    "что": "страна: Turkmenistan",
+    "статей_сутки": 1957,
+    "статей_прошлые_сутки": 492,
+    "рост_раз": 3.86,
     "типы": [
      "переговоры",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "https://www.narrominenewsonline.com.au/story/9393527/appalling-albanese-panned-for-russian-minister-photo/",
-     "https://wjbo.iheart.com/content/2026-11-17-trump-visits-philippines-before-china-talks-with-xi-putin/",
-     "https://www.channelnewsasia.com/asia/trump-meets-regional-allies-in-manila-ahead-china-visit-6557351"
+     "https://www.trend.az/casia/turkmenistan/4247859.html",
+     "https://www.newscentralasia.net/2026/11/18/deputy-foreign-minister-of-turkmenistan-and-unfpa-country-director-discuss-priorities-of-cooperation/",
+     "https://www.newscentralasia.net/2026/11/18/deputy-minister-of-foreign-affairs-of-turkmenistan-met-with-the-vice-president-of-the-osce-parliamentary-assembly/"
     ]
    },
    {
-    "что": "COUNSEL",
-    "статей_сутки": 1293,
-    "статей_прошлые_сутки": 508,
-    "рост_раз": 2.49,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://indiankanoon.org/doc/183006964/",
-     "https://indiankanoon.org/doc/168195582/",
-     "https://wiky.com/2026/11/17/explainer-how-the-supreme-court-could-hinder-trump-investigations-by-congress/"
-    ]
-   },
-   {
-    "что": "страна: Malta",
-    "статей_сутки": 625,
-    "статей_прошлые_сутки": 91,
-    "рост_раз": 5.81,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://timesofmalta.com/article/malta-corruption-investigations-slow-european-parliament-mission.1137260",
-     "https://timesofmalta.com/article/consumer-watchdog-names-blinds-company-14000-unpaid-refunds.1137252",
-     "https://timesofmalta.com/article/family-warns-scam-involving-unauthorised-fundraising-injured-teenager.1137249"
-    ]
-   },
-   {
-    "что": "страна: Mongolia",
-    "статей_сутки": 559,
-    "статей_прошлые_сутки": 73,
-    "рост_раз": 6.23,
-    "типы": [
-     "уступки",
-     "неодобрение"
-    ],
-    "примеры": [
-     "https://english.news.cn/asiapacific/20261117/084853412b714eafab3a7820f58f7a7f/c.html",
-     "https://www.theepochtimes.com/world/mongolian-president-resigns-to-fight-corruption-allegations-6125888",
-     "https://www.arabnews.com/world/mongolias-president-says-he-will-step-down-after-facing-accusations-of-corruption-3012511"
-    ]
-   },
-   {
-    "что": "TOKYO",
-    "статей_сутки": 840,
-    "статей_прошлые_сутки": 281,
-    "рост_раз": 2.86,
-    "типы": [
-     "расследования",
-     "угрозы"
-    ],
-    "примеры": [
-     "https://www.dailyadvertiser.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/",
-     "https://www.greatlakesadvocate.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/",
-     "https://www.inverelltimes.com.au/story/9392650/aussies-ditch-japan-for-vietnam-as-direct-flight-prices-soar/"
-    ]
-   },
-   {
-    "что": "A US",
-    "статей_сутки": 1123,
-    "статей_прошлые_сутки": 522,
-    "рост_раз": 2.11,
-    "типы": [
-     "боевые действия",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://www.breakingnews.ie/world/iran-attacks-us-military-radar-system-in-bahrain-with-drones-1958914.html",
-     "https://www.hani.co.kr/arti/english_edition/e_international/1287702.html",
-     "https://www.brfm.net/american-soldier-suspected-of-spying-for-russia-handed-to-us-authorities/"
-    ]
-   },
-   {
-    "что": "страна: Cameroon",
-    "статей_сутки": 712,
-    "статей_прошлые_сутки": 211,
-    "рост_раз": 3.17,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.riotimesonline.com/cameroon-parties-urged-add-women-candidate-lists/",
-     "https://www.businessincameroon.com/public-management/1711-17207-cameroon-s-camtel-demands-higher-fiber-rental-rates-citing-cfa311-billion-in-lost-revenue",
-     "https://www.businessincameroon.com/public-management/1711-17212-cameroon-allocates-cfaf-550-million-to-student-startups-and-business-incubators"
-    ]
-   },
-   {
-    "что": "ONTARIO",
-    "статей_сутки": 790,
-    "статей_прошлые_сутки": 270,
-    "рост_раз": 2.79,
-    "типы": [
-     "переговоры",
-     "призывы"
-    ],
-    "примеры": [
-     "https://www.wellandtribune.ca/news/canada/opp-cruiser-hit-in-secondary-highway-11-collision/article_b975ac9f-a258-5e56-a4a5-c7508686240b.html",
-     "https://www.pentictonherald.ca/news/national_news/article_567fcdc0-b78d-5009-aae4-4f46523c8fdc.html",
-     "https://www.riotimesonline.com/canada-police-stolen-cars-west-africa-project-cadetta/"
-    ]
-   },
-   {
-    "что": "LAWRENCE",
-    "статей_сутки": 1033,
-    "статей_прошлые_сутки": 462,
-    "рост_раз": 2.18,
+    "что": "страна: Venezuela",
+    "статей_сутки": 1994,
+    "статей_прошлые_сутки": 870,
+    "рост_раз": 2.26,
     "типы": [
      "переговоры",
      "намерения сотрудничать"
     ],
     "примеры": [
-     "https://eurweb.com/pluto-tv-jamie-foxx-martin-wayans-two-and-a-half-men/",
-     "https://ianslive.in/pm-modi-and-singapore-counterpart-lawrence-wong-discuss-ties-regional-and-global-developments--20261117150001",
-     "https://www.lawrentian.com/archives/1031610"
+     "https://www.wpbf.com/article/us-venezuela-reestablish-military-ties-hegseth/74468426",
+     "https://www.dailypress.com/2026/11/18/hegseth-venezuela-visit/",
+     "https://www.wsls.com/news/politics/2026/11/17/should-court-filings-related-to-the-search-of-ilhan-omars-home-be-released-a-judge-will-decide/"
     ]
    },
    {
-    "что": "страна: Costa Rica",
-    "статей_сутки": 654,
-    "статей_прошлые_сутки": 196,
-    "рост_раз": 3.12,
+    "что": "MAGISTRATE",
+    "статей_сутки": 1502,
+    "статей_прошлые_сутки": 507,
+    "рост_раз": 2.89,
     "типы": [
-     "боевые действия",
-     "заявления"
+     "принуждение",
+     "уступки"
     ],
     "примеры": [
-     "https://www.latintimes.com/costa-rican-journalist-camilo-rodriguez-killed-601452",
-     "https://www.arabnews.com/world/why-the-world-is-still-waiting-for-its-next-un-secretary-general-3012526",
-     "https://www.riotimesonline.com/costa-rica-in-central-america-explained-2026/"
+     "https://www.aol.co.uk/articles/comedian-spat-heathrow-security-officer-174456000.html",
+     "https://www.standard.net.au/story/9393946/magistrate-waves-need-for-terror-accused-to-see-police/",
+     "https://indiankanoon.org/doc/194907909/"
     ]
    },
    {
-    "что": "TAGALOG",
-    "статей_сутки": 426,
-    "статей_прошлые_сутки": 59,
-    "рост_раз": 5.65,
+    "что": "PRINCE",
+    "статей_сутки": 1903,
+    "статей_прошлые_сутки": 856,
+    "рост_раз": 2.2,
     "типы": [
-     "протесты",
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.harwichandmanningtreestandard.co.uk/news/national/26740482.william-kate-create-silk-napkins-visit-mumbai-crafts-school/",
+     "https://www.dunmowbroadcast.co.uk/news/national/26739274.william-kate-visit-craft-school-mumbai-earthshot-prize-ceremony/",
+     "https://www.northwichguardian.co.uk/news/national/26742753.harry-declares-rejoin-military-fight-russia-needed/"
+    ]
+   },
+   {
+    "что": "страна: Gambia",
+    "статей_сутки": 1397,
+    "статей_прошлые_сутки": 511,
+    "рост_раз": 2.67,
+    "типы": [
+     "переговоры",
+     "призывы"
+    ],
+    "примеры": [
+     "http://www.goskagit.com/news/world/top-un-court-to-deliver-judgment-in-case-alleging-myanmar-committed-genocide-against-rohingya/article_7dd0de9b-68b9-5576-b48f-67b80fe5ce9f.html",
+     "https://www.gazetteseries.co.uk/news/26742436.laurence-llewelyn-bowen-host-glamorous-cirencester-ball/",
+     "https://www.riotimesonline.com/gambia-barrow-says-no-doubt-he-wins-december-vote-2026/"
+    ]
+   },
+   {
+    "что": "PAKISTANI",
+    "статей_сутки": 925,
+    "статей_прошлые_сутки": 234,
+    "рост_раз": 3.72,
+    "типы": [
+     "принуждение",
+     "нападения"
+    ],
+    "примеры": [
+     "https://katv.com/news/nation-world/pakistani-man-asif-merchant-sentenced-to-over-27-years-for-iran-backed-plot-to-assassinate-president-donald-trump-other-politicians-2024-islamic-revolutionary-guard-corps-justice-department-fbi",
+     "https://970kfbx.iheart.com/content/2026-11-18-pakistani-man-sentenced-for-plot-to-kill-trump/",
+     "https://www.arabnews.com/world/pakistani-man-convicted-of-plotting-to-kill-trump-is-sentenced-to-over-27-years-in-prison-3012618"
+    ]
+   },
+   {
+    "что": "WALES",
+    "статей_сутки": 1402,
+    "статей_прошлые_сутки": 622,
+    "рост_раз": 2.21,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.northwalespioneer.co.uk/news/national/26742318.no-political-interference-troubles-linked-prosecutions-attorney-general-says/",
+     "https://www.london-now.co.uk/news/national/26739182.ecuador-ambassador-praises-kings-energy-inviting-monarch-nation/",
+     "https://www.basingstokegazette.co.uk/news/national/26742318.no-political-interference-troubles-linked-prosecutions-attorney-general-says/"
+    ]
+   },
+   {
+    "что": "страна: Zambia",
+    "статей_сутки": 785,
+    "статей_прошлые_сутки": 234,
+    "рост_раз": 3.17,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.wsiu.org/2026-11-18/the-off-and-on-switch-for-u-s-aid-leads-to-a-cliffhanger-for-zambia-and-zimbabwe",
+     "http://www.jpost.com/israel-news/article-915346",
+     "https://igamingbusiness.com/lottery/zambia-plans-to-extend-betting-levy-to-airtime-funded-lotteries/"
+    ]
+   },
+   {
+    "что": "страна: Belize",
+    "статей_сутки": 1068,
+    "статей_прошлые_сутки": 449,
+    "рост_раз": 2.32,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://7newsbelize.com/sstory.php?nid=80659",
+     "https://www.nbcsvg.com/2026/11/18/prime-minister-friday-to-attend-national-garifuna-settlement-day-celebration-in-belize/",
+     "https://www.theepochtimes.com/world/fishermen-from-ecuador-sue-us-after-boat-strike-in-pacific-6126382"
+    ]
+   },
+   {
+    "что": "BUCHAREST",
+    "статей_сутки": 329,
+    "статей_прошлые_сутки": 16,
+    "рост_раз": 9.69,
+    "типы": [
+     "помощь",
      "требования"
     ],
     "примеры": [
-     "https://tribune.net.ph/2026/11/17/southern-tagalog-groups-demand-release-of-detained-protesters",
-     "https://tribune.net.ph/2026/11/16/sc-orders-cruise-firms-to-pay-filipino-seafarer-95k-in-disability-benefits",
-     "https://www.bulatlat.com/2026/11/17/unconstitutional-lawyers-on-checkpoints-blocking-delaying-protesters/"
+     "https://www.romaniapress.com/news=198105",
+     "https://www.thediplomat.ro/2026/11/18/nouvelle-europe-forum-2030-prime-minister-european-parliament-vice-president-finance-minister-and-leading-business-executives-to-gather-in-bucharest-on-november-19/",
+     "https://www.romaniapress.com/news=198043"
     ]
    },
    {
-    "что": "HUNTER",
-    "статей_сутки": 997,
-    "статей_прошлые_сутки": 473,
-    "рост_раз": 2.06,
-    "типы": [
-     "переговоры",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://torontosun.com/news/world/lindsay-clancy-will-be-retried-in-march-for-killing-her-three-kids",
-     "https://newsroomamerica.com/tag/winter_coat_drive",
-     "https://hitsfm.net/politics/a67534a99e848233318ba98f8bb00dc4"
-    ]
-   },
-   {
-    "что": "страна: Bermuda",
-    "статей_сутки": 728,
-    "статей_прошлые_сутки": 265,
-    "рост_раз": 2.62,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.royalgazette.com/arts-entertainment/lifestyle/article/20261117/family-bedtime-stories-turn-into-childrens-book-series/",
-     "https://www.royalgazette.com/event/news/article/20261117/caledonian-society-marks-90-years-of-no-scotland-no-party/",
-     "https://www.royalgazette.com/education/news/article/20261117/st-georges-prep-celebrates-150-years/"
-    ]
-   },
-   {
-    "что": "страна: Puerto Rico",
-    "статей_сутки": 501,
-    "статей_прошлые_сутки": 114,
-    "рост_раз": 3.89,
+    "что": "страна: American Samoa",
+    "статей_сутки": 319,
+    "статей_прошлые_сутки": 18,
+    "рост_раз": 8.92,
     "типы": [
      "заявления",
      "переговоры"
     ],
     "примеры": [
-     "http://www.goskagit.com/news/ap_business/as-outages-persist-puerto-rico-finds-a-way-to-help-keep-the-lights-on-with/article_10c7031e-98cd-5e0b-b296-023e89461906.html",
-     "https://www.riotimesonline.com/puerto-rico-family-secretary-suzanne-roig-resigns/",
-     "https://www.niagarafallsreview.ca/business/a-top-puerto-rico-government-official-resigns-as-corruption-allegations-swirl/article_94249ff5-3800-52f8-9dd8-52ed38e24ded.html"
+     "https://www.winnipegfreepress.com/arts-and-life/life/greenpage/2026/11/18/deep-sea-mining-auctions-spark-environmental-concerns-in-american-samoa-and-northern-mariana-islands",
+     "https://www.winnipegfreepress.com/arts-and-life/life/greenpage/2026/11/18/takeaways-from-the-aps-reporting-on-auctions-for-deep-sea-mining-off-us-territories",
+     "https://www.samoanews.com/local-news/historic-deep-sea-minerals-lease-sale-set-tomorrow"
     ]
    },
    {
-    "что": "страна: Guyana",
-    "статей_сутки": 937,
-    "статей_прошлые_сутки": 456,
-    "рост_раз": 2.01,
+    "что": "страна: Angola",
+    "статей_сутки": 451,
+    "статей_прошлые_сутки": 81,
+    "рост_раз": 4.66,
     "типы": [
-     "заявления",
+     "переговоры",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "https://kaieteurnewsonline.com/2026/11/17/",
-     "https://kaieteurnewsonline.com/2026/11/17/firemen-injured-in-ecd-smash-up/",
-     "https://kaieteurnewsonline.com/2026/11/17/govt-seeking-contractors-to-build-autism-school-daycare-centre-in-regions-5-6/"
+     "https://wtvbam.com/2026/11/18/1002673/",
+     "https://www.africom.mil/article/37164/ohio-national-guard-launches-new-partnership-during-inaugural-visit-to-angola",
+     "https://www.eurasiareview.com/17112026-angola-revives-soyo-refinery-ambitions-through-tansafrica-partnership-oped/"
     ]
    },
    {
-    "что": "DEUTSCHE BANK",
-    "статей_сутки": 394,
-    "статей_прошлые_сутки": 60,
-    "рост_раз": 5.17,
+    "что": "TAMIL EELAM",
+    "статей_сутки": 260,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 14.0,
     "типы": [
-     "заявления",
-     "расследования"
+     "переговоры"
     ],
     "примеры": [
-     "https://radaronline.com/p/jeffrey-epsteins-582-million-payments-deutsche-bank-leak/",
-     "https://dailypioneer.com/world/deutsche-bank-faces-fresh-scrutiny-over-epstein-and-trump-links",
-     "https://www.hindustantimes.com/world-news/deutsche-bank-shares-fall-as-leaked-files-expose-epstein-ties-trumps-tax-data-breach-and-russian-links-101794930797240.html"
+     "https://www.tamilguardian.com/content/pictures-tamils-paris-mark-14-years-killing-colonel-parithi"
     ]
    },
    {
-    "что": "NASHVILLE",
-    "статей_сутки": 437,
-    "статей_прошлые_сутки": 88,
-    "рост_раз": 4.23,
+    "что": "страна: Tajikistan",
+    "статей_сутки": 774,
+    "статей_прошлые_сутки": 331,
+    "рост_раз": 2.26,
     "типы": [
      "переговоры",
      "призывы"
     ],
     "примеры": [
-     "https://1051thewolf.iheart.com/content/2026-11-17-kelsea-ballerini-speaks-to-such-a-big-day-for-the-girls-in-country-music-after-historic-grammy-nod/",
-     "https://lamag.com/crimeinla/after-surviving-lethal-injection-christa-pike-says-tennessee-is-punishing-her-again/",
-     "https://www.wsmv.com/2026/11/17/unseasonably-warm-weather-returns-middle-tennessee-this-week/"
+     "https://timesca.com/tag/border-markets/",
+     "https://english.pravda.ru/news/world/173406-kazakhstan-fruit-exports-collapse/",
+     "https://en.apa.az/social/closing-ceremony-of-shusha-eco-tourism-capital-2026-held-in-azerbaijan-updated-536936"
     ]
    },
    {
-    "что": "страна: Uruguay",
-    "статей_сутки": 663,
-    "статей_прошлые_сутки": 246,
-    "рост_раз": 2.57,
+    "что": "NORWEGIAN",
+    "статей_сутки": 372,
+    "статей_прошлые_сутки": 58,
+    "рост_раз": 5.03,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://cedarnews.net/newstasks/1167351/norwegian-fleet-returns-to-100-aircraft-with-new-boeing-737-delivery-to-stockholm-sweden/",
+     "https://www.stcatharinesstandard.ca/news/canada/norwegian-cruise-line-drops-17-stops-in-halifax-citing-guest-feedback/article_5ca37c38-01ff-5403-8744-8b222604831c.html",
+     "https://www.winnipegfreepress.com/arts-and-life/life/2026/11/18/norwegian-cruise-line-drops-17-stops-in-halifax-citing-guest-feedback"
+    ]
+   },
+   {
+    "что": "GARIFUNA",
+    "статей_сутки": 221,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 12.05,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.nbcsvg.com/2026/11/18/prime-minister-friday-to-attend-national-garifuna-settlement-day-celebration-in-belize/",
+     "https://www.greaterbelize.com/st-vincents-prime-minister-in-belize-on-official-visit/",
+     "https://amandala.com.bz/news/ngc-hosts-solidarity-mass-and-miss-garifuna-belize-2026-pageant/"
+    ]
+   },
+   {
+    "что": "страна: Senegal",
+    "статей_сутки": 678,
+    "статей_прошлые_сутки": 298,
+    "рост_раз": 2.19,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.arabnews.com/world/migrant-boat-capsizes-off-senegal-at-least-one-dead-3012792",
+     "https://www.riotimesonline.com/senegal-ruling-party-slams-2027-budget/",
+     "https://www.riotimesonline.com/senegal-2027-budget-cash-aid-growth/"
+    ]
+   },
+   {
+    "что": "CREDIT UNION",
+    "статей_сутки": 365,
+    "статей_прошлые_сутки": 72,
+    "рост_раз": 4.18,
+    "типы": [
+     "заявления",
+     "отказ"
+    ],
+    "примеры": [
+     "https://www.manilatimes.net/2026/11/19/tmt-newswire/globenewswire/bank-with-a-credit-union-unwrap-15-cash-back-on-gift-cards-this-holiday-season-with-prizeout/2473445",
+     "https://wmgk.com/2026/11/18/american-heritage-credit-union-sets-grand-illumination-with-400000-lights-and-fireworks/",
+     "https://www.news9.com/holidayhappenings/okc-northeast-church-christ-free-thanksgiving-turkey-giveaway"
+    ]
+   },
+   {
+    "что": "ZHEJIANG",
+    "статей_сутки": 212,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 11.6,
+    "типы": [
+     "переговоры",
+     "материальное сотрудничество"
+    ],
+    "примеры": [
+     "https://www.chinatechnews.com/2026/11/19/133107-drone-surge-across-china-expands-from-heavy-cargo-aircraft-to-mountain-power-grids-and-local-policing",
+     "http://www.sydneysun.com/news/279440858/shared-prosperity-through-green-transition-foreign-delegates-explore-china-path-rooted-in-history-civilization-and-ecological-practice",
+     "https://www.manilatimes.net/2026/11/18/tmt-newswire/pr-newswire/shared-prosperity-through-green-transition-foreign-delegates-explore-chinas-path-rooted-in-history-civilization-and-ecological-practice/2473041"
+    ]
+   },
+   {
+    "что": "CANBERRA",
+    "статей_сутки": 304,
+    "статей_прошлые_сутки": 44,
+    "рост_раз": 5.06,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://buenosairesherald.com/society/pope-leo-xivs-south-american-tour-leaves-a-lasting-mark",
-     "https://www.latintimes.com/uruguay-orsi-restores-anesthesiologist-five-year-ban-601154",
-     "https://www.riotimesonline.com/us-prosecutors-uruguay-marset-police-attack/"
+     "https://www.batemansbaypost.com.au/story/9392955/act-housing-drive-secures-first-rental-ahead-of-christmas/",
+     "https://www.begadistrictnews.com.au/story/9393125/squeaky-clean-bar-launches-a-free-civic-laneway-festival/",
+     "https://www.begadistrictnews.com.au/story/9393473/private-party-foiled-by-alleged-attackers-in-flynn-belconnen/"
+    ]
+   },
+   {
+    "что": "страна: Congo",
+    "статей_сутки": 650,
+    "статей_прошлые_сутки": 295,
+    "рост_раз": 2.13,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://wgxa.tv/news/nation-world/muslims-projected-to-surpass-christians-as-worlds-largest-religion-by-2035-pew-research-center-africa-canada-us-rrt",
+     "https://www.riotimesonline.com/wfp-board-approves-congo-2027-2030-plan-us-2-62-billion/",
+     "https://www.riotimesonline.com/congo-senate-mining-by-products-royalty-minister/"
+    ]
+   },
+   {
+    "что": "SURVIVAL INTERNATIONAL",
+    "статей_сутки": 215,
+    "статей_прошлые_сутки": 10,
+    "рост_раз": 7.83,
+    "типы": [
+     "уступки",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.bankingnews.gr/ta-paraksena/articles/911793/shock-in-brazil-the-uncontacted-awa-tribe-suddenly-emerged-from-the-amazon-he-desperate-search-and-what-happened",
+     "https://whbl.com/2026/11/17/rare-images-of-isolated-indigenous-group-in-brazil-highlight-threats/",
+     "https://www.bordermail.com.au/story/9394017/alarm-at-rare-encounter-with-isolated-indigenous-people/"
     ]
    }
   ]
  },
  "wiki": {
   "источник": "просмотры Википедии (Wikimedia), en",
-  "день": "2026-11-16",
+  "день": "2026-11-17",
   "резко_выросло": [
    {
-    "статья": "Robert Pattinson",
-    "просмотров_вчера": 1363657,
-    "позавчера": 23698,
-    "рост_раз": 55.25
-   },
-   {
-    "статья": "Suki Waterhouse",
-    "просмотров_вчера": 378948,
-    "позавчера": 9432,
-    "рост_раз": 36.42
-   },
-   {
-    "статья": "Robert Pattinson filmography",
-    "просмотров_вчера": 191139,
+    "статья": "Ray Tintori",
+    "просмотров_вчера": 98033,
     "позавчера": 0,
-    "рост_раз": 192.14
+    "рост_раз": 99.03
    },
    {
-    "статья": "Saturn Devouring His Son",
-    "просмотров_вчера": 176155,
+    "статья": "Heidi Gardner",
+    "просмотров_вчера": 83061,
     "позавчера": 0,
-    "рост_раз": 177.16
+    "рост_раз": 84.06
    },
    {
-    "статья": "Mordechai Vanunu",
-    "просмотров_вчера": 132656,
+    "статья": "John Christ",
+    "просмотров_вчера": 69141,
     "позавчера": 0,
-    "рост_раз": 133.66
+    "рост_раз": 70.14
    },
    {
-    "статья": "69th Annual Grammy Awards",
-    "просмотров_вчера": 92752,
+    "статья": "List of songs recorded by the Beatles",
+    "просмотров_вчера": 68112,
     "позавчера": 0,
-    "рост_раз": 93.75
+    "рост_раз": 69.11
    },
    {
-    "статья": "Palestine national football team",
-    "просмотров_вчера": 83074,
+    "статья": "Crimean Bridge",
+    "просмотров_вчера": 63755,
     "позавчера": 0,
-    "рост_раз": 84.07
+    "рост_раз": 64.75
    },
    {
-    "статья": "Lizzy Pattinson",
-    "просмотров_вчера": 76545,
+    "статья": "Lee Reeves (boxer)",
+    "просмотров_вчера": 56310,
     "позавчера": 0,
-    "рост_раз": 77.55
+    "рост_раз": 57.31
    },
    {
-    "статья": "James Bond",
-    "просмотров_вчера": 76019,
+    "статья": "Jacoby Brissett",
+    "просмотров_вчера": 95821,
+    "позавчера": 9322,
+    "рост_раз": 9.38
+   },
+   {
+    "статья": "Sing a Song of Sixpence",
+    "просмотров_вчера": 53058,
     "позавчера": 0,
-    "рост_раз": 77.02
+    "рост_раз": 54.06
    },
    {
-    "статья": "Joe Burrow",
-    "просмотров_вчера": 75566,
-    "позавчера": 0,
-    "рост_раз": 76.57
+    "статья": "Mariella Frostrup",
+    "просмотров_вчера": 85178,
+    "позавчера": 31135,
+    "рост_раз": 2.68
    },
    {
-    "статья": "Portrayal of James Bond in film",
-    "просмотров_вчера": 69500,
-    "позавчера": 0,
-    "рост_раз": 70.5
+    "статья": "The Hunger Games: Sunrise on the Reaping",
+    "просмотров_вчера": 92631,
+    "позавчера": 38091,
+    "рост_раз": 2.4
    },
    {
-    "статья": "Ricky Wilson (singer)",
-    "просмотров_вчера": 68908,
-    "позавчера": 0,
-    "рост_раз": 69.91
-   },
-   {
-    "статья": "Denis Villeneuve",
-    "просмотров_вчера": 65188,
-    "позавчера": 0,
-    "рост_раз": 66.19
-   },
-   {
-    "статья": "Aaron Rodgers",
-    "просмотров_вчера": 65183,
-    "позавчера": 0,
-    "рост_раз": 66.18
-   },
-   {
-    "статья": "Daniel Craig",
-    "просмотров_вчера": 107838,
-    "позавчера": 9629,
-    "рост_раз": 10.24
-   },
-   {
-    "статья": "Kristen Stewart",
-    "просмотров_вчера": 53125,
-    "позавчера": 0,
-    "рост_раз": 54.12
-   },
-   {
-    "статья": "No Time to Die",
-    "просмотров_вчера": 51436,
-    "позавчера": 0,
-    "рост_раз": 52.44
-   },
-   {
-    "статья": "List of James Bond films",
-    "просмотров_вчера": 106736,
-    "позавчера": 15271,
-    "рост_раз": 6.62
-   },
-   {
-    "статья": "Production of the James Bond films",
-    "просмотров_вчера": 50269,
-    "позавчера": 0,
-    "рост_раз": 51.27
-   },
-   {
-    "статья": "Sharad Kapoor",
-    "просмотров_вчера": 118510,
-    "позавчера": 27046,
-    "рост_раз": 4.26
-   },
-   {
-    "статья": "Miguel Ángel Félix Gallardo",
-    "просмотров_вчера": 70590,
-    "позавчера": 10184,
-    "рост_раз": 6.4
-   },
-   {
-    "статья": "John Malkovich",
-    "просмотров_вчера": 93805,
-    "позавчера": 27876,
-    "рост_раз": 3.28
-   },
-   {
-    "статья": "Callum Turner",
-    "просмотров_вчера": 60216,
-    "позавчера": 10226,
-    "рост_раз": 5.45
-   },
-   {
-    "статья": "Riley Green",
-    "просмотров_вчера": 57850,
-    "позавчера": 9728,
-    "рост_раз": 5.49
-   },
-   {
-    "статья": "Pierce Brosnan",
-    "просмотров_вчера": 59946,
-    "позавчера": 14254,
-    "рост_раз": 4.0
+    "статья": "Survivor Series: WarGames (2026)",
+    "просмотров_вчера": 54386,
+    "позавчера": 15631,
+    "рост_раз": 3.33
    }
   ]
  },
@@ -921,154 +834,154 @@
   "источник": "NewsAPI.ai (EventRegistry), крупнейшие события суток",
   "события": [
    {
-    "событие": "A Famous Actor Allegedly Dropped Out Of The James Bond Race At The Last Minute",
-    "статей": 1743,
-    "дата": "2026-11-16",
-    "uri": "deu-2199262"
+    "событие": "Nvidia Has No Plans to Bring Back Jensen Huang",
+    "статей": 1977,
+    "дата": "2026-11-17",
+    "uri": "eng-12196130"
    },
    {
-    "событие": "What to Know About APEC, ASEAN and the Quad",
-    "статей": 1424,
-    "дата": "2026-11-16",
-    "uri": "eng-12189964"
+    "событие": "Alphabet's Cloud Surge Collides With a Deepening Free Cash Flow Problem",
+    "статей": 1409,
+    "дата": "2026-11-17",
+    "uri": "spa-4420283"
    },
    {
-    "событие": "Ukraine Attacks Kerch Bridge Linking Russia to Occupied Crimea",
-    "статей": 1268,
-    "дата": "2026-11-16",
-    "uri": "eng-12191980"
-   },
-   {
-    "событие": "Pope Leo XIV hit in the face by flying rosary during farewell Mass in Peru, video shows",
-    "статей": 1018,
-    "дата": "2026-11-16",
-    "uri": "spa-4419834"
-   },
-   {
-    "событие": "Has Gianni Infantino already won the Fifa presidential election?",
-    "статей": 878,
-    "дата": "2026-11-16",
-    "uri": "fra-1364698"
-   },
-   {
-    "событие": "Robert Pattinson Named as the Next James Bond",
-    "статей": 793,
-    "дата": "2026-11-16",
-    "uri": "eng-12193343"
-   },
-   {
-    "событие": "U.S. Loses Its Measles Elimination Status, a Historic Setback for American Health",
-    "статей": 752,
-    "дата": "2026-11-16",
-    "uri": "eng-12191475"
-   },
-   {
-    "событие": "Five European Countries Plan to Deport Migrants to Rwanda",
-    "статей": 743,
-    "дата": "2026-11-16",
-    "uri": "eng-12192835"
-   },
-   {
-    "событие": "For Frances Tiafoe, the ATP Finals is the destination of a journey into the unknown",
-    "статей": 629,
-    "дата": "2026-11-16",
-    "uri": "spa-4418916"
-   },
-   {
-    "событие": "Video: Raye vs. Rosalía: Do the Grammys Want Tradition or Progress?",
-    "статей": 618,
-    "дата": "2026-11-16",
-    "uri": "eng-12193110"
-   },
-   {
-    "событие": "Chase says software bug took down online banking and Zelle for thousands of customers",
-    "статей": 615,
-    "дата": "2026-11-16",
-    "uri": "eng-12194040"
+    "событие": "How GTA 6 was shaped by Yorkshire",
+    "статей": 1147,
+    "дата": "2026-11-17",
+    "uri": "eng-12196976"
    },
    {
     "событие": "'Peace through strength': Albanese and Trump hail progress on Quad alliance",
-    "статей": 613,
-    "дата": "2026-11-16",
+    "статей": 792,
+    "дата": "2026-11-17",
     "uri": "eng-12191541"
    },
    {
-    "событие": "Trump says US taking 'very seriously' any Iranian plot against Washington",
-    "статей": 572,
-    "дата": "2026-11-17",
-    "uri": "eng-12194687"
-   },
-   {
-    "событие": "United Halts Flights as It Addresses 'Widespread System Outage'",
-    "статей": 519,
-    "дата": "2026-11-16",
-    "uri": "eng-12194544"
-   },
-   {
-    "событие": "Jensen Huang Says He Would Return to Nvidia if Asked",
-    "статей": 510,
-    "дата": "2026-11-17",
-    "uri": "eng-12195487"
-   },
-   {
-    "событие": "Belgium's Romelu Lukaku retires from international football: 'I went through every possible emotion'",
-    "статей": 484,
-    "дата": "2026-11-16",
-    "uri": "eng-12192485"
-   },
-   {
-    "событие": "The Ravens say their mini-bye offered a 'reset.' They had better be right",
-    "статей": 469,
-    "дата": "2026-11-16",
-    "uri": "eng-12189603"
-   },
-   {
-    "событие": "Bahrain intercepts Iranian drones targeting US radar after 2-month lull in Gulf strikes",
-    "статей": 455,
-    "дата": "2026-11-17",
-    "uri": "eng-12195467"
-   },
-   {
-    "событие": "There Will Be an Emergency Alert System Test on Tuesday. It Is Only a Test.",
-    "статей": 432,
-    "дата": "2026-11-17",
-    "uri": "eng-12191125"
-   },
-   {
-    "событие": "Iconic NBA arena unrecognizable after transformation makeover for GTA 6",
-    "статей": 430,
-    "дата": "2026-11-16",
-    "uri": "spa-4419852"
-   },
-   {
-    "событие": "Apple Addresses Outages Affecting Apple Pay, iCloud and Apps",
-    "статей": 429,
-    "дата": "2026-11-17",
-    "uri": "spa-4421177"
-   },
-   {
     "событие": "Deutsche Bank dismissed warnings about dealings with risky clients, reports claim",
-    "статей": 429,
+    "статей": 783,
     "дата": "2026-11-17",
     "uri": "eng-12195308"
    },
    {
-    "событие": "iPhone users targeted in 178-website cyberattack in bid to steal crypto, credit card details",
-    "статей": 418,
+    "событие": "Iran Fires Missiles and Drones at Gulf Arab States as Peace Talks Falter",
+    "статей": 757,
+    "дата": "2026-11-17",
+    "uri": "eng-12195467"
+   },
+   {
+    "событие": "Trump says US taking 'very seriously' any Iranian plot against Washington",
+    "статей": 681,
+    "дата": "2026-11-17",
+    "uri": "eng-12194687"
+   },
+   {
+    "событие": "Matan Kahana Elected Speaker of Israel's Parliament",
+    "статей": 651,
+    "дата": "2026-11-17",
+    "uri": "eng-12193832"
+   },
+   {
+    "событие": "Apple says internal update caused outage as services recover",
+    "статей": 642,
+    "дата": "2026-11-17",
+    "uri": "eng-12197383"
+   },
+   {
+    "событие": "After 49 Years, Voyager 1 Is a Mind-Blowing One Light-Day From Earth",
+    "статей": 641,
+    "дата": "2026-11-17",
+    "uri": "eng-12197585"
+   },
+   {
+    "событие": "MS Dhoni calls time on IPL career, takes up CSK mentor role",
+    "статей": 591,
+    "дата": "2026-11-17",
+    "uri": "eng-12194915"
+   },
+   {
+    "событие": "Malware attack impacted Zoom, Peacock, CNN, and over 170 others: Report",
+    "статей": 581,
     "дата": "2026-11-17",
     "uri": "eng-12195146"
    },
    {
-    "событие": "Florian Wirtz scores twice as Germany beat Netherlands 5-0 to reach Nations League quarter-finals",
-    "статей": 416,
-    "дата": "2026-11-16",
-    "uri": "spa-4419923"
+    "событие": "Classified N.S.A. Network Goes Down, Causing Work Disruptions",
+    "статей": 545,
+    "дата": "2026-11-17",
+    "uri": "spa-4421177"
    },
    {
-    "событие": "Robert Pattinson's 15 best roles, ranked",
-    "статей": 414,
-    "дата": "2026-11-16",
-    "uri": "eng-12190406"
+    "событие": "Passengers on 2 Thai Airways flights urged to watch for measles symptoms",
+    "статей": 516,
+    "дата": "2026-11-17",
+    "uri": "spa-4417897"
+   },
+   {
+    "событие": "How Mary Peltola Triumphed in Alaska's Senate Race",
+    "статей": 465,
+    "дата": "2026-11-18",
+    "uri": "eng-12198653"
+   },
+   {
+    "событие": "Hakeem Jeffries Embraces Medicare Expansion on Eve of Speaker Vote",
+    "статей": 434,
+    "дата": "2026-11-18",
+    "uri": "eng-12197455"
+   },
+   {
+    "событие": "There Will Be an Emergency Alert System Test on Tuesday. It Is Only a Test.",
+    "статей": 401,
+    "дата": "2026-11-17",
+    "uri": "eng-12191125"
+   },
+   {
+    "событие": "EU proposes €45bn loan for Ukraine to avert cash crisis and boost defences",
+    "статей": 362,
+    "дата": "2026-11-18",
+    "uri": "eng-12199542"
+   },
+   {
+    "событие": "Antibiotics losing their power against infections, warns ICMR",
+    "статей": 355,
+    "дата": "2026-11-17",
+    "uri": "spa-4420685"
+   },
+   {
+    "событие": "Hegseth boasts about Maduro's capture while vowing to deepen US military cooperation with Venezuela",
+    "статей": 345,
+    "дата": "2026-11-18",
+    "uri": "spa-4422930"
+   },
+   {
+    "событие": "Democrats Assail RFK Jr. After U.S. Loses Measles Elimination Status",
+    "статей": 341,
+    "дата": "2026-11-17",
+    "uri": "eng-12197808"
+   },
+   {
+    "событие": "Thousands march in support of Bukele's Haiti mission as analysts warn of escalation By Reuters",
+    "статей": 334,
+    "дата": "2026-11-17",
+    "uri": "spa-4420004"
+   },
+   {
+    "событие": "Carney and Trump to Hold Unscheduled Trade Meeting at Asia Summit",
+    "статей": 331,
+    "дата": "2026-11-17",
+    "uri": "eng-12197582"
+   },
+   {
+    "событие": "Fernando Alonso to race in 2027 Dakar Rally with Aston Martin",
+    "статей": 315,
+    "дата": "2026-11-17",
+    "uri": "spa-4420576"
+   },
+   {
+    "событие": "Julio Iglesias faces court probe over alleged sexual offences",
+    "статей": 309,
+    "дата": "2026-11-18",
+    "uri": "spa-4422409"
    }
   ]
  }

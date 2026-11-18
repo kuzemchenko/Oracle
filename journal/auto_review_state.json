@@ -1,1 +1,1 @@
-{"drought_step": 20, "court_alert_key": "4/4@2026-45", "deep_dive_waiting_alerted": ["h_2026-11-02_MP", "h_2026-11-03_DHT"]}
+{"drought_step": 20, "court_alert_key": "4/4@2026-45", "deep_dive_waiting_alerted": ["h_2026-11-02_MP", "h_2026-11-03_DHT"], "crontab_missing_key": "['17 * * * * cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/bot_watchdog.py >> journal/cron.log 2>&1']"}
