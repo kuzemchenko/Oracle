@@ -976,11 +976,12 @@ TOOL_SPECS = [
         "(прямой эффект в цене → ищем других получателей), mechanism_refuted (ветка закрыта), instrument_unfit (другой "
         "способ выразить), no_data (добыть данные). data — собранное: быстрая проверка {факты:[{текст,url,опубликовано,"
         "проверено}], механизм_проверен, цена, дата_цены, потенциал_пп, риски:[], инструмент_доступен:true}; углубление "
-        "и далее {market_view:{kind,metric,market:{value,source},ours:{value},why_different,основано_на:[номера фактов]}, "
+        "и далее {market_view:{kind (magnitude — размер эффекта | timing — срок | flow — вынужденный продавец/покупатель | rule — неверно понятое правило),metric,market:{value,source},ours:{value},why_different,основано_на:[номера фактов]}, "
         "materiality:{…}, сценарии:{цена,дата_цены,источник_цены,базовый:{цена,основание},неблагоприятный:{цена,основание}}, "
         "направление:'long'|'short', горизонт:'YYYY-MM-DD', условия_реализации:[], условия_опровержения:[], "
         "критика:{семейство, возражения:[{текст,существенное,ответ}]}, вероятность (только со счётом «k из n» в "
-        "основание_вероятности)}. Код не пропустит этап, если чего-то не хватает, и скажет чего.",
+        "основание_вероятности)}. Данные можно присылать частями — код сливает их с уже записанным. Код не пропустит "
+        "этап, если чего-то не хватает, и скажет чего; тот же отказ не повторяй — исправь названное или needs_data.",
         {"hyp_id": S, "outcome": S, "data": O, "reject_kind": S, "reason": S, "needs": A}, ("hyp_id", "outcome")),
     _fn("search_status", "Статус поиска, очередь гипотез и направлений, следующий шаг.", {}),
     _fn("record_bet", "Записать итоговый кандидат разговора в счёт ДО сделки (§9, проверяет код): бумага, direction "
@@ -1350,11 +1351,18 @@ class Agent:
             for c in calls:
                 fn = (c.get("function") or {})
                 name = fn.get("name")
+                raw = fn.get("arguments") or "{}"
                 try:
-                    args = json.loads(fn.get("arguments") or "{}")
-                except json.JSONDecodeError:
-                    args = {}
-                out = self.tools.call(name, args if isinstance(args, dict) else {})
+                    args = json.loads(raw)
+                except json.JSONDecodeError as e:
+                    args = None
+                    # Q-поиск-формальности 18.11: раньше — пустой вызов и непонятное «missing hyp_id»
+                    # («инструмент перестал принимать аргументы»); теперь — прямая причина и как поправить
+                    out = (f"аргументы {name} не разобраны: JSON оборван или испорчен (знак {e.pos} из {len(raw)}). "
+                           "Инструмент НЕ вызван. Пришли короче — только изменившиеся поля (данные гипотезы код "
+                           "сливает с уже записанным), без длинных цитат")
+                if args is not None:
+                    out = self.tools.call(name, args if isinstance(args, dict) else {})
                 self.trace.append({"tool": name, "args": redact(json.dumps(args, ensure_ascii=False))[:300],
                                    "chars": len(str(out))})
                 msgs.append({"role": "tool", "tool_call_id": c.get("id"), "name": name,

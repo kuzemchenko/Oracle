@@ -273,6 +273,33 @@ def check_probability(card, fails, labels):
 
 # ── VQ-2 (владелец 07.11): «рынок ждёт X, мы ждём Y», существенность, устойчивость, глубина цепочки ──
 MARKET_KINDS = {"magnitude", "timing", "flow", "rule"}
+MARKET_KIND_RU = {"magnitude": "размер эффекта (рынок ждёт X, мы — Y)", "timing": "срок (рынок ждёт позже/раньше)",
+                  "flow": "поток денег (вынужденный продавец/покупатель)", "rule": "неверно понятое правило"}
+# Q-поиск-формальности 18.11: поиск 16.11 сжёг круги ответа на «options» не из списка — тот же смысл по-русски или
+# в другом регистре код понимает сам; иное слово — поправимая ошибка с подсказкой ближайшего вида.
+_KIND_ALIASES = {"масштаб": "magnitude", "размер": "magnitude", "величина": "magnitude", "срок": "timing",
+                 "сроки": "timing", "время": "timing", "поток": "flow", "потоки": "flow", "правило": "rule",
+                 "регулирование": "rule"}
+_KIND_HINTS = (("magnitude", ("option", "опцион", "implied", "vol", "price", "цен", "consensus", "консенсус", "eps",
+                              "revenue", "выручк", "прибыл", "margin", "марж", "estimate", "dcf", "spread", "ставк")),
+               ("timing", ("date", "дат", "catalyst", "катализ", "schedule", "календар", "delay", "отсроч")),
+               ("flow", ("seller", "продав", "buyer", "покупат", "fund", "фонд", "index", "индекс", "buyback",
+                         "выкуп", "short", "шорт", "position", "позици")),
+               ("rule", ("regul", "регул", "law", "закон", "tariff", "тариф", "sanction", "санкц", "policy",
+                         "политик", "правил")))
+
+
+def normalize_market_kind(kind):
+    """→ (вид из MARKET_KINDS | None, подсказка словами). Синонимы (регистр, русское слово) — принимаются."""
+    k = str(kind or "magnitude").strip().lower()
+    k = _KIND_ALIASES.get(k, k)
+    if k in MARKET_KINDS:
+        return k, ""
+    guess = next((v for v, keys in _KIND_HINTS if any(x in k for x in keys)), None)
+    menu = "; ".join(f"{v} — {d}" for v, d in MARKET_KIND_RU.items())
+    hint = (f"неизвестный вид расхождения {str(kind)!r}: " + (f"скорее всего нужен {guess!r}; " if guess else "")
+            + f"допустимо: {menu}")
+    return None, hint
 MIN_GAP_REL = 0.05          # наш сценарий отличается от рынка меньше чем на 5% — расхождения нет
 MAX_CHAIN = 3               # звеньев от повода до бумаги (idea_bar: «1–3 звена»; первый круг разрешён)
 MAX_HYPOTHESIS_LINKS = 1    # жёсткая остановка: не больше одного неподтверждённого звена
@@ -292,13 +319,14 @@ def check_market_view(card, fails, labels):
         fails.append("рынок/мы: не показано, что рынок уже ждёт и чем отличается наш сценарий (market_view: "
                      "показатель, ожидание рынка с источником, наше значение, почему иначе)")
         return None
-    kind = str(mv.get("kind") or "magnitude")
+    kind, kind_hint = normalize_market_kind(mv.get("kind"))
+    kind = kind or str(mv.get("kind"))
     m = mv.get("market") if isinstance(mv.get("market"), dict) else {}
     o = mv.get("ours") if isinstance(mv.get("ours"), dict) else {}
     why = str(mv.get("why_different") or "").strip()
     out = {"kind": kind}
     if kind not in MARKET_KINDS:
-        fails.append(f"рынок/мы: неизвестный вид расхождения {kind!r} (magnitude | timing | flow | rule)")
+        fails.append(f"рынок/мы: {kind_hint}")
         return out
     if len(why) < 40:
         fails.append("рынок/мы: не объяснено, почему мы ждём другого (why_different ≥ 40 знаков)")

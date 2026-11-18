@@ -403,6 +403,42 @@ def worthy_gaps(h, today=None):
 
 
 # ── продвижение гипотезы ────────────────────────────────────────────────────────────
+REPEAT_TO_NEEDS = 3      # Q-поиск-формальности 18.11: та же нехватка 3 раза подряд → код ставит «нужны данные» сам
+
+
+def _merge(dst, src):
+    """Частичная присылка данных: словари сливаются вглубь (прислать можно только изменившееся поле, например
+    market_view.kind), списки и значения заменяются; None не затирает записанное."""
+    for k, v in src.items():
+        if v is None:
+            continue
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _merge(dst[k], v)
+        else:
+            dst[k] = v
+
+
+def _gap_reply(s, h, stage, head, gaps):
+    """Отказ продвинуть этап. Повтор той же нехватки не жжёт круги ответа: второй раз — прямое «не повторяй»,
+    третий — код сам ставит «нужны данные» с перечнем, и поиск идёт к другим направлениям."""
+    import hashlib
+    key = hashlib.sha256(("|".join(gaps) + stage).encode("utf-8")).hexdigest()[:16]
+    prev = h.get("повтор_ошибки") or {}
+    n = prev.get("n", 0) + 1 if prev.get("ключ") == key else 1
+    h["повтор_ошибки"] = {"ключ": key, "n": n, "этап": stage}
+    msg = head + "; ".join(gaps)
+    if n >= REPEAT_TO_NEEDS:
+        h.pop("повтор_ошибки", None)
+        h["вердикт"] = NEEDS_DATA
+        h["нужно_данных"] = list(gaps)[:6]
+        h["история"].append({"этап": stage, "итог": "нужны данные", "кто": "код (повтор той же нехватки)"})
+        _log(s, "нужны_данные", id=h["id"], этап=stage, кто="код: повтор той же нехватки")
+        return (f"{msg}. Это {n}-й одинаковый отказ подряд — код сам поставил гипотезе {h['id']} «нужны данные»; "
+                "не повторяй этот вызов: добудь недостающее или бери другое направление")
+    if n == 2:
+        return (f"{msg}. ТА ЖЕ нехватка второй раз подряд — тот же вызов не повторяй: исправь именно перечисленное "
+                "(присылай только изменившиеся поля — код сливает с уже записанным) или поставь outcome needs_data")
+    return msg + ". Пришли только недостающие поля — остальное уже записано"
 def advance(s, hid, outcome, data=None, reject_kind=None, reason="", needs=None, today=None):
     """Итог текущего этапа гипотезы: outcome 'pass' | 'reject' | 'needs_data'.
 
@@ -417,7 +453,7 @@ def advance(s, hid, outcome, data=None, reject_kind=None, reason="", needs=None,
     if h["вердикт"] in (REJECTED, WORTHY):
         return h, f"гипотеза {hid} уже закрыта ({h['вердикт']})"
     if data:
-        h["данные"].update({k: v for k, v in data.items() if v is not None})
+        _merge(h["данные"], data)
     stage = h["этап"]
     if outcome == "reject":
         if reject_kind not in REJECT_KINDS:
@@ -449,11 +485,12 @@ def advance(s, hid, outcome, data=None, reject_kind=None, reason="", needs=None,
     if stage == "быстрая_проверка":
         gaps = quick_check_gaps(h["данные"])
         if gaps:
-            return h, "быстрая проверка не пройдена — не хватает: " + "; ".join(gaps)
+            return h, _gap_reply(s, h, stage, "быстрая проверка не пройдена — не хватает: ", gaps)
     if stage == "оценка":
         gaps = worthy_gaps(h, today)
         if gaps:
-            return h, "кандидат пока не достоин выдачи — не хватает: " + "; ".join(gaps)
+            return h, _gap_reply(s, h, stage, "кандидат пока не достоин выдачи — не хватает: ", gaps)
+    h.pop("повтор_ошибки", None)
     h["вердикт"] = OPEN if h["вердикт"] == NEEDS_DATA else h["вердикт"]
     h["нужно_данных"] = []
     h["история"].append({"этап": stage, "итог": "пройден"})
