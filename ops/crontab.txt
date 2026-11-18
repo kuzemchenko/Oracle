@@ -118,3 +118,6 @@ MAILTO=""
 # V3 «качаем 2 дня» (ежедневно 09:40 UTC — продвижение очереди прокачки после кнопки).
 # ВКЛЮЧИТЬ после ручного прогона испытателя и «ок» владельца (правило внедрения 01.11):
 # 40 9 * * * cd /home/oracle/oracle && set -a && . ./.env && set +a && ops/cron_alert.sh deep_dive /home/oracle/oracle/.venv/bin/python orchestrator/deep_dive.py --mode live >> journal/cron.log 2>&1
+
+# Q-сторож-бота 18.11: сторож бота мимо бота (без LLM) — раз в час; шлёт только при флаге bot_watchdog_push
+17 * * * *  cd /home/oracle/oracle && set -a && . ./.env && set +a && /home/oracle/oracle/.venv/bin/python ops/bot_watchdog.py >> journal/cron.log 2>&1
