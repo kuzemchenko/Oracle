@@ -1,67 +1,71 @@
-# Меню событий — 2026-11-18T21:00:08+00:00
+# Меню событий — 2026-11-19T21:00:24+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 191, нет 1)
-- страна: Ecuador: 1923 статей (было 367, ×5.02); переговоры, дипломатическое сотрудничество; https://www.cotswoldjournal.co.uk/news/national/26739182.ecuador-ambassador-praises-kings-energy-inviting-monarch-nation/
-- MERCHANT: 1479 статей (было 182, ×7.42); принуждение, переговоры; https://970kfbx.iheart.com/content/2026-11-18-pakistani-man-sentenced-for-plot-to-kill-trump/
-- страна: Kuwait: 1981 статей (было 479, ×4.01); переговоры, боевые действия; https://isp.netscape.com:443/pf/story/0001/20261118/b1f0b530cffe951e6fcc1e27b2e1af94
-- страна: Turkmenistan: 1957 статей (было 492, ×3.86); переговоры, дипломатическое сотрудничество; https://www.trend.az/casia/turkmenistan/4247859.html
-- страна: Venezuela: 1994 статей (было 870, ×2.26); переговоры, намерения сотрудничать; https://www.wpbf.com/article/us-venezuela-reestablish-military-ties-hegseth/74468426
-- MAGISTRATE: 1502 статей (было 507, ×2.89); принуждение, уступки; https://www.aol.co.uk/articles/comedian-spat-heathrow-security-officer-174456000.html
-- PRINCE: 1903 статей (было 856, ×2.2); переговоры, намерения сотрудничать; https://www.harwichandmanningtreestandard.co.uk/news/national/26740482.william-kate-create-silk-napkins-visit-mumbai-crafts-school/
-- страна: Gambia: 1397 статей (было 511, ×2.67); переговоры, призывы; http://www.goskagit.com/news/world/top-un-court-to-deliver-judgment-in-case-alleging-myanmar-committed-genocide-against-rohingya/article_7dd0de9b-68b9-5576-b48f-67b80fe5ce9f.html
-- PAKISTANI: 925 статей (было 234, ×3.72); принуждение, нападения; https://katv.com/news/nation-world/pakistani-man-asif-merchant-sentenced-to-over-27-years-for-iran-backed-plot-to-assassinate-president-donald-trump-other-politicians-2024-islamic-revolutionary-guard-corps-justice-department-fbi
-- WALES: 1402 статей (было 622, ×2.21); переговоры, намерения сотрудничать; https://www.northwalespioneer.co.uk/news/national/26742318.no-political-interference-troubles-linked-prosecutions-attorney-general-says/
-- страна: Zambia: 785 статей (было 234, ×3.17); дипломатическое сотрудничество, переговоры; https://www.wsiu.org/2026-11-18/the-off-and-on-switch-for-u-s-aid-leads-to-a-cliffhanger-for-zambia-and-zimbabwe
-- страна: Belize: 1068 статей (было 449, ×2.32); переговоры, дипломатическое сотрудничество; https://7newsbelize.com/sstory.php?nid=80659
-- BUCHAREST: 329 статей (было 16, ×9.69); помощь, требования; https://www.romaniapress.com/news=198105
-- страна: American Samoa: 319 статей (было 18, ×8.92); заявления, переговоры; https://www.winnipegfreepress.com/arts-and-life/life/greenpage/2026/11/18/deep-sea-mining-auctions-spark-environmental-concerns-in-american-samoa-and-northern-mariana-islands
-- страна: Angola: 451 статей (было 81, ×4.66); переговоры, дипломатическое сотрудничество; https://wtvbam.com/2026/11/18/1002673/
+## GDELT: резко выросло за 24 ч (файлов 189, нет 3)
+- страна: Myanmar: 4063 статей (было 949, ×4.21); неодобрение, заявления; https://www.wcbe.org/npr-news/2026-11-19/the-u-n-s-top-court-rules-myanmar-committed-genocide-against-the-rohingya
+- страна: Greenland: 1174 статей (было 34, ×22.11); дипломатическое сотрудничество, намерения сотрудничать; https://www.koat.com/article/danish-parliament-approves-security-deal-greenland-us/74474252
+- INTERNATIONAL COURT OF JUSTICE: 700 статей (было 15, ×20.57); неодобрение, переговоры; https://home.nzcity.co.nz/news/article.aspx?id=458340&fm=psp,tsf
+- BERLIN: 1496 статей (было 440, ×3.3); переговоры, намерения сотрудничать; https://www.thetottenhamindependent.co.uk/news/national/26746645.burnham-hopes-strike-channel-action-immigration-deal-brussels-summit/
+- ENVOY: 743 статей (было 157, ×4.31); переговоры, намерения сотрудничать; https://www.newcastleherald.com.au/story/9395030/trump-putin-want-to-include-europe-in-ukraine-deal/
+- страна: Burkina Faso: 401 статей (было 30, ×8.42); переговоры, дипломатическое сотрудничество; https://www.africa-newsroom.com/press/burkina-faso-targets-critics-in-exile
+- HASSAN: 964 статей (было 429, ×2.19); переговоры, заявления; https://wjdx.iheart.com/content/2026-11-18-ai-chatbots-generate-terror-plans-gao-report-finds/
+- PRIVATE CITIZEN: 287 статей (было 10, ×10.23); переговоры, намерения сотрудничать; http://www.sitkasentinel.com/stories/uks-prince-harry-sees-big-separation-between-us-administration-public-on-support-for-ukraine,187322
+- HAITIAN: 827 статей (было 370, ×2.17); принуждение, переговоры; https://www.clickorlando.com/news/world/2026/11/18/florida-pastor-convicted-of-us-charges-related-to-assassination-of-haitian-president-jovenel-moise/
+- INTERNATIONAL CRIMINAL COURT: 582 статей (было 200, ×2.74); принуждение, переговоры; https://www.smh.com.au/world/asia/trump-putin-and-xi-talk-nuclear-weapons-and-ukraine-20261119-p61fsk.html
+- VENEZUELAN: 651 статей (было 254, ×2.45); переговоры, дипломатическое сотрудничество; https://wkzo.com/2026/11/18/trump-makes-third-trip-to-supreme-court-over-venezuelan-deportation-protections/
+- страна: Cote D'ivoire: 292 статей (было 29, ×6.37); переговоры, намерения сотрудничать; https://www.riotimesonline.com/abidjan-rapid-bus-line-opening-2029/
+- COLOMBIAN: 389 статей (было 97, ×3.5); переговоры, помощь; https://www.clickorlando.com/news/world/2026/11/18/florida-pastor-convicted-of-us-charges-related-to-assassination-of-haitian-president-jovenel-moise/
+- THE HAGUE: 321 статей (было 65, ×4.01); неодобрение, принуждение; https://www.wsbradio.com/news/world/un-court-set-rule/7X3ESY33WE5YDJODMSY2Q56IVY/
+- DANISH: 575 статей (было 259, ×2.13); дипломатическое сотрудничество, переговоры; https://www.koat.com/article/danish-parliament-approves-security-deal-greenland-us/74474252
 
 ## GDELT: больше всего пишут
-- страна: United States: 170108 статей; переговоры, заявления
-- страна: United Kingdom: 36503 статей; переговоры, заявления
-- страна: China: 33160 статей; переговоры, намерения сотрудничать
-- страна: India: 31320 статей; переговоры, заявления
-- страна: Canada: 19246 статей; переговоры, заявления
-- страна: Australia: 18860 статей; переговоры, заявления
-- страна: Nigeria: 17456 статей; заявления, переговоры
-- страна: Russia: 17407 статей; переговоры, заявления
-- страна: Israel: 16962 статей; переговоры, заявления
-- страна: Iran: 16174 статей; переговоры, боевые действия
-- страна: Philippines: 12736 статей; переговоры, дипломатическое сотрудничество
-- страна: Ukraine: 11475 статей; переговоры, дипломатическое сотрудничество
-- страна: Pakistan: 8576 статей; переговоры, заявления
-- страна: Ireland: 8496 статей; переговоры, заявления
-- PHILIPPINE: 8316 статей; переговоры, дипломатическое сотрудничество
+- страна: United States: 161786 статей; переговоры, заявления
+- страна: China: 38052 статей; переговоры, дипломатическое сотрудничество
+- страна: United Kingdom: 34215 статей; переговоры, заявления
+- страна: India: 30409 статей; переговоры, заявления
+- страна: Russia: 25140 статей; переговоры, дипломатическое сотрудничество
+- страна: Ukraine: 17614 статей; переговоры, заявления
+- страна: Nigeria: 16885 статей; заявления, переговоры
+- страна: Israel: 16499 статей; переговоры, заявления
+- страна: Canada: 16486 статей; переговоры, заявления
+- страна: Australia: 14350 статей; переговоры, заявления
+- страна: Iran: 13477 статей; переговоры, заявления
+- страна: Pakistan: 9097 статей; переговоры, заявления
+- страна: Germany: 8522 статей; переговоры, намерения сотрудничать
+- страна: Philippines: 7630 статей; переговоры, заявления
+- THE US: 7547 статей; переговоры, дипломатическое сотрудничество
 
 ## Википедия: интерес вырос
-- Ray Tintori: 98033 просмотров (позавчера 0, ×99.03)
-- Heidi Gardner: 83061 просмотров (позавчера 0, ×84.06)
-- John Christ: 69141 просмотров (позавчера 0, ×70.14)
-- List of songs recorded by the Beatles: 68112 просмотров (позавчера 0, ×69.11)
-- Crimean Bridge: 63755 просмотров (позавчера 0, ×64.75)
-- Lee Reeves (boxer): 56310 просмотров (позавчера 0, ×57.31)
-- Jacoby Brissett: 95821 просмотров (позавчера 9322, ×9.38)
-- Sing a Song of Sixpence: 53058 просмотров (позавчера 0, ×54.06)
-- Mariella Frostrup: 85178 просмотров (позавчера 31135, ×2.68)
-- The Hunger Games: Sunrise on the Reaping: 92631 просмотров (позавчера 38091, ×2.4)
-- Survivor Series: WarGames (2026): 54386 просмотров (позавчера 15631, ×3.33)
+- Grand Theft Auto VI: 519632 просмотров (позавчера 153037, ×3.38)
+- Andrej Stojaković: 97435 просмотров (позавчера 0, ×98.44)
+- Dancing with the Stars (American TV series) season 35: 150752 просмотров (позавчера 16338, ×8.75)
+- Quentin Grimes: 67780 просмотров (позавчера 0, ×68.78)
+- Tatyana Ali: 63987 просмотров (позавчера 0, ×64.99)
+- Peja Stojaković: 59924 просмотров (позавчера 0, ×60.92)
+- Mary Peltola: 133395 просмотров (позавчера 20539, ×6.24)
+- Hakeem Jeffries: 92218 просмотров (позавчера 11730, ×7.32)
+- Grand Theft Auto: 110668 просмотров (позавчера 40881, ×2.67)
+- Hunter Schafer: 101368 просмотров (позавчера 43124, ×2.32)
+- Rockstar Games: 79323 просмотров (позавчера 29538, ×2.63)
+- Anne Hathaway: 61423 просмотров (позавчера 20696, ×2.88)
+- Grand Theft Auto V: 81349 просмотров (позавчера 36313, ×2.21)
+- Manni L. Perez: 67267 просмотров (позавчера 31969, ×2.07)
+- 2026 United States Senate elections: 60456 просмотров (позавчера 29018, ×2.05)
 
 ## NewsAPI.ai: крупнейшие события
-- Nvidia Has No Plans to Bring Back Jensen Huang: 1977 статей
-- Alphabet's Cloud Surge Collides With a Deepening Free Cash Flow Problem: 1409 статей
-- How GTA 6 was shaped by Yorkshire: 1147 статей
-- 'Peace through strength': Albanese and Trump hail progress on Quad alliance: 792 статей
-- Deutsche Bank dismissed warnings about dealings with risky clients, reports claim: 783 статей
-- Iran Fires Missiles and Drones at Gulf Arab States as Peace Talks Falter: 757 статей
-- Trump says US taking 'very seriously' any Iranian plot against Washington: 681 статей
-- Matan Kahana Elected Speaker of Israel's Parliament: 651 статей
-- Apple says internal update caused outage as services recover: 642 статей
-- After 49 Years, Voyager 1 Is a Mind-Blowing One Light-Day From Earth: 641 статей
-- MS Dhoni calls time on IPL career, takes up CSK mentor role: 591 статей
-- Malware attack impacted Zoom, Peacock, CNN, and over 170 others: Report: 581 статей
-- Classified N.S.A. Network Goes Down, Causing Work Disruptions: 545 статей
-- Passengers on 2 Thai Airways flights urged to watch for measles symptoms: 516 статей
-- How Mary Peltola Triumphed in Alaska's Senate Race: 465 статей
+- Trump Asia live updates: Trump, Xi and Putin choosing 'different course,' Trump says: 3718 статей
+- 'Grand Theft Auto VI' forecast: rain and plenty of time inside: 2434 статей
+- Anthropic's historic debut to put AI's promise and peril to Wall St test: 1628 статей
+- The Rohingya Crisis Over the Years: 1078 статей
+- After 49 Years, Voyager 1 Is a Mind-Blowing One Light-Day From Earth: 841 статей
+- Hakeem Jeffries Embraces Medicare Expansion on Eve of Speaker Vote: 609 статей
+- The Latest: US and Venezuela sign military agreement as Trump administration seeks to deepen ties: 560 статей
+- Israeli Tanks Advance Across Gaza Cease-Fire Line in Rare Incursion: 528 статей
+- Putin's Crimean Bridge comes under attack again, Russian official says: 527 статей
+- Saudi Sovereign Wealth Fund Tower Damaged as Houthis Attack Riyadh: 446 статей
+- EU proposes €45bn loan for Ukraine to avert cash crisis and boost defences: 441 статей
+- Bingo at the Basin as India's grip slips: 411 статей
+- Zelenskyy says Starshield speed curbs still in place over 'occupied territories' of Ukraine: 400 статей
+- Sandpapergate has made Pat Cummins' position as Australia's captain untenable: 396 статей
+- Julio Iglesias faces court probe over alleged sexual offences: 390 статей
