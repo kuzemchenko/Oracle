@@ -393,6 +393,18 @@ def run(mode="auto", now=None, client=None, menu=None, attention_daily=None, att
         pr["брак"].append({"тема": cut.get("тема"), "причина": "не влезла в одно сообщение"})
         text = render(pr)
     viol = lint(text)
+    if viol and pr["предложения"]:              # голый тикер в одной ветке не топит всё сообщение (17.11: ZIM)
+        import presentation_lint as PL
+        keep = []
+        for o in pr["предложения"]:
+            if PL._bare_tickers(render({"предложения": [o]})):
+                pr["брак"].append({"тема": o.get("тема"), "причина": "тикер без названия компании"})
+            else:
+                keep.append(o)
+        if len(keep) != len(pr["предложения"]):
+            pr["предложения"] = keep
+            text = render(pr)
+            viol = lint(text) if keep else ["тикеры без названия компании во всех ветках"]
     if viol:                                    # жаргон/эмодзи/голые тикеры — не шлём, видно в протоколе
         pr["линт"] = viol
         pr["текст"] = None

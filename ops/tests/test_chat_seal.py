@@ -61,7 +61,8 @@ def test_agent_found_candidate_auto_sealed_and_line_written(tmp_path, monkeypatc
     import bot_agent as A
     from ops import price_snapshot as PS
     from ops.tests import test_search_queue as T
-    monkeypatch.setattr(PS, "lookup", lambda *a, **k: {"last_close": 20.0, "last_date": "2026-11-10",
+    monkeypatch.setattr(PS, "lookup", lambda *a, **k: {"last_close": 20.0,       # якорь ≤7 дн: дата от сегодня
+                                                       "last_date": (datetime.date.today() - datetime.timedelta(days=1)).isoformat(),
                                                        "sigma_daily": 0.02})
     tools = A.Tools()
     tools.search_dir = tmp_path / "s"

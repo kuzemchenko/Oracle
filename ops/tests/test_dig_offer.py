@@ -114,6 +114,16 @@ def test_bare_ticker_fails_lint(tmp_path):
     assert pr["текст"] is None and any("тикеры" in v for v in pr["линт"])
 
 
+def test_bare_ticker_drops_only_its_offer(tmp_path):
+    """17.11: голый ZIM.US в одной ветке утопил всё сообщение. Теперь за борт — только эта ветка."""
+    good = _offer(тема="Танкеры после санкций", почему_дальше="Фрахт держится дольше, чем ждут.")
+    bad = _offer(почему_дальше="Выиграет CRWD.US раньше всех.")
+    _, pr = _run(tmp_path, {"предложения": [bad, good]})
+    assert pr["текст"] and "Танкеры после санкций" in pr["текст"] and "CRWD" not in pr["текст"]
+    assert not pr.get("линт")
+    assert any(b["причина"] == "тикер без названия компании" for b in pr["брак"])
+
+
 def test_analog_by_library_id_filled_by_code(tmp_path):
     ep = {"id": "2024_crowdstrike_outage", "trigger_date": "2024-07-19", "title_ru": "Сбой CrowdStrike",
           "counter_case_ru": "Акции быстро отыграли.", "sources": [{"url": "https://example.com/cs"}]}
