@@ -96,3 +96,22 @@ def test_tool_description_lists_kinds():
     spec = next(t for t in A.TOOL_SPECS if t["function"]["name"] == "search_step")
     d = json.dumps(spec, ensure_ascii=False)
     assert "magnitude — размер эффекта" in d and "частями" in d
+
+
+def test_turn_stops_at_remaining_search_budget_not_full_turn_cap(tmp_path):
+    """Машинист 20.11: $22.26 при потолке $20 — ответ у самого потолка проходил его целиком."""
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    s = SQ.start("дроны", "telegram", d=tmp_path)
+    s["бюджет"]["лимит_usd"], s["бюджет"]["потрачено_usd"] = 20.0, 19.80
+    SQ.save(s, tmp_path)
+    tools.search_id = s["id"]
+    script = [_msg(calls=[("search_step", {"hyp_id": "h9", "outcome": "pass"})], cost=0.10) for _ in range(30)]
+    llm = FakeLLM(script)
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    _text, _f, cost = ag.run("продолжай поиск")
+    assert cost <= 0.40, cost                       # было бы до $2.50+
+    s = SQ.load(s["id"], tmp_path)
+    assert s["статус"] == SQ.PAUSED and s["пауза"]["вид"] == "budget"
+    assert any("бюджет поиска исчерпан" in str(m.get("content")) for b in llm.bodies for m in b["messages"]
+               if m.get("role") == "user")

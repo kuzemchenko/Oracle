@@ -1247,7 +1247,7 @@ class Agent:
             from ops import claim_check as CC
         sealed = self._sealed_probs()
         self.findings_first = CC.check(text, self.trace, sealed)
-        if self.findings_first and self.cost < MAX_TURN_COST_USD:
+        if self.findings_first and self.cost < self._cap():
             if msgs and msgs[-1].get("role") == "assistant" and not msgs[-1].get("tool_calls"):
                 msgs[-1] = {"role": "assistant", "content": text}
             else:
@@ -1284,7 +1284,7 @@ class Agent:
         SQ = self.tools._sq()
         for _ in range(SEARCH_ROUNDS):
             s = self.tools._sq_active()
-            if not s or s["статус"] != SQ.RUNNING or self.cost >= MAX_TURN_COST_USD * SEARCH_COST_SHARE:
+            if not s or s["статус"] != SQ.RUNNING or self.cost >= min(MAX_TURN_COST_USD * SEARCH_COST_SHARE, self._cap()):
                 break
             nxt = SQ.next_action(s)
             if msgs and msgs[-1].get("role") == "assistant" and not msgs[-1].get("tool_calls"):
@@ -1298,6 +1298,24 @@ class Agent:
             self.search_rounds += 1
             text = self._finish(msgs, self._loop(msgs, SEARCH_STEPS))
         return text
+
+    def _cap(self):
+        """Потолок трат этого ответа: MAX_TURN_COST_USD, а пока идёт поиск — не больше остатка его бюджета
+        (машинист 20.11: поиск «Иран/Бахрейн» ушёл в $22.26 при потолке $20 — стоимость ответа списывалась
+        только в конце, и последний ответ, начатый у самого потолка, проходил его целиком)."""
+        cap = MAX_TURN_COST_USD
+        if not self.tools.search_id:
+            return cap
+        try:
+            SQ = self.tools._sq()
+            st = self.tools._sq_active()
+        except Exception:                                        # noqa: BLE001 — потолок не роняет ответ
+            return cap
+        if st and st.get("статус") == SQ.RUNNING:
+            b = st.get("бюджет") or {}
+            left = float(b.get("лимит_usd") or 0) - float(b.get("потрачено_usd") or 0)
+            cap = min(cap, max(0.0, left))
+        return cap
 
     def _close_search_turn(self):
         """Конец ответа: стоимость — в бюджет поиска; поиск, который ещё идёт, ставится на паузу с причиной
@@ -1367,9 +1385,11 @@ class Agent:
                                    "chars": len(str(out))})
                 msgs.append({"role": "tool", "tool_call_id": c.get("id"), "name": name,
                              "content": redact(str(out))})
-            if self.cost >= MAX_TURN_COST_USD:
+            if self.cost >= self._cap():
+                what = ("бюджет поиска исчерпан" if self._cap() < MAX_TURN_COST_USD
+                        else "потолок трат на один ответ исчерпан")
                 msgs.append({"role": "user", "content": (
-                    "[система] потолок трат на один ответ исчерпан — инструменты больше не вызывай, "
+                    f"[система] {what} — инструменты больше не вызывай, "
                     "ответь по уже собранному и честно скажи, чего не успел взять.")})
                 final, _m = self._complete_no_tools(msgs)
                 return final
@@ -1381,7 +1401,7 @@ class Agent:
         """Ответ оборван лимитом длины → продлить с места обрыва (до MAX_CONTINUATIONS раз)."""
         parts = [text or ""]
         n = 0
-        while self.last_finish == "length" and n < MAX_CONTINUATIONS and self.cost < MAX_TURN_COST_USD:
+        while self.last_finish == "length" and n < MAX_CONTINUATIONS and self.cost < self._cap():
             n += 1
             if not msgs or msgs[-1].get("role") != "assistant":
                 msgs.append({"role": "assistant", "content": parts[-1]})
