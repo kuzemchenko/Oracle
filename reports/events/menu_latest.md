@@ -1,71 +1,65 @@
-# Меню событий — 2026-11-20T21:00:13+00:00
+# Меню событий — 2026-11-21T21:00:17+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 190, нет 2)
-- страна: Poland: 5661 статей (было 2005, ×2.81); переговоры, боевые действия; https://www.yorkpress.co.uk/news/national/26748713.russian-missile-strike-poland-utterly-unacceptable-andy-burnham-says/
-- POLISH: 1715 статей (было 297, ×5.47); переговоры, боевые действия; https://www.wimbledonguardian.co.uk/news/national/26748713.russian-missile-strike-poland-utterly-unacceptable-andy-burnham-says/
-- SPECIAL ENVOY: 653 статей (было 56, ×8.86); призывы, боевые действия; https://www.newcastleherald.com.au/story/9395232/michelle-grattan-anti-semitism-royal-commission-a-moment-of-reckoning/
-- NATO: 1594 статей (было 686, ×2.29); переговоры, заявления; https://www.wimbledonguardian.co.uk/news/national/26748713.russian-missile-strike-poland-utterly-unacceptable-andy-burnham-says/
-- CENTER FOR STRATEGIC AND INTERNATIONAL STUDIES: 415 статей (было 8, ×15.54); переговоры, призывы; https://abc3340.com/news/nation-world/trump-xi-and-putin-meet-for-first-time-issue-four-point-declaration-on-key-issues
-- страна: Lesotho: 618 статей (было 101, ×5.27); переговоры, принуждение; https://lestimes.com/?p=92100
-- DRUG ENFORCEMENT: 423 статей (было 20, ×11.07); расследования, помощь; https://rocketerie.iheart.com/content/2026-11-19-hayden-panettieres-mother-says-skipping-funeral-was-for-the-best/
-- страна: American Samoa: 482 статей (было 48, ×7.38); заявления, переговоры; https://www.klkntv.com/i/trump-administration-auctions-deep-sea-mining-leases-near-american-samoa-in-first-sale-of-its-kind/
-- страна: Botswana: 657 статей (было 154, ×3.89); переговоры, дипломатическое сотрудничество; https://www.thesouthafrican.com/news/africa/how-much-bank-account-fees-cost-in-south-africa-and-its-neighbours/
-- HIPPO: 620 статей (было 172, ×3.33); дипломатическое сотрудничество, переговоры; https://www.tivysideadvertiser.co.uk/news/national/26746753.us-zoo-says-fiona-hippo-died-days-swallowing-visitors-hat/
-- DONALD TUSK: 292 статей (было 10, ×10.4); переговоры, заявления; https://www.dailyadvertiser.com.au/story/9395676/poland-condemns-russian-provocation/
-- TURKIYE: 437 статей (было 90, ×4.15); переговоры, дипломатическое сотрудничество; https://economictimes.indiatimes.com/news/international/world-news/cop31-climate-talks-drag-on-as-australia-turkiye-struggle-to-forge-consensus/articleshow/136038525.cms
-- GANGSTER: 280 статей (было 31, ×5.88); боевые действия, неодобрение; https://afr.net/podcasts/jenna-ellis-in-the-morning/2026/november/unshaken-by-the-headlines-faith-in-a-troubled-nation/
-- страна: Tunisia: 328 статей (было 62, ×4.24); принуждение, переговоры; https://www.arabnews.com/middle-east/tunisia-rights-activist-sentenced-to-five-years-in-prison-3013181
-- SHANGHAI: 436 статей (было 134, ×2.96); переговоры, заявления; https://www.finanznachrichten.de/nachrichten-2026-11/70184186-eqs-newswire-bosideng-bosideng-marks-50-years-with-warmth-code-exhibition-in-shanghai-023.htm
+## GDELT: резко выросло за 24 ч (файлов 192, нет 0)
+- страна: Finland: 1661 статей (было 616, ×2.64); заявления, уступки; https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/
+- ARUNACHAL PRADESH: 482 статей (было 47, ×7.49); переговоры, дипломатическое сотрудничество; http://www.cambodiantimes.com/news/279446668/amit-shah-attends-president-police-colour-award-ceremony-in-arunachal-pradesh
+- FINNISH: 418 статей (было 100, ×3.65); угрозы, боевые действия; https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/
+- FREEDOM FIGHTER: 199 статей (было 5, ×8.76); переговоры, заявления; https://bdnews24.com/bangladesh/sgwuj5y7hp
+- NITISH KUMAR: 195 статей (было 5, ×8.6); намерения сотрудничать, переговоры; https://www.tribuneindia.com/news/india/modi-launches-rs-34470-crore-projects-in-bihar-hails-nitish-for-states-progress/
+- страна: Burundi: 178 статей (было 0, ×9.9); переговоры, заявления; https://garoweonline.com/en/news/world/uganda-and-burundi-military-officials-visit-israel-to-discuss-gaza-troop-deployment
+- BIHAR: 526 статей (было 250, ×2.02); заявления, переговоры; https://aninews.in/news/national/politics/bihar-pm-modi-inaugurates-nitish-setu-over-river-ganga-in-vaishali16020261121142742/
+- UTAH: 397 статей (было 153, ×2.41); переговоры, дипломатическое сотрудничество; https://www.sltrib.com/opinion/commentary/2026/11/21/opinion-im-socialist-wokeness-is/
+- MAFIA: 275 статей (было 94, ×2.59); переговоры, расследования; https://www.freepressjournal.in/india/goa-cjp-chief-abhijeet-dipke-alleges-130-acres-of-tribal-land-transferred-to-builders-for-township-project
+- PATNA: 288 статей (было 116, ×2.26); призывы, заявления; https://indiankanoon.org/doc/151864088/
+- SETTLER: 195 статей (было 49, ×3.12); неодобрение, переговоры; https://www.cbc.ca/news/world/israeli-settler-violence-at-unprecedented-levels-during-palestinian-olive-harvest-9.7426808
+- CONVICTS: 245 статей (было 100, ×2.21); уступки, переговоры; https://www.newindianexpress.com/states/kerala/2026/Nov/21/bilkis-bano-says-those-who-ruined-her-life-now-threaten-to-plunge-india-into-darkness
+- VILLAGER: 209 статей (было 79, ×2.31); заявления, призывы; https://www.bbc.co.uk/news/articles/cvze71y6g85yo
+- страна: Gaza Strip: 229 статей (было 97, ×2.13); заявления, переговоры; https://www.middleeasteye.net/live-blog/live-blog-update/six-palestinians-killed-israeli-strikes-gaza-civil-defence-says
+- BALI: 219 статей (было 92, ×2.13); переговоры, нападения; https://goss.ie/uk-showbiz/love-island-star-reveals-why-she-nearly-rejected-her-husbands-proposal-493936
 
 ## GDELT: больше всего пишут
-- страна: United States: 153849 статей; переговоры, заявления
-- страна: United Kingdom: 36715 статей; переговоры, заявления
-- страна: India: 31362 статей; переговоры, заявления
-- страна: China: 30390 статей; переговоры, заявления
-- страна: Russia: 21997 статей; переговоры, заявления
-- страна: Australia: 18134 статей; переговоры, заявления
-- страна: Canada: 15711 статей; переговоры, заявления
-- страна: Nigeria: 15557 статей; заявления, переговоры
-- страна: Ukraine: 15252 статей; переговоры, боевые действия
-- страна: Israel: 14385 статей; переговоры, заявления
-- страна: Iran: 13754 статей; переговоры, заявления
-- страна: Pakistan: 10301 статей; переговоры, заявления
-- страна: France: 8435 статей; переговоры, заявления
-- страна: South Africa: 7343 статей; переговоры, заявления
-- страна: Germany: 7000 статей; переговоры, заявления
+- страна: United States: 109389 статей; переговоры, заявления
+- страна: India: 29241 статей; переговоры, заявления
+- страна: United Kingdom: 22328 статей; переговоры, заявления
+- страна: China: 16951 статей; переговоры, дипломатическое сотрудничество
+- страна: Russia: 13205 статей; переговоры, заявления
+- страна: Canada: 12500 статей; переговоры, заявления
+- страна: Nigeria: 11388 статей; заявления, переговоры
+- страна: Israel: 9938 статей; переговоры, боевые действия
+- страна: Ukraine: 8748 статей; переговоры, боевые действия
+- страна: Australia: 8182 статей; переговоры, заявления
+- страна: Iran: 8036 статей; переговоры, заявления
+- страна: Pakistan: 7263 статей; переговоры, заявления
+- страна: France: 5244 статей; переговоры, заявления
+- страна: Germany: 4356 статей; переговоры, заявления
+- RUSSIAN: 4299 статей; переговоры, боевые действия
 
 ## Википедия: интерес вырос
-- Stephen Wilson Jr.: 327962 просмотров (позавчера 0, ×328.96)
-- Ken McElroy: 172820 просмотров (позавчера 0, ×173.82)
-- Larry Poindexter: 124373 просмотров (позавчера 0, ×125.37)
-- Ella Langley: 189264 просмотров (позавчера 13322, ×13.28)
-- Leigh Nash: 95384 просмотров (позавчера 0, ×96.38)
-- Fiona (hippopotamus): 83965 просмотров (позавчера 0, ×84.97)
-- Iron Gate (Antioch): 69354 просмотров (позавчера 0, ×70.35)
-- Dario Amodei: 167998 просмотров (позавчера 30934, ×5.29)
-- Brooks & Dunn: 63225 просмотров (позавчера 0, ×64.22)
-- Devlin Hodges: 55407 просмотров (позавчера 0, ×56.41)
-- International Men's Day: 118074 просмотров (позавчера 19004, ×5.95)
-- Tim McGraw: 51134 просмотров (позавчера 0, ×52.13)
-- The Red Clay Strays: 50905 просмотров (позавчера 0, ×51.91)
-- Lainey Wilson: 86763 просмотров (позавчера 8489, ×9.25)
-- Daniela Amodei: 92187 просмотров (позавчера 13483, ×6.43)
+- Riemann hypothesis: 295157 просмотров (позавчера 0, ×296.16)
+- Levent Alpöge: 124632 просмотров (позавчера 0, ×125.63)
+- privacy policy: 78955 просмотров (позавчера 0, ×79.95)
+- 2026 MAMA Awards: 52630 просмотров (позавчера 0, ×53.63)
+- O.M: Operation Mole: 119692 просмотров (позавчера 22628, ×5.11)
+- The Traitors: New Blood: 63853 просмотров (позавчера 10438, ×5.67)
+- Lance Broadway: 79751 просмотров (позавчера 20186, ×3.81)
+- Bruno Mars: 60612 просмотров (позавчера 14756, ×3.91)
+- Harambe: 67020 просмотров (позавчера 21696, ×3.0)
 
 ## NewsAPI.ai: крупнейшие события
-- Friend zone: humiliated by US voters, Trump basks in company of autocrats: 4109 статей
-- Anthropic's record IPO nets huge windfall for L.A. investors: 2479 статей
-- A Summit Gives Putin the Win He Craves: Equal Stature With Superpowers: 1752 статей
-- In a Rohingya Refugee Camp, Jubilation but Also Apprehension: 1654 статей
-- Cop31 risks becoming 'ghost' summit after all mentions of 'fossil fuels' removed from draft text: 635 статей
-- Russian cruise missile crashes in Poland in violation condemned as intentional: 459 статей
-- Personnel changes hit the White House again as cybersecurity chief Sean Cairncross is being replaced: 454 статей
-- Mauricio Pochettino's Manchester United start cannot be as slow as his previous clubs: 449 статей
-- Cyberattack on JPMorgan Chase impacts customer identities: what to know: 407 статей
-- This religion may soon be bigger than Christianity, new research says: 392 статей
-- Senate Republicans quash measure aimed at ending unpopular Iran war: 324 статей
-- Cyberattack Using Artificial Intelligence Targeted European Union In October: 315 статей
-- GTA 6 expands Xbox availability through Cloud Gaming: 280 статей
-- Bruno Mars mourns father's death in heartbreaking tribute, shares picture of their last hug: 278 статей
-- Real Madrid confirm Tchouameni contract extension: terms of the deal: 257 статей
+- Who Is the Mexican Drug Kingpin Known as El Chapo Isidro?: 889 статей
+- Bayern Munich's Harry Kane facing around three months out with torn ankle ligaments: 880 статей
+- 'Russian Objects' Crashed in Poland, Officials Say. Here's What We Can See.: 778 статей
+- Fiona the Hippo Died After Eating a Hat. Some Want Justice.: 735 статей
+- England to face Norway, Spain to play France in Nations League quarter-finals: 638 статей
+- Russia-bound ship attacked in Gulf of Finland: 509 статей
+- Anthropic Mathematician Claims to Have Solved Math's Most Famous Problem: 415 статей
+- FBI reportedly investigating apparent hack of its criminal database: 365 статей
+- How would Liverpool feel about a Manchester relegation (or two)?: 337 статей
+- Fight over fossil fuels leaves COP31 climate talks in deadlock: 331 статей
+- Rahul ton, Gill 98 headline productive batting day for India: 317 статей
+- Brazil ex-President Bolsonaro hospitalized with intestinal obstruction: 307 статей
+- European Union Proposes Tax On Big Tech In New Budget Draft: 299 статей
+- Texas death-row inmate screams as execution takes more than one hour: 297 статей
+- 'No change on Indus Waters Treaty stance': MEA as Pak minister who threatened India visits Delhi: 278 статей
