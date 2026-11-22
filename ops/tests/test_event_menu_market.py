@@ -305,3 +305,47 @@ def test_market_lead_without_headline_names_price_base_as_source(tmp_path):
     # обычный повод без ссылки (флаг выключен) по-прежнему идёт без строки «Источник»
     plain = D.render({"предложения": [dict(_offer(), источники=[{"id": "F1", "url": None, "текст": "x"}], аналог=None)]})
     assert "Источник" not in plain
+
+
+# ── находки ревью 22.11 ──────────────────────────────────────────────────────────────────
+def test_names_are_cut_only_from_the_end_and_fund_keeps_its_name():
+    assert EM.short_name("First Trust Global Wind Energy ETF") == "First Trust Global Wind Energy ETF"   # было «First»
+    assert EM.short_name("Platinum Group Metals Ltd") == "Platinum Group Metals"                         # было «Platinum»
+    assert EM.short_name("Reinsurance Group of America") == "Reinsurance Group of America"
+    assert EM.short_name("Northern Trust Corporation") == "Northern Trust"
+    assert EM.short_name("Alibaba Group Holding Ltd") == "Alibaba" and EM.short_name("KKR & Co. Inc.") == "KKR"
+    assert EM.short_name("Arm Holdings plc American Depositary Shares") == "Arm"
+    assert EM.short_name("Banco Macro SA B ADR") == "Banco Macro" and EM.short_name("Vitamin C") == "Vitamin C"
+    pages = dict(PAGES, **{"UVXY.US": {"name": "First Trust Global Wind Energy ETF", "page": None,
+                                       "почему": "тип ETF — у фонда нет «страницы толпы»"},
+                           "RY.US": {"name": "Platinum Group Metals Ltd", "page": None, "type": "Common Stock"}})
+    mk = _market(pages=pages)
+    assert [it["подпись"] for it in mk["фонды"]] == ["фонд First Trust Global Wind Energy ETF (UVXY.US)"]
+    assert _by(mk, "компании")["RY.US"]["подпись"] == "Platinum Group Metals (RY.US)"
+
+
+def test_exchange_code_before_colon_is_not_the_ticker():
+    asx = EM.headline_matcher("ASX.US", names=["ASE Industrial"])
+    assert not asx("Woodside Energy (ASX:WDS) Shares Rise: Why Is the ASX 20 Stock Higher?")
+    assert not asx("'One foot in recession': ASX slides again")
+    assert asx("ASE Industrial (NYSE:ASX) cuts outlook") and asx("Chip packager (ASX) slides") and asx("$ASX drops")
+    ms = EM.headline_matcher("MS.US", names=["Morgan Stanley"])
+    assert not ms("Thala Forever : MS Dhoni CSK Story") and ms("Morgan Stanley sees gold higher") and ms("Bank (NYSE: MS) falls")
+    wulf = EM.headline_matcher("WULF.US")
+    assert wulf("Pagaya (NASDAQ:PGY) and TeraWulf (NASDAQ: WULF) Head to Head")
+
+
+def test_paper_with_missing_trading_days_is_not_a_sharp_one_day_move():
+    hole = _series([-0.2])                                   # последняя цена на дату рынка, но прежняя — три недели назад
+    hole = [((datetime.date.fromisoformat(d) - datetime.timedelta(days=21)).isoformat(), c) for d, c in hole[:-1]] + [hole[-1]]
+    mk = _market(data=({**CLOSES, "HOLE.US": hole}, NEWS))
+    assert hole[-1][0] == mk["цены_на"]
+    assert all(it["бумага"] != "HOLE.US" for k in ("компании", "фонды") for it in mk[k])
+    assert mk["счёт"]["компании"]["всего"] == 4              # бумага с дырой в датах не измерена и в счёт не идёт
+    assert all("HOLE.US" not in ld["текст"] for ld in EM.market_leads(mk))
+
+
+def test_no_sector_list_is_said_plainly():
+    md = "\n".join(EM.render_market(_market(rules={})))
+    assert "Секторы (резкое движение у 0 из 0):\n- нет данных: список фондов секторов не прочитан" in md
+    assert "список фондов секторов не прочитан" not in "\n".join(EM.render_market(_market()))

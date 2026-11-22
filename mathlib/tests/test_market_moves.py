@@ -115,3 +115,21 @@ def test_window_returns_and_typical_move_basics():
     assert MM.daily_returns([100, 110, 55], gap=0.45) == [pytest.approx(0.1), None]
     assert MM.typical_move([0.01, -0.01] * 10, 1, min_obs=30) is None        # наблюдений меньше минимума
     assert MM.typical_move([0.0] * 200, 1) is None                           # нулевая норма — делить не на что
+
+
+def test_hole_in_dates_is_not_measured_as_a_one_day_move():
+    """Ревью 22.11: ход считается по соседним строкам; если в базе пропущены торги, «за день −5%» был бы ходом
+    за недели — честнее «не измерено»."""
+    v = _extend(_calm(), [-0.05])
+    ok = _dated(v)
+    assert MM.measure(ok, days=1) is not None and MM.measure(ok, days=5) is not None
+    late = [(d, c) for d, c in ok[:-1]] + [("2026-12-15", v[-1])]           # последняя цена — через 25 дней после прежней
+    assert MM.measure(late, days=1) is None and MM.measure(late, days=5) is None and MM.summary(late) is None
+    mid = ok[:-4] + [((datetime.date(2026, 12, 20) + datetime.timedelta(days=i)).isoformat(), c)
+                     for i, (_, c) in enumerate(ok[-4:])]                     # дыра четыре строки назад
+    assert MM.measure(mid, days=1) is not None and MM.measure(mid, days=5) is None
+    assert MM.measure(v, days=1) is not None                                  # ряд без дат — проверять нечем
+    # обычные выходные и праздники дырой не считаются: пятница → вторник (понедельник — праздник), 24.12 → 04.01
+    assert not MM.window_has_hole(["2026-11-20", "2026-11-24"], 1)
+    assert not MM.window_has_hole(["2026-12-24", "2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31", "2027-01-04"], 5)
+    assert MM.window_has_hole(["2026-11-13", "2026-11-20"], 1) and not MM.window_has_hole(["x", "y"], 1)

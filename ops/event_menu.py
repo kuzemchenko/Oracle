@@ -296,8 +296,12 @@ _MARKET_WORDS = re.compile(
     r"\b(?:stocks?|shares?|earnings|investors?|sell-?off|rout|plunge[sd]?|slump[sd]?|tumble[sd]?|surge[sd]?|soar(?:s|ed)?|"
     r"rall(?:y|ies)|downgrade[sd]?|upgrade[sd]?|price target|CEO|SEC|Nasdaq|NYSE|guidance|revenue|profit)\b|акци|котиров",
     re.IGNORECASE)
-_NAME_TAIL = re.compile(r"[\s,]+(?:Inc|Corp|Corporation|Ltd|Limited|PLC|LP|Holdings?|Group|Co|Company|SA|NV|AG|SE|ADR|"
-                        r"Trust|Class [A-C]|Common Stock)\b.*$", re.IGNORECASE)
+# хвост имени, который не различает компании: правовая форма и вид бумаги. Срезается ТОЛЬКО с конца и по одному слову
+# (ревью 22.11: срез «от первого такого слова до конца» давал «First» из «First Trust Global Wind Energy ETF»
+# и «Platinum» из «Platinum Group Metals Ltd»); «Trust» не срезается — «Northern Trust» без него чужое имя
+_NAME_TAIL = re.compile(r"[\s,]+(?:Inc|Corp|Corporation|Ltd|Limited|PLC|LP|Holdings?|Group|Co|Company|SA|N\.?V|AG|SE|"
+                        r"(?:[A-C] )?ADR(?: [A-C])?|(?:Class|Series) [A-C]|Common Stock|Ordinary Shares|American Depositary Shares|"
+                        r"New York Registry Shares)\.?$", re.IGNORECASE)
 
 
 def _market_deps():
@@ -339,9 +343,16 @@ def _read_pages(path=None):
 
 
 def short_name(name):
-    """«NVIDIA Corporation» → «NVIDIA», «Mitsubishi UFJ Financial Group Inc ADR» → «Mitsubishi UFJ Financial»."""
+    """«NVIDIA Corporation» → «NVIDIA», «Mitsubishi UFJ Financial Group Inc ADR» → «Mitsubishi UFJ Financial»;
+    «Platinum Group Metals Ltd» → «Platinum Group Metals» (слово в середине имени не трогаем)."""
     n = " ".join(str(name or "").replace("®", "").split())
-    cut = _NAME_TAIL.sub("", n).strip(" .,&")
+    cut = n
+    while True:
+        nxt = _NAME_TAIL.sub("", cut).strip(" ,&")
+        if nxt == cut or len(nxt) < 2:
+            break
+        cut = nxt
+    cut = cut.strip(" .,&") if cut != n else cut.strip(" ,")
     return cut if len(cut) >= 2 else n.strip(" .,")
 
 
@@ -375,9 +386,11 @@ def read_market_data(today, db_path=None, news_days=MARKET_NEWS_DAYS):
 
 
 def _ticker_rx(sym):
-    """Тикер в заголовке: «(NVDA)», «NASDAQ: NVDA», «$NVDA»; голым словом — только от 4 букв (иначе «ALL», «NOW»)."""
+    """Тикер в заголовке: «(NVDA)», «NASDAQ: NVDA», «$NVDA»; голым словом — только от 4 букв (иначе «ALL», «NOW»).
+    После двоеточия — только если перед ним код биржи заглавными: «(ASX:WDS)» — это биржа, а не бумага ASX,
+    «Thala Forever : MS Dhoni» — не Morgan Stanley (ревью 22.11)."""
     base = re.escape(sym.split(".")[0])
-    pats = [rf"(?:\(|:\s?|\$){base}(?![\w.-])"]
+    pats = [rf"\({base}\)", rf"(?<![A-Za-z])[A-Z]{{2,12}}\s?:\s?{base}(?![\w.:-])", rf"\${base}(?![\w.-])"]
     if len(sym.split(".")[0]) >= 4:
         pats.append(rf"(?<![\w$.-]){base}(?![\w.-])")
     return re.compile("|".join(pats))
@@ -594,6 +607,8 @@ def render_market(mk):
     L += ["", f"Секторы (резкое движение у {s.get('резких', 0)} из {s.get('всего', 0)}):"]
     for it in mk.get("секторы") or []:
         L += _market_line(it)
+    if not s.get("всего") and not mk.get("секторы_не_измерены"):
+        L.append("- нет данных: список фондов секторов не прочитан")
     if mk.get("секторы_ещё_резкие"):
         L.append("- ещё резкие: " + ", ".join(mk["секторы_ещё_резкие"]))
     if mk.get("секторы_спокойные"):
