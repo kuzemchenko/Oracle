@@ -237,6 +237,42 @@ def _hyp_data(h):
     return SQ.unwrap(dict(h.get("данные") or {}))
 
 
+# Пункты, которые кроме кода проверяет независимый судья (сектор и выигрыш/потеря — чистый расчёт, судья не нужен)
+JUDGED = {1: "КАНАЛ", 2: "РАЗМЕР", 3: "СРОК", 4: "РЫНОК", 5: "ПОЧЕМУ", 6: "ПРЕЦЕДЕНТ", 9: "СОБЫТИЕ"}
+
+
+def _apply_judge(h, d, P, blockers, rules):
+    """Прогон DHT 22.11: 9 из 10 при том, что «чего ждёт рынок» сравнивал разные кварталы, а ответ на возражение
+    критика был неверен по факту, — код проверял форму. Теперь пункт зачтён, только если согласны И код (есть число
+    и ссылка), И независимый судья (довод по делу). Пункт 10 — по решению судьи «снято / не снято», а не по
+    наличию ответа. Судьи нет (или он смотрел прежние доказательства) → «ставка» невозможна.
+    → {'семейство','модель','когда'} | None."""
+    import search_queue as SQ
+    j, why = SQ.judgement(h)
+    if j is None:
+        wait_thr = int((rules.get("решения") or {}).get("ожидание", 6))
+        if sum(1 for p in P.values() if p["зачтён"] is True) >= wait_thr:
+            blockers.append(why + " — без него ставка невозможна")
+        return None
+    for i, code in JUDGED.items():
+        v = (j.get("пункты") or {}).get(code)
+        if P[i]["зачтён"] is True and isinstance(v, dict) and v.get("по_делу") is False:
+            P[i] = _pt(False, "судья: довод не по делу — " + (v.get("почему") or "причина не названа"))
+    cr = d.get("критика") if isinstance(d.get("критика"), dict) else {}
+    objs = [(str(o.get("n") or i), o) for i, o in enumerate(cr.get("возражения") or [], 1) if isinstance(o, dict)]
+    subst = [(n, o) for n, o in objs if o.get("существенное")]
+    if objs:
+        left = [(n, (j.get("возражения") or {}).get(n) or {}) for n, _o in subst
+                if ((j.get("возражения") or {}).get(n) or {}).get("снято") is not True]
+        if left:
+            n0, v0 = left[0]
+            P[10] = _pt(False, f"судья: не снято существенных возражений — {len(left)} (№{n0}: "
+                               f"{v0.get('почему') or 'судья его не оценил'})")
+        else:
+            P[10] = _pt(True, "судья: все существенные возражения критика сняты ответами")
+    return {k: j.get(k) for k in ("семейство", "модель", "когда")}
+
+
 def points_from_hypothesis(h, today=None, rules=None, sector=None):
     rules = rules or load_rules()
     today = today or _today()
@@ -282,7 +318,8 @@ def points_from_hypothesis(h, today=None, rules=None, sector=None):
     else:
         P[9] = _pt(True, f"срок {cd}; цель {base['цена']:g} с расчётом")
     P[10] = _p_court_answered(d.get("критика"))
-    info = {"тикер": str(h.get("тикер") or "").upper(), "имя": str(h.get("получатель") or "").split(" — ")[0][:60] or None,
+    judge = _apply_judge(h, d, P, blockers, rules)
+    info = {"судья": judge, "тикер": str(h.get("тикер") or "").upper(), "имя": str(h.get("получатель") or "").split(" — ")[0][:60] or None,
             "направление": direction, "цена": px, "дата_цены": sc.get("дата_цены") or d.get("дата_цены"),
             "цель": base.get("цена"), "стоп": adv.get("цена"), "вход": px}
     return P, blockers, info
@@ -379,6 +416,8 @@ def render(v, track_line=None):
     if bad:
         L.append("Не зачтено:")
         L += [f"• {p['почему'] or p['словами']}" for p in bad]
+    if v.get("судья"):
+        L.append(f"Доводы по существу проверил независимый судья — модель третьего разработчика ({v['судья'].get('семейство')}).")
     if v.get("брак"):
         L.append("Мешает ставке при любом балле: " + "; ".join(str(b)[:160] for b in v["брак"][:3]) + ".")
     thr = v["пороги"]["ставка"]

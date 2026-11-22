@@ -63,7 +63,11 @@ SEARCH_STEPS = 10              # кругов инструментов на од
 SEARCH_COST_SHARE = 0.85       # доля потолка ответа, после которой поиск ставится на паузу (остаток — на итог)
 SAVE_SHARE = 0.65              # 22.11: с этой доли потолка ответа добытое, но не записанное в гипотезу, обязано быть записано
 SAVE_TOOLS = ("search_step", "search_status", "committee_verdict")   # что доступно, пока не записано
-CRITIC_ROLE = "critic"         # критика внутри поиска: роль из config/models.yaml, семейство — не то, что у агента
+SEARCH_ROLE = "partner_search" # владелец 22.11: сбор доказательств в поиске — дешёвая модель (Sonnet 4.6), разговор — ROLE
+CRITIC_ROLE = "committee_critic"   # критика внутри поиска: семейство — не автора идеи и не судьи (П10)
+JUDGE_ROLE = "committee_judge"     # независимый судья комитета (владелец 22.11: Astra): доводы по существу
+JUDGE_BRIEF_MAX = 40000        # знаков материала судье (~12 тыс. токенов); длинные строки ужимаются, хвост не режется
+MAX_JUDGE_RUNS = 3             # сколько раз судья пересматривает одну гипотезу (после исправлений автора)
 COMMITTEE_RESERVE_SHARE = 0.25 # Q-вердикт-комитет: последняя четверть бюджета поиска — на доведение лучшей гипотезы до вердикта
 FUTURE_PROMISE_RE = re.compile(r"вернусь|пришлю|сообщу|напишу,? когда|продолжу (?:сам|в фоне|позже|искать)|"
                                r"дам знать|в фоне|позже (?:пришлю|напишу|вернусь)", re.I)
@@ -166,6 +170,7 @@ class Tools:
         self.sealed = []           # строки «записал в счёт», которые КОД допишет к ответу
         self.mat_inputs = None     # числа последнего расчёта materiality_check в этом ответе (22.11)
         self.critic_fn = None      # вызов модели-критика другого семейства (ставит Agent); None — критика недоступна
+        self.judge_fn = None       # вызов независимого судьи (ставит Agent); None — судья недоступен
 
     def _store(self, data, source, units=None):
         self._n += 1
@@ -754,7 +759,12 @@ class Tools:
         self.search_worked = True
         data = self._fill_materiality(data)
         data = self._keep_critique(s, hyp_id, data)
+        if isinstance(data, dict):                     # решение судьи пишет только код
+            data = {k: v for k, v in SQ.unwrap(data).items() if k != SQ.JUDGE_KEY}
         _h, msg = SQ.advance(s, hyp_id, outcome, data if isinstance(data, dict) else None, reject_kind, reason, needs)
+        note = self._auto_judge(s, _h)
+        if note:
+            msg = f"{msg}. {note}"
         SQ.save(s, self.search_dir)
         if s["статус"] == SQ.FOUND and _h is not None and not _h.get("прогноз"):
             # Q-чат-в-счёт: найденный кандидат — в счёт ДО сделки, кодом (порог — базовый сценарий, срок — горизонт)
@@ -816,6 +826,94 @@ class Tools:
                                         "search_step data {критика:{ответы:{'1':'…','2':'…'}}}",
                            "возражения": [{k: o[k] for k in ("n", "текст", "существенное")} for o in rec["возражения"]]},
                           ensure_ascii=False)[:MAX_TOOL_CHARS]
+
+    # — независимый судья комитета (владелец 22.11: «давай лучше судить будет astra») —
+    def judge_brief(self, h):
+        """Что видит судья: формулировки пунктов листа, доказательства по каждому, факты, возражения критика и ответы
+        автора. Кто автор и кто критик — не сообщается (суд слепой)."""
+        SQ = self._sq()
+        IV = self._iv()
+        d = SQ.unwrap(h.get("данные") or {})
+        rules = IV.load_rules()
+        words = {it["код"]: it["словами"] for it in rules.get("пункты") or [] if it["код"] in IV.JUDGED.values()}
+        sc = d.get("сценарии") if isinstance(d.get("сценарии"), dict) else {}
+        mv = d.get("market_view") if isinstance(d.get("market_view"), dict) else {}
+        ev = {"КАНАЛ": d.get("chain") or d.get("цепочка"), "РАЗМЕР": d.get("materiality"),
+              "СРОК": d.get("durability") or d.get("устойчивость"), "РЫНОК": mv,
+              "ПОЧЕМУ": {"почему_рынок_пропускает": mv.get("why_different"), "основано_на_фактах": mv.get("основано_на")},
+              "ПРЕЦЕДЕНТ": d.get("precedent") or d.get("прецедент"),
+              "СОБЫТИЕ": {"событие": d.get("катализатор"), "срок": d.get("горизонт"), "цена_сейчас": sc.get("цена") or d.get("цена"),
+                          "цель": sc.get("базовый"), "неблагоприятный_сценарий": sc.get("неблагоприятный")}}
+        cr = d.get("критика") if isinstance(d.get("критика"), dict) else {}
+        objs = [{"n": o.get("n") or i, "возражение": o.get("текст"), "существенное": bool(o.get("существенное")),
+                 "ответ_автора": o.get("ответ")} for i, o in enumerate(cr.get("возражения") or [], 1) if isinstance(o, dict)]
+        facts = [{"n": i, "текст": f.get("текст"), "url": f.get("url"), "опубликовано": f.get("опубликовано")}
+                 for i, f in enumerate(d.get("факты") or [], 1) if isinstance(f, dict)]
+        def clip(x, n=1800):
+            """Длинные строки укорачиваются по одной — материал НЕ режется с хвоста (проверка 22.11: при обрезке на
+            16 000 знаков до судьи не дошёл ответ автора на последнее возражение, и он счёл его «не присланным»)."""
+            if isinstance(x, str):
+                return x if len(x) <= n else x[:n - 1] + "…"
+            if isinstance(x, dict):
+                return {k: clip(v, n) for k, v in x.items()}
+            if isinstance(x, list):
+                return [clip(v, n) for v in x]
+            return x
+
+        body = {"бумага": h.get("тикер"), "направление": d.get("направление") or "long", "тезис": h.get("тезис"),
+                "механизм": d.get("механизм") or h.get("механизм"), "пункты_листа": words,
+                "возражения_критика": objs,                      # возражения и ответы — раньше фактов: они судятся целиком
+                "доказательства_по_пунктам": {k: v for k, v in ev.items() if v}, "факты": facts}
+        for n in (1800, 900, 450):                               # не влезло — ужимаем длинные строки, а не хвост
+            out = json.dumps(clip(body, n), ensure_ascii=False, default=str)
+            if len(out) <= JUDGE_BRIEF_MAX:
+                return out
+        return out
+
+    def judge_now(self, s, h):
+        """Вызвать судью и записать его решение в гипотезу кодом. → (запись | None, причина)."""
+        SQ = self._sq()
+        if not self.judge_fn:
+            return None, "независимый судья из этого окружения не запускается"
+        res = self.judge_fn(self.judge_brief(h))
+        if not res or res.get("ошибка"):
+            return None, "судья не ответил: " + str((res or {}).get("ошибка") or "пустой ответ")
+        rec = SQ.record_judgement(h, res.get("семейство"), res.get("модель"), res.get("пункты"), res.get("возражения"))
+        if rec is None:
+            return None, "ответ судьи не разобран"
+        SQ.save(s, self.search_dir)
+        return rec, None
+
+    def _auto_judge(self, s, h):
+        """Гипотеза прошла критику (этап «оценка» и дальше) → судья проверяет доводы по существу; автор видит, что
+        не принято, и может исправить (судья пересмотрит, не больше MAX_JUDGE_RUNS раз). За флагом комитета."""
+        SQ = self._sq()
+        try:
+            if h is None or not committee_on() or not self.judge_fn or h.get("вердикт") == SQ.REJECTED:
+                return None
+            if SQ.STAGES.index(h.get("этап")) < SQ.STAGES.index("оценка"):
+                return None
+            d = h.get("данные") or {}
+            cr = d.get("критика")
+            if not (isinstance(cr, dict) and cr.get("записал") == "код"):
+                return None
+            j, _why = SQ.judgement(h)
+            if j is not None or int((d.get(SQ.JUDGE_KEY) or {}).get("раз") or 0) >= MAX_JUDGE_RUNS:
+                return None
+            rec, why = self.judge_now(s, h)
+            if rec is None:
+                return "Независимый судья доводы НЕ проверил (" + str(why) + ") — не пиши, что проверка пройдена"
+            bad = [f"{k}: {v['почему']}" for k, v in rec["пункты"].items() if v["по_делу"] is False]
+            left = [f"№{k}: {v['почему']}" for k, v in rec["возражения"].items() if v["снято"] is False]
+            if not bad and not left:
+                return f"Независимый судья ({rec['семейство']}) проверил доводы по существу: замечаний нет"
+            return (f"Независимый судья ({rec['семейство']}) проверил доводы по существу. Не по делу: "
+                    + ("; ".join(bad)[:900] or "нет") + ". Возражения критика не сняты: " + ("; ".join(left)[:900] or "нет")
+                    + ". Это решение записано кодом и снижает балл комитета. Если можешь исправить ПО СУЩЕСТВУ (другой "
+                      "показатель, свой расчёт, факт со ссылкой, честный ответ на возражение) — пришли исправленное "
+                      "search_step, судья пересмотрит; если нет — так и скажи владельцу")
+        except Exception as e:                                   # noqa: BLE001 — судья не роняет шаг поиска
+            return f"Независимый судья доводы НЕ проверил (сбой: {type(e).__name__})"
 
     def _fill_materiality(self, data):
         """Проверочный прогон 22.11 (DHT): модель посчитала размер эффекта инструментом materiality_check, а в данные
@@ -1272,6 +1370,8 @@ class Agent:
         self.save_nudges = 0
         if getattr(self.tools, "critic_fn", None) is None:
             self.tools.critic_fn = self._critic
+        if getattr(self.tools, "judge_fn", None) is None:
+            self.tools.judge_fn = self._judge
 
     def _post(self, body):
         if not self.api_key:
@@ -1322,8 +1422,19 @@ class Agent:
             out.append(m)
         return out
 
+    def _role(self):
+        """Разговор — ROLE (сильная модель); как только в ответе тронут поиск идеи — SEARCH_ROLE (сбор доказательств,
+        владелец 22.11). Роли поиска в настройках нет — работаем на роли разговора."""
+        if self.tools.search_id:
+            try:
+                self.OR.resolve_role(SEARCH_ROLE, self.models)
+                return SEARCH_ROLE
+            except KeyError:
+                pass
+        return ROLE
+
     def _call(self, messages, tool_choice="auto", max_tokens=6000):
-        role_cfg = self.OR.resolve_role(ROLE, self.models)
+        role_cfg = self.OR.resolve_role(self._role(), self.models)
         chain = self.OR.filtered_chain(role_cfg, None, self.models)
         last = None
         for model in chain:
@@ -1379,39 +1490,96 @@ class Agent:
         "как вопрос, на который автор обязан ответить. Ответ — СТРОГО JSON без пояснений: "
         '{"возражения":[{"текст":"…","существенное":true}]}')
 
-    def _critic(self, brief):
-        """Один вызов модели другого семейства (П10: критик — не из семейства автора идеи). Стоимость — в счёт
-        ответа и бюджета поиска. → {"семейство","модель","возражения"} | {"ошибка"}."""
+    JUDGE_PROMPT = (
+        "Ты — независимый судья инвестиционного комитета в исследовательской системе. Тебе дают идею, формулировки пунктов "
+        "листа, доказательства автора по каждому пункту, факты и возражения критика с ответами автора. Ты НЕ оцениваешь, "
+        "вырастет ли акция, и не ставишь балл. Твоя задача — отделить довод по существу от заполненной формы.\n"
+        "По каждому пункту из «доказательства_по_пунктам» реши: по_делу true, если доказательство действительно "
+        "подтверждает именно то, что требует формулировка пункта; иначе false. Правила: (1) сравниваются ОДИН показатель "
+        "и ОДИН период; сравнение разных кварталов или разных показателей — не по делу; (2) «наше значение» — собственный "
+        "расчёт автора из фактов, а не чужой прогноз или консенсус; для идеи на рост наше значение должно быть лучше "
+        "ожиданий рынка; (3) размер эффекта — ПРИРОСТ из-за события, а не вся прибыль или выручка компании; (4) цель "
+        "цены — расчёт (показатель × множитель с обоснованием), ссылка на среднюю цель аналитиков расчётом не является; "
+        "(5) звено цепочки и довод об устойчивости подтверждены, если приведённый факт говорит именно об этом, а не "
+        "рядом; (6) похожий случай — тот же механизм, а не просто тот же сектор.\n"
+        "По каждому возражению критика реши: снято true, если ответ автора опровергает его фактом или числом, либо "
+        "честно признаёт и это учтено в сценариях; false, если ответ уходит от вопроса, противоречит записанным данным "
+        "или просто повторяет тезис.\n"
+        "Фактов не выдумывай и ничего не додумывай за автора: судишь только по присланному. Причину пиши одной-двумя "
+        "фразами простым языком. Ответ — СТРОГО JSON без пояснений: "
+        '{"пункты":{"КАНАЛ":{"по_делу":true,"почему":"…"}},"возражения":{"1":{"снято":false,"почему":"…"}}}')
+
+    def _families(self, *roles):
+        out = set()
+        for r in roles:
+            try:
+                out.add(self.OR.resolve_role(r, self.models).get("family"))
+            except KeyError:
+                pass
+        return {f for f in out if f}
+
+    def _side_call(self, role, exclude, system, user, max_tokens, agent_id):
+        """Один вызов модели другой роли без инструментов (критик, судья). Стоимость — в счёт ответа и бюджета поиска.
+        → (текст, модель) | (None, причина)."""
         try:
-            gen_family = self.OR.resolve_role(ROLE, self.models).get("family") or "anthropic"
-            cfg = self.OR.resolve_role(CRITIC_ROLE, self.models)
-            chain = self.OR.filtered_chain(cfg, gen_family, self.models)
+            cfg = self.OR.resolve_role(role, self.models)
+            chain = self.OR.filtered_chain(cfg, exclude or None, self.models)
         except Exception as e:                                   # noqa: BLE001
-            return {"ошибка": f"роль критика не настроена: {e}"}
-        last = "нет моделей другого семейства"
+            return None, f"роль {role} не настроена: {e}"
+        last = "нет моделей нужного семейства"
         for model in chain:
-            body = {"model": model, "temperature": cfg.get("temperature", 0.3), "usage": {"include": True},
-                    "max_tokens": 2500, "messages": [{"role": "system", "content": self.CRITIC_PROMPT},
-                                                     {"role": "user", "content": str(brief)[:9000]}]}
-            try:
-                data = self.post(body)
-            except Exception as e:                               # noqa: BLE001
-                last = str(e)[:160]
-                self.log_cost("live", "bot_agent_critic", model, None, None, ok=False, run_id="bot_agent")
-                continue
-            usage = data.get("usage") or {}
-            self.log_cost("live", "bot_agent_critic", model, usage, usage.get("cost"), ok=True, run_id="bot_agent")
-            self.cost += float(usage.get("cost") or 0.0)
-            text = _msg_text(((data.get("choices") or [{}])[0]).get("message") or {})
-            m = re.search(r"\{.*\}", text or "", re.S)
-            try:
-                objs = json.loads(m.group(0)).get("возражения") if m else None
-            except (ValueError, AttributeError):
-                objs = None
-            if isinstance(objs, list) and objs:
-                return {"семейство": self.OR.family_of(model, self.models), "модель": model, "возражения": objs}
-            last = "ответ критика не разобран"
-        return {"ошибка": last}
+            base = {"model": model, "usage": {"include": True}, "max_tokens": max_tokens,
+                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": str(user)}]}
+            for body in ({**base, "temperature": cfg.get("temperature", 0.3)}, base):   # модель не берёт температуру — без неё
+                try:
+                    data = self.post(body)
+                except Exception as e:                           # noqa: BLE001
+                    last = str(e)[:160]
+                    self.log_cost("live", agent_id, model, None, None, ok=False, run_id="bot_agent")
+                    continue
+                usage = data.get("usage") or {}
+                self.log_cost("live", agent_id, model, usage, usage.get("cost"), ok=True, run_id="bot_agent")
+                self.cost += float(usage.get("cost") or 0.0)
+                text = _msg_text(((data.get("choices") or [{}])[0]).get("message") or {})
+                if text and text.strip():
+                    return text, model
+                last = "пустой ответ"
+                break
+        return None, last
+
+    @staticmethod
+    def _json_in(text):
+        m = re.search(r"\{.*\}", text or "", re.S)
+        try:
+            return json.loads(m.group(0)) if m else None
+        except ValueError:
+            return None
+
+    def _critic(self, brief):
+        """Критик — модель не семейства автора идеи и не семейства судьи (П10: три разных разработчика).
+        → {"семейство","модель","возражения"} | {"ошибка"}."""
+        role = CRITIC_ROLE if self._families(CRITIC_ROLE) else "critic"
+        text, model = self._side_call(role, self._families(ROLE, SEARCH_ROLE, JUDGE_ROLE), self.CRITIC_PROMPT,
+                                      str(brief)[:9000], 2500, "bot_agent_critic")
+        if text is None:
+            return {"ошибка": model}
+        objs = (self._json_in(text) or {}).get("возражения")
+        if isinstance(objs, list) and objs:
+            return {"семейство": self.OR.family_of(model, self.models), "модель": model, "возражения": objs}
+        return {"ошибка": "ответ критика не разобран"}
+
+    def _judge(self, brief):
+        """Независимый судья — модель не семейства автора и не семейства критика.
+        → {"семейство","модель","пункты","возражения"} | {"ошибка"}."""
+        text, model = self._side_call(JUDGE_ROLE, self._families(ROLE, SEARCH_ROLE, CRITIC_ROLE), self.JUDGE_PROMPT,
+                                      str(brief), 8000, "bot_agent_judge")
+        if text is None:
+            return {"ошибка": model}
+        d = self._json_in(text)
+        if not isinstance(d, dict) or not (isinstance(d.get("пункты"), dict) or isinstance(d.get("возражения"), dict)):
+            return {"ошибка": "ответ судьи не разобран"}
+        return {"семейство": self.OR.family_of(model, self.models), "модель": model,
+                "пункты": d.get("пункты") or {}, "возражения": d.get("возражения") or {}}
 
     def _auto_start_search(self, user_text, audience):
         """14.11: просьба владельца «найди идею» — это поиск по очереди (VQ-4), а не разговор. Агент 7 раз из 9

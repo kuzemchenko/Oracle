@@ -78,6 +78,20 @@ roles:
     primary:   anthropic/claude-fable-5      # Fable 5 — аргументирует, спорит, отстаивает позицию;
     fallbacks: [anthropic/claude-opus-4.8, anthropic/claude-sonnet-4.6]  # денежные вердикты — суд П10
     family:    anthropic
+  partner_search:            # СБОР ДОКАЗАТЕЛЬСТВ В ПОИСКЕ ИДЕИ (владелец 22.11: «согласен — Sonnet 4.6 для поиска, Fable 5
+    primary:   anthropic/claude-sonnet-4.6   # оставить для разговора»). Прогон DHT 22.11: Sonnet довёл идею до конца за
+    fallbacks: [anthropic/claude-fable-5]    # один ход и $1.64; Fable — $10 и $2.2 без результата. Недоступна — та же
+    family:    anthropic                     # работа на модели разговора (дороже, но поиск не встаёт).
+  committee_critic:          # КРИТИК ВНУТРИ ПОИСКА (critic_check): модель НЕ семейства автора идеи и НЕ семейства судьи.
+    primary:   google/gemini-3.1-pro-preview # Был openai/gpt-5.5 — переставлен 22.11, когда владелец выбрал судьёй Astra
+    fallbacks: [x-ai/grok-4.3]               # (OpenAI): автор, критик и судья — три разных разработчика (П10).
+    family:    google
+    temperature: 0.3
+  committee_judge:           # НЕЗАВИСИМЫЙ СУДЬЯ КОМИТЕТА (владелец 22.11: «давай лучше судить будет astra»): по каждому
+    primary:   openai/gpt-6.2-astra-pro      # пункту листа — «довод по делу / не по делу», по каждому возражению критика —
+    fallbacks: [openai/gpt-6-astra-pro]      # «снято / не снято». Балл ставит код; без судьи «ставка» невозможна.
+    family:    openai
+    temperature: 0.2
   flow_economist:            # V5 «Шансы недели»: экономист потоков (слияние фундаментального
     primary:   openai/gpt-5.5          # аналитика и теоретика игр — приложение А карты v3); НЕ суждение
     fallbacks: [anthropic/claude-opus-4.8, google/gemini-3.1-pro-preview]  # §11 — свой трек thesis_event

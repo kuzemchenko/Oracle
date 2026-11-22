@@ -717,6 +717,12 @@ def evidence_digest(h, limit=3500):
             {"n": o.get("n", i), "текст": _cut(o.get("текст"), 200), "существенное": bool(o.get("существенное")),
              "ответ_есть": len(str(o.get("ответ") or "")) >= 20}
             for i, o in enumerate(cr["возражения"], 1) if isinstance(o, dict)]}
+    j = d.get(JUDGE_KEY) if isinstance(d.get(JUDGE_KEY), dict) else None
+    if j:
+        out["судья"] = {"не_по_делу": {k: _cut(v.get("почему"), 160) for k, v in (j.get("пункты") or {}).items()
+                                       if v.get("по_делу") is False},
+                        "не_снято": {k: _cut(v.get("почему"), 160) for k, v in (j.get("возражения") or {}).items()
+                                     if v.get("снято") is False}}
     txt = json.dumps(out, ensure_ascii=False)
     return out if len(txt) <= limit else {"сокращено": txt[:limit] + "…"}
 
@@ -750,6 +756,52 @@ def record_critique(h, family, model, objections):
     h.setdefault("данные", {})["критика"] = {"семейство": str(family), "модель": str(model), "когда": _now(),
                                            "записал": "код", "возражения": objs[:6]}
     return h["данные"]["критика"]
+
+
+JUDGE_KEY = "суд_комитета"
+EVIDENCE_KEYS = ("факты", "механизм", "chain", "цепочка", "materiality", "durability", "устойчивость", "market_view",
+                 "precedent", "прецедент", "сценарии", "катализатор", "горизонт", "направление", "критика")
+
+
+def evidence_fingerprint(h):
+    """Отпечаток того, что судил судья: поменялись доказательства или ответы на возражения — прежнее решение судьи
+    к ним уже не относится (служебные поля «когда», пояснения к числам в отпечаток не входят)."""
+    import hashlib
+    d = unwrap(h.get("данные") or {})
+    ev = {k: d[k] for k in EVIDENCE_KEYS if d.get(k) not in (None, "", [], {})}
+    if isinstance(ev.get("критика"), dict):
+        ev["критика"] = [[o.get("текст"), bool(o.get("существенное")), o.get("ответ")]
+                         for o in ev["критика"].get("возражения") or [] if isinstance(o, dict)]
+    return hashlib.sha256(json.dumps(ev, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
+
+
+def record_judgement(h, family, model, points, objections):
+    """Решение независимого судьи записывает КОД (владелец 22.11: судья — Astra). points — {КОД пункта: {по_делу,
+    почему}}, objections — {номер возражения: {снято, почему}}. Автор идеи это поле изменить не может."""
+    d = h.setdefault("данные", {})
+    prev = d.get(JUDGE_KEY) if isinstance(d.get(JUDGE_KEY), dict) else {}
+    pts = {str(k): {"по_делу": bool(v.get("по_делу")), "почему": str(v.get("почему") or "")[:400]}
+           for k, v in (points or {}).items() if isinstance(v, dict) and isinstance(v.get("по_делу"), bool)}
+    objs = {str(k): {"снято": bool(v.get("снято")), "почему": str(v.get("почему") or "")[:400]}
+            for k, v in (objections or {}).items() if isinstance(v, dict) and isinstance(v.get("снято"), bool)}
+    if not pts and not objs:
+        return None
+    d.pop(JUDGE_KEY, None)
+    d[JUDGE_KEY] = {"семейство": str(family), "модель": str(model), "когда": _now(), "записал": "код",
+                    "отпечаток": evidence_fingerprint(h), "пункты": pts, "возражения": objs,
+                    "раз": int(prev.get("раз") or 0) + 1}
+    return d[JUDGE_KEY]
+
+
+def judgement(h):
+    """→ (решение судьи | None, причина словами). Решение действует, только если записано кодом и относится к
+    НЫНЕШНИМ доказательствам."""
+    j = unwrap(h.get("данные") or {}).get(JUDGE_KEY)
+    if not (isinstance(j, dict) and j.get("записал") == "код"):
+        return None, "независимый судья ещё не проверял доводы по существу"
+    if j.get("отпечаток") != evidence_fingerprint(h):
+        return None, "после проверки судьёй доказательства изменились — нужна новая проверка"
+    return j, None
 
 
 def answer_critique(h, incoming):

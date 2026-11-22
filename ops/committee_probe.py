@@ -51,12 +51,16 @@ def models_with(model):
     from orchestrator import openrouter as OR
     import bot_agent as BA
     models = copy.deepcopy(OR.load_models())
+    done = False
     for sect in ("roles", "school_roles"):
-        if BA.ROLE in (models.get(sect) or {}):
-            models[sect][BA.ROLE] = {**models[sect][BA.ROLE], "primary": model, "fallbacks": [],
-                                     "family": model.split("/", 1)[0]}
-            return models
-    raise KeyError(f"роль {BA.ROLE} не найдена в config/models.yaml")
+        for role in (BA.ROLE, BA.SEARCH_ROLE):          # и разговор, и сбор доказательств — на модели прогона
+            if role in (models.get(sect) or {}):
+                models[sect][role] = {**models[sect][role], "primary": model, "fallbacks": [],
+                                      "family": model.split("/", 1)[0]}
+                done = True
+    if not done:
+        raise KeyError(f"роль {BA.ROLE} не найдена в config/models.yaml")
+    return models
 
 
 def run(ticker, name, card=None, budget=10.0, max_turns=6, out=None, answer=None, log=print, model=None):

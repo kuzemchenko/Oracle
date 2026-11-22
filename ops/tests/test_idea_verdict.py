@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "ops"))
 
+import bot_agent as BA          # noqa: E402
 import idea_verdict as IV       # noqa: E402
 import search_queue as SQ       # noqa: E402
 import sector_view as SV        # noqa: E402
@@ -24,8 +25,8 @@ def _sector(against=False, status="попутный"):
     return fn
 
 
-def _hyp(**over):
-    """Гипотеза поиска, у которой собрано всё: 10 из 10."""
+def _hyp(_judge=True, **over):
+    """Гипотеза поиска, у которой собрано всё и доводы приняты независимым судьёй: 10 из 10."""
     d = {
         "факты": [{"текст": "факт 1", "url": "https://a.example/1", "опубликовано": "2026-11-20", "проверено": "2026-11-22"},
                   {"текст": "факт 2", "url": "https://b.example/2", "опубликовано": "2026-11-21", "проверено": "2026-11-22"}],
@@ -46,7 +47,11 @@ def _hyp(**over):
                                                            "ответ": "в контракте штраф за отмену — ссылка на 8-K"}]},
     }
     d.update(over)
-    return {"id": "h1", "тикер": "AAA", "получатель": "Альфа — делает станки", "вердикт": "open", "данные": d}
+    h = {"id": "h1", "тикер": "AAA", "получатель": "Альфа — делает станки", "вердикт": "open", "данные": d}
+    if _judge:
+        SQ.record_judgement(h, "google", "судья/x", {c: {"по_делу": True, "почему": "довод по делу"} for c in IV.JUDGED.values()},
+                            {"1": {"снято": True, "почему": "ответ опирается на условие контракта"}})
+    return h
 
 
 def test_full_hypothesis_is_bet_candidate():
@@ -108,7 +113,7 @@ def test_expired_horizon_and_uncomputed_target():
 
 def test_unanswered_material_objection_fails_court_point():
     cr = {"семейство": "openai", "возражения": [{"текст": "спрос слабеет", "существенное": True, "ответ": ""}]}
-    v = IV.verdict_for_hypothesis(_hyp(критика=cr), TODAY, RULES, _sector())
+    v = IV.verdict_for_hypothesis(_hyp(_judge=False, критика=cr), TODAY, RULES, _sector())     # судьи ещё не было
     p = [p for p in v["пункты"] if p["код"] == "СУД"][0]
     assert p["зачтён"] is False and "без ответа" in p["почему"]
 
@@ -405,3 +410,111 @@ def test_materiality_in_words_says_which_numbers_are_needed():
     assert IV._p_materiality(None)["зачтён"] is None
     ok = IV._p_materiality({"effect_profit_per_year": 420e6, "net_income": 160e6, "market_cap": 3470e6, "years": 1})
     assert ok["зачтён"] is True
+
+
+# ── независимый судья (владелец 22.11: судья — Astra): балл = код И судья ──
+def test_without_judge_no_bet_only_waitlist():
+    v = IV.verdict_for_hypothesis(_hyp(_judge=False), TODAY, RULES, _sector())
+    assert v["балл"] == 10 and v["решение"] == IS.WAIT and v["судья"] is None
+    assert any("независимый судья ещё не проверял" in b for b in v["брак"])
+
+
+def test_judge_rejects_form_without_substance():
+    """Прогон DHT: «чего ждёт рынок» сравнивал разные кварталы, ответ на возражение был неверен — код это зачёл."""
+    h = _hyp(_judge=False)
+    SQ.record_judgement(h, "openai", "astra", {
+        "РЫНОК": {"по_делу": False, "почему": "сравнены разные кварталы, и оба числа — чужой прогноз"},
+        "КАНАЛ": {"по_делу": True, "почему": "звенья подтверждены"}},
+        {"1": {"снято": False, "почему": "ответ противоречит записанному тезису"}})
+    v = IV.verdict_for_hypothesis(h, TODAY, RULES, _sector())
+    by = {p["код"]: p for p in v["пункты"]}
+    assert v["балл"] == 8 and v["судья"]["семейство"] == "openai"
+    assert by["РЫНОК"]["зачтён"] is False and "разные кварталы" in by["РЫНОК"]["почему"]
+    assert by["СУД"]["зачтён"] is False and "не снято" in by["СУД"]["почему"]
+    assert by["КАНАЛ"]["зачтён"] is True and by["СЕКТОР"]["зачтён"] is True          # расчётные пункты судья не трогает
+    assert "независимый судья" in IV.render(v)
+
+
+def test_judge_verdict_expires_when_evidence_changes():
+    h = _hyp()
+    assert IV.verdict_for_hypothesis(h, TODAY, RULES, _sector())["решение"] == IS.BET
+    h["данные"]["критика"]["возражения"][0]["ответ"] = "совсем другой ответ на возражение критика"
+    v = IV.verdict_for_hypothesis(h, TODAY, RULES, _sector())
+    assert v["решение"] == IS.WAIT and any("доказательства изменились" in b for b in v["брак"])
+
+
+def test_author_cannot_write_judge_verdict(tmp_path):
+    s = SQ.start("контракт", "telegram", d=tmp_path)
+    h, _ = SQ.add_hypothesis(s, "Контракт добавляет выручку сверх ожиданий аналитиков", "AAA", "контракт поднимает выручку и прибыль")
+    SQ.save(s, tmp_path)
+    tools = BA.Tools()
+    tools.search_dir = tmp_path
+    tools.search_step("h1", "pass", data={SQ.JUDGE_KEY: {"записал": "код", "пункты": {"РЫНОК": {"по_делу": True}}},
+                                          "цена": 100.0})
+    d = SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]
+    assert SQ.JUDGE_KEY not in d and d["цена"] == 100.0
+
+
+def test_judge_runs_by_code_after_critique_and_tells_author(tmp_path, monkeypatch):
+    monkeypatch.setattr(BA, "committee_on", lambda: True)
+    s = SQ.start("контракт", "telegram", d=tmp_path)
+    h, _ = SQ.add_hypothesis(s, "Контракт добавляет выручку сверх ожиданий аналитиков", "AAA", "контракт поднимает выручку и прибыль")
+    h["этап"] = "оценка"
+    h["данные"] = dict(_hyp(_judge=False)["данные"])
+    SQ.record_critique(h, "google", "gemini", [{"текст": "заказ могут отменить без штрафа", "существенное": True}])
+    SQ.save(s, tmp_path)
+    tools = BA.Tools()
+    tools.search_dir = tmp_path
+    briefs = []
+
+    def judge(brief):
+        briefs.append(json.loads(brief))
+        return {"семейство": "openai", "модель": "astra", "пункты": {"РЫНОК": {"по_делу": False, "почему": "разные периоды"}},
+                "возражения": {"1": {"снято": False, "почему": "ответа нет"}}}
+
+    tools.judge_fn = judge
+    out = json.loads(tools.search_step("h1", "pass", data={"критика": {"ответы": {"1": "в контракте штраф за отмену, ссылка на 8-K"}}}))
+    assert "Независимый судья (openai)" in out["сообщение"] and "разные периоды" in out["сообщение"]
+    assert set(briefs[0]["пункты_листа"]) == set(IV.JUDGED.values())
+    assert briefs[0]["возражения_критика"][0]["ответ_автора"].startswith("в контракте штраф")
+    assert "семейство" not in json.dumps(briefs[0], ensure_ascii=False)              # суд слепой: кто автор и критик — не сказано
+    rec = SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"][SQ.JUDGE_KEY]
+    assert rec["записал"] == "код" and rec["раз"] == 1
+    tools.search_step("h1", "pass", data={"горизонт": "2027-01-15"})                  # ничего не поменялось — судью не зовём
+    assert len(briefs) == 1
+
+
+def test_search_runs_on_cheaper_model_and_three_families_differ(tmp_path):
+    seen = []
+
+    def post(body):
+        seen.append(body["model"])
+        if "tools" not in body:
+            return {"choices": [{"message": {"content": '{"возражения":[{"текст":"спрос может упасть вдвое за квартал","существенное":true}],"пункты":{"РЫНОК":{"по_делу":true,"почему":"ок"}}}'}}],
+                    "usage": {"cost": 0.1}}
+        return {"choices": [{"message": {"role": "assistant", "content": "Готово."}, "finish_reason": "stop"}], "usage": {"cost": 0.01}}
+
+    ag = BA.Agent(post=post, tools=BA.Tools(), api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    ag._call([{"role": "user", "content": "привет"}])
+    ag.tools.search_id = "s_1"
+    ag._call([{"role": "user", "content": "продолжай"}])
+    assert seen[0] == "anthropic/claude-fable-5" and seen[1] == "anthropic/claude-sonnet-4.6"      # разговор / сбор
+    crit, judge = ag._critic("идея"), ag._judge("идея")
+    assert {"anthropic", crit["семейство"], judge["семейство"]} == {"anthropic", "google", "openai"}
+    assert judge["модель"].startswith("openai/gpt-6") and "astra" in judge["модель"]
+
+
+def test_judge_brief_is_never_cut_from_the_tail():
+    """Проверка 22.11: при обрезке материала на 16 000 знаков судья не увидел ответ на последнее возражение."""
+    h = _hyp(_judge=False)
+    h["тезис"] = "Тезис. " * 50
+    h["данные"]["факты"] = [{"текст": "очень длинный факт " * 400, "url": "https://a.example/%d" % i} for i in range(12)]
+    h["данные"]["критика"] = {"семейство": "google", "записал": "код", "возражения": [
+        {"n": i, "текст": "возражение номер %d " % i * 30, "существенное": True, "ответ": "ответ на возражение %d " % i * 40}
+        for i in range(1, 6)]}
+    out = BA.Tools().judge_brief(h)
+    b = json.loads(out)                                                     # разбирается — значит, не обрезан
+    assert len(out) <= BA.JUDGE_BRIEF_MAX
+    assert [o["n"] for o in b["возражения_критика"]] == [1, 2, 3, 4, 5]
+    assert all(o["ответ_автора"].startswith("ответ на возражение") for o in b["возражения_критика"])
+    assert len(b["факты"]) == 12
