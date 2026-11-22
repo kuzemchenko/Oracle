@@ -34,7 +34,7 @@ def first_prompt(ticker, name, card):
             f"звенья от события до денег компании со ссылками (chain), эффект для прибыли (materiality), почему эффект "
             f"продержится (durability), чего ждёт рынок и чем мы отличаемся (market_view с числом и источником), "
             f"похожий случай с числом хода цены (precedent), сценарии с ценами и расчётом цели, событие с датой "
-            f"(катализатор), проверку моделью другого разработчика (court_check → критика с ответами на возражения). "
+            f"(катализатор), проверку моделью другого разработчика (critic_check → ответы на возражения). "
             f"Вызывай committee_verdict, чтобы видеть, какие пункты ещё не зачтены, и закрывай именно их. Новых гипотез "
             f"не открывай. Если по существу идея не держится — отклони её честно с причиной.")
 
@@ -106,8 +106,9 @@ def main(argv=None):
     ap.add_argument("--card", default=None)
     ap.add_argument("--budget", type=float, default=10.0)
     ap.add_argument("--max-turns", type=int, default=6)
+    ap.add_argument("--out", default=None, help="папка прогона (по умолчанию reports/committee_tests/<дата>_<ТИКЕР>)")
     a = ap.parse_args(argv)
-    run(a.ticker.upper(), a.name, a.card, a.budget, a.max_turns,
+    run(a.ticker.upper(), a.name, a.card, a.budget, a.max_turns, out=a.out,
         log=lambda *x: print(*x, flush=True))
     return 0
 

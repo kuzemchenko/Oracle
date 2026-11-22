@@ -449,3 +449,97 @@ def test_code_fills_materiality_numbers_from_its_own_calculation(tmp_path):
     assert mt["effect_profit_per_year"] == 420e6 and mt["market_cap"] == 3470e6 and mt["детали"] == "11% капитализации"
     own = {"materiality": {"effect_profit_per_year": 1.0, "net_income": 2.0}}
     assert tools._fill_materiality(own) == own                              # свои числа модели код не трогает
+
+
+# ── находки проверочного прогона 22.11 (DHT): записанное видно, добытое записывается, критика внутри поиска ──
+def _deep_search(tmp_path):
+    s = SQ.start("танкеры", "telegram", d=tmp_path)
+    h, _ = SQ.add_hypothesis(s, "Танкерная компания недооценена после падения ставок фрахта", "DHT",
+                             "законтрактованные рейсы четвёртого квартала дают прибыль выше ожиданий")
+    h["этап"] = "критика"
+    h["данные"] = {"факты": [{"текст": "Отчёт за 3 кв.: рекордная выручка", "url": "https://example.com/q3"}],
+                   "цена": 21.58, "market_view": {"kind": "magnitude", "metric": "прибыль на акцию 2027",
+                                                  "market": {"value": 3.34, "source": "консенсус"}, "ours": {"value": 4.0}}}
+    SQ.save(s, tmp_path)
+    return s, h
+
+
+def test_status_shows_what_is_already_recorded(tmp_path):
+    s, h = _deep_search(tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    out = json.loads(tools.search_status())
+    rec = out["уже_записано"]["h1"]
+    assert rec["цена"] == "21.58" and "example.com/q3" in rec["факты"][0] and rec["market_view"]["market"] == 3.34
+    assert "НЕ добывай его заново" in out["важно"]
+    assert "уже_записано" not in json.loads(tools._sq_view(s))             # после каждого шага сводку не раздуваем
+
+
+def test_critic_objections_are_recorded_by_code_and_only_answers_come_from_author(tmp_path):
+    s, h = _deep_search(tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    assert "не запускается" in tools.critic_check("h1")                    # без модели-критика — честный отказ
+    asked = []
+
+    def critic(brief):
+        asked.append(brief)
+        return {"семейство": "openai", "модель": "openai/gpt-x", "возражения": [
+            {"текст": "Законтрактованная прибыль уже известна рынку из отчёта за третий квартал", "существенное": True},
+            {"текст": "Мультипликатор цели взят с пика цикла", "существенное": False}]}
+
+    tools.critic_fn = critic
+    out = json.loads(tools.critic_check("h1"))
+    assert [o["n"] for o in out["возражения"]] == [1, 2] and "example.com/q3" in asked[0]
+    cr = SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]["критика"]
+    assert cr["семейство"] == "openai" and cr["записал"] == "код" and cr["возражения"][0]["ответ"] == ""
+    assert "уже записана" in tools.critic_check("h1") and len(asked) == 1  # второй раз деньги не тратим
+    # автор пытается переписать возражение и снять «существенное» — код берёт только ответ
+    tools.search_step("h1", "pass", data={"критика": {"семейство": "anthropic", "возражения": [
+        {"n": 1, "текст": "мелочь", "существенное": False, "ответ": "Нет: цена упала на 18% уже после отчёта, бронь выросла"}]}})
+    cr = SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]["критика"]
+    assert cr["семейство"] == "openai" and cr["возражения"][0]["существенное"] is True
+    assert cr["возражения"][0]["текст"].startswith("Законтрактованная") and cr["возражения"][0]["ответ"].startswith("Нет:")
+    tools.search_step("h1", "pass", data={"критика": {"ответы": {"2": "Согласен, цель предварительная — P/E 6.5 допущение"}}})
+    cr = SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]["критика"]
+    assert cr["возражения"][1]["ответ"].startswith("Согласен") and cr["возражения"][0]["ответ"].startswith("Нет:")
+
+
+def test_agent_critic_is_another_family_and_its_cost_counts(tmp_path):
+    seen = []
+
+    def post(body):
+        seen.append(body)
+        return {"choices": [{"message": {"content": 'Вот: {"возражения":[{"текст":"Ставки фрахта могут упасть до нормы за две недели","существенное":true}]}'}}],
+                "usage": {"cost": 0.2}}
+
+    ag = A.Agent(post=post, tools=A.Tools(), api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    res = ag._critic("идея")
+    assert res["семейство"] != "anthropic" and res["возражения"][0]["существенное"] is True
+    assert not seen[0]["model"].startswith("anthropic/") and "tools" not in seen[0]
+    assert ag.cost == 0.2 and ag.tools.critic_fn == ag._critic
+
+
+def test_save_reserve_forces_recording_before_budget_runs_out(tmp_path, monkeypatch):
+    """Три ответа прогона DHT ($7.35) не записали ничего: теперь с 65% потолка ответа добытое обязано быть записано."""
+    monkeypatch.setattr(A, "MAX_TURN_COST_USD", 1.0)
+    s, h = _deep_search(tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    tools.eodhd = lambda **k: "цены"
+    script = [_msg(calls=[("search_start", {"topic": "танкеры"})], cost=0.1),
+              _msg(calls=[("eodhd", {"endpoint": "eod/DHT.US"})], cost=0.3),
+              _msg(calls=[("eodhd", {"endpoint": "eod/DHT.US"})], cost=0.3),          # 0.7 ≥ 65% → режим записи
+              _msg(calls=[("search_step", {"hyp_id": "h1", "outcome": "pass", "data": {
+                  "durability": {"reason": "контракты на год вперёд уже подписаны", "url": "https://example.com/c"}}})], cost=0.1),
+              _msg("Записал.", cost=0.05)]
+    llm = FakeLLM(script)
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    ag._loop([{"role": "user", "content": "продолжай"}], 10)
+    names = [[t["function"]["name"] for t in b["tools"]] for b in llm.bodies]
+    assert "eodhd" in names[2] and set(names[3]) <= set(A.SAVE_TOOLS)       # до записи — только инструменты поиска
+    assert "eodhd" in names[4]                                              # записал — инструменты вернулись
+    nudge = [m for m in llm.bodies[3]["messages"] if "в гипотезу НЕ записано" in str(m.get("content"))]
+    assert nudge and "2 обращений к данным" in str(nudge[0]["content"])
+    assert SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]["durability"]["url"] == "https://example.com/c"
+    assert ag.unsaved == 0 and ag.save_phase is False

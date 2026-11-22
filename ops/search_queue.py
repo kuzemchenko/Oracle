@@ -597,7 +597,8 @@ STAGE_TODO = {
     "углубление": "что рынок уже ждёт (implied_expectations / консенсус EODHD) и наше отличие с цифрами, существенность "
                   "(materiality_check), сценарии от актуальной цены (базовый и неблагоприятный), горизонт, условия "
                   "реализации и опровержения",
-    "критика": "независимая критика моделью другого семейства (court_check) и ответ на каждое существенное возражение",
+    "критика": "независимая критика моделью другого семейства — вызови critic_check (возражения вернутся сразу, код "
+               "запишет их в гипотезу) — и ответь на каждое существенное: search_step data {критика:{ответы:{'1':'…'}}}",
     "оценка": "собрать всё и проверить кодом: факты с датами публикации и проверки, market_view с основанием, сценарии",
     "результат": "перепроверить свежую цену и катализаторы прямо перед выдачей и выдать кандидата",
 }
@@ -673,13 +674,100 @@ def status_line(s):
     return head + "." + tail
 
 
-def summary(s):
-    return {"id": s["id"], "тема": s["тема"], "статус": s["статус"], "статус_ru": STATUS_RU[s["статус"]],
-            "пауза": s.get("пауза"), "итог": s.get("итог"), "бюджет": s["бюджет"], "очередь": queue_summary(s),
-            "следующий_шаг": next_action(s),
-            "гипотезы": [{k: h.get(k) for k in ("id", "тикер", "этап", "вердикт", "отказ", "нужно_данных", "круг",
-                                                "получатель")} for h in s["гипотезы"]],
-            "направления": s["направления"]}
+def _cut(x, n):
+    x = " ".join(str(x or "").split())
+    return x if len(x) <= n else x[:n - 1] + "…"
+
+
+def evidence_digest(h, limit=3500):
+    """Что по гипотезе УЖЕ записано — коротко, чтобы следующий ответ не добывал это заново.
+    Проверочный прогон 22.11 (DHT): модель не видела записанное (в сводке были только этапы) и в каждом ответе
+    заново тянула те же цены и страницы — три ответа из четырёх ($7.35) ушли на повтор."""
+    d = unwrap(h.get("данные") or {})
+    out = {}
+    facts = [f for f in d.get("факты") or [] if isinstance(f, dict)]
+    if facts:
+        out["факты"] = [f"{i}. {_cut(f.get('текст'), 150)} [{_cut(f.get('url'), 90)}]" for i, f in enumerate(facts, 1)][:8]
+    for k in ("механизм", "цена", "дата_цены", "направление", "горизонт", "вероятность"):
+        if d.get(k) not in (None, "", []):
+            out[k] = _cut(d[k], 220)
+    mv = d.get("market_view") if isinstance(d.get("market_view"), dict) else None
+    if mv:
+        out["market_view"] = {"kind": mv.get("kind"), "metric": _cut(mv.get("metric"), 120),
+                              "market": (mv.get("market") or {}).get("value") if isinstance(mv.get("market"), dict) else None,
+                              "ours": (mv.get("ours") or {}).get("value") if isinstance(mv.get("ours"), dict) else None,
+                              "источник": _cut((mv.get("market") or {}).get("source"), 90) if isinstance(mv.get("market"), dict) else None}
+    mt = d.get("materiality") if isinstance(d.get("materiality"), dict) else None
+    if mt:
+        out["materiality"] = {k: mt[k] for k in ("effect_profit_per_year", "effect_revenue_per_year", "years", "net_income",
+                                                 "revenue", "market_cap", "вердикт") if mt.get(k) is not None}
+    sc = d.get("сценарии") if isinstance(d.get("сценарии"), dict) else None
+    if sc:
+        out["сценарии"] = {k: ((sc[k] or {}).get("цена") if isinstance(sc.get(k), dict) else sc.get(k))
+                           for k in ("цена", "дата_цены", "базовый", "неблагоприятный") if sc.get(k) is not None}
+    ch = d.get("chain") or d.get("цепочка")
+    if isinstance(ch, list) and ch:
+        out["chain"] = [f"{_cut((x or {}).get('text'), 110)} ({(x or {}).get('quality')})" for x in ch if isinstance(x, dict)][:3]
+    for k in ("durability", "precedent", "катализатор"):
+        if isinstance(d.get(k), dict) and d[k]:
+            out[k] = {kk: _cut(vv, 130) for kk, vv in d[k].items()}
+    cr = d.get("критика") if isinstance(d.get("критика"), dict) else None
+    if cr and cr.get("возражения"):
+        out["критика"] = {"семейство": cr.get("семейство"), "возражения": [
+            {"n": o.get("n", i), "текст": _cut(o.get("текст"), 200), "существенное": bool(o.get("существенное")),
+             "ответ_есть": len(str(o.get("ответ") or "")) >= 20}
+            for i, o in enumerate(cr["возражения"], 1) if isinstance(o, dict)]}
+    txt = json.dumps(out, ensure_ascii=False)
+    return out if len(txt) <= limit else {"сокращено": txt[:limit] + "…"}
+
+
+def summary(s, with_data=False):
+    out = {"id": s["id"], "тема": s["тема"], "статус": s["статус"], "статус_ru": STATUS_RU[s["статус"]],
+           "пауза": s.get("пауза"), "итог": s.get("итог"), "бюджет": s["бюджет"], "очередь": queue_summary(s),
+           "следующий_шаг": next_action(s),
+           "гипотезы": [{k: h.get(k) for k in ("id", "тикер", "этап", "вердикт", "отказ", "нужно_данных", "круг",
+                                               "получатель")} for h in s["гипотезы"]],
+           "направления": s["направления"]}
+    if with_data:
+        rec = {h["id"]: evidence_digest(h) for h in s["гипотезы"] if h["вердикт"] in (OPEN, NEEDS_DATA) and h.get("данные")}
+        if rec:
+            out["уже_записано"] = rec
+            out["важно"] = ("записанное выше уже в гипотезе — НЕ добывай его заново; собирай только недостающее и "
+                            "сразу записывай search_step (data частями)")
+    return out
+
+
+def record_critique(h, family, model, objections):
+    """Критика модели другого семейства записывается КОДОМ (22.11): текст возражений и пометку «существенное»
+    модель-автор идеи потом изменить не может — только ответить (answer_critique)."""
+    objs = []
+    for o in objections or []:
+        if isinstance(o, dict) and len(str(o.get("текст") or "").strip()) >= 15:
+            objs.append({"n": len(objs) + 1, "текст": str(o["текст"]).strip()[:600],
+                         "существенное": bool(o.get("существенное")), "ответ": ""})
+    if not objs:
+        return None
+    h.setdefault("данные", {})["критика"] = {"семейство": str(family), "модель": str(model), "когда": _now(),
+                                           "записал": "код", "возражения": objs[:6]}
+    return h["данные"]["критика"]
+
+
+def answer_critique(h, incoming):
+    """Ответы автора идеи на возражения, записанные кодом: принимаем только поле «ответ» (по номеру возражения
+    или по порядку) — сами возражения не переписываются. → критика для записи | None (кодом не записана)."""
+    cur = (h.get("данные") or {}).get("критика")
+    if not (isinstance(cur, dict) and cur.get("записал") == "код" and isinstance(incoming, dict)):
+        return None
+    answers = {}
+    for k, v in (incoming.get("ответы") or {}).items() if isinstance(incoming.get("ответы"), dict) else []:
+        answers[str(k).strip()] = v
+    for i, o in enumerate(incoming.get("возражения") or [], 1):
+        if isinstance(o, dict) and o.get("ответ"):
+            answers.setdefault(str(o.get("n") or i), o["ответ"])
+    out = dict(cur)
+    out["возражения"] = [{**o, "ответ": str(answers.get(str(o["n"])) or o.get("ответ") or "")[:900]}
+                         for o in cur["возражения"]]
+    return out
 
 
 def refute(ticker, reason, kind="mechanism_refuted", d=None):

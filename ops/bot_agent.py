@@ -61,6 +61,9 @@ FIND_IDEA_RE = re.compile(r"\b(?:найди|найдём|найдем|поищи
 SEARCH_ROUNDS = 4              # VQ-4: сколько раз код возвращает модель к незавершённому поиску в одном ответе
 SEARCH_STEPS = 10              # кругов инструментов на одно возвращение
 SEARCH_COST_SHARE = 0.85       # доля потолка ответа, после которой поиск ставится на паузу (остаток — на итог)
+SAVE_SHARE = 0.65              # 22.11: с этой доли потолка ответа добытое, но не записанное в гипотезу, обязано быть записано
+SAVE_TOOLS = ("search_step", "search_status", "committee_verdict")   # что доступно, пока не записано
+CRITIC_ROLE = "critic"         # критика внутри поиска: роль из config/models.yaml, семейство — не то, что у агента
 COMMITTEE_RESERVE_SHARE = 0.25 # Q-вердикт-комитет: последняя четверть бюджета поиска — на доведение лучшей гипотезы до вердикта
 FUTURE_PROMISE_RE = re.compile(r"вернусь|пришлю|сообщу|напишу,? когда|продолжу (?:сам|в фоне|позже|искать)|"
                                r"дам знать|в фоне|позже (?:пришлю|напишу|вернусь)", re.I)
@@ -162,6 +165,7 @@ class Tools:
         self.pred_path = None      # Q-чат-в-счёт: журнал прогнозов (None — боевой, только на сервере)
         self.sealed = []           # строки «записал в счёт», которые КОД допишет к ответу
         self.mat_inputs = None     # числа последнего расчёта materiality_check в этом ответе (22.11)
+        self.critic_fn = None      # вызов модели-критика другого семейства (ставит Agent); None — критика недоступна
 
     def _store(self, data, source, units=None):
         self._n += 1
@@ -683,9 +687,9 @@ class Tools:
                 pass
         return SQ.active("telegram", self.search_dir)
 
-    def _sq_view(self, s, msg=None):
+    def _sq_view(self, s, msg=None, with_data=False):
         SQ = self._sq()
-        out = {"сообщение": msg, **SQ.summary(s)}
+        out = {"сообщение": msg, **SQ.summary(s, with_data=with_data)}
         return json.dumps(out, ensure_ascii=False, default=str)[:MAX_TOOL_CHARS]
 
     def search_start(self, topic):
@@ -721,7 +725,7 @@ class Tools:
                 if err:
                     return self._sq_view(cur, err)
             return self._sq_view(cur, "есть незавершённый поиск — продолжаю его (новый не начинаю). Отменить его "
-                                      "может только владелец (search_cancel с его словами)")
+                                      "может только владелец (search_cancel с его словами)", with_data=True)
         s = SQ.start(topic, "telegram", d=self.search_dir)
         self.search_id = s["id"]
         self.search_worked = True
@@ -749,6 +753,7 @@ class Tools:
         self.search_id = s["id"]
         self.search_worked = True
         data = self._fill_materiality(data)
+        data = self._keep_critique(s, hyp_id, data)
         _h, msg = SQ.advance(s, hyp_id, outcome, data if isinstance(data, dict) else None, reject_kind, reason, needs)
         SQ.save(s, self.search_dir)
         if s["статус"] == SQ.FOUND and _h is not None and not _h.get("прогноз"):
@@ -757,6 +762,60 @@ class Tools:
             SQ.save(s, self.search_dir)
             msg = f"{msg}. {note}"
         return self._sq_view(s, msg)
+
+    def _keep_critique(self, s, hyp_id, data):
+        """Возражения, записанные кодом (critic_check), модель не переписывает: из её «критика» берутся только ответы."""
+        if not isinstance(data, dict):
+            return data
+        SQ = self._sq()
+        flat = SQ.unwrap(data)
+        h = next((x for x in s.get("гипотезы") or [] if x.get("id") == hyp_id), None)
+        if h is None or "критика" not in flat:
+            return data
+        kept = SQ.answer_critique(h, flat.get("критика"))
+        if kept is None:
+            return data
+        h["данные"]["критика"] = kept                  # списки в _merge заменяются — пишем готовую запись сами
+        return {k: v for k, v in flat.items() if k != "критика"}
+
+    def critic_check(self, hyp_id=None):
+        """Проверочный прогон 22.11: этап «критика» был стеной — court_check запускает большой суд отдельной задачей,
+        его вердикт в гипотезу не попадает (критика записана у 1 гипотезы из 27). Здесь — один вызов модели ДРУГОГО
+        семейства прямо внутри поиска: возражения возвращаются сразу и записываются в гипотезу кодом."""
+        SQ = self._sq()
+        s = self._sq_active()
+        if not s:
+            return "нет активного поиска — сначала search_start"
+        opened = [h for h in s["гипотезы"] if h["вердикт"] == SQ.OPEN]
+        h = next((x for x in s["гипотезы"] if x["id"] == hyp_id), None) if hyp_id else \
+            (max(opened, key=lambda x: SQ.STAGES.index(x["этап"])) if opened else None)
+        if h is None:
+            return "нет такой гипотезы" if hyp_id else "нет открытой гипотезы"
+        self.search_id = s["id"]
+        cur = (h.get("данные") or {}).get("критика")
+        if isinstance(cur, dict) and cur.get("записал") == "код":
+            return json.dumps({"сообщение": "критика уже записана — второй раз не вызываю; ответь на существенные "
+                                            "возражения: search_step data {критика:{ответы:{'номер':'ответ'}}}",
+                               "критика": SQ.evidence_digest(h).get("критика")}, ensure_ascii=False)[:MAX_TOOL_CHARS]
+        if not self.critic_fn:
+            return "критика другой моделью из этого окружения не запускается"
+        brief = json.dumps({"бумага": h.get("тикер"), "тезис": h.get("тезис"), "механизм": h.get("механизм"),
+                            "собрано": SQ.evidence_digest(h, limit=7000)}, ensure_ascii=False)
+        res = self.critic_fn(brief)
+        if not res or not res.get("возражения"):
+            return "критика НЕ получена: " + str((res or {}).get("ошибка") or "модель не вернула возражений") + \
+                   " — не пиши, что проверка пройдена"
+        rec = SQ.record_critique(h, res.get("семейство"), res.get("модель"), res["возражения"])
+        if rec is None:
+            return "критика НЕ получена: возражения пустые — не пиши, что проверка пройдена"
+        self.search_worked = True
+        SQ.save(s, self.search_dir)
+        return json.dumps({"сообщение": f"возражения модели другого разработчика ({rec['семейство']}) записаны в гипотезу "
+                                        f"{h['id']} кодом. Ответь на КАЖДОЕ существенное по существу (факт, число, ссылка; "
+                                        "если возражение верно — признай и поправь сценарии или отклони гипотезу): "
+                                        "search_step data {критика:{ответы:{'1':'…','2':'…'}}}",
+                           "возражения": [{k: o[k] for k in ("n", "текст", "существенное")} for o in rec["возражения"]]},
+                          ensure_ascii=False)[:MAX_TOOL_CHARS]
 
     def _fill_materiality(self, data):
         """Проверочный прогон 22.11 (DHT): модель посчитала размер эффекта инструментом materiality_check, а в данные
@@ -837,7 +896,7 @@ class Tools:
         if not s:
             return "активного поиска нет"
         self.search_id = s["id"]
-        return self._sq_view(s)
+        return self._sq_view(s, with_data=True)
 
     def search_cancel(self, owner_words):
         SQ = self._sq()
@@ -1032,14 +1091,20 @@ TOOL_SPECS = [
         "и далее {market_view:{kind (magnitude — размер эффекта | timing — срок | flow — вынужденный продавец/покупатель | rule — неверно понятое правило),metric,market:{value — ЧИСЛО, source, note — пояснение текстом},ours:{value — ЧИСЛО в тех же единицах, note},why_different,основано_на:[номера фактов]}, "
         "materiality:{effect_profit_per_year (или effect_revenue_per_year), years, net_income (или revenue), market_cap — ЧИСЛА, те же, что передавал в materiality_check: код пересчитает сам; итог словами без чисел не зачитывается}, сценарии:{цена,дата_цены,источник_цены,базовый:{цена,основание},неблагоприятный:{цена,основание}}, "
         "направление:'long'|'short', горизонт:'YYYY-MM-DD', условия_реализации:[], условия_опровержения:[], "
-        "критика:{семейство, возражения:[{текст,существенное,ответ}]}, вероятность (только со счётом «k из n» в "
+        "критика — возражения записывает код после critic_check, от тебя только ответы: критика:{ответы:{'1':'ответ на возражение 1',…}}, вероятность (только со счётом «k из n» в "
         "основание_вероятности); дополнительно, когда собрано: chain:[{text,quality:'confirmed'|'hypothesis',url}] "
         "(звенья от события до денег компании, не больше 3), durability:{reason,url} (почему эффект продержится), "
         "precedent:{what,amplitude:'+20%',url} (похожий случай с числом хода цены), катализатор:{what,date}}. "
         "Данные можно присылать частями — код сливает их с уже записанным. Код не пропустит "
         "этап, если чего-то не хватает, и скажет чего; тот же отказ не повторяй — исправь названное или needs_data.",
         {"hyp_id": S, "outcome": S, "data": O, "reject_kind": S, "reason": S, "needs": A}, ("hyp_id", "outcome")),
-    _fn("search_status", "Статус поиска, очередь гипотез и направлений, следующий шаг.", {}),
+    _fn("search_status", "Статус поиска, очередь гипотез и направлений, следующий шаг и то, что по гипотезам УЖЕ "
+        "записано (не добывай это заново).", {}),
+    _fn("critic_check", "Независимая критика гипотезы поиска моделью ДРУГОГО разработчика — один вызов, возражения "
+        "возвращаются сразу, код сам записывает их в гипотезу (этап «критика», пункт 10 листа комитета). Вызывай, когда "
+        "по гипотезе записаны факты, ожидания рынка и сценарии. Потом ответь на каждое существенное возражение: "
+        "search_step data {критика:{ответы:{'1':'…'}}}. Большой суд (court_check) — отдельная долгая проверка, "
+        "для этапа поиска он не нужен.", {"hyp_id": S}),
     _fn("committee_verdict", "Итоговая оценка идеи «инвестиционным комитетом» — считает КОД по листу из 10 проверок "
         "(knowledge/idea_committee.yaml): балл X из 10, решение (кандидат на маленькую ставку ≥8 / лист ожидания 6–7 / "
         "архив) и какие пункты не зачтены. Пункт зачитывается только фактом со ссылкой или числом, посчитанным кодом; "
@@ -1202,6 +1267,11 @@ class Agent:
         self.findings_left = []         # находки, оставшиеся после доработки (дописаны кодом)
         self.search_rounds = 0          # VQ-4: сколько раз код вернул модель к незавершённому поиску
         self.search_status = None
+        self.unsaved = 0                # обращений к данным с последней записи в гипотезу (в этом ответе)
+        self.save_phase = False         # идёт обязательная запись: доступны только инструменты поиска
+        self.save_nudges = 0
+        if getattr(self.tools, "critic_fn", None) is None:
+            self.tools.critic_fn = self._critic
 
     def _post(self, body):
         if not self.api_key:
@@ -1260,8 +1330,11 @@ class Agent:
             attempt = 0
             while attempt < 3:
                 cached = self.cache_on and str(model).startswith("anthropic/")
+                specs = tool_specs()
+                if self.save_phase:
+                    specs = [x for x in specs if x["function"]["name"] in SAVE_TOOLS]
                 body = {"model": model, "messages": self._with_cache(messages) if cached else self._plain(messages),
-                        "tools": tool_specs(), "tool_choice": tool_choice,
+                        "tools": specs, "tool_choice": tool_choice,
                         "temperature": role_cfg.get("temperature", 0.5), "usage": {"include": True},
                         "max_tokens": max_tokens}
                 try:
@@ -1296,6 +1369,49 @@ class Agent:
 
     def _complete(self, messages):
         return self._call(messages, "auto", 6000)
+
+    CRITIC_PROMPT = (
+        "Ты — независимый критик инвестиционной идеи (red team) в исследовательской системе. Тебе дают идею и собранные "
+        "по ней доказательства. Найди до 5 самых сильных возражений: конкретных и проверяемых (что именно может быть "
+        "неверно, чем это проверить). «существенное: true» — если возражение верно, идея не работает или ставка "
+        "устроена плохо; мелкие замечания — false. Твоя задача не разгромить идею, а найти, где она может сломаться; "
+        "если слабых мест по существу нет — верни меньше возражений. Фактов не выдумывай: чего не знаешь — формулируй "
+        "как вопрос, на который автор обязан ответить. Ответ — СТРОГО JSON без пояснений: "
+        '{"возражения":[{"текст":"…","существенное":true}]}')
+
+    def _critic(self, brief):
+        """Один вызов модели другого семейства (П10: критик — не из семейства автора идеи). Стоимость — в счёт
+        ответа и бюджета поиска. → {"семейство","модель","возражения"} | {"ошибка"}."""
+        try:
+            gen_family = self.OR.resolve_role(ROLE, self.models).get("family") or "anthropic"
+            cfg = self.OR.resolve_role(CRITIC_ROLE, self.models)
+            chain = self.OR.filtered_chain(cfg, gen_family, self.models)
+        except Exception as e:                                   # noqa: BLE001
+            return {"ошибка": f"роль критика не настроена: {e}"}
+        last = "нет моделей другого семейства"
+        for model in chain:
+            body = {"model": model, "temperature": cfg.get("temperature", 0.3), "usage": {"include": True},
+                    "max_tokens": 2500, "messages": [{"role": "system", "content": self.CRITIC_PROMPT},
+                                                     {"role": "user", "content": str(brief)[:9000]}]}
+            try:
+                data = self.post(body)
+            except Exception as e:                               # noqa: BLE001
+                last = str(e)[:160]
+                self.log_cost("live", "bot_agent_critic", model, None, None, ok=False, run_id="bot_agent")
+                continue
+            usage = data.get("usage") or {}
+            self.log_cost("live", "bot_agent_critic", model, usage, usage.get("cost"), ok=True, run_id="bot_agent")
+            self.cost += float(usage.get("cost") or 0.0)
+            text = _msg_text(((data.get("choices") or [{}])[0]).get("message") or {})
+            m = re.search(r"\{.*\}", text or "", re.S)
+            try:
+                objs = json.loads(m.group(0)).get("возражения") if m else None
+            except (ValueError, AttributeError):
+                objs = None
+            if isinstance(objs, list) and objs:
+                return {"семейство": self.OR.family_of(model, self.models), "модель": model, "возражения": objs}
+            last = "ответ критика не разобран"
+        return {"ошибка": last}
 
     def _auto_start_search(self, user_text, audience):
         """14.11: просьба владельца «найди идею» — это поиск по очереди (VQ-4), а не разговор. Агент 7 раз из 9
@@ -1520,10 +1636,12 @@ class Agent:
                            "сливает с уже записанным), без длинных цитат")
                 if args is not None:
                     out = self.tools.call(name, args if isinstance(args, dict) else {})
+                self._track_saving(name, args)
                 self.trace.append({"tool": name, "args": redact(json.dumps(args, ensure_ascii=False))[:300],
                                    "chars": len(str(out))})
                 msgs.append({"role": "tool", "tool_call_id": c.get("id"), "name": name,
                              "content": redact(str(out))})
+            self._save_reserve(msgs)
             if self.cost >= self._cap():
                 what = ("бюджет поиска исчерпан" if self._cap() < MAX_TURN_COST_USD
                         else "потолок трат на один ответ исчерпан")
@@ -1535,6 +1653,44 @@ class Agent:
         msgs.append({"role": "user", "content": "[система] кругов инструментов больше нет — ответь по собранному."})
         text, _m = self._complete_no_tools(msgs)
         return text
+
+    def _track_saving(self, name, args):
+        """Счёт «добыто, но не записано»: запись в гипотезу (search_step с data) обнуляет его и снимает режим записи."""
+        if name == "search_step":
+            if isinstance(args, dict) and isinstance(args.get("data"), dict) and args["data"] or \
+                    isinstance(args, dict) and args.get("outcome") in ("reject", "needs_data"):
+                self.unsaved, self.save_phase = 0, False
+        elif name == "critic_check":
+            self.unsaved = 0                       # возражения код записал сам
+        elif name and not name.startswith("search_") and name != "committee_verdict":
+            self.unsaved += 1
+
+    def _save_reserve(self, msgs):
+        """РЕЗЕРВ НА ЗАПИСЬ (проверочный прогон 22.11: три ответа из четырёх, $7.35, не оставили в гипотезе ничего —
+        модель добывала данные до потолка трат и не успевала их записать). С SAVE_SHARE потолка ответа добытое с
+        последней записи обязано быть записано: до записи модели доступны только инструменты поиска."""
+        if self.save_phase or not self.tools.search_id or self.unsaved <= 0 or self.save_nudges >= 3:
+            return
+        cap = self._cap()
+        if cap <= 0 or self.cost < SAVE_SHARE * cap or self.cost >= cap:
+            return
+        try:
+            SQ = self.tools._sq()
+            s = self.tools._sq_active()
+            if not s or s.get("статус") != SQ.RUNNING:
+                return
+            nxt = SQ.next_action(s)
+        except Exception:                                        # noqa: BLE001 — резерв не роняет ответ
+            return
+        self.save_phase = True
+        self.save_nudges += 1
+        hid = nxt.get("гипотеза") or "гипотезы"
+        msgs.append({"role": "user", "content": (
+            f"[система] потрачено {self.cost / cap * 100:.0f}% бюджета этого ответа, а добытое с последней записи "
+            f"({self.unsaved} обращений к данным) в гипотезу НЕ записано — несохранённое пропадёт, следующий ответ "
+            f"начнёт с нуля. Сейчас запиши собранное по {hid}: search_step (data — только новые поля, частями и "
+            "коротко: chain, durability, precedent, катализатор, market_view, materiality, сценарии, ответы на "
+            "возражения). До записи доступны только инструменты поиска." + self._committee_hint(s))})
 
     def _finish(self, msgs, text):
         """Ответ оборван лимитом длины → продлить с места обрыва (до MAX_CONTINUATIONS раз)."""
