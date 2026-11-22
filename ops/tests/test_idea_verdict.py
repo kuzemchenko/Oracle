@@ -548,3 +548,21 @@ def test_short_idea_scores_against_sector_and_explains_how_to_express_it():
     rising = {"против": True, "словами": "сектор «чипы» — попутный"}
     v2 = IV.verdict_for_hypothesis(h, TODAY, RULES, lambda *a, **k: rising)
     assert {p["код"]: p for p in v2["пункты"]}["СЕКТОР"]["зачтён"] is False
+
+
+def test_truncated_critic_answer_falls_to_next_model_and_limit_is_roomy():
+    """Ручной прогон 22.11: Gemini потратил лимит ответа на размышления, ответ обрезался — критика не записалась."""
+    seen = []
+
+    def post(body):
+        seen.append((body["model"], body["max_tokens"]))
+        if body["model"].startswith("google/"):
+            return {"choices": [{"message": {"content": '{"возражения":[{"текст":"обрезано на полусло'}, "finish_reason": "length"}],
+                    "usage": {"cost": 0.03}}
+        return {"choices": [{"message": {"content": '{"возражения":[{"текст":"страховка теневого флота не западная","существенное":true}]}'},
+                             "finish_reason": "stop"}], "usage": {"cost": 0.01}}
+
+    ag = BA.Agent(post=post, tools=BA.Tools(), api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    res = ag._critic("идея")
+    assert res["семейство"] == "x-ai" and res["возражения"][0]["существенное"] is True
+    assert seen[0][0].startswith("google/") and seen[0][1] >= 8000 and round(ag.cost, 2) == 0.04

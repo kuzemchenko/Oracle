@@ -67,6 +67,7 @@ SEARCH_ROLE = "partner_search" # владелец 22.11: сбор доказат
 CRITIC_ROLE = "committee_critic"   # критика внутри поиска: семейство — не автора идеи и не судьи (П10)
 JUDGE_ROLE = "committee_judge"     # независимый судья комитета (владелец 22.11: Astra): доводы по существу
 JUDGE_BRIEF_MAX = 40000        # знаков материала судье (~12 тыс. токенов); длинные строки ужимаются, хвост не режется
+SIDE_MAX_TOKENS = 12000        # лимит ответа критика и судьи: «думающие» модели тратят его и на размышления
 MAX_JUDGE_RUNS = 3             # сколько раз судья пересматривает одну гипотезу (после исправлений автора)
 COMMITTEE_RESERVE_SHARE = 0.25 # Q-вердикт-комитет: последняя четверть бюджета поиска — на доведение лучшей гипотезы до вердикта
 FUTURE_PROMISE_RE = re.compile(r"вернусь|пришлю|сообщу|напишу,? когда|продолжу (?:сам|в фоне|позже|искать)|"
@@ -1549,9 +1550,10 @@ class Agent:
                 pass
         return {f for f in out if f}
 
-    def _side_call(self, role, exclude, system, user, max_tokens, agent_id):
+    def _side_call(self, role, exclude, system, user, max_tokens, agent_id, parse=None):
         """Один вызов модели другой роли без инструментов (критик, судья). Стоимость — в счёт ответа и бюджета поиска.
-        → (текст, модель) | (None, причина)."""
+        parse — разбор ответа: вернул None (ответ обрезан или не по форме) → пробуем следующую модель роли.
+        → (текст или разобранное, модель) | (None, причина)."""
         try:
             cfg = self.OR.resolve_role(role, self.models)
             chain = self.OR.filtered_chain(cfg, exclude or None, self.models)
@@ -1571,10 +1573,14 @@ class Agent:
                 usage = data.get("usage") or {}
                 self.log_cost("live", agent_id, model, usage, usage.get("cost"), ok=True, run_id="bot_agent")
                 self.cost += float(usage.get("cost") or 0.0)
-                text = _msg_text(((data.get("choices") or [{}])[0]).get("message") or {})
-                if text and text.strip():
-                    return text, model
-                last = "пустой ответ"
+                choice = (data.get("choices") or [{}])[0]
+                text = _msg_text(choice.get("message") or {})
+                val = (parse(text) if parse else text) if text and text.strip() else None
+                if val is not None:
+                    return val, model
+                cut = str(choice.get("finish_reason") or choice.get("native_finish_reason") or "")
+                last = ("ответ обрезан по длине" if cut in ("length", "MAX_TOKENS", "max_tokens")
+                        else ("пустой ответ" if not (text or "").strip() else "ответ не разобран")) + f" ({model})"
                 break
         return None, last
 
@@ -1590,25 +1596,31 @@ class Agent:
         """Критик — модель не семейства автора идеи и не семейства судьи (П10: три разных разработчика).
         → {"семейство","модель","возражения"} | {"ошибка"}."""
         role = CRITIC_ROLE if self._families(CRITIC_ROLE) else "critic"
-        text, model = self._side_call(role, self._families(ROLE, SEARCH_ROLE, JUDGE_ROLE), self.CRITIC_PROMPT,
-                                      str(brief)[:9000], 2500, "bot_agent_critic")
-        if text is None:
+
+        def parse(text):
+            objs = (self._json_in(text) or {}).get("возражения")
+            return objs if isinstance(objs, list) and objs else None
+
+        # ручной прогон 22.11: «думающая» модель (Gemini) потратила лимит 2500 токенов на размышления, и ответ
+        # обрезался («ответ критика не разобран» дважды) — лимит с запасом; не разобрался — следующая модель роли
+        objs, model = self._side_call(role, self._families(ROLE, SEARCH_ROLE, JUDGE_ROLE), self.CRITIC_PROMPT,
+                                      str(brief)[:9000], SIDE_MAX_TOKENS, "bot_agent_critic", parse)
+        if objs is None:
             return {"ошибка": model}
-        objs = (self._json_in(text) or {}).get("возражения")
-        if isinstance(objs, list) and objs:
-            return {"семейство": self.OR.family_of(model, self.models), "модель": model, "возражения": objs}
-        return {"ошибка": "ответ критика не разобран"}
+        return {"семейство": self.OR.family_of(model, self.models), "модель": model, "возражения": objs}
 
     def _judge(self, brief):
         """Независимый судья — модель не семейства автора и не семейства критика.
         → {"семейство","модель","пункты","возражения"} | {"ошибка"}."""
-        text, model = self._side_call(JUDGE_ROLE, self._families(ROLE, SEARCH_ROLE, CRITIC_ROLE), self.JUDGE_PROMPT,
-                                      str(brief), 8000, "bot_agent_judge")
-        if text is None:
+        def parse(text):
+            d = self._json_in(text)
+            ok = isinstance(d, dict) and (isinstance(d.get("пункты"), dict) or isinstance(d.get("возражения"), dict))
+            return d if ok else None
+
+        d, model = self._side_call(JUDGE_ROLE, self._families(ROLE, SEARCH_ROLE, CRITIC_ROLE), self.JUDGE_PROMPT,
+                                   str(brief), SIDE_MAX_TOKENS, "bot_agent_judge", parse)
+        if d is None:
             return {"ошибка": model}
-        d = self._json_in(text)
-        if not isinstance(d, dict) or not (isinstance(d.get("пункты"), dict) or isinstance(d.get("возражения"), dict)):
-            return {"ошибка": "ответ судьи не разобран"}
         return {"семейство": self.OR.family_of(model, self.models), "модель": model,
                 "пункты": d.get("пункты") or {}, "возражения": d.get("возражения") or {}}
 
