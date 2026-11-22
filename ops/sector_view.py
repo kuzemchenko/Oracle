@@ -13,6 +13,11 @@
   python3 ops/sector_view.py show                 → карта секторов (ничего не пишет)
   python3 ops/sector_view.py ticker S.US [--direction вверх|вниз]
   python3 ops/sector_view.py tick                 → датированный снимок reports/sectors/<дата>.json (+ latest.json)
+
+Датчик «цена защиты» (Q-цена-страха, 22.11): дорого или дёшево сейчас стоит защита от падения — колебания, которые
+опционы на широкий рынок закладывают на ближайший месяц, против фактических за месяц и обычных за ~3 года. Расчёт —
+mathlib/fear_gauge; пишется в снимок отдельным ключом «цена_защиты» (история копится в датированных файлах), одной
+фразой идёт в сводку агента (market_brief) и строкой внизу карты. Нет данных об опционах → «не измерено».
 """
 import argparse
 import datetime
@@ -29,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "ops"))
 
 from mathlib import sector_rules as SR      # noqa: E402
+from mathlib import fear_gauge as FG        # noqa: E402
 
 RULES = ROOT / "knowledge" / "idea_committee.yaml"
 DB = ROOT / "storage" / "oracle.db"
@@ -36,6 +42,11 @@ OUT = ROOT / "reports" / "sectors"
 CACHE = OUT / "ticker_sector.json"
 BASE = "https://eodhd.com/api/"
 HISTORY_DAYS = 420          # календарных: с запасом на 252 торговых дня
+FEAR_KEY = "цена_защиты"    # ключ датчика в снимке карты
+FEAR_HISTORY_DAYS = 1200    # календарных: с запасом на 756 торговых дней («обычные» колебания за ~3 года)
+FEAR_HORIZON_DAYS = 30      # опционы с экспирацией не раньше чем через месяц — тот же срок, что «фактические за месяц»
+FEAR_EXP_WINDOW_DAYS = 21   # …и не позже чем ещё через три недели после этого
+FEAR_MAX_PRICE_AGE_DAYS = 7     # последняя цена рынка старше — датчик не измерен (не сравниваем со старым рынком)
 
 
 def load_rules(path=None):
@@ -49,7 +60,7 @@ def _sym(t):
 
 
 # ── источники (заменяемые функции: тесты герметичны, сбой одного не роняет вердикт) ─────────────────
-def _db_closes(sym, today, db_path=None):
+def _db_closes(sym, today, db_path=None, days=HISTORY_DAYS):
     p = pathlib.Path(db_path or DB)
     if not p.exists() or p.stat().st_size == 0:
         return None
@@ -57,7 +68,7 @@ def _db_closes(sym, today, db_path=None):
         con = sqlite3.connect(f"file:{p}?mode=ro", uri=True, timeout=10)
         rows = con.execute(
             "select date, coalesce(adjusted_close, close) from quotes where symbol=? and date>=? and date<=? "
-            "order by date", (sym, (today - datetime.timedelta(days=HISTORY_DAYS)).isoformat(), today.isoformat())
+            "order by date", (sym, (today - datetime.timedelta(days=days)).isoformat(), today.isoformat())
         ).fetchall()
         con.close()
     except sqlite3.Error:
@@ -78,8 +89,8 @@ def _api(path, params):
         return None
 
 
-def _api_closes(sym, today):
-    data = _api(f"eod/{sym}", {"from": (today - datetime.timedelta(days=HISTORY_DAYS)).isoformat(),
+def _api_closes(sym, today, days=HISTORY_DAYS):
+    data = _api(f"eod/{sym}", {"from": (today - datetime.timedelta(days=days)).isoformat(),
                                "to": today.isoformat()})
     if not isinstance(data, list):
         return None
@@ -95,13 +106,48 @@ def has_gap(closes, thr=GAP):
     return any(v[i - 1] and abs(v[i] / v[i - 1] - 1) >= thr for i in range(1, len(v)))
 
 
-def fetch_closes(sym, today):
+def fetch_closes(sym, today, days=None):
     """База → при разрыве ряда (22.11: ITA после дробления 05.11 в базе «−68% за день», прежние цены не
-    пересчитаны) — свежий ряд EODHD с поправкой; разрыв и там → None («не измерено», а не ложное «−70%»)."""
-    rows = _db_closes(sym, today)
+    пересчитаны) — свежий ряд EODHD с поправкой; разрыв и там → None («не измерено», а не ложное «−70%»).
+    days — глубина истории в календарных днях (по умолчанию HISTORY_DAYS)."""
+    kw = {"days": int(days)} if days else {}
+    rows = _db_closes(sym, today, **kw)
     if not rows or has_gap(rows):
-        rows = _api_closes(sym, today)
+        rows = _api_closes(sym, today, **kw)
     return None if (not rows or has_gap(rows)) else rows
+
+
+def fetch_closes_long(sym, today):
+    """Длинный ряд цен широкого рынка для датчика «цена защиты» (тот же источник, что у карты, глубина ~3 года)."""
+    return fetch_closes(sym, today, days=FEAR_HISTORY_DAYS)
+
+
+def fetch_implied(sym, today, spot, spot_date=None, get=None):
+    """Какие годовые колебания опционы закладывают на ближайший месяц: опционы EODHD через ops/options_view,
+    расчёт — mathlib/options_implied. → {'iv', 'экспирация', 'дней', 'котировки_на', 'источник'} или {'причина'}.
+    Экспирации берём НЕ ближайшие, а от месяца вперёд: у фонда на широкий рынок опционы истекают почти каждый день,
+    и ближайшие (1–2 недели) в дни встряски закладывают заметно больше месячных (22.11: 36% против 30%) — сравнивать
+    их с колебаниями за месяц было бы нечестно."""
+    try:
+        from ops import options_view as OV
+    except ImportError:
+        import options_view as OV
+    from mathlib import options_implied as OI
+    target = today + datetime.timedelta(days=FEAR_HORIZON_DAYS)
+    sd = str(spot_date or today)[:10]
+    trade_from = (datetime.date.fromisoformat(sd) - datetime.timedelta(days=4)).isoformat()
+    rows, err = OV.fetch(sym, target.isoformat(), (target + datetime.timedelta(days=FEAR_EXP_WINDOW_DAYS)).isoformat(),
+                         get=get, trade_from=trade_from)
+    if err and not rows:
+        return {"причина": f"опционы не получены ({err})"}
+    res = OI.market_expectation(rows, spot, today.isoformat(), target.isoformat(), spot_date=sd)
+    if not res.get("ok"):
+        return {"причина": res.get("причина") or "опционы не посчитаны"}
+    if res.get("оговорки"):
+        return {"причина": "; ".join(res["оговорки"])}
+    return {"iv": res["iv_на_деньгах"], "экспирация": res["экспирация"], "дней": res["дней"],
+            "котировки_на": res.get("котировки_на"),
+            "источник": "EODHD mp/unicornbay/options/eod — колебания, заложенные в опционы у текущей цены"}
 
 
 def fetch_general(sym, today=None):
@@ -113,7 +159,7 @@ def fetch_general(sym, today=None):
             "industry": " | ".join(str(x) for x in (g.get("GicSubIndustry"), g.get("Industry")) if x)}
 
 
-FETCH = {"closes": fetch_closes, "general": fetch_general}
+FETCH = {"closes": fetch_closes, "general": fetch_general, "closes_long": fetch_closes_long, "implied": fetch_implied}
 
 
 # ── сектор бумаги ───────────────────────────────────────────────────────────────────────────────────
@@ -216,6 +262,61 @@ def sector_map(today=None, rules=None, fetch=None):
     return {"дата": today.isoformat(), "секторы": rows}
 
 
+def market_name(sym):
+    """Имя широкого рынка для текста: тикер фонда — с названием."""
+    sym = _sym(sym)
+    return "S&P 500 (фонд SPY)" if sym == "SPY.US" else f"широкий рынок (фонд {sym.split('.')[0]})"
+
+
+def fear_gauge(today=None, rules=None, fetch=None):
+    """Датчик «цена защиты» (Q-цена-страха): дорого или дёшево сейчас стоит защита от падения рынка.
+    Цены — длинный ряд широкого рынка из источника карты (fetch['closes_long']); закладываемые опционами колебания —
+    fetch['implied'] (по умолчанию ops/options_view, заменяемо). Источника нет, сеть упала, цены устарели → вердикт
+    None и причина в «не_измерено»; фактические колебания, если посчитались, всё равно в результате.
+    → dict mathlib/fear_gauge.gauge + {'рынок', 'опционы', 'не_измерено'}."""
+    rules = rules if rules is not None else load_rules()
+    today = today or datetime.datetime.now(datetime.timezone.utc).date()
+    f = fetch or FETCH
+    sym = _sym(rules.get("рынок") or "SPY.US")
+    closes, reason, opt = None, None, None
+    try:
+        fn = f.get("closes_long")
+        closes = fn(sym, today) if fn else None
+    except Exception:                                       # noqa: BLE001 — нет цен = «не измерено»
+        closes = None
+    if not closes:
+        reason = "нет цен широкого рынка"
+    else:
+        try:
+            age = (today - datetime.date.fromisoformat(str(closes[-1][0])[:10])).days
+        except (TypeError, ValueError):
+            age = None
+        if age is None or age > FEAR_MAX_PRICE_AGE_DAYS or age < 0:
+            reason = f"последняя цена широкого рынка устарела ({closes[-1][0]})"
+        else:
+            try:
+                fn = f.get("implied")
+                opt = fn(sym, today, closes[-1][1], closes[-1][0]) if fn else None
+            except Exception as e:                          # noqa: BLE001 — сбой сети/поставщика = «не измерено»
+                opt, reason = None, f"опционы не получены ({type(e).__name__})"
+            if not isinstance(opt, dict) or opt.get("iv") is None:
+                reason = reason or (opt.get("причина") if isinstance(opt, dict) else None) or "нет данных об опционах"
+                opt = None
+    g = FG.gauge(closes, opt["iv"] if opt else None)
+    g["рынок"] = sym
+    g["опционы"] = {k: v for k, v in (opt or {}).items() if k != "iv"} or None
+    g["не_измерено"] = None if g["вердикт"] else (reason or "; ".join(g["почему"]))
+    return g
+
+
+def fear_line(g, honest=False):
+    """Строка датчика словами (пишет код). Нет измерения → None; honest=True → честное «не измерена» (для карты)."""
+    if not isinstance(g, dict):
+        return None
+    name = market_name(g.get("рынок") or "SPY.US")
+    return FG.phrase(g, name) or (FG.phrase_unmeasured(g, name) if honest else None)
+
+
 ORDER = {SR.TAILWIND: 0, SR.NEUTRAL: 1, SR.HOT: 2, SR.CORRECTING: 3, None: 4}
 
 
@@ -233,6 +334,10 @@ def render(m):
     L.append("")
     L.append("Как читать: «попутный» — выше своей долгой средней и не хуже рынка; «корректируется» — ниже средней и "
              "падает три месяца; «перегрет» — далеко выше средней у самого годового максимума.")
+    fl = fear_line(m.get(FEAR_KEY), honest=True)    # Q-цена-страха: та же строка, что в сводке агента
+    if fl:
+        L.append("")
+        L.append(fl)
     return "\n".join(L)
 
 
@@ -266,11 +371,18 @@ def market_brief(today=None, out_dir=None):
     if rows and n_down * 2 >= len(rows):
         parts.append(f"Корректируется {n_down} из {len(rows)} секторов: идеи только на покупку идут против рынка — "
                      "рассмотри, кто ПРОИГРЫВАЕТ от события (идея на падение), и «не покупать» как честный ответ.")
+    fl = fear_line(m.get(FEAR_KEY))                 # Q-цена-страха: одна фраза; не измерено — фразы нет
+    if fl:
+        parts.append(fl)
     return " ".join(parts)
 
 
 def tick(today=None, out_dir=None, rules=None, fetch=None):
     m = sector_map(today, rules, fetch)
+    try:                                            # датчик не роняет снимок карты: прежние ключи пишутся всегда
+        m[FEAR_KEY] = fear_gauge(datetime.date.fromisoformat(m["дата"]), rules, fetch)
+    except Exception as e:                          # noqa: BLE001
+        m[FEAR_KEY] = {"вердикт": None, "не_измерено": f"сбой расчёта ({type(e).__name__})"}
     d = pathlib.Path(out_dir or OUT)
     d.mkdir(parents=True, exist_ok=True)
     for name in (f"{m['дата']}.json", "latest.json"):
@@ -293,7 +405,12 @@ def main(argv=None):
     if a.cmd == "ticker":
         print(json.dumps(for_ticker(a.ticker, a.direction, today), ensure_ascii=False, indent=1))
     elif a.cmd == "show":
-        print(render(sector_map(today)))
+        m = sector_map(today)
+        try:
+            m[FEAR_KEY] = fear_gauge(datetime.date.fromisoformat(m["дата"]))
+        except Exception:                           # noqa: BLE001 — карта показывается и без датчика
+            pass
+        print(render(m))
     else:
         print(render(tick(today)))
     return 0
