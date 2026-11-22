@@ -422,3 +422,30 @@ def test_agent_cannot_add_hypotheses_while_one_is_deep(tmp_path):
     out = json.loads(tools.search_add("Конвертеры урана получают премию за мощность", "CCJ",
                                       "дефицит конверсии UF6 поднимает цену"))
     assert "сначала глубина" in out["сообщение"] and len(SQ.load(s["id"], tmp_path)["гипотезы"]) == 1
+
+
+
+def test_numbers_written_with_words_are_read_as_numbers():
+    """Прогон DHT 22.11: «32% (пояснение)» и «субъективно ~45%: …» — это числа, пункт не должен падать из-за формы."""
+    assert SQ.lead_number("32% (риск-нейтрально, по ценам опционов до экспирации 16.04.2027)") == 32.0
+    assert SQ.lead_number("субъективно ~45%: Q4-прибыль ~$2.6/акцию уже законтрактована") == 45.0
+    assert SQ.lead_number("$3,34") == 3.34 and SQ.lead_number(7) == 7.0
+    assert SQ.lead_number("рост ожиданий с $1.87 до $3.34") is None        # число не в начале — не выдёргиваем
+    assert SQ.lead_number(True) is None and SQ.lead_number(None) is None
+    d = SQ.unwrap({"market_view": {"kind": "magnitude", "market": {"value": "32% (опционы)", "source": "EODHD"},
+                                   "ours": {"value": "субъективно ~45%: бронь"}}})
+    assert d["market_view"]["market"]["value"] == 32.0 and d["market_view"]["ours"]["value"] == 45.0
+    assert d["market_view"]["market"]["value_text"] == "32% (опционы)"       # слова модели сохранены
+
+
+def test_code_fills_materiality_numbers_from_its_own_calculation(tmp_path):
+    """Прогон DHT 22.11: расчёт был (materiality_check), но в данные попал итог словами — числа дописывает код."""
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    assert tools._fill_materiality({"materiality": {"вердикт": "СУЩЕСТВЕННО"}}) == {"materiality": {"вердикт": "СУЩЕСТВЕННО"}}
+    tools.materiality_check(effect_profit_per_year=420e6, net_income=160e6, market_cap=3470e6, years=1)
+    out = tools._fill_materiality({"materiality": {"вердикт": "СУЩЕСТВЕННО", "детали": "11% капитализации"}})
+    mt = out["materiality"]
+    assert mt["effect_profit_per_year"] == 420e6 and mt["market_cap"] == 3470e6 and mt["детали"] == "11% капитализации"
+    own = {"materiality": {"effect_profit_per_year": 1.0, "net_income": 2.0}}
+    assert tools._fill_materiality(own) == own                              # свои числа модели код не трогает

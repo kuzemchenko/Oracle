@@ -87,7 +87,10 @@ def _p_materiality(mt):
     fails, labels = [], []
     r = EV.check_materiality({"materiality": mt}, fails, labels, required=True)
     if not r or not r.get("ok"):
-        return _pt(None if not mt else False, "эффект для прибыли компании не посчитан")
+        if mt:
+            return _pt(False, "размер эффекта записан словами, без чисел для пересчёта кодом — нужны "
+                              "effect_profit_per_year (или effect_revenue_per_year), net_income (или revenue), market_cap")
+        return _pt(None, "эффект для прибыли компании не посчитан")
     if r["вердикт"] != MAT.СУЩЕСТВЕННО:
         return _pt(False, "эффект посчитан, но мал для размера компании (" + str(r["вердикт"]).lower() + ")")
     return _pt(True, "эффект посчитан и существенен для размера компании")

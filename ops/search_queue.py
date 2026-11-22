@@ -357,7 +357,41 @@ def unwrap(data):
         if isinstance(inner, dict):
             out.pop(k)
             out = {**inner, **out}
-    return out
+    return _numbers_out_of_words(out)
+
+
+_LEAD_WORDS = re.compile(r"^(?:субъективно|примерно|около|порядка|оценка|наша оценка|мы|рынок)[\s:—–-]*", re.I)
+_LEAD_NUM = re.compile(r"^[~≈$€£\s]*(-?\d+(?:[.,]\d+)?)\s*(%?)")
+
+
+def lead_number(x):
+    """«32% (риск-нейтрально, по ценам опционов…)» → 32.0; «субъективно ~45%: …» → 45.0; число → оно же;
+    текст без числа в начале → None. Число берётся ТОЛЬКО из начала строки — из середины фразы не выдёргиваем."""
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, (int, float)):
+        return float(x)
+    if not isinstance(x, str):
+        return None
+    m = _LEAD_NUM.match(_LEAD_WORDS.sub("", x.strip()))
+    return float(m.group(1).replace(",", ".")) if m else None
+
+
+def _numbers_out_of_words(d):
+    """Проверочный прогон 22.11 (DHT): модель записала ожидание рынка и наше значение как «32% (пояснение…)» и
+    «субъективно ~45%: …» — числа есть, но код ждал число и не зачёл пункт «чего ждёт рынок» из-за ФОРМЫ записи.
+    Теперь число из начала строки становится значением, а сама строка сохраняется рядом как пояснение."""
+    mv = d.get("market_view")
+    if not isinstance(mv, dict):
+        return d
+    mv = dict(mv)
+    for side in ("market", "ours"):
+        part = mv.get(side)
+        if isinstance(part, dict) and isinstance(part.get("value"), str):
+            n = lead_number(part["value"])
+            if n is not None:
+                mv[side] = {**part, "value": n, "value_text": part["value"]}
+    return {**d, "market_view": mv}
 
 
 def quick_check_gaps(data):

@@ -396,3 +396,12 @@ def test_strictness_report_names_the_cause_in_plain_words():
     assert "судить о строгости листа нельзя: глубоко проверено 0 из нужных 5" in txt
     assert "Пунктов, которые хоть раз кто-то прошёл: 1 из 10" in txt
     assert "None" not in txt
+
+
+
+def test_materiality_in_words_says_which_numbers_are_needed():
+    p = IV._p_materiality({"вердикт": "СУЩЕСТВЕННО", "детали": "11% капитализации"})
+    assert p["зачтён"] is False and "effect_profit_per_year" in p["почему"]
+    assert IV._p_materiality(None)["зачтён"] is None
+    ok = IV._p_materiality({"effect_profit_per_year": 420e6, "net_income": 160e6, "market_cap": 3470e6, "years": 1})
+    assert ok["зачтён"] is True

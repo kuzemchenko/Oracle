@@ -161,6 +161,7 @@ class Tools:
         self.search_worked = False # 14.11: поиск ДВИГАЛИ (старт/гипотеза/шаг) — только тогда стоимость ответа в его бюджет
         self.pred_path = None      # Q-чат-в-счёт: журнал прогнозов (None — боевой, только на сервере)
         self.sealed = []           # строки «записал в счёт», которые КОД допишет к ответу
+        self.mat_inputs = None     # числа последнего расчёта materiality_check в этом ответе (22.11)
 
     def _store(self, data, source, units=None):
         self._n += 1
@@ -523,6 +524,11 @@ class Tools:
         from mathlib import materiality as MT
         res = MT.materiality(effect_profit_per_year=effect_profit_per_year, effect_revenue_per_year=effect_revenue_per_year,
                              years=years, net_income=net_income, revenue=revenue, market_cap=market_cap)
+        if res.get("ok"):          # числа последнего удачного расчёта — их код допишет в данные гипотезы (см. search_step)
+            self.mat_inputs = {k: v for k, v in (("effect_profit_per_year", effect_profit_per_year),
+                                                 ("effect_revenue_per_year", effect_revenue_per_year), ("years", years),
+                                                 ("net_income", net_income), ("revenue", revenue),
+                                                 ("market_cap", market_cap)) if v is not None}
         rid = self._store(res, "mathlib.materiality")
         return self._view(rid, res, "mathlib.materiality")
 
@@ -742,6 +748,7 @@ class Tools:
             return "нет активного поиска — сначала search_start"
         self.search_id = s["id"]
         self.search_worked = True
+        data = self._fill_materiality(data)
         _h, msg = SQ.advance(s, hyp_id, outcome, data if isinstance(data, dict) else None, reject_kind, reason, needs)
         SQ.save(s, self.search_dir)
         if s["статус"] == SQ.FOUND and _h is not None and not _h.get("прогноз"):
@@ -750,6 +757,20 @@ class Tools:
             SQ.save(s, self.search_dir)
             msg = f"{msg}. {note}"
         return self._sq_view(s, msg)
+
+    def _fill_materiality(self, data):
+        """Проверочный прогон 22.11 (DHT): модель посчитала размер эффекта инструментом materiality_check, а в данные
+        гипотезы записала итог словами ({вердикт, детали}) — код не мог пересчитать и не зачёл пункт из-за ФОРМЫ.
+        Если чисел в записи нет, а расчёт в этом ответе был — числа расчёта дописывает код (слова модели остаются)."""
+        if not (isinstance(data, dict) and self.mat_inputs):
+            return data
+        SQ = self._sq()
+        flat = SQ.unwrap(data)
+        mt = flat.get("materiality")
+        if not isinstance(mt, dict) or any(isinstance(mt.get(k), (int, float)) and not isinstance(mt.get(k), bool)
+                                           for k in ("effect_profit_per_year", "effect_revenue_per_year")):
+            return data
+        return {**flat, "materiality": {**mt, **self.mat_inputs, "числа_из": "materiality_check (дописал код)"}}
 
     # — Q-вердикт-комитет (владелец 22.11): итоговая оценка «X из 10» и решение — считает код —
     def _iv(self):
@@ -1008,8 +1029,8 @@ TOOL_SPECS = [
         "способ выразить), no_data (добыть данные). data — собранное, поля на ВЕРХНЕМ уровне (не вкладывай в ключ с именем этапа): быстрая проверка "
         "{факты:[{текст,url,опубликовано,проверено}], механизм:'ТЕКСТ — что именно и через что меняет прибыль компании' "
         "(строка, не true/false), цена, дата_цены, потенциал_пп, риски:[], инструмент_доступен:true}; углубление "
-        "и далее {market_view:{kind (magnitude — размер эффекта | timing — срок | flow — вынужденный продавец/покупатель | rule — неверно понятое правило),metric,market:{value,source},ours:{value},why_different,основано_на:[номера фактов]}, "
-        "materiality:{…}, сценарии:{цена,дата_цены,источник_цены,базовый:{цена,основание},неблагоприятный:{цена,основание}}, "
+        "и далее {market_view:{kind (magnitude — размер эффекта | timing — срок | flow — вынужденный продавец/покупатель | rule — неверно понятое правило),metric,market:{value — ЧИСЛО, source, note — пояснение текстом},ours:{value — ЧИСЛО в тех же единицах, note},why_different,основано_на:[номера фактов]}, "
+        "materiality:{effect_profit_per_year (или effect_revenue_per_year), years, net_income (или revenue), market_cap — ЧИСЛА, те же, что передавал в materiality_check: код пересчитает сам; итог словами без чисел не зачитывается}, сценарии:{цена,дата_цены,источник_цены,базовый:{цена,основание},неблагоприятный:{цена,основание}}, "
         "направление:'long'|'short', горизонт:'YYYY-MM-DD', условия_реализации:[], условия_опровержения:[], "
         "критика:{семейство, возражения:[{текст,существенное,ответ}]}, вероятность (только со счётом «k из n» в "
         "основание_вероятности); дополнительно, когда собрано: chain:[{text,quality:'confirmed'|'hypothesis',url}] "
