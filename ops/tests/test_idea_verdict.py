@@ -616,3 +616,63 @@ def test_judge_gets_the_fell_for_nothing_question_and_type_change_expires_old_ve
     h2 = _hyp()
     h2["данные"]["тип_идеи"] = "упал зря"                           # тип сменили после суда — прежнее решение судьи не действует
     assert IV.verdict_for_hypothesis(h2, TODAY, RULES, _sector(), valuation_fn=_val(30.0, 43.0))["судья"] is None
+
+
+# ── независимость ставок (владелец 22.11, принцип Далио) ──
+def _ledger():
+    return {"позиции": [{"тикер": "BRNT.LSE", "кол_во": 2.0}, {"тикер": "OLD.US", "кол_во": 0.0}],
+            "предложения": [
+                {"тикер": "NVDA.US", "direction": "above", "дата": "2026-11-16", "срок": "2026-12-31", "по_стопу": False},
+                {"тикер": "NVDA.US", "direction": "above", "дата": "2026-11-18", "срок": "2026-12-31", "по_стопу": False},
+                {"тикер": "MP.US", "direction": "above", "дата": "2026-11-02", "срок": "2026-11-25", "по_стопу": True},
+                {"тикер": "OLDIDEA.US", "direction": "above", "дата": "2026-06-21", "срок": "2026-07-19", "по_стопу": False},
+                {"тикер": "LEU.US", "direction": "above", "дата": "2026-11-22", "нет_цены": True},
+                {"тикер": "CRWV.US", "direction": "below", "дата": "2026-11-20", "срок": None, "по_стопу": False}]}
+
+
+def test_open_bets_are_live_proposals_and_real_positions_once_each(monkeypatch):
+    monkeypatch.undo()                                           # здесь нужна настоящая open_bets (счёт передан явно)
+    bets = IV.open_bets(TODAY, _ledger())
+    assert [(b["тикер"], b["сторона"]) for b in bets] == [("BRNT.LSE", "вверх"), ("NVDA.US", "вверх"), ("CRWV.US", "вниз")]
+    assert bets[0]["откуда"] == "твоя позиция"                   # закрытые по стопу, просроченные и без цены — не ставки
+
+
+def _ind(ticker, side, table, bets=None):
+    import random
+    base = {}
+
+    def closes(sym):
+        if sym not in base:
+            rnd = random.Random(sym)
+            px, out = 100.0, []
+            for i in range(140):
+                px *= 1 + rnd.gauss(0, 0.02)
+                out.append(("d%03d" % i, px))
+            base[sym] = out
+        src = table.get(sym)
+        return base[sym] if src is None else closes(src)         # «ходит как» другая бумага
+    bets = bets if bets is not None else [{"тикер": "NVDA.US", "сторона": "вверх", "откуда": "предложение системы от 2026-11-16"},
+                                           {"тикер": "DHT.US", "сторона": "вверх", "откуда": "предложение системы от 2026-11-04"},
+                                           {"тикер": "EQT.US", "сторона": "вверх", "откуда": "предложение системы от 2026-11-09"}]
+    return IV.independence_for(ticker, side, TODAY, bets=bets, closes_fn=closes, rules={})
+
+
+def test_repeat_of_an_open_bet_blocks_the_bet_and_says_so():
+    rep = _ind("AMD", "вверх", {"AMD.US": "NVDA.US"})
+    assert rep["вывод"] == "повтор" and "ПОВТОР уже открытой ставки" in rep["словами"] and "NVDA" in rep["словами"]
+    assert "Все открытые ставки — в одну сторону" in rep["словами"]
+    v = IV.verdict_for_hypothesis(_hyp(), TODAY, RULES, _sector(), independence_fn=lambda *a, **k: rep)
+    assert v["балл"] == 10 and v["решение"] == IS.WAIT and any("повтор уже открытой ставки (NVDA" in b for b in v["брак"])
+    assert "ПОВТОР уже открытой ставки" in IV.render(v)
+
+
+def test_new_bet_and_counterweight_do_not_block():
+    new = _ind("XOM", "вверх", {})
+    assert new["вывод"] == "новая" and "новая ставка" in new["словами"]
+    hedge = _ind("AMD", "вниз", {"AMD.US": "NVDA.US"})
+    assert hedge["вывод"] == "новая"                                         # ставка вниз на связанной бумаге — противовес
+    v = IV.verdict_for_hypothesis(_hyp(), TODAY, RULES, _sector(), independence_fn=lambda *a, **k: new)
+    assert v["решение"] == IS.BET and "новая ставка" in IV.render(v)
+    assert _ind("NVDA", "вверх", {})["вывод"] == "уже открыта"
+    first = _ind("XOM", "вверх", {}, bets=[])
+    assert first["вывод"] == "новая" and "первая" in first["словами"]

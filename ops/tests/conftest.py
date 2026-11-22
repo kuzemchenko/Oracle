@@ -91,6 +91,11 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         monkeypatch.setattr(iv, "OUT", tmp_path / "guard_verdicts")
         monkeypatch.setattr(iv, "DAILY_SEARCHES", tmp_path / "guard_searches_daily")
         monkeypatch.setattr(iv, "fetch_valuation", lambda *a, **k: None)
+        # общий счёт и цены — не под тестами: без явно переданных ставок независимость «не измерена» (None)
+        def _no_ledger(*a, **k):
+            raise RuntimeError("под тестами открытые ставки передаются явно")
+        monkeypatch.setattr(iv, "open_bets", _no_ledger)
+        monkeypatch.setattr(iv, "_closes_for", lambda *a, **k: None)
     for name in ("ops.sector_view", "sector_view"):
         try:
             sv = importlib.import_module(name)

@@ -395,24 +395,148 @@ def _sector(ticker, direction, today, sector_fn):
         return {"против": None, "словами": f"состояние сектора не измерено ({type(e).__name__})"}
 
 
-def _verdict(P, blockers, info, rules, source, today):
+# ── независимость ставок (владелец 22.11, принцип Далио) ─────────────────────────────────────────────
+_IND_CACHE = {"день": None, "ставки": None, "цены": {}, "связь": {}}
+
+
+def open_bets(today=None, ledger=None):
+    """Открытые ставки из общего счёта: предложения системы с ценой, у которых не сработал стоп и не вышел срок, и
+    реальные позиции владельца. Одна бумага в одну сторону — одна ставка. → [{'тикер','сторона','откуда'}]"""
+    today = today or _today()
+    if ledger is None:
+        import ledger as LG
+        ledger = LG.build()
+    out, seen = [], set()
+    for r in ledger.get("позиции") or []:
+        if (r.get("кол_во") or 0) > 0:
+            key = (str(r["тикер"]).upper(), "вверх")
+            if key not in seen:
+                seen.add(key)
+                out.append({"тикер": key[0], "сторона": "вверх", "откуда": "твоя позиция"})
+    for r in ledger.get("предложения") or []:
+        if r.get("нет_цены") or r.get("по_стопу"):
+            continue
+        dl = _date(r.get("срок"))
+        if dl is not None and dl < today:
+            continue
+        key = (str(r["тикер"]).upper(), "вверх" if r.get("direction") == "above" else "вниз")
+        if key not in seen:
+            seen.add(key)
+            out.append({"тикер": key[0], "сторона": key[1], "откуда": "предложение системы от " + str(r.get("дата"))})
+    return out
+
+
+def _closes_for(sym, today):
+    try:
+        import sector_view as SV
+        return SV.fetch_closes(sym, today)
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+def independence_for(ticker, direction, today=None, bets=None, closes_fn=None, rules=None):
+    """Новая идея против открытых ставок. → отчёт mathlib.independence.assess + 'словами' | None (нечего сравнивать
+    или сбой — вердикт от этого не зависит)."""
+    from mathlib import independence as IN
+    today = today or _today()
+    cfg = rules if rules is not None else (load_rules().get("независимость") or {})
+    cache = _IND_CACHE
+    if cache["день"] != today.isoformat():
+        cache.update({"день": today.isoformat(), "ставки": None, "цены": {}, "связь": {}})
+    try:
+        if bets is None:
+            if cache["ставки"] is None:
+                cache["ставки"] = open_bets(today)
+            bets = cache["ставки"]
+        sym = lambda t: t if "." in t else t + ".US"         # noqa: E731
+        me = {"тикер": sym(str(ticker).upper()), "сторона": "вниз" if direction == "вниз" else "вверх"}
+        bets = [{**b, "тикер": sym(b["тикер"])} for b in bets]
+        get = closes_fn or (lambda s: _closes_for(s, today))
+
+        def closes(s):
+            if closes_fn is not None:
+                return get(s)
+            if s not in cache["цены"]:
+                cache["цены"][s] = get(s)
+            return cache["цены"][s]
+
+        def corr(a, b):
+            key = tuple(sorted((a, b)))
+            if closes_fn is None and key in cache["связь"]:
+                return cache["связь"][key]
+            c = IN.correlation(closes(a), closes(b), cfg.get("дней", 120), cfg.get("мин_точек", 60))
+            if closes_fn is None:
+                cache["связь"][key] = c
+            return c
+
+        rep = IN.assess(me, bets, corr, cfg)
+    except Exception:                                        # noqa: BLE001 — независимость не роняет вердикт
+        return None
+    rep["словами"] = independence_words(rep)
+    return rep
+
+
+def independence_words(rep):
+    from mathlib import independence as IN
+    n, days = rep["открыто"], rep["пороги"]["дней"]
+    if n == 0:
+        return "Независимость: открытых ставок нет — это была бы первая."
+    top = rep["похожие"][0] if rep["похожие"] else None
+    name = lambda x: str(x["тикер"]).split(".")[0]            # noqa: E731
+    tail = ""
+    if rep.get("независимых_с_новой") is not None and rep["вывод"] != IN.SAME:
+        tail = (f" Вместе с ней открыто было бы {rep['ставок_с_новой']} ставок — по сути это "
+                f"{rep['независимых_с_новой']:g} независимых.")
+    elif rep.get("независимых_сейчас") is not None:
+        tail = f" Сейчас открыто {n} ставок — по сути это {rep['независимых_сейчас']:g} независимых."
+    if n >= 3 and rep.get("та_же_сторона") == n:
+        tail += (" Все открытые ставки — в одну сторону: при общем падении или росте рынка они выигрывают и "
+                 "проигрывают вместе, даже если в спокойное время ходят независимо.")
+    if rep["вывод"] == IN.SAME:
+        return "Независимость: эта ставка уже открыта — новой она не является." + tail
+    if rep["вывод"] == IN.UNKNOWN:
+        return f"Независимость не измерена: мало общей истории цен с открытыми ставками ({n})."
+    link = f"за {days} торговых дней ходила вместе с {name(top)} на {top['связь'] * 100:.0f}%" if top else ""
+    if rep["вывод"] == IN.REPEAT:
+        return (f"Независимость: это ПОВТОР уже открытой ставки — {link} ({top['откуда']}). Отдельной ставкой она "
+                f"не считается." + tail)
+    if rep["вывод"] == IN.PARTIAL:
+        return f"Независимость: частичный повтор — {link}." + tail
+    return ("Независимость: новая ставка — " + (f"с ближайшей открытой ({name(top)}) связь {top['связь'] * 100:.0f}%."
+                                                 if top else "с открытыми не связана.") + tail)
+
+
+def _verdict(P, blockers, info, rules, source, today, independence_fn=None):
+    ind = None
+    if independence_fn is not False and info.get("тикер"):
+        try:
+            ind = (independence_fn or independence_for)(info["тикер"], info.get("направление") or "вверх", today)
+        except Exception:                                    # noqa: BLE001
+            ind = None
+    if ind and ind.get("вывод") == "повтор":
+        top = ind["похожие"][0]
+        blockers = list(blockers) + [f"повтор уже открытой ставки ({str(top['тикер']).split('.')[0]}, связь "
+                                     f"{top['связь'] * 100:.0f}%) — сначала реши, что делать с ней"]
     sc = IS.score(P, rules, blockers)
-    return {"когда": today.isoformat(), "источник": source, **info, **sc, "версия_листа": rules.get("версия")}
+    return {"когда": today.isoformat(), "источник": source, **info, **sc, "независимость": ind,
+            "версия_листа": rules.get("версия")}
 
 
-def verdict_for_card(card, today=None, rules=None, court=None, sector_fn=None, source="карточка охотника"):
+def verdict_for_card(card, today=None, rules=None, court=None, sector_fn=None, source="карточка охотника",
+                     independence_fn=None):
     rules = rules or load_rules()
     today = today or _today()
     sector = _sector(str(card.get("ticker") or "").upper(), str(card.get("direction") or "").lower(), today, sector_fn)
     P, blockers, info = points_from_card(card, today, rules, court, sector)
-    return _verdict(P, blockers, info, rules, source, today)
+    return _verdict(P, blockers, info, rules, source, today, independence_fn)
 
 
 REJECT_RU = {"priced_in": "эффект уже в цене", "mechanism_refuted": "механизм опровергнут",
              "instrument_unfit": "инструмент не подходит", "no_data": "не хватает данных"}
 
 
-def verdict_for_hypothesis(h, today=None, rules=None, sector_fn=None, source="поиск", valuation_fn=None):
+def verdict_for_hypothesis(h, today=None, rules=None, sector_fn=None, source="поиск", valuation_fn=None,
+                           independence_fn=None):
     """Гипотеза поиска → вердикт. Отклонённая по существу — сразу «архив» с причиной (балл не считается)."""
     rules = rules or load_rules()
     today = today or _today()
@@ -428,7 +552,7 @@ def verdict_for_hypothesis(h, today=None, rules=None, sector_fn=None, source="п
     direction = "вверх" if str(d.get("направление") or "long") != "short" else "вниз"
     sector = _sector(str(h.get("тикер") or "").upper(), direction, today, sector_fn)
     P, blockers, info = points_from_hypothesis(h, today, rules, sector, valuation_fn)
-    v = _verdict(P, blockers, info, rules, source, today)
+    v = _verdict(P, blockers, info, rules, source, today, independence_fn)
     if h.get("нужно_данных"):
         v["ждёт_данных"] = [str(x)[:200] for x in h["нужно_данных"][:4]]
     return v
@@ -481,6 +605,8 @@ def render(v, track_line=None):
                  "(потеря не больше уплаченной премии; в Interactive Brokers нужно разрешение на опционы) — но после "
                  "резкого падения рынка такая защита стоит дорого. Продажу взаймы (убыток не ограничен) и обратные "
                  "фонды для долгого удержания не советую.")
+    if (v.get("независимость") or {}).get("словами"):
+        L.append(v["независимость"]["словами"])
     if v.get("судья"):
         L.append(f"Доводы по существу проверил независимый судья — модель третьего разработчика ({v['судья'].get('семейство')}).")
     if v.get("брак"):
@@ -726,6 +852,7 @@ def main(argv=None):
     sub.add_parser("board")
     sub.add_parser("track")
     sub.add_parser("strictness")
+    sub.add_parser("independence")
     a = ap.parse_args(argv)
     rules = load_rules()
     if a.cmd == "card":
@@ -752,6 +879,28 @@ def main(argv=None):
                 print("\n" + render(v))
     elif a.cmd == "board":
         print(render_board(board(rules=rules), track_line(track(rules=rules), rules)))
+    elif a.cmd == "independence":
+        from mathlib import independence as IN
+        bets = open_bets()
+        cfg = rules.get("независимость") or {}
+        today = _today()
+        px = {}
+
+        def corr(x, y):
+            for s in (x, y):
+                if s not in px:
+                    px[s] = _closes_for(s if "." in s else s + ".US", today)
+            return IN.correlation(px[x], px[y], cfg.get("дней", 120), cfg.get("мин_точек", 60))
+        n, avg, pairs = IN.effective_n(bets, corr)
+        print(f"Открытых ставок: {len(bets)}" + (f" — по сути это {n:g} независимых (средняя связь {avg * 100:.0f}%, "
+                                                    f"измерено пар {pairs})." if n is not None and avg is not None else "."))
+        for b in bets:
+            print(f"• {b['тикер'].split('.')[0]} — {'на рост' if b['сторона'] == 'вверх' else 'на падение'} ({b['откуда']})")
+        for i in range(len(bets)):
+            for j in range(i + 1, len(bets)):
+                c = IN.bet_link(corr(bets[i]["тикер"], bets[j]["тикер"]), bets[i]["сторона"], bets[j]["сторона"])
+                print(f"  связь {bets[i]['тикер'].split('.')[0]} — {bets[j]['тикер'].split('.')[0]}: "
+                      + (f"{c * 100:.0f}%" if c is not None else "не измерена"))
     elif a.cmd == "strictness":
         print(render_strictness(IS.strictness(all_evaluated(rules=rules), rules)))
     else:
