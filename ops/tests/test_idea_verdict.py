@@ -566,3 +566,11 @@ def test_truncated_critic_answer_falls_to_next_model_and_limit_is_roomy():
     res = ag._critic("идея")
     assert res["семейство"] == "x-ai" and res["возражения"][0]["существенное"] is True
     assert seen[0][0].startswith("google/") and seen[0][1] >= 8000 and round(ag.cost, 2) == 0.04
+
+
+def test_short_idea_is_not_named_after_its_beneficiary():
+    """22.11: вердикт идеи на падение Equinix вышел с подписью «Короткие продавцы EQIX (EQIX)»."""
+    h = _hyp(направление="short")
+    h["получатель"] = "Короткие продавцы AAA"
+    assert IV.verdict_for_hypothesis(h, TODAY, RULES, _sector())["имя"] is None
+    assert IV.verdict_for_hypothesis(_hyp(), TODAY, RULES, _sector())["имя"] == "Альфа"

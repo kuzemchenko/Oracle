@@ -273,6 +273,15 @@ def _apply_judge(h, d, P, blockers, rules):
     return {k: j.get(k) for k in ("семейство", "модель", "когда")}
 
 
+def _hyp_name(h, long_):
+    """Название компании для подписи. У идеи на падение поле «получатель» — тот, кто выигрывает от падения
+    (22.11: вердикт вышел с подписью «Короткие продавцы EQIX»), поэтому там имя не берём — остаётся тикер."""
+    name = str(h.get("получатель") or "").split(" — ")[0].strip()[:60]
+    if not name or not long_ or re.search(r"продавц|шорт|short|держател[ьи] пут", name, re.I):
+        return None
+    return name
+
+
 def points_from_hypothesis(h, today=None, rules=None, sector=None):
     rules = rules or load_rules()
     today = today or _today()
@@ -319,7 +328,7 @@ def points_from_hypothesis(h, today=None, rules=None, sector=None):
         P[9] = _pt(True, f"срок {cd}; цель {base['цена']:g} с расчётом")
     P[10] = _p_court_answered(d.get("критика"))
     judge = _apply_judge(h, d, P, blockers, rules)
-    info = {"судья": judge, "тикер": str(h.get("тикер") or "").upper(), "имя": str(h.get("получатель") or "").split(" — ")[0][:60] or None,
+    info = {"судья": judge, "тикер": str(h.get("тикер") or "").upper(), "имя": _hyp_name(h, long_),
             "направление": direction, "цена": px, "дата_цены": sc.get("дата_цены") or d.get("дата_цены"),
             "цель": base.get("цена"), "стоп": adv.get("цена"), "вход": px}
     return P, blockers, info

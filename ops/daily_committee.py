@@ -44,6 +44,7 @@ DIG_DECISIONS = ROOT / "journal" / "dig_decisions.jsonl"
 RULES = ROOT / "knowledge" / "idea_committee.yaml"
 BUDGET_MODE = "daily_committee"
 DEFAULTS = {"порог_сообщения": 7, "бюджет_идеи_usd": 4.0, "ходов_на_идею": 4, "идей_в_день": 4}
+OVERSHOOT_RESERVE = 0.4      # запас дня: 22.11 день закрылся на $15.23 при потолке $15 (ход доигрывается после потолка)
 DIG_MAX_AGE_H = 36
 MAX_LEN = 3900
 FRAME = "Это исследовательский инструмент, не инвестиционная рекомендация."
@@ -303,7 +304,7 @@ def run(now=None, max_ideas=None, budget=None, push=None, out_dir=None, search_r
         n_max = int(max_ideas if max_ideas is not None else cfg["идей_в_день"])
     do_push = _push_on() if push is None else bool(push)
     for t in todo[:max(0, n_max - len(rec["идеи"]))]:
-        per = min(float(cfg["бюджет_идеи_usd"]), left)
+        per = min(float(cfg["бюджет_идеи_usd"]), left - OVERSHOOT_RESERVE)   # последний ход может выйти за потолок поиска
         if per < 1.0:
             log(f"остаток дневного бюджета ${left:.2f} — на новую идею не хватает")
             break

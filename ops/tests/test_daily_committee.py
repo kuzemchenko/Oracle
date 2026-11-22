@@ -113,8 +113,8 @@ def test_day_budget_caps_the_work(tmp_path):
     d = _dig(tmp_path, ("Тема А про танкеры", "Тема Б про налог", "Тема В про уран"))
     rec = DC.run(now=NOW, budget=5.0, push=False, out_dir=tmp_path / "out", search_root=tmp_path / "s", dig_dir=d,
                  decisions=tmp_path / "none.jsonl", answer=_answer(score_high=False, cost=2.0), cfg=CFG, log=lambda *a: None)
-    assert [i["тема"] for i in rec["идеи"]] == ["Тема А про танкеры", "Тема Б про налог"]   # на третью — меньше $1
-    assert rec["потрачено_usd"] == 6.0 and rec["идеи"][1]["ходов"] == 1                        # вторая упёрлась в остаток $1
+    assert [i["тема"] for i in rec["идеи"]] == ["Тема А про танкеры"]      # остаток $1 минус запас — на новую идею не хватает
+    assert rec["потрачено_usd"] == 4.0                                       # день не вышел за потолок $5
     assert DC.run(now=NOW, budget=0.0, out_dir=tmp_path / "o3", dig_dir=d, answer=_answer(), cfg=CFG,
                   log=lambda *a: None)["идеи"] == []                                          # бюджета нет — не работаем
 
@@ -137,11 +137,11 @@ def test_owner_topic_runs_inside_the_same_day_budget(tmp_path):
     d = _dig(tmp_path, ("Тема из утреннего меню",))
     t = DC.owner_topic("Распродажа ИИ: кто упал зря", "S&P 500 за неделю минус 8.6%")
     assert "direction 'short'" in t["запрос"] and "минус 8.6%" in t["запрос"] and "не покупать" in t["запрос"]
-    rec = DC.run(now=NOW, budget=3.0, push=False, out_dir=tmp_path / "out", search_root=tmp_path / "s", dig_dir=d,
+    rec = DC.run(now=NOW, budget=4.0, push=False, out_dir=tmp_path / "out", search_root=tmp_path / "s", dig_dir=d,
                  decisions=tmp_path / "none.jsonl", answer=_answer(score_high=False, cost=1.0), cfg=CFG, log=lambda *a: None,
                  extra_topics=[t, DC.owner_topic("Распродажа ИИ: кто упадёт дальше")])
     assert [i["тема"] for i in rec["идеи"]] == ["Распродажа ИИ: кто упал зря", "Распродажа ИИ: кто упадёт дальше"]
-    assert rec["потрачено_usd"] == 3.0 and rec["идеи"][1]["ходов"] == 1          # вторая тема упёрлась в остаток дня
+    assert rec["потрачено_usd"] == 4.0 and rec["идеи"][1]["ходов"] == 2          # вторая тема — на остаток дня за вычетом запаса
 
 
 def test_morning_message_gets_the_line_only_behind_flag(tmp_path, monkeypatch):

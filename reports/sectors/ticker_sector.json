@@ -1,9 +1,25 @@
 {
+ "ANET.US": {
+  "industry": "Communications Equipment | Computer Hardware",
+  "sector": "Information Technology"
+ },
  "CF.US": {
   "industry": "Fertilizers & Agricultural Chemicals | Agricultural Inputs",
   "sector": "Materials"
  },
+ "CRWV.US": {
+  "industry": "Internet Services & Infrastructure | Software - Infrastructure",
+  "sector": "Information Technology"
+ },
  "DHT.US": {
+  "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
+  "sector": "Energy"
+ },
+ "EQIX.US": {
+  "industry": "Data Center REITs | REIT - Specialty",
+  "sector": "Real Estate"
+ },
+ "FRO.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
  },
@@ -11,16 +27,48 @@
   "industry": "Semiconductors | Solar",
   "sector": "Information Technology"
  },
+ "GOOGL.US": {
+  "industry": "Interactive Media & Services | Internet Content & Information",
+  "sector": "Communication Services"
+ },
+ "LNG.US": {
+  "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
+  "sector": "Energy"
+ },
+ "META.US": {
+  "industry": "Interactive Media & Services | Internet Content & Information",
+  "sector": "Communication Services"
+ },
  "NBIS.US": {
   "industry": "Systems Software | Internet Content & Information",
+  "sector": "Information Technology"
+ },
+ "NOW.US": {
+  "industry": "Systems Software | Software - Application",
+  "sector": "Information Technology"
+ },
+ "SAP.US": {
+  "industry": "Application Software | Software - Application",
   "sector": "Information Technology"
  },
  "STNG.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
  },
+ "STRL.US": {
+  "industry": "Construction & Engineering | Engineering & Construction",
+  "sector": "Industrials"
+ },
  "TMC.US": {
   "industry": "Diversified Metals & Mining | Other Industrial Metals & Mining",
   "sector": "Materials"
+ },
+ "TRMD.US": {
+  "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
+  "sector": "Energy"
+ },
+ "VWAGY.US": {
+  "industry": "Automobile Manufacturers | Auto Manufacturers",
+  "sector": "Consumer Discretionary"
  }
 }
