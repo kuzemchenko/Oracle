@@ -44,7 +44,22 @@ def next_prompt(ticker):
             f"(committee_verdict покажет какие). Новых гипотез не открывай.")
 
 
-def run(ticker, name, card=None, budget=10.0, max_turns=6, out=None, answer=None, log=print):
+def models_with(model):
+    """Настройки моделей с другой моделью у роли агента — ТОЛЬКО для прогона (config/models.yaml не меняется, агент
+    владельца в Telegram остаётся на своей). Запасных моделей нет: тихого возврата к дорогой не будет."""
+    import copy
+    from orchestrator import openrouter as OR
+    import bot_agent as BA
+    models = copy.deepcopy(OR.load_models())
+    for sect in ("roles", "school_roles"):
+        if BA.ROLE in (models.get(sect) or {}):
+            models[sect][BA.ROLE] = {**models[sect][BA.ROLE], "primary": model, "fallbacks": [],
+                                     "family": model.split("/", 1)[0]}
+            return models
+    raise KeyError(f"роль {BA.ROLE} не найдена в config/models.yaml")
+
+
+def run(ticker, name, card=None, budget=10.0, max_turns=6, out=None, answer=None, log=print, model=None):
     import bot_agent as BA
     import idea_verdict as IV
     import search_queue as SQ
@@ -66,7 +81,8 @@ def run(ticker, name, card=None, budget=10.0, max_turns=6, out=None, answer=None
             if answer is not None:
                 text, _files, cost = answer(q, history, tools)
             else:
-                text, _files, cost = BA.answer(q, history=history, agent=BA.Agent(tools=tools))
+                ag = BA.Agent(tools=tools, models=models_with(model)) if model else BA.Agent(tools=tools)
+                text, _files, cost = BA.answer(q, history=history, agent=ag)
         except Exception as e:                                   # noqa: BLE001 — сбой хода не теряет собранное
             log(f"ход {i}: сбой — {type(e).__name__}: {str(e)[:200]}")
             turns.append({"ход": i, "сбой": f"{type(e).__name__}: {str(e)[:200]}"})
@@ -90,7 +106,7 @@ def run(ticker, name, card=None, budget=10.0, max_turns=6, out=None, answer=None
     allv = IV.search_verdicts(s)
     scored = [v for v in allv if v.get("балл") is not None]
     rules = IV.load_rules()
-    res = {"дата": today, "тикер": ticker, "потрачено_usd": round(spent, 4), "ходов": len(turns), "ходы": turns,
+    res = {"дата": today, "тикер": ticker, "модель": model or "как в Telegram", "потрачено_usd": round(spent, 4), "ходов": len(turns), "ходы": turns,
            "статус_поиска": s["статус"], "вердикты": allv, "строгость": IS.strictness(scored, rules)}
     (out / "result.json").write_text(json.dumps(res, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     text = IV.render_search(allv, s.get("тема")) + "".join("\n\n" + IV.render(v) for v in scored[:1])
@@ -107,8 +123,9 @@ def main(argv=None):
     ap.add_argument("--budget", type=float, default=10.0)
     ap.add_argument("--max-turns", type=int, default=6)
     ap.add_argument("--out", default=None, help="папка прогона (по умолчанию reports/committee_tests/<дата>_<ТИКЕР>)")
+    ap.add_argument("--model", default=None, help="модель агента только для прогона (например anthropic/claude-sonnet-4.6)")
     a = ap.parse_args(argv)
-    run(a.ticker.upper(), a.name, a.card, a.budget, a.max_turns, out=a.out,
+    run(a.ticker.upper(), a.name, a.card, a.budget, a.max_turns, out=a.out, model=a.model,
         log=lambda *x: print(*x, flush=True))
     return 0
 

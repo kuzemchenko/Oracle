@@ -1611,6 +1611,8 @@ class Agent:
             calls = msg.get("tool_calls") or []
             text = _msg_text(msg)
             if not calls:
+                if self._save_before_text(msgs, text):
+                    continue                                     # итог не принят: сначала запись в гипотезу
                 if self.last_finish == "length":
                     msgs.append({"role": "assistant", "content": text})
                 return text
@@ -1664,6 +1666,36 @@ class Agent:
             self.unsaved = 0                       # возражения код записал сам
         elif name and not name.startswith("search_") and name != "committee_verdict":
             self.unsaved += 1
+
+    def _running_search(self):
+        try:
+            SQ = self.tools._sq()
+            s = self.tools._sq_active() if self.tools.search_id else None
+            return s if s and s.get("статус") == SQ.RUNNING else None
+        except Exception:                                        # noqa: BLE001
+            return None
+
+    def _save_before_text(self, msgs, text):
+        """Повторный прогон 22.11: модель добыла данные и сразу написала длинный итог (14 тыс. токенов, ~$0.85), не
+        записав в гипотезу ничего — резерв на запись стоял только между обращениями к данным. Правило кода: пока в
+        этом ответе есть добытое и не записанное, текстовый итог не принимается. → True, если модель возвращена."""
+        if self.unsaved <= 0 or self.save_nudges >= 3 or self.cost >= self._cap():
+            return False
+        s = self._running_search()
+        if not s:
+            return False
+        self.save_phase = True
+        self.save_nudges += 1
+        hid = self.tools._sq().next_action(s).get("гипотеза") or "гипотезы"
+        msgs.append({"role": "assistant", "content": (text or "")[:4000] or "…"})
+        msgs.append({"role": "user", "content": (
+            f"[система] итог не принят: в этом ответе добыто ({self.unsaved} обращений к данным), а в гипотезу НЕ "
+            f"записано — после ответа это пропадёт. Сначала запиши собранное по {hid}: search_step (data — только "
+            "новые поля, частями и коротко: факты со ссылками, механизм, цена, market_view, materiality, сценарии, "
+            "chain, durability, precedent, катализатор, ответы на возражения). До записи доступны только инструменты "
+            "поиска. Потом — короткий итог владельцу (до 1200 знаков): что записано, чего не хватает; длинный разбор "
+            "не повторяй — он уже в гипотезе." + self._committee_hint(s))})
+        return True
 
     def _save_reserve(self, msgs):
         """РЕЗЕРВ НА ЗАПИСЬ (проверочный прогон 22.11: три ответа из четырёх, $7.35, не оставили в гипотезе ничего —

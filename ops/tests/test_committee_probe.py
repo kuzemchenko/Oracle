@@ -47,3 +47,13 @@ def test_probe_survives_a_failed_turn(tmp_path):
     res = CP.run("DHT", "DHT Holdings", budget=10.0, max_turns=3, out=tmp_path / "probe", answer=answer,
                  log=lambda *a: None)
     assert res["ходов"] == 1 and "сбой" in res["ходы"][0] and (tmp_path / "probe" / "result.json").exists()
+
+
+def test_probe_model_override_does_not_touch_config_and_has_no_expensive_fallback():
+    from orchestrator import openrouter as OR
+    before = OR.resolve_role(BA.ROLE)["primary"]
+    m = CP.models_with("anthropic/claude-sonnet-4.6")
+    cfg = OR.resolve_role(BA.ROLE, m)
+    assert cfg["primary"] == "anthropic/claude-sonnet-4.6" and cfg["fallbacks"] == []
+    assert OR.filtered_chain(cfg, None, m) == ["anthropic/claude-sonnet-4.6"]
+    assert OR.resolve_role(BA.ROLE)["primary"] == before                  # настройки владельца не тронуты

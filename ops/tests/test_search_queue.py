@@ -543,3 +543,33 @@ def test_save_reserve_forces_recording_before_budget_runs_out(tmp_path, monkeypa
     assert nudge and "2 обращений к данным" in str(nudge[0]["content"])
     assert SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]["durability"]["url"] == "https://example.com/c"
     assert ag.unsaved == 0 and ag.save_phase is False
+
+
+def test_final_text_is_not_accepted_while_research_is_unsaved(tmp_path):
+    """Повторный прогон DHT: модель добыла данные и сразу написала длинный итог, ничего не записав."""
+    s, h = _deep_search(tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    tools.eodhd = lambda **k: "цены"
+    script = [_msg(calls=[("search_start", {"topic": "танкеры"})]),
+              _msg(calls=[("eodhd", {"endpoint": "eod/DHT.US"})]),
+              _msg("Длинный разбор без записи."),
+              _msg(calls=[("search_step", {"hyp_id": "h1", "outcome": "pass", "data": {
+                  "precedent": {"what": "2019, санкции против COSCO", "amplitude": "+30%", "url": "https://example.com/p"}}})]),
+              _msg("Записал: похожий случай. Не хватает проверки другой моделью.")]
+    llm = FakeLLM(script)
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    text = ag._loop([{"role": "user", "content": "продолжай"}], 10)
+    assert text.startswith("Записал") and len(llm.bodies) == 5
+    assert any("итог не принят" in str(m.get("content")) for m in llm.bodies[3]["messages"])
+    assert {t["function"]["name"] for t in llm.bodies[3]["tools"]} <= set(A.SAVE_TOOLS)
+    assert SQ.load(s["id"], tmp_path)["гипотезы"][0]["данные"]["precedent"]["amplitude"] == "+30%"
+
+
+def test_plain_answer_without_search_is_not_held_back(tmp_path):
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    tools.eodhd = lambda **k: "цены"
+    llm = FakeLLM([_msg(calls=[("eodhd", {"endpoint": "eod/DHT.US"})]), _msg("Цена 21.58.")])
+    ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
+    assert ag._loop([{"role": "user", "content": "сколько стоит DHT?"}], 10) == "Цена 21.58." and len(llm.bodies) == 2
