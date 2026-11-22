@@ -14,6 +14,10 @@
 одно сообщение с кнопками «Копаем N» / «Мимо» (ops/bot.py _tick_dig_offer). «Копаем» = запрос
 владельца «найди идею» по теме: агент Telegram ведёт поиск (ops/search_queue.py, потолок $10).
 
+Q-меню-рынок (22.11): за флагом event_menu_market (config/presentation.yaml, по умолчанию выключен) в поводы
+первыми попадают резкие движения самого рынка из раздела меню «Рынок: резкие движения» — id M1, M2…; числа и
+ссылки на заголовки ставит код (ops/event_menu.market_leads). Флаг выключен — поводы, запрос и текст прежние.
+
 Это НЕ прогноз и не суждение о рынке (ничего не печатается, П16 не касается); это карта, где искать.
 «Сегодня копать нечего» — легитимный итог.
 
@@ -83,11 +87,41 @@ def _jsonl(p):
 
 
 # ── входы ────────────────────────────────────────────────────────────────────────────────
-def menu_items(menu, attention_daily=None, attention_fast=None):
+MARKET_FLAG = "event_menu_market"     # config/presentation.yaml; по умолчанию выключен (меняет утреннее сообщение)
+MARKET_HINT = ("\n[M…] — резкие движения самого рынка: ход цены за день и за 5 торговых дней против обычных колебаний "
+               "этой же бумаги за год. Посчитал код по ценам закрытия; заголовки рядом показывают, что пишут, а причину "
+               "не доказывают. Это такие же поводы, как события из новостей: резкое движение широкого рынка или целого "
+               "сектора обычно важнее отдельной новости дня. Числа хода в ответ переноси только отсюда.")
+
+
+def market_enabled(root=ROOT):
+    """Флаг event_menu_market читается напрямую из config/presentation.yaml: нет ключа или сбой → выключено."""
+    try:
+        import yaml
+        cfg = yaml.safe_load((pathlib.Path(root) / "config" / "presentation.yaml").read_text(encoding="utf-8")) or {}
+        return bool(cfg.get(MARKET_FLAG))
+    except Exception:                                            # noqa: BLE001 — сбой чтения = флаг выключен
+        return False
+
+
+def market_items(menu):
+    """Рыночные поводы M1, M2… из раздела меню «Рынок: резкие движения» (ops/event_menu.market_leads):
+    текст и ссылки на заголовки пишет КОД; нет раздела или в нём ошибка — пусто."""
+    try:
+        import event_menu as EM
+        leads = EM.market_leads((menu or {}).get("рынок"))
+    except Exception:                                            # noqa: BLE001 — рынок не роняет поводы дня
+        return []
+    return [{"id": f"M{i}", "текст": ld["текст"], "url": ld.get("url"), "urls": ld.get("urls") or [],
+             "цены_на": ld.get("цены_на")} for i, ld in enumerate(leads, 1) if ld.get("текст")]
+
+
+def menu_items(menu, attention_daily=None, attention_fast=None, market=False):
     """Пронумерованные поводы с источниками. id: N — крупные события NewsAPI, G — резкий рост в мировых
     новостях (GDELT), W — резкий рост просмотров Википедии, A — внимание толпы к бумаге (Википедия по дням),
-    F — быстрые следы толпы (новости/опционы/объём за часы). Ссылки берёт КОД — модель их не пишет."""
-    items = []
+    F — быстрые следы толпы (новости/опционы/объём за часы). Ссылки берёт КОД — модель их не пишет.
+    market=True (флаг event_menu_market) — первыми идут M: резкие движения самого рынка по ценам."""
+    items = market_items(menu) if market else []
     m = menu or {}
     for i, e in enumerate(((m.get("newsapi") or {}).get("события") or [])[:15], 1):
         uri = e.get("uri")
@@ -174,6 +208,8 @@ def library(episodes=None):
 def build_user_prompt(items, recent, now, lib=None):
     lines = [f"Сегодня {now.date().isoformat()}. Поводы дня (берёшь ТОЛЬКО отсюда, ссылаешься по id):"]
     lines += [f"[{it['id']}] {it['текст']}" for it in items]
+    if any(str(it.get("id") or "").startswith("M") for it in items):     # рыночные поводы есть только при флаге
+        lines.append(MARKET_HINT)
     lines.append("\nНедавно уже предлагали или искали (не повторять без нового факта):")
     lines += [f"- {t}" for t in recent] or ["- ничего"]
     if lib:
@@ -230,6 +266,10 @@ def validate_offer(o, ids, recent):
 def attach_sources(o, by_id):
     o["источники"] = [{"id": i, "url": by_id[i].get("url"), "текст": by_id[i]["текст"][:200]}
                       for i in o["повод_ids"] if by_id.get(i)]
+    for s in o["источники"]:                  # рыночный повод (M…): все ссылки на заголовки и дата цен — тоже от кода
+        it = by_id[s["id"]]
+        if "urls" in it:
+            s["urls"], s["цены_на"] = list(it.get("urls") or []), it.get("цены_на")
     return o
 
 
@@ -296,6 +336,11 @@ def render(pr):
         urls = [s["url"] for s in o.get("источники") or [] if s.get("url")]
         if urls:
             out.append("Источник: " + urls[0])
+        else:                                 # повод — движение цены без заголовка в базе новостей (только при флаге)
+            day = next((s.get("цены_на") for s in o.get("источники") or [] if "urls" in s), None)
+            if day:
+                out.append(f"Источник: цены закрытия на {day} из нашей базы котировок; заголовков о причине "
+                           "в базе новостей не нашёл.")
     out.append("\nНажми «Копаем N» — начну поиск идеи по этой теме (до $10 на поиск). «Мимо» — запомню и похожее "
                "без нового факта не предложу.\n\n" + FRAME)
     return "\n".join(out)
@@ -339,7 +384,8 @@ def _write(pr, out_dir=None):
 
 
 def run(mode="auto", now=None, client=None, menu=None, attention_daily=None, attention_fast=None,
-        out_dir=None, decisions=None, search_dir=None, episodes=None, budget=True):
+        out_dir=None, decisions=None, search_dir=None, episodes=None, budget=True, market=None):
+    """market: None — по флагу event_menu_market из config/presentation.yaml; True/False — явно (тесты)."""
     now = now or _now()
     run_id = "dig_" + now.strftime("%Y%m%dT%H%M%SZ")
     pr = {"run_id": run_id, "ts": now.isoformat(timespec="seconds"), "mode": mode,
@@ -356,9 +402,12 @@ def run(mode="auto", now=None, client=None, menu=None, attention_daily=None, att
                        "(сбор меню сервером в 21:00 UTC)")
         pr["текст"] = render(pr)
         return _write(pr, out_dir), pr
-    items = menu_items(menu, att_d, att_f)
+    use_market = market_enabled() if market is None else bool(market)
+    items = menu_items(menu, att_d, att_f, market=use_market)
     by_id = {it["id"]: it for it in items}
     pr["поводов"] = len(items)
+    if use_market:
+        pr["рыночных_поводов"] = sum(1 for it in items if it["id"].startswith("M"))
     pr["меню_собрано"] = menu.get("собрано")
     recent = recent_topics(now, out_dir, decisions, search_dir)
     lib = library(episodes)
