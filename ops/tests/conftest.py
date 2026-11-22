@@ -89,6 +89,7 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         except Exception:                                    # noqa: BLE001
             continue
         monkeypatch.setattr(iv, "OUT", tmp_path / "guard_verdicts")
+        monkeypatch.setattr(iv, "DAILY_SEARCHES", tmp_path / "guard_searches_daily")
     for name in ("ops.sector_view", "sector_view"):
         try:
             sv = importlib.import_module(name)
@@ -96,4 +97,14 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
             continue
         monkeypatch.setattr(sv, "FETCH", {"closes": lambda *a, **k: None, "general": lambda *a, **k: None})
         monkeypatch.setattr(sv, "CACHE", tmp_path / "guard_ticker_sector.json")
+    # 22.11: ежедневная самостоятельная работа — её итоги, поиски, разговор и сообщения владельцу под тестами временные
+    for name in ("ops.daily_committee", "daily_committee"):
+        try:
+            dc = importlib.import_module(name)
+        except Exception:                                    # noqa: BLE001
+            continue
+        monkeypatch.setattr(dc, "OUT", tmp_path / "guard_daily")
+        monkeypatch.setattr(dc, "SEARCH_ROOT", tmp_path / "guard_daily_searches")
+        monkeypatch.setattr(dc, "CHAT", tmp_path / "guard_daily_chat.jsonl")
+        monkeypatch.setattr(dc, "NOTICES", tmp_path / "guard_daily_notices.jsonl")
     yield

@@ -311,7 +311,24 @@ def lint(text):
 
 
 # ── прогон ───────────────────────────────────────────────────────────────────────────────
+def _self_work_line(pr):
+    """Q-ежедневный-комитет (владелец 22.11): идеи ниже порога, проработанные системой самой, — одной строкой в
+    утреннем сообщении. Строку пишет код; за флагом daily_committee_push; не влезла в сообщение — не добавляем."""
+    try:
+        import bot_reports as R
+        if not pr.get("текст") or not R.load_presentation().get("daily_committee_push"):
+            return
+        import daily_committee as DC
+        line = DC.morning_line(datetime.datetime.fromisoformat(str(pr.get("ts"))))
+        if line and len(pr["текст"]) + len(line) + 2 <= MAX_LEN:
+            pr["текст"] = pr["текст"] + "\n\n" + line
+            pr["строка_самостоятельной_работы"] = line
+    except Exception:                                            # noqa: BLE001 — строка не роняет утреннее сообщение
+        return
+
+
 def _write(pr, out_dir=None):
+    _self_work_line(pr)
     d = pathlib.Path(out_dir or OUT_DIR)
     d.mkdir(parents=True, exist_ok=True)
     p = d / (pr["run_id"] + ".json")

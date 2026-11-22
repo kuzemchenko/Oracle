@@ -551,7 +551,7 @@ def board(out_dir=None, search_dir=None, today=None, rules=None, sector_fn=None,
     import search_queue as SQ
     rules = rules or load_rules()
     rows = {(r.get("тикер"), r.get("направление")): r for r in latest_by_ticker(saved(out_dir)) if r.get("балл") is not None}
-    for s in SQ.all_searches(search_dir):
+    for s in _all_searches(search_dir):
         if s.get("статус") == SQ.CANCELLED:
             continue
         for v in search_verdicts(s, today, rules, sector_fn):
@@ -577,6 +577,19 @@ def render_board(rows, track_text=None):
     return "\n".join(L)
 
 
+DAILY_SEARCHES = ROOT / "reports" / "ideas" / "searches_daily"
+
+
+def _all_searches(search_dir=None):
+    """Поиски владельца в Telegram + самостоятельные ежедневные (у каждого своя папка)."""
+    import search_queue as SQ
+    out = list(SQ.all_searches(search_dir))
+    if search_dir is None and DAILY_SEARCHES.exists():
+        for d in sorted(p for p in DAILY_SEARCHES.iterdir() if p.is_dir()):
+            out += SQ.all_searches(d)
+    return out
+
+
 # ── не слишком ли строг лист ────────────────────────────────────────────────────────────────────────
 CARDS = ROOT / "reports" / "ideas"
 
@@ -594,7 +607,7 @@ def all_evaluated(cards_dir=None, search_dir=None, rules=None, sector_fn=None):
                                         sector_fn=sector_fn))
         except Exception:                                   # noqa: BLE001 — битая карточка не роняет отчёт
             continue
-    for s in SQ.all_searches(search_dir):
+    for s in _all_searches(search_dir):
         out += [v for v in search_verdicts(s, None, rules, sector_fn) if v.get("балл") is not None]
     return out
 
