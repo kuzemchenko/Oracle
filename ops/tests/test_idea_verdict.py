@@ -544,7 +544,7 @@ def test_short_idea_scores_against_sector_and_explains_how_to_express_it():
     by = {p["код"]: p for p in v["пункты"]}
     assert v["направление"] == "вниз" and by["СЕКТОР"]["зачтён"] is True
     assert by["ВЫИГРЫШ"]["зачтён"] is True and "30%" in by["ВЫИГРЫШ"]["почему"]       # падение на 30% против роста на 12%
-    assert "идея на ПАДЕНИЕ" in IV.render(v) and "опцион «пут»" in IV.render(v)
+    assert "идея на ПАДЕНИЕ" in IV.render(v) and "опцион «пут»" in IV.render(v) and "не покупать" in IV.render(v)
     rising = {"против": True, "словами": "сектор «чипы» — попутный"}
     v2 = IV.verdict_for_hypothesis(h, TODAY, RULES, lambda *a, **k: rising)
     assert {p["код"]: p for p in v2["пункты"]}["СЕКТОР"]["зачтён"] is False
