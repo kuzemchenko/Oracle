@@ -574,3 +574,45 @@ def test_short_idea_is_not_named_after_its_beneficiary():
     h["получатель"] = "Короткие продавцы AAA"
     assert IV.verdict_for_hypothesis(h, TODAY, RULES, _sector())["имя"] is None
     assert IV.verdict_for_hypothesis(_hyp(), TODAY, RULES, _sector())["имя"] == "Альфа"
+
+
+# ── идеи «упал зря» (владелец 22.11 «Да, меняй»): размер недооценки вместо прироста прибыли ──
+def _val(now, med, key="pe"):
+    return lambda sym, years=5: {"ok": True, key: {"ok": True, "сейчас": now, "медиана": med, "лет": 5}}
+
+
+def test_mispriced_idea_is_sized_by_discount_to_own_history_not_by_profit_effect():
+    h = _hyp(тип_идеи="упал зря", materiality=None)                 # прироста прибыли у такой идеи нет по определению
+    cheap = IV.verdict_for_hypothesis(h, TODAY, RULES, _sector(), valuation_fn=_val(30.0, 43.0))
+    p = {x["код"]: x for x in cheap["пункты"]}["РАЗМЕР"]
+    assert cheap["тип_идеи"] == "упал зря" and p["зачтён"] is True and "на 30% дешевле своей истории" in p["почему"]
+    assert "бумага заметно дешевле своей истории — бумага стоит на 30% дешевле" in IV.render(cheap)
+    fair = IV.verdict_for_hypothesis(h, TODAY, RULES, _sector(), valuation_fn=_val(45.09, 42.9))     # Arista 22.11
+    p = {x["код"]: x for x in fair["пункты"]}["РАЗМЕР"]
+    assert p["зачтён"] is False and "не дешевле своей истории" in p["почему"] and "дороже на 5%" in p["почему"]
+    none = IV.verdict_for_hypothesis(h, TODAY, RULES, _sector(), valuation_fn=lambda *a, **k: None)
+    assert {x["код"]: x for x in none["пункты"]}["РАЗМЕР"]["зачтён"] is None                        # не измерено — не балл
+
+
+def test_ordinary_idea_still_needs_profit_effect_and_short_needs_premium():
+    usual = IV.verdict_for_hypothesis(_hyp(materiality=None), TODAY, RULES, _sector(), valuation_fn=_val(30.0, 43.0))
+    assert usual["тип_идеи"] == "событие" and {x["код"]: x for x in usual["пункты"]}["РАЗМЕР"]["зачтён"] is None
+    sc = {"цена": 100.0, "дата_цены": "2026-11-20", "источник_цены": "EODHD",
+          "базовый": {"цена": 70.0, "основание": "прибыль на акцию 3.5 × мультипликатор 20"},
+          "неблагоприятный": {"цена": 112.0, "основание": "возврат к уровню до новости"}}
+    short = _hyp(тип_идеи="переоценена, выросла зря", направление="short", сценарии=sc)
+    v = IV.verdict_for_hypothesis(short, TODAY, RULES, _sector(), valuation_fn=_val(60.0, 43.0))
+    assert "дороже своей истории" in {x["код"]: x for x in v["пункты"]}["РАЗМЕР"]["почему"]
+    loss = IV.verdict_for_hypothesis(_hyp(тип_идеи="упал зря"), TODAY, RULES, _sector(),
+                                     valuation_fn=lambda *a, **k: {"ok": True, "pe": {"ok": False}, "ps": {"ok": True, "сейчас": 4.0, "медиана": 6.0}})
+    assert "цена к выручке 4" in {x["код"]: x for x in loss["пункты"]}["РАЗМЕР"]["почему"]            # убыточная — по выручке
+
+
+def test_judge_gets_the_fell_for_nothing_question_and_type_change_expires_old_verdict():
+    h = _hyp(тип_идеи="упал зря", почему_упал_зря="выручка компании идёт от банков, а не от заказчиков чипов — 8-K от 04.11")
+    b = json.loads(BA.Tools().judge_brief(h))
+    assert "упала зря" in b["пункты_листа"]["РАЗМЕР"] and "8-K" in json.dumps(b["доказательства_по_пунктам"]["РАЗМЕР"], ensure_ascii=False)
+    assert "упал зря" in BA.Agent.JUDGE_PROMPT
+    h2 = _hyp()
+    h2["данные"]["тип_идеи"] = "упал зря"                           # тип сменили после суда — прежнее решение судьи не действует
+    assert IV.verdict_for_hypothesis(h2, TODAY, RULES, _sector(), valuation_fn=_val(30.0, 43.0))["судья"] is None

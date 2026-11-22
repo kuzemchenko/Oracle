@@ -689,7 +689,7 @@ def evidence_digest(h, limit=3500):
     facts = [f for f in d.get("факты") or [] if isinstance(f, dict)]
     if facts:
         out["факты"] = [f"{i}. {_cut(f.get('текст'), 150)} [{_cut(f.get('url'), 90)}]" for i, f in enumerate(facts, 1)][:8]
-    for k in ("механизм", "цена", "дата_цены", "направление", "горизонт", "вероятность"):
+    for k in ("механизм", "цена", "дата_цены", "направление", "тип_идеи", "почему_упал_зря", "горизонт", "вероятность"):
         if d.get(k) not in (None, "", []):
             out[k] = _cut(d[k], 220)
     mv = d.get("market_view") if isinstance(d.get("market_view"), dict) else None
@@ -761,7 +761,8 @@ def record_critique(h, family, model, objections):
 
 JUDGE_KEY = "суд_комитета"
 EVIDENCE_KEYS = ("факты", "механизм", "chain", "цепочка", "materiality", "durability", "устойчивость", "market_view",
-                 "precedent", "прецедент", "сценарии", "катализатор", "горизонт", "направление", "критика")
+                 "precedent", "прецедент", "сценарии", "катализатор", "горизонт", "направление", "критика",
+                 "тип_идеи", "почему_упал_зря")
 
 
 def evidence_fingerprint(h):

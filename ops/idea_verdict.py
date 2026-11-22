@@ -237,6 +237,48 @@ def _hyp_data(h):
     return SQ.unwrap(dict(h.get("данные") or {}))
 
 
+MISPRICED_RE = re.compile(r"упал\w* зря|зря упал|вынужденн|недооцен|переоцен|вырос\w* зря|mispric|forced", re.I)
+
+
+def is_mispriced_type(d):
+    """Идея типа «упал зря»: ставка не на прирост прибыли от события, а на то, что рынок ошибся в цене (бумагу
+    продали вместе со всеми, вынужденный продавец). Тип называет автор (поле тип_идеи), обоснованность судит судья."""
+    return bool(MISPRICED_RE.search(str(d.get("тип_идеи") or "")))
+
+
+def fetch_valuation(sym, years=5):
+    """Оценка бумаги против собственной истории — код (ops/multiples_view). Сбой или нет данных → None."""
+    try:
+        import multiples_view as MV
+        return MV.view(sym, years)
+    except Exception:                                        # noqa: BLE001 — оценка не роняет вердикт
+        return None
+
+
+def _p_undervalued(val, long_, rules):
+    """П.2 для идеи «упал зря» (владелец 22.11): размер недооценки вместо прироста прибыли. Прогон 22.11: Arista
+    отклонена автором из-за пункта «размер» — у такой идеи прироста прибыли от события нет по определению."""
+    thr = float((rules.get("пороги") or {}).get("недооценка", 0.20))
+    yrs = int((rules.get("пороги") or {}).get("недооценка_лет", 5))
+    if not isinstance(val, dict) or not val.get("ok"):
+        return _pt(None, "оценка бумаги против её собственной истории не измерена")
+    for key, name in (("pe", "цена к прибыли"), ("ps", "цена к выручке")):
+        m = val.get(key) if isinstance(val.get(key), dict) else {}
+        now, med = m.get("сейчас"), m.get("медиана")
+        if m.get("ok") and _num(now) and _num(med) and now > 0 and med > 0:
+            gap = now / med - 1                             # −0.25 = на четверть дешевле своей медианы
+            txt = f"{name} {now:g} при медиане за {m.get('лет') or yrs} лет {med:g}"
+            if long_:
+                if gap <= -thr:
+                    return _pt(True, f"бумага стоит на {-gap * 100:.0f}% дешевле своей истории ({txt})")
+                return _pt(False, f"бумага не дешевле своей истории хотя бы на {thr * 100:.0f}%: {txt}"
+                                  + (f" (дешевле на {-gap * 100:.0f}%)" if gap < 0 else f" (дороже на {gap * 100:.0f}%)"))
+            if gap >= thr:
+                return _pt(True, f"бумага стоит на {gap * 100:.0f}% дороже своей истории ({txt})")
+            return _pt(False, f"бумага не дороже своей истории хотя бы на {thr * 100:.0f}%: {txt}")
+    return _pt(None, "оценка бумаги против её собственной истории не измерена (нет прибыли и выручки для расчёта)")
+
+
 # Пункты, которые кроме кода проверяет независимый судья (сектор и выигрыш/потеря — чистый расчёт, судья не нужен)
 JUDGED = {1: "КАНАЛ", 2: "РАЗМЕР", 3: "СРОК", 4: "РЫНОК", 5: "ПОЧЕМУ", 6: "ПРЕЦЕДЕНТ", 9: "СОБЫТИЕ"}
 
@@ -282,7 +324,7 @@ def _hyp_name(h, long_):
     return name
 
 
-def points_from_hypothesis(h, today=None, rules=None, sector=None):
+def points_from_hypothesis(h, today=None, rules=None, sector=None, valuation_fn=None):
     rules = rules or load_rules()
     today = today or _today()
     d = _hyp_data(h)
@@ -302,7 +344,12 @@ def points_from_hypothesis(h, today=None, rules=None, sector=None):
     P = {}
     chain = d.get("chain") or d.get("цепочка")
     P[1] = _p_chain(chain) if chain else _pt(None, "звенья от события до денег компании с источниками не записаны")
-    P[2] = _p_materiality(d.get("materiality"))
+    if is_mispriced_type(d):                       # «упал зря»: размер недооценки вместо прироста прибыли
+        tk = str(h.get("тикер") or "").upper()
+        val = (valuation_fn or fetch_valuation)(tk if "." in tk else tk + ".US") if tk and valuation_fn is not False else None
+        P[2] = _p_undervalued(val, long_, rules)
+    else:
+        P[2] = _p_materiality(d.get("materiality"))
     P[3] = _p_durability(d.get("durability") or d.get("устойчивость"))
     P[4] = _p_market(mv)
     P[5] = _p_why(mv.get("why_different"), mv.get("основано_на"), rules)
@@ -328,7 +375,7 @@ def points_from_hypothesis(h, today=None, rules=None, sector=None):
         P[9] = _pt(True, f"срок {cd}; цель {base['цена']:g} с расчётом")
     P[10] = _p_court_answered(d.get("критика"))
     judge = _apply_judge(h, d, P, blockers, rules)
-    info = {"судья": judge, "тикер": str(h.get("тикер") or "").upper(), "имя": _hyp_name(h, long_),
+    info = {"судья": judge, "тип_идеи": "упал зря" if is_mispriced_type(d) else "событие", "тикер": str(h.get("тикер") or "").upper(), "имя": _hyp_name(h, long_),
             "направление": direction, "цена": px, "дата_цены": sc.get("дата_цены") or d.get("дата_цены"),
             "цель": base.get("цена"), "стоп": adv.get("цена"), "вход": px}
     return P, blockers, info
@@ -365,7 +412,7 @@ REJECT_RU = {"priced_in": "эффект уже в цене", "mechanism_refuted"
              "instrument_unfit": "инструмент не подходит", "no_data": "не хватает данных"}
 
 
-def verdict_for_hypothesis(h, today=None, rules=None, sector_fn=None, source="поиск"):
+def verdict_for_hypothesis(h, today=None, rules=None, sector_fn=None, source="поиск", valuation_fn=None):
     """Гипотеза поиска → вердикт. Отклонённая по существу — сразу «архив» с причиной (балл не считается)."""
     rules = rules or load_rules()
     today = today or _today()
@@ -380,7 +427,7 @@ def verdict_for_hypothesis(h, today=None, rules=None, sector_fn=None, source="п
     d = _hyp_data(h)
     direction = "вверх" if str(d.get("направление") or "long") != "short" else "вниз"
     sector = _sector(str(h.get("тикер") or "").upper(), direction, today, sector_fn)
-    P, blockers, info = points_from_hypothesis(h, today, rules, sector)
+    P, blockers, info = points_from_hypothesis(h, today, rules, sector, valuation_fn)
     v = _verdict(P, blockers, info, rules, source, today)
     if h.get("нужно_данных"):
         v["ждёт_данных"] = [str(x)[:200] for x in h["нужно_данных"][:4]]
@@ -420,7 +467,11 @@ def render(v, track_line=None):
     bad = [p for p in v["пункты"] if p["зачтён"] is not True]
     if ok:
         L.append("Зачтено:")
-        L += [f"• {p['словами']}" + (f" — {p['почему']}" if p.get("почему") and p["код"] in ("СЕКТОР", "ВЫИГРЫШ", "РЫНОК") else "")
+        mis = v.get("тип_идеи") == "упал зря"
+        L += [("• " + ("бумага заметно дешевле своей истории" if mis and v.get("направление") != "вниз" else
+                       "бумага заметно дороже своей истории") if mis and p["код"] == "РАЗМЕР" else f"• {p['словами']}")
+              + (f" — {p['почему']}" if p.get("почему") and (p["код"] in ("СЕКТОР", "ВЫИГРЫШ", "РЫНОК")
+                                                              or mis and p["код"] == "РАЗМЕР") else "")
               for p in ok]
     if bad:
         L.append("Не зачтено:")
