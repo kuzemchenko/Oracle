@@ -118,3 +118,6 @@
 {"ts": "2026-11-21T11:19:39+00:00", "kind": "ответ агента", "ref": "частей 1", "sha256": "595d0a088cd6e2a5e3583d550b5ea5c5850d76dd0a95eab4d10fd57470f5baf0", "chars": 3571, "buttons": false, "lint_ok": null, "message_id": 1126, "parts": 1, "parts_sent": 1, "parts_failed": []}
 {"ts": "2026-11-21T13:24:16+00:00", "kind": "ответ агента", "ref": "частей 1", "sha256": "3f16c8f881222f941362a2f30b81a807f9cecddfa57a4b711d8597b168983297", "chars": 2601, "buttons": false, "lint_ok": null, "message_id": 1127, "parts": 1, "parts_sent": 1, "parts_failed": []}
 {"ts": "2026-11-21T13:24:27+00:00", "kind": "пауза поиска", "ref": null, "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
+{"ts": "2026-11-22T00:00:20+00:00", "kind": "бот жив", "ref": "2026-11-22", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
+{"ts": "2026-11-22T05:01:31+00:00", "kind": "что покопать", "ref": "dig_20261122T050015Z.json", "sha256": "fd196df7fd0c7cfd487df9aee18552c9bad49286fda523cbff16496640745f4f", "chars": 2905, "buttons": true, "lint_ok": true, "message_id": 1129, "предложений": 2}
+{"ts": "2026-11-22T06:01:23+00:00", "kind": "заметка: long_shelf", "ref": "notices#171", "sha256": "049b1d089b2d419e81bb37d7aa5388354b4754e15daa55b6dd8a86dfc2a853f8", "chars": 3875, "buttons": false, "lint_ok": null, "message_id": 1130}

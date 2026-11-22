@@ -1,65 +1,118 @@
-# Меню событий — 2026-11-21T21:00:17+00:00
+# Меню событий — 2026-11-22T21:00:23+00:00
 
 Что это: сырьё для режима «Круги на воде» — о чём больше всего пишет мировая пресса, что резко выросло за сутки, к чему вырос интерес людей. Выбор 3–5 событий и «почему горячее» — в разговоре.
 
-## GDELT: резко выросло за 24 ч (файлов 192, нет 0)
-- страна: Finland: 1661 статей (было 616, ×2.64); заявления, уступки; https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/
-- ARUNACHAL PRADESH: 482 статей (было 47, ×7.49); переговоры, дипломатическое сотрудничество; http://www.cambodiantimes.com/news/279446668/amit-shah-attends-president-police-colour-award-ceremony-in-arunachal-pradesh
-- FINNISH: 418 статей (было 100, ×3.65); угрозы, боевые действия; https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/
-- FREEDOM FIGHTER: 199 статей (было 5, ×8.76); переговоры, заявления; https://bdnews24.com/bangladesh/sgwuj5y7hp
-- NITISH KUMAR: 195 статей (было 5, ×8.6); намерения сотрудничать, переговоры; https://www.tribuneindia.com/news/india/modi-launches-rs-34470-crore-projects-in-bihar-hails-nitish-for-states-progress/
-- страна: Burundi: 178 статей (было 0, ×9.9); переговоры, заявления; https://garoweonline.com/en/news/world/uganda-and-burundi-military-officials-visit-israel-to-discuss-gaza-troop-deployment
-- BIHAR: 526 статей (было 250, ×2.02); заявления, переговоры; https://aninews.in/news/national/politics/bihar-pm-modi-inaugurates-nitish-setu-over-river-ganga-in-vaishali16020261121142742/
-- UTAH: 397 статей (было 153, ×2.41); переговоры, дипломатическое сотрудничество; https://www.sltrib.com/opinion/commentary/2026/11/21/opinion-im-socialist-wokeness-is/
-- MAFIA: 275 статей (было 94, ×2.59); переговоры, расследования; https://www.freepressjournal.in/india/goa-cjp-chief-abhijeet-dipke-alleges-130-acres-of-tribal-land-transferred-to-builders-for-township-project
-- PATNA: 288 статей (было 116, ×2.26); призывы, заявления; https://indiankanoon.org/doc/151864088/
-- SETTLER: 195 статей (было 49, ×3.12); неодобрение, переговоры; https://www.cbc.ca/news/world/israeli-settler-violence-at-unprecedented-levels-during-palestinian-olive-harvest-9.7426808
-- CONVICTS: 245 статей (было 100, ×2.21); уступки, переговоры; https://www.newindianexpress.com/states/kerala/2026/Nov/21/bilkis-bano-says-those-who-ruined-her-life-now-threaten-to-plunge-india-into-darkness
-- VILLAGER: 209 статей (было 79, ×2.31); заявления, призывы; https://www.bbc.co.uk/news/articles/cvze71y6g85yo
-- страна: Gaza Strip: 229 статей (было 97, ×2.13); заявления, переговоры; https://www.middleeasteye.net/live-blog/live-blog-update/six-palestinians-killed-israeli-strikes-gaza-civil-defence-says
-- BALI: 219 статей (было 92, ×2.13); переговоры, нападения; https://goss.ie/uk-showbiz/love-island-star-reveals-why-she-nearly-rejected-her-husbands-proposal-493936
+## Рынок: резкие движения (цены закрытия на 2026-11-20)
+Как читать: резкое движение — ход за день или за 5 торговых дней не меньше 3 обычных колебаний этой же бумаги за последний год и не меньше 2%. Считает код по базе котировок. Заголовки — из базы новостей за 5 дней: они показывают, что пишут о бумаге, а причину движения не доказывают.
+Измерено бумаг и фондов: 785; резкое движение у 99 (вниз 95, вверх 4).
+
+Широкий рынок:
+- фонд широкого рынка США S&P 500 (SPY.US) — РЕЗКОЕ, вниз: за день −3.6% — это 4.2 обычного дневного колебания; за 5 торговых дней −8.6% — это 4.8 обычного недельного колебания
+  - «S&P500: Micron and SanDisk Plunge as Tech Rout Pushes Index Into Correction» — https://www.fxempire.com/forecasts/article/sp500-micron-and-sandisk-plunge-as-tech-rout-pushes-index-into-correction-1646283
+  - «S&P 500 suffers longest losing streak since the pandemic» — https://jamaica-gleaner.com/article/business/20261122/sp-500-suffers-longest-losing-streak-pandemic
+  - «US Stocks' Sixth Straight Loss Echoes 2018 Playbook as Goldman Sachs Warns of Liquidity Contraction Risk -- BigGo Finance» — https://finance.biggo.com/news/93469168-6343-4e7c-98fd-0f8b632d7761
+- фонд крупных технологических компаний Nasdaq 100 (QQQ.US) — РЕЗКОЕ, вниз: за день −5.7% — это 4.2 обычного дневного колебания; за 5 торговых дней −10.5% — это 3.6 обычного недельного колебания
+  - «Gold, Nasdaq, Copper Futures: Where Markets Are Heading Today» — https://www.headlinesplus.com/story/gold-nasdaq-copper-futures-where-markets-are-heading-today
+  - «Arthur Hayes Says Bitcoin's Break Below Local Low Puts $50,000 In Play If Nasdaq Keeps Falling» — https://www.tradingview.com/news/stocktwits:e13debfb9094b:0-arthur-hayes-says-bitcoin-s-break-below-local-low-puts-50-000-in-play-if-nasdaq-keeps-falling/
+  - «Nasdaq Plunges 5.3% as AI Selloff Snowballs; Goldman Sees Up to approximately $80.2 Billion in Additional Selling -- BigGo Finance» — https://finance.biggo.com/news/3f52ee39-1cfa-44fe-bb87-8e61315e01d2
+
+Секторы (резкое движение у 5 из 16):
+- фонд сектора «технологии» (XLK.US) — РЕЗКОЕ, вниз: за день −7.3% — это 4.0 обычного дневного колебания; за 5 торговых дней −12.5% — это 3.1 обычного недельного колебания
+  - «Stocks enter correction territory, driven by a deepening tech rout» — https://freeaitoolsayoob.com/stocks-enter-correction-territory-driven-by-a-deepening-tech-rout/
+  - «ASX to come under pressure as Wall Street tech rout deepens» — https://www.afr.com/markets/equity-markets/asx-to-come-under-pressure-as-wall-street-tech-rout-deepens-20261122-p61g7q
+- фонд сектора «чипы и оборудование для них» (SMH.US) — РЕЗКОЕ, вниз: за день −10.6% — это 3.9 обычного дневного колебания; за 5 торговых дней −17.8% — это 3.1 обычного недельного колебания
+  - «Nvidia Data Center Growth Forecast: Chipmaker Raises Fiscal 2028 Outlook To 75 Percent Even As Seven-Week Stock Slide Mirrors 2008 Crisis» — https://sundayguardianlive.com/business/nvidia-data-center-growth-forecast-chipmaker-raises-fiscal-2028-outlook-to-75-percent-even-as-seven-week-stock-slide-mirrors-2008-crisis-finance-business-ai-news-us-world-325796/
+  - «Nvidia Stock Crash Pushes AI Chipmaker Below Alphabet to Fourth-Most Valuable US Firm as Global Tech Sell-Off Sends S&P 500 Into Correction» — https://pragativadi.com/nvidia-stock-crash-pushes-ai-chipmaker-below-alphabet-to-fourth-most-valuable-us-firm-as-global-tech-sell-off-sends-sp-500-into-correction/
+- фонд сектора «финансы» (XLF.US) — РЕЗКОЕ, вниз: за день −1.8% — это 1.9 обычного дневного колебания; за 5 торговых дней −7.0% — это 3.7 обычного недельного колебания
+  - причина в базе новостей не найдена
+- фонд сектора «промышленность» (XLI.US) — РЕЗКОЕ, вниз: за день −3.1% — это 2.7 обычного дневного колебания; за 5 торговых дней −7.3% — это 3.5 обычного недельного колебания
+  - «3 Industrial Stocks Trading Above $500 a Share: Which One Splits First?» — https://www.fool.com/investing/2026/11/21/3-industrial-stocks-trading-above-500-a-share-which-one-splits-first-cat-fix-gev/
+  - «Beyond AI stocks: Why financials, healthcare and industrials could gain investor attention - Expert take» — https://www.etnownews.com/markets/beyond-ai-stocks-why-financials-healthcare-and-industrials-could-gain-investor-attention-expert-take-article-156541726
+- фонд сектора «сырьё и материалы» (XLB.US) — РЕЗКОЕ, вниз: за день −2.2% — это 1.9 обычного дневного колебания; за 5 торговых дней −7.4% — это 3.1 обычного недельного колебания
+  - «ASX 200 Mining Shares Face Heavy Pressure: What Happened?» — https://kalkinemedia.com/au/stocks/metal-and-mining/asx-200-mining-shares-face-heavy-pressure-what-happened
+- без резких движений: кибербезопасность, нефть и газ, добыча нефти и газа, электроэнергетика и коммунальные, оборона и авиакосмос, редкоземельные и критические металлы, уран и атомное топливо, здравоохранение, товары не первой необходимости, товары повседневного спроса, недвижимость
+
+Отдельные компании (резкое движение у 37 из 596; показаны 6 самых сильных):
+- Stem (STEM.US) — РЕЗКОЕ, вниз: за день −12.7% — это 1.9 обычного дневного колебания; за 5 торговых дней −71.4% — это 6.3 обычного недельного колебания
+  - причина в базе новостей не найдена
+- Nvidia (NVDA.US) — РЕЗКОЕ, вниз: за день −14.0% — это 5.7 обычного дневного колебания; за 5 торговых дней −22.9% — это 4.4 обычного недельного колебания
+  - «South Africa's rail agency is struggling to operate more than half of its new trains, and Nvidia faces even more pressure» — https://dailyinvestor.com/investing/166136/south-africas-rail-agency-is-struggling-to-operate-more-than-half-of-its-new-trains-and-nvidia-faces-even-more-pressure/
+  - «Nvidia Hopper Shipments to China Halted» — https://asiatoday.id/read/nvidia-halts-licensed-hopper-chip-shipments-to-china
+  - «US financial watchdog probing Nvidia accounting» — http://www.southeastasiapost.com/news/279447972/us-financial-watchdog-probing-nvidia-accounting-reuters
+- Ehang (EH.US) — РЕЗКОЕ, вниз: за день −13.0% — это 3.2 обычного дневного колебания; за 5 торговых дней −33.0% — это 4.1 обычного недельного колебания
+  - причина в базе новостей не найдена
+- Taiwan Semiconductor Manufacturing (TSM.US) — РЕЗКОЕ, вниз: за день −9.5% — это 3.5 обычного дневного колебания; за 5 торговых дней −20.1% — это 4.0 обычного недельного колебания
+  - причина в базе новостей не найдена
+- Broadcom (AVGO.US) — РЕЗКОЕ, вниз: за день −12.2% — это 4.0 обычного дневного колебания; за 5 торговых дней −12.3% — это 1.8 обычного недельного колебания
+  - «David Tepper exits AMD and Broadcom, doubles down on Nvidia and Micron» — https://cryptobriefing.com/david-tepper-exits-amd-broadcom-ai-chips/
+  - «AI Stocks Sell-Off Deepens: AMD, Micron and Broadcom Drop Over 5% as Nvidia Slides» — https://coinpedia.org/stock-market-news/ai-stocks-sell-off-deepens-amd-micron-and-broadcom-drop-over-5-as-nvidia-slides/
+  - «Co-Packaged Optics Market to Reach US$ 2,401.0 Million by 2035 at 34.7% CAGR; North America Dominates with 45% Share - Key Players:…» — https://www.openpr.com/news/4694121/co-packaged-optics-market-to-reach-us-2-401-0-million-by-2035
+- Royal Bank of Canada (RY.US) — РЕЗКОЕ, вниз: за день −2.3% — это 2.1 обычного дневного колебания; за 5 торговых дней −9.3% — это 4.0 обычного недельного колебания
+  - причина в базе новостей не найдена
+
+Другие фонды (резкое движение у 55 из 171; показаны 2 самых сильных):
+- фонд ProShares Ultra VIX Short-Term Futures ETF (UVXY.US) — РЕЗКОЕ, вверх: за день +22.5% — это 4.1 обычного дневного колебания; за 5 торговых дней +73.0% — это 8.0 обычного недельного колебания
+  - причина в базе новостей не найдена
+- фонд на индекс страха VIX (VXX.US) — РЕЗКОЕ, вверх: за день +14.6% — это 3.5 обычного дневного колебания; за 5 торговых дней +45.8% — это 7.3 обычного недельного колебания
+  - причина в базе новостей не найдена
+
+Ход измерен не полностью из-за разрыва в ряду цен (похоже на дробление акций без поправки прежних цен): фонд ProShares Bitcoin Strategy ETF (BITO.US)
+
+## GDELT: резко выросло за 24 ч (файлов 189, нет 3)
+- страна: Nepal: 2899 статей (было 795, ×3.58); переговоры, намерения сотрудничать; https://aninews.in/news/world/asia/nepal-pm-balen-shah-kicks-off-india-visit-with-eam-jaishankar-meeting-connectivity-trade-energy-in-focus-ahead-of-talks-with-pm-modi20261122220134/
+- страна: Bahrain: 1852 статей (было 363, ×4.89); неодобрение, боевые действия; http://www.iranherald.com/news/279447730/iran-irgc-says-targeted-us-positions-at-2-bases-in-bahrain-with-missiles-drones
+- DUTCH: 999 статей (было 273, ×3.48); переговоры, отказ; https://www.redditchadvertiser.co.uk/news/national/26751284.tories-universities-raise-concerns-burnhams-brussels-deal/
+- страна: Libya: 906 статей (было 239, ×3.58); боевые действия, переговоры; https://english.news.cn/20261122/726873768a1546ffadaf808cca6a9b96/c.html
+- страна: West Bank: 1163 статей (было 490, ×2.32); неодобрение, боевые действия; https://www.wsls.com/news/world/2026/11/22/israeli-opposition-leader-condemns-suspected-settler-attacks-as-terrorism-and-other-mideast-news/
+- NILE: 416 статей (было 59, ×5.52); заявления, переговоры; https://www.canberratimes.com.au/story/9395968/man-of-deep-faith-longest-serving-mp-fred-nile-dies/
+- LIBYAN: 260 статей (было 0, ×14.0); заявления, переговоры; https://english.news.cn/20261122/726873768a1546ffadaf808cca6a9b96/c.html
+- PENNY WONG: 276 статей (было 10, ×9.87); угрозы, требования; https://www.theadvocate.com.au/story/9396090/australia-pushes-to-shape-ai-in-foreign-policy-shift/
+- BENGHAZI: 226 статей (было 0, ×12.3); боевые действия, переговоры; https://www.aljazeera.com/news/2026/11/22/suspected-drone-strike-hits-russian-vessel-in-libya
+- COMBAT AIRCRAFT: 346 статей (было 53, ×5.01); призывы, материальное сотрудничество; https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/
+- KALININGRAD: 386 статей (было 109, ×3.15); заявления, переговоры; https://www.yourlocalguardian.co.uk/news/national/26751822.two-killed-russian-attack-destroys-apartment-building-near-kyiv/
+- NEPALESE: 179 статей (было 0, ×9.95); переговоры, намерения сотрудничать; https://aninews.in/news/world/asia/nepal-pm-balen-shah-kicks-off-india-visit-with-eam-jaishankar-meeting-connectivity-trade-energy-in-focus-ahead-of-talks-with-pm-modi20261122220134/
+- SETTLER: 478 статей (было 195, ×2.32); неодобрение, боевые действия; https://www.wsls.com/news/world/2026/11/22/israeli-opposition-leader-condemns-suspected-settler-attacks-as-terrorism-and-other-mideast-news/
+- OKINAWA: 174 статей (было 0, ×9.7); дипломатическое сотрудничество, принуждение; https://www.winnipegfreepress.com/world/2026/11/22/okinawa-celebrates-restored-shuri-castle-hall-7-years-after-fire
+- страна: Marshall Islands: 226 статей (было 29, ×5.02); отказ, заявления; https://www.wsiu.org/2026-11-22/climate-change-talks-fall-apart-in-final-hours-over-fossil-fuels
 
 ## GDELT: больше всего пишут
-- страна: United States: 109389 статей; переговоры, заявления
-- страна: India: 29241 статей; переговоры, заявления
-- страна: United Kingdom: 22328 статей; переговоры, заявления
-- страна: China: 16951 статей; переговоры, дипломатическое сотрудничество
-- страна: Russia: 13205 статей; переговоры, заявления
-- страна: Canada: 12500 статей; переговоры, заявления
-- страна: Nigeria: 11388 статей; заявления, переговоры
-- страна: Israel: 9938 статей; переговоры, боевые действия
-- страна: Ukraine: 8748 статей; переговоры, боевые действия
-- страна: Australia: 8182 статей; переговоры, заявления
-- страна: Iran: 8036 статей; переговоры, заявления
-- страна: Pakistan: 7263 статей; переговоры, заявления
-- страна: France: 5244 статей; переговоры, заявления
-- страна: Germany: 4356 статей; переговоры, заявления
-- RUSSIAN: 4299 статей; переговоры, боевые действия
+- страна: United States: 57048 статей; переговоры, заявления
+- страна: India: 22705 статей; переговоры, заявления
+- страна: United Kingdom: 17600 статей; переговоры, заявления
+- страна: Nigeria: 12294 статей; заявления, переговоры
+- страна: China: 10985 статей; переговоры, дипломатическое сотрудничество
+- страна: Israel: 10620 статей; переговоры, заявления
+- страна: Russia: 8882 статей; переговоры, заявления
+- страна: Iran: 7819 статей; переговоры, заявления
+- страна: Australia: 7557 статей; переговоры, заявления
+- страна: Pakistan: 6620 статей; переговоры, заявления
+- страна: Canada: 5808 статей; переговоры, дипломатическое сотрудничество
+- страна: Ukraine: 5451 статей; переговоры, заявления
+- страна: Turkey: 3468 статей; переговоры, дипломатическое сотрудничество
+- THE US: 3185 статей; переговоры, заявления
+- страна: Ireland: 3054 статей; переговоры, заявления
 
 ## Википедия: интерес вырос
-- Riemann hypothesis: 295157 просмотров (позавчера 0, ×296.16)
-- Levent Alpöge: 124632 просмотров (позавчера 0, ×125.63)
-- privacy policy: 78955 просмотров (позавчера 0, ×79.95)
-- 2026 MAMA Awards: 52630 просмотров (позавчера 0, ×53.63)
-- O.M: Operation Mole: 119692 просмотров (позавчера 22628, ×5.11)
-- The Traitors: New Blood: 63853 просмотров (позавчера 10438, ×5.67)
-- Lance Broadway: 79751 просмотров (позавчера 20186, ×3.81)
-- Bruno Mars: 60612 просмотров (позавчера 14756, ×3.91)
-- Harambe: 67020 просмотров (позавчера 21696, ×3.0)
+- Nikhil Chaudhary (cricketer): 100364 просмотров (позавчера 0, ×101.36)
+- Lewis Moody: 69243 просмотров (позавчера 0, ×70.24)
+- UFC Fight Night: Procházka vs. Stirling: 102387 просмотров (позавчера 9743, ×9.62)
+- Survivor Series: WarGames (2026): 82093 просмотров (позавчера 19282, ×4.1)
+- Navajo Stirling: 52558 просмотров (позавчера 8182, ×5.83)
+- Dwayne Johnson: 50388 просмотров (позавчера 8544, ×5.38)
 
 ## NewsAPI.ai: крупнейшие события
-- Who Is the Mexican Drug Kingpin Known as El Chapo Isidro?: 889 статей
-- Bayern Munich's Harry Kane facing around three months out with torn ankle ligaments: 880 статей
-- 'Russian Objects' Crashed in Poland, Officials Say. Here's What We Can See.: 778 статей
-- Fiona the Hippo Died After Eating a Hat. Some Want Justice.: 735 статей
-- England to face Norway, Spain to play France in Nations League quarter-finals: 638 статей
-- Russia-bound ship attacked in Gulf of Finland: 509 статей
-- Anthropic Mathematician Claims to Have Solved Math's Most Famous Problem: 415 статей
-- FBI reportedly investigating apparent hack of its criminal database: 365 статей
-- How would Liverpool feel about a Manchester relegation (or two)?: 337 статей
-- Fight over fossil fuels leaves COP31 climate talks in deadlock: 331 статей
-- Rahul ton, Gill 98 headline productive batting day for India: 317 статей
-- Brazil ex-President Bolsonaro hospitalized with intestinal obstruction: 307 статей
-- European Union Proposes Tax On Big Tech In New Budget Draft: 299 статей
-- Texas death-row inmate screams as execution takes more than one hour: 297 статей
-- 'No change on Indus Waters Treaty stance': MEA as Pak minister who threatened India visits Delhi: 278 статей
+- Who Is the Mexican Drug Kingpin Known as El Chapo Isidro?: 1433 статей
+- Las Vegas Grand Prix briefing: Max Verstappen wins a wild slipstream duel with rival Russell: 1367 статей
+- Bitter Clash Over Fossil Fuels Derails U.N. Climate Talks: 1355 статей
+- Carlos Alcaraz restores familiar order in men's tennis with ATP Finals win over Alexander Zverev: 1046 статей
+- Russia-bound ship attacked in Gulf of Finland: 699 статей
+- Rahul credits 'six-seven months of homework' for maiden ton in NZ: 663 статей
+- Marc Marquez wins MotoGP title: Record-equalling eighth for Spanish Ducati rider secured in Portugal: 649 статей
+- Paris Saint-Germain's Desire Doue sustains ACL injury in right knee: 579 статей
+- Liverpool demolish Man Utd: Pochettino's difficult task, Ngumoha shines and Yoro red decision: 530 статей
+- Real Madrid 2-1 Celta Vigo: Carlos Espi scores late winner in La Liga: 440 статей
+- Trump says 'maybe we'll learn things' after FBI is hacked again: 416 статей
+- European Union Proposes Tax On Big Tech In New Budget Draft: 352 статей
+- Italian jeweller and businessman Paolo Bulgari dies aged 89: 338 статей
+- Explosion on Russian ship at Libya port likely caused by drone attack, officials say: 336 статей
+- ICE officers arrest 2 passengers boarding flight in Seattle: 329 статей

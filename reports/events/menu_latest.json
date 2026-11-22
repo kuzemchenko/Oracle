@@ -1,688 +1,1258 @@
 {
- "собрано": "2026-11-21T21:00:17+00:00",
+ "собрано": "2026-11-22T21:00:23+00:00",
+ "рынок": {
+  "источник": "цены закрытия из нашей базы котировок (EODHD) и заголовки из нашей базы новостей; расчёт — код",
+  "цены_на": "2026-11-20",
+  "правило": "резкое движение — ход за день или за 5 торговых дней не меньше 3 обычных колебаний этой же бумаги за последний год и не меньше 2%",
+  "счёт": {
+   "все": {
+    "всего": 785,
+    "резких": 99,
+    "вниз": 95,
+    "вверх": 4
+   },
+   "секторы": {
+    "всего": 16,
+    "резких": 5,
+    "вниз": 5,
+    "вверх": 0
+   },
+   "компании": {
+    "всего": 596,
+    "резких": 37,
+    "вниз": 37,
+    "вверх": 0
+   },
+   "фонды": {
+    "всего": 171,
+    "резких": 55,
+    "вниз": 51,
+    "вверх": 4
+   }
+  },
+  "рынок": [
+   {
+    "бумага": "SPY.US",
+    "вид": "рынок",
+    "подпись": "фонд широкого рынка США S&P 500 (SPY.US)",
+    "день": {
+     "ход": -0.0364,
+     "кратность": -4.17
+    },
+    "неделя": {
+     "ход": -0.0856,
+     "кратность": -4.85
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 4.85,
+    "вниз": true,
+    "словами": "за день −3.6% — это 4.2 обычного дневного колебания; за 5 торговых дней −8.6% — это 4.8 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "S&P500: Micron and SanDisk Plunge as Tech Rout Pushes Index Into Correction",
+      "url": "https://www.fxempire.com/forecasts/article/sp500-micron-and-sandisk-plunge-as-tech-rout-pushes-index-into-correction-1646283",
+      "когда": "2026-11-22T06:12"
+     },
+     {
+      "заголовок": "S&P 500 suffers longest losing streak since the pandemic",
+      "url": "https://jamaica-gleaner.com/article/business/20261122/sp-500-suffers-longest-losing-streak-pandemic",
+      "когда": "2026-11-22T06:10"
+     },
+     {
+      "заголовок": "US Stocks' Sixth Straight Loss Echoes 2018 Playbook as Goldman Sachs Warns of Liquidity Contraction Risk -- BigGo Finance",
+      "url": "https://finance.biggo.com/news/93469168-6343-4e7c-98fd-0f8b632d7761",
+      "когда": "2026-11-22T05:25"
+     }
+    ]
+   },
+   {
+    "бумага": "QQQ.US",
+    "вид": "рынок",
+    "подпись": "фонд крупных технологических компаний Nasdaq 100 (QQQ.US)",
+    "день": {
+     "ход": -0.0567,
+     "кратность": -4.16
+    },
+    "неделя": {
+     "ход": -0.1051,
+     "кратность": -3.64
+    },
+    "резкое": true,
+    "окно": "день",
+    "сила": 4.16,
+    "вниз": true,
+    "словами": "за день −5.7% — это 4.2 обычного дневного колебания; за 5 торговых дней −10.5% — это 3.6 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "Gold, Nasdaq, Copper Futures: Where Markets Are Heading Today",
+      "url": "https://www.headlinesplus.com/story/gold-nasdaq-copper-futures-where-markets-are-heading-today",
+      "когда": "2026-11-22T05:15"
+     },
+     {
+      "заголовок": "Arthur Hayes Says Bitcoin's Break Below Local Low Puts $50,000 In Play If Nasdaq Keeps Falling",
+      "url": "https://www.tradingview.com/news/stocktwits:e13debfb9094b:0-arthur-hayes-says-bitcoin-s-break-below-local-low-puts-50-000-in-play-if-nasdaq-keeps-falling/",
+      "когда": "2026-11-22T03:53"
+     },
+     {
+      "заголовок": "Nasdaq Plunges 5.3% as AI Selloff Snowballs; Goldman Sees Up to approximately $80.2 Billion in Additional Selling -- BigGo Finance",
+      "url": "https://finance.biggo.com/news/3f52ee39-1cfa-44fe-bb87-8e61315e01d2",
+      "когда": "2026-11-22T02:55"
+     }
+    ]
+   }
+  ],
+  "секторы": [
+   {
+    "бумага": "XLK.US",
+    "вид": "сектор",
+    "подпись": "фонд сектора «технологии» (XLK.US)",
+    "день": {
+     "ход": -0.0727,
+     "кратность": -4.02
+    },
+    "неделя": {
+     "ход": -0.1249,
+     "кратность": -3.12
+    },
+    "резкое": true,
+    "окно": "день",
+    "сила": 4.02,
+    "вниз": true,
+    "словами": "за день −7.3% — это 4.0 обычного дневного колебания; за 5 торговых дней −12.5% — это 3.1 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "Stocks enter correction territory, driven by a deepening tech rout",
+      "url": "https://freeaitoolsayoob.com/stocks-enter-correction-territory-driven-by-a-deepening-tech-rout/",
+      "когда": "2026-11-22T02:48"
+     },
+     {
+      "заголовок": "ASX to come under pressure as Wall Street tech rout deepens",
+      "url": "https://www.afr.com/markets/equity-markets/asx-to-come-under-pressure-as-wall-street-tech-rout-deepens-20261122-p61g7q",
+      "когда": "2026-11-22T01:07"
+     }
+    ]
+   },
+   {
+    "бумага": "SMH.US",
+    "вид": "сектор",
+    "подпись": "фонд сектора «чипы и оборудование для них» (SMH.US)",
+    "день": {
+     "ход": -0.106,
+     "кратность": -3.91
+    },
+    "неделя": {
+     "ход": -0.1781,
+     "кратность": -3.13
+    },
+    "резкое": true,
+    "окно": "день",
+    "сила": 3.91,
+    "вниз": true,
+    "словами": "за день −10.6% — это 3.9 обычного дневного колебания; за 5 торговых дней −17.8% — это 3.1 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "Nvidia Data Center Growth Forecast: Chipmaker Raises Fiscal 2028 Outlook To 75 Percent Even As Seven-Week Stock Slide Mirrors 2008 Crisis",
+      "url": "https://sundayguardianlive.com/business/nvidia-data-center-growth-forecast-chipmaker-raises-fiscal-2028-outlook-to-75-percent-even-as-seven-week-stock-slide-mirrors-2008-crisis-finance-business-ai-news-us-world-325796/",
+      "когда": "2026-11-21T23:11"
+     },
+     {
+      "заголовок": "Nvidia Stock Crash Pushes AI Chipmaker Below Alphabet to Fourth-Most Valuable US Firm as Global Tech Sell-Off Sends S&P 500 Into Correction",
+      "url": "https://pragativadi.com/nvidia-stock-crash-pushes-ai-chipmaker-below-alphabet-to-fourth-most-valuable-us-firm-as-global-tech-sell-off-sends-sp-500-into-correction/",
+      "когда": "2026-11-21T04:44"
+     }
+    ]
+   },
+   {
+    "бумага": "XLF.US",
+    "вид": "сектор",
+    "подпись": "фонд сектора «финансы» (XLF.US)",
+    "день": {
+     "ход": -0.0182,
+     "кратность": -1.88
+    },
+    "неделя": {
+     "ход": -0.07,
+     "кратность": -3.7
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 3.7,
+    "вниз": true,
+    "словами": "за день −1.8% — это 1.9 обычного дневного колебания; за 5 торговых дней −7.0% — это 3.7 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   },
+   {
+    "бумага": "XLI.US",
+    "вид": "сектор",
+    "подпись": "фонд сектора «промышленность» (XLI.US)",
+    "день": {
+     "ход": -0.0309,
+     "кратность": -2.67
+    },
+    "неделя": {
+     "ход": -0.0735,
+     "кратность": -3.48
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 3.48,
+    "вниз": true,
+    "словами": "за день −3.1% — это 2.7 обычного дневного колебания; за 5 торговых дней −7.3% — это 3.5 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "3 Industrial Stocks Trading Above $500 a Share: Which One Splits First?",
+      "url": "https://www.fool.com/investing/2026/11/21/3-industrial-stocks-trading-above-500-a-share-which-one-splits-first-cat-fix-gev/",
+      "когда": "2026-11-22T03:10"
+     },
+     {
+      "заголовок": "Beyond AI stocks: Why financials, healthcare and industrials could gain investor attention - Expert take",
+      "url": "https://www.etnownews.com/markets/beyond-ai-stocks-why-financials-healthcare-and-industrials-could-gain-investor-attention-expert-take-article-156541726",
+      "когда": "2026-11-20T09:59"
+     }
+    ]
+   },
+   {
+    "бумага": "XLB.US",
+    "вид": "сектор",
+    "подпись": "фонд сектора «сырьё и материалы» (XLB.US)",
+    "день": {
+     "ход": -0.0219,
+     "кратность": -1.89
+    },
+    "неделя": {
+     "ход": -0.0745,
+     "кратность": -3.06
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 3.06,
+    "вниз": true,
+    "словами": "за день −2.2% — это 1.9 обычного дневного колебания; за 5 торговых дней −7.4% — это 3.1 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "ASX 200 Mining Shares Face Heavy Pressure: What Happened?",
+      "url": "https://kalkinemedia.com/au/stocks/metal-and-mining/asx-200-mining-shares-face-heavy-pressure-what-happened",
+      "когда": "2026-11-22T03:54"
+     }
+    ]
+   }
+  ],
+  "секторы_ещё_резкие": [],
+  "секторы_спокойные": [
+   "кибербезопасность",
+   "нефть и газ",
+   "добыча нефти и газа",
+   "электроэнергетика и коммунальные",
+   "оборона и авиакосмос",
+   "редкоземельные и критические металлы",
+   "уран и атомное топливо",
+   "здравоохранение",
+   "товары не первой необходимости",
+   "товары повседневного спроса",
+   "недвижимость"
+  ],
+  "секторы_не_измерены": [],
+  "компании": [
+   {
+    "бумага": "STEM.US",
+    "вид": "компания",
+    "подпись": "Stem (STEM.US)",
+    "день": {
+     "ход": -0.1273,
+     "кратность": -1.87
+    },
+    "неделя": {
+     "ход": -0.7138,
+     "кратность": -6.27
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 6.27,
+    "вниз": true,
+    "словами": "за день −12.7% — это 1.9 обычного дневного колебания; за 5 торговых дней −71.4% — это 6.3 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   },
+   {
+    "бумага": "NVDA.US",
+    "вид": "компания",
+    "подпись": "Nvidia (NVDA.US)",
+    "день": {
+     "ход": -0.1401,
+     "кратность": -5.73
+    },
+    "неделя": {
+     "ход": -0.2292,
+     "кратность": -4.4
+    },
+    "резкое": true,
+    "окно": "день",
+    "сила": 5.73,
+    "вниз": true,
+    "словами": "за день −14.0% — это 5.7 обычного дневного колебания; за 5 торговых дней −22.9% — это 4.4 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "South Africa's rail agency is struggling to operate more than half of its new trains, and Nvidia faces even more pressure",
+      "url": "https://dailyinvestor.com/investing/166136/south-africas-rail-agency-is-struggling-to-operate-more-than-half-of-its-new-trains-and-nvidia-faces-even-more-pressure/",
+      "когда": "2026-11-22T07:00"
+     },
+     {
+      "заголовок": "Nvidia Hopper Shipments to China Halted",
+      "url": "https://asiatoday.id/read/nvidia-halts-licensed-hopper-chip-shipments-to-china",
+      "когда": "2026-11-22T06:15"
+     },
+     {
+      "заголовок": "US financial watchdog probing Nvidia accounting",
+      "url": "http://www.southeastasiapost.com/news/279447972/us-financial-watchdog-probing-nvidia-accounting-reuters",
+      "когда": "2026-11-22T05:30"
+     }
+    ]
+   },
+   {
+    "бумага": "EH.US",
+    "вид": "компания",
+    "подпись": "Ehang (EH.US)",
+    "день": {
+     "ход": -0.1298,
+     "кратность": -3.24
+    },
+    "неделя": {
+     "ход": -0.3297,
+     "кратность": -4.08
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 4.08,
+    "вниз": true,
+    "словами": "за день −13.0% — это 3.2 обычного дневного колебания; за 5 торговых дней −33.0% — это 4.1 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   },
+   {
+    "бумага": "TSM.US",
+    "вид": "компания",
+    "подпись": "Taiwan Semiconductor Manufacturing (TSM.US)",
+    "день": {
+     "ход": -0.0948,
+     "кратность": -3.55
+    },
+    "неделя": {
+     "ход": -0.2007,
+     "кратность": -3.97
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 3.97,
+    "вниз": true,
+    "словами": "за день −9.5% — это 3.5 обычного дневного колебания; за 5 торговых дней −20.1% — это 4.0 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   },
+   {
+    "бумага": "AVGO.US",
+    "вид": "компания",
+    "подпись": "Broadcom (AVGO.US)",
+    "день": {
+     "ход": -0.1219,
+     "кратность": -3.96
+    },
+    "неделя": {
+     "ход": -0.1228,
+     "кратность": -1.75
+    },
+    "резкое": true,
+    "окно": "день",
+    "сила": 3.96,
+    "вниз": true,
+    "словами": "за день −12.2% — это 4.0 обычного дневного колебания; за 5 торговых дней −12.3% — это 1.8 обычного недельного колебания",
+    "заголовки": [
+     {
+      "заголовок": "David Tepper exits AMD and Broadcom, doubles down on Nvidia and Micron",
+      "url": "https://cryptobriefing.com/david-tepper-exits-amd-broadcom-ai-chips/",
+      "когда": "2026-11-22T03:06"
+     },
+     {
+      "заголовок": "AI Stocks Sell-Off Deepens: AMD, Micron and Broadcom Drop Over 5% as Nvidia Slides",
+      "url": "https://coinpedia.org/stock-market-news/ai-stocks-sell-off-deepens-amd-micron-and-broadcom-drop-over-5-as-nvidia-slides/",
+      "когда": "2026-11-20T17:04"
+     },
+     {
+      "заголовок": "Co-Packaged Optics Market to Reach US$ 2,401.0 Million by 2035 at 34.7% CAGR; North America Dominates with 45% Share - Key Players:…",
+      "url": "https://www.openpr.com/news/4694121/co-packaged-optics-market-to-reach-us-2-401-0-million-by-2035",
+      "когда": "2026-11-19T06:57"
+     }
+    ]
+   },
+   {
+    "бумага": "RY.US",
+    "вид": "компания",
+    "подпись": "Royal Bank of Canada (RY.US)",
+    "день": {
+     "ход": -0.0226,
+     "кратность": -2.06
+    },
+    "неделя": {
+     "ход": -0.0932,
+     "кратность": -3.96
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 3.96,
+    "вниз": true,
+    "словами": "за день −2.3% — это 2.1 обычного дневного колебания; за 5 торговых дней −9.3% — это 4.0 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   }
+  ],
+  "фонды": [
+   {
+    "бумага": "UVXY.US",
+    "вид": "фонд",
+    "подпись": "фонд ProShares Ultra VIX Short-Term Futures ETF (UVXY.US)",
+    "день": {
+     "ход": 0.2246,
+     "кратность": 4.06
+    },
+    "неделя": {
+     "ход": 0.7304,
+     "кратность": 8.04
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 8.04,
+    "вниз": false,
+    "словами": "за день +22.5% — это 4.1 обычного дневного колебания; за 5 торговых дней +73.0% — это 8.0 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   },
+   {
+    "бумага": "VXX.US",
+    "вид": "фонд",
+    "подпись": "фонд на индекс страха VIX (VXX.US)",
+    "день": {
+     "ход": 0.146,
+     "кратность": 3.54
+    },
+    "неделя": {
+     "ход": 0.4581,
+     "кратность": 7.26
+    },
+    "резкое": true,
+    "окно": "неделя",
+    "сила": 7.26,
+    "вниз": false,
+    "словами": "за день +14.6% — это 3.5 обычного дневного колебания; за 5 торговых дней +45.8% — это 7.3 обычного недельного колебания",
+    "заголовки": [],
+    "новости": "причина в базе новостей не найдена"
+   }
+  ],
+  "ряд_с_разрывом": [
+   "фонд ProShares Bitcoin Strategy ETF (BITO.US)"
+  ],
+  "цены_отстали": 7
+ },
  "gdelt": {
   "источник": "GDELT 2.0, файлы событий каждые 15 минут (data.gdeltproject.org)",
-  "до": "20261121210000",
+  "до": "20261122210000",
   "часов": 24,
-  "файлов_прочитано": 192,
-  "файлов_нет": 0,
+  "файлов_прочитано": 189,
+  "файлов_нет": 3,
   "больше_всего_пишут": [
    {
     "что": "страна: United States",
-    "статей_сутки": 109389,
-    "статей_прошлые_сутки": 158797,
-    "рост_раз": 0.69,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://lake1023.iheart.com/content/2026-11-20-wife-of-kentucky-cop-faces-incest-charges-for-alleged-abuse-of-11-year-old-son/",
-     "https://925rocks.iheart.com/content/2026-11-20-cops-facing-charges-after-stand-your-ground-claim-in-road-rage-killing-falls-apart/",
-     "https://realrock1057.iheart.com/content/2026-11-20-cops-facing-charges-after-stand-your-ground-claim-in-road-rage-killing-falls-apart/"
-    ]
-   },
-   {
-    "что": "страна: India",
-    "статей_сутки": 29241,
-    "статей_прошлые_сутки": 31632,
-    "рост_раз": 0.92,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://indiankanoon.org/doc/151864088/",
-     "https://indiankanoon.org/doc/113842307/",
-     "https://indiankanoon.org/doc/151504834/"
-    ]
-   },
-   {
-    "что": "страна: United Kingdom",
-    "статей_сутки": 22328,
-    "статей_прошлые_сутки": 37096,
-    "рост_раз": 0.6,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.romaniapress.com/news=198165",
-     "https://www.halsteadgazette.co.uk/news/national/26750300.burnham-says-eu-uk-will-spend-year-brainstorming-future-ties/",
-     "https://www.thenorthernecho.co.uk/news/national/26750703.putin-cold-blooded-killer-says-streeting-visit-kyiv/"
-    ]
-   },
-   {
-    "что": "страна: China",
-    "статей_сутки": 16951,
-    "статей_прошлые_сутки": 31013,
-    "рост_раз": 0.55,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.hampshirechronicle.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-town/",
-     "https://www.borehamwoodtimes.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-town/",
-     "http://www.bostonstar.com/news/279443930/alibaba-says-new-us-compute-rules-will-affect-2027-products"
-    ]
-   },
-   {
-    "что": "страна: Russia",
-    "статей_сутки": 13205,
-    "статей_прошлые_сутки": 22407,
-    "рост_раз": 0.59,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://cphpost.dk/2026-11-21/news/round-up/absenteeism-among-public-school-students-is-rising/",
-     "https://newsradio1170.iheart.com/content/2026-11-20-trump-defends-calling-putin-a-friend-amid-criticism/",
-     "https://www.borehamwoodtimes.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-town/"
-    ]
-   },
-   {
-    "что": "страна: Canada",
-    "статей_сутки": 12500,
-    "статей_прошлые_сутки": 16580,
-    "рост_раз": 0.75,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://grandforksgazette.ca/2026/11/20/canadas-cadet-program-to-get-funding-review-national-defence-minister-says/",
-     "https://grandforksgazette.ca/2026/11/20/b-c-mayors-call-for-funding-reform-as-infrastructure-costs-mount/",
-     "https://www.brandonsun.com/national/2026/11/21/b-c-business-groups-are-praising-plans-by-conservative-government-to-cut-red-tape"
-    ]
-   },
-   {
-    "что": "страна: Nigeria",
-    "статей_сутки": 11388,
-    "статей_прошлые_сутки": 15941,
-    "рост_раз": 0.71,
-    "типы": [
-     "заявления",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://english.news.cn/africa/20261121/847aa4b2b6934e3cba65fd0b358ece92/c.html",
-     "https://thenationonlineng.net/futa-access-holdings-ceo-urges-graduates-to-embrace-ai-entrepreneurship/",
-     "https://punchng.com/mega-churches-face-succession-heat/"
-    ]
-   },
-   {
-    "что": "страна: Israel",
-    "статей_сутки": 9938,
-    "статей_прошлые_сутки": 14643,
-    "рост_раз": 0.68,
-    "типы": [
-     "переговоры",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://www.easternriverinachronicle.com.au/story/9395697/fears-growing-of-return-to-all-out-war-between-us-iran/",
-     "https://www.hindustantimes.com/editorials/aray-of-light-in-a-long-dark-night-101795197481092.html",
-     "https://www.durangoherald.com/articles/associated-press/iran-strikes-3-tankers-as-it-shows-off-missile-launchers-and-other-mideast-news/"
-    ]
-   },
-   {
-    "что": "страна: Ukraine",
-    "статей_сутки": 8748,
-    "статей_прошлые_сутки": 15447,
-    "рост_раз": 0.57,
-    "типы": [
-     "переговоры",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/",
-     "https://www.hampshirechronicle.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-town/",
-     "https://www.thenorthernecho.co.uk/news/national/26750703.putin-cold-blooded-killer-says-streeting-visit-kyiv/"
-    ]
-   },
-   {
-    "что": "страна: Australia",
-    "статей_сутки": 8182,
-    "статей_прошлые_сутки": 18376,
-    "рост_раз": 0.45,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.portnews.com.au/story/9395710/summit-stalemate-as-states-fight-over-f-words/",
-     "https://www.nvi.com.au/story/9395690/cfmeu-accused-of-flexing-its-muscles-to-freeze-project/",
-     "https://www.examiner.com.au/story/9395701/so-hard-david-jones-workers-learn-their-fate/"
-    ]
-   },
-   {
-    "что": "страна: Iran",
-    "статей_сутки": 8036,
-    "статей_прошлые_сутки": 14104,
-    "рост_раз": 0.57,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://news.crossmap.com/2026/11/21/pope-leo-xiv-marks-400th-anniversary-of-st-peter-s-basilica/",
-     "https://www.aljazeera.com/news/liveblog/2026/11/21/iran-war-live-saudi-led-coalition-repels-houthi-missiles?update=5174020",
-     "https://www.easternriverinachronicle.com.au/story/9395697/fears-growing-of-return-to-all-out-war-between-us-iran/"
-    ]
-   },
-   {
-    "что": "страна: Pakistan",
-    "статей_сутки": 7263,
-    "статей_прошлые_сутки": 10529,
-    "рост_раз": 0.69,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://news.crossmap.com/2026/11/21/new-ai-assisted-resource-to-help-traumatised-iranians/",
-     "https://www.rediff.com/news/report/pakistan-man-sentenced-to-death-for-blasphemous-post/20261121.htm",
-     "https://www.prokerala.com/news/articles/a1839431.html"
-    ]
-   },
-   {
-    "что": "страна: France",
-    "статей_сутки": 5244,
-    "статей_прошлые_сутки": 8556,
-    "рост_раз": 0.61,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.bromsgroveadvertiser.co.uk/news/national/26749131.activist-danny-tommo-jailed-slashing-migrant-dinghy-knife/",
-     "http://www.parisguardian.com/news/279446801/french-former-pm-dominique-de-villepin-announces-presidential-bid",
-     "https://www.theguardian.com/food/2026/nov/21/the-spirit-of-a-borderless-europe-steams-from-the-pots-and-pans-of-vienna"
-    ]
-   },
-   {
-    "что": "страна: Germany",
-    "статей_сутки": 4356,
-    "статей_прошлые_сутки": 7069,
-    "рост_раз": 0.62,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.zerohedge.com/geopolitical/project-aerodynamic-how-cia-used-ukraine-platform-covert-war-against-russia",
-     "https://www.newswiretoday.com/news/187270/",
-     "https://www.bankingnews.gr/diethni/articles/912491/uproar-in-ukraine-massive-corruption-scandal-hits-peace-negotiator-as-eu-fears-zelensky-s-fall%20title="
-    ]
-   },
-   {
-    "что": "RUSSIAN",
-    "статей_сутки": 4299,
-    "статей_прошлые_сутки": 6534,
-    "рост_раз": 0.66,
-    "типы": [
-     "переговоры",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/",
-     "https://www.borehamwoodtimes.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-town/",
-     "https://www.thenorthernecho.co.uk/news/national/26750703.putin-cold-blooded-killer-says-streeting-visit-kyiv/"
-    ]
-   },
-   {
-    "что": "страна: Philippines",
-    "статей_сутки": 4040,
-    "статей_прошлые_сутки": 5530,
-    "рост_раз": 0.73,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.klcc.org/npr-news/2026-11-20/trump-touts-meeting-with-xi-and-putin-but-offers-little-results",
-     "https://www.ibtimes.co.uk/trump-genetics-technology-understanding-us-outages-1833799",
-     "https://tribune.net.ph/2026/11/20/arca-south-road-works-renew-focus-on-skyway-4"
-    ]
-   },
-   {
-    "что": "страна: Bangladesh",
-    "статей_сутки": 4009,
-    "статей_прошлые_сутки": 5413,
-    "рост_раз": 0.74,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.iraqsun.com/news/279446623/road-to-home-began-unga-president-khalilur-rahman-visits-rohingya-camps-after-historic-icj-genocide-ruling",
-     "http://www.jamaicantimes.com/news/279446289/bangladesh-pacer-hasan-mahmud-ruled-out-of-south-africa-tour",
-     "https://news.webindia123.com/news/Articles/World/20261122/4522867.html"
-    ]
-   },
-   {
-    "что": "страна: Japan",
-    "статей_сутки": 3392,
-    "статей_прошлые_сутки": 5482,
-    "рост_раз": 0.62,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.vgchartz.com/game/236353/village-in-the-shade/",
-     "https://www.wcvb.com/article/navy-wont-rename-carrier-to-honor-black-war-hero/74496238",
-     "https://english.news.cn/20261121/5a7ffd57409d4bef8205cfe86c0b20b7/c.html"
-    ]
-   },
-   {
-    "что": "THE US",
-    "статей_сутки": 3381,
-    "статей_прошлые_сутки": 5721,
-    "рост_раз": 0.59,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.surreycomet.co.uk/news/national/26751185.titanic-survivors-diamond-ring-sells-gbp150-000-auction/",
-     "https://www.braintreeandwithamtimes.co.uk/news/national/26751185.titanic-survivors-diamond-ring-sells-gbp150-000-auction/",
-     "https://www.perthnow.com.au/news/crime/mexican-cartel-leaders-indicted-on-gun-drug-charges-c-23194618"
-    ]
-   },
-   {
-    "что": "страна: Poland",
-    "статей_сутки": 3361,
-    "статей_прошлые_сутки": 5790,
-    "рост_раз": 0.58,
-    "типы": [
-     "переговоры",
-     "демонстрация силы"
-    ],
-    "примеры": [
-     "https://www.thenorthernecho.co.uk/news/national/26750703.putin-cold-blooded-killer-says-streeting-visit-kyiv/",
-     "https://newsradio1170.iheart.com/content/2026-11-20-trump-defends-calling-putin-a-friend-amid-criticism/",
-     "http://www.zerohedge.com/geopolitical/trump-shrugs-putin-landing-couple-little-missiles-poland-mistake"
-    ]
-   },
-   {
-    "что": "WASHINGTON",
-    "статей_сутки": 3341,
-    "статей_прошлые_сутки": 3815,
-    "рост_раз": 0.88,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.newschannel6now.com/2026/11/19/wichita-falls-city-council-removes-citizens-comments-meeting-agenda-sparking-debate/",
-     "https://www.wyff4.com/article/capitol-christmas-tree-arrives-washington-after-2500-mile-journey/74493429",
-     "https://targetednews.com/pr_disp.php?pr_id=9864319"
-    ]
-   },
-   {
-    "что": "страна: Ireland",
-    "статей_сутки": 3203,
-    "статей_прошлые_сутки": 6147,
+    "статей_сутки": 57048,
+    "статей_прошлые_сутки": 109389,
     "рост_раз": 0.52,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.abc57.com/news/Irish-legend-Ray-Herring-visits-ABC57-Kickoff-crew-to-talk-Senior-Day-SMU-matchup",
-     "https://avondhupress.ie/company-with-local-base-continues-to-expand-uk-footprint/",
-     "https://www.thejournal.ie/willie-odea-triple-lock-7231572-Nov2026/"
+     "https://www.sltrib.com/news/2026/11/22/downtown-salt-lake-city-bee/",
+     "https://www.clickorlando.com/news/national/2026/11/21/san-francisco-braces-for-massive-tides-mayor-urges-residents-to-reconsider-travel/",
+     "https://www.fingerlakes1.com/2026/11/22/finger-lakes-moves-closer-to-national-heritage-designation/"
     ]
    },
    {
-    "что": "AMERICAN",
-    "статей_сутки": 3162,
-    "статей_прошлые_сутки": 4916,
+    "что": "страна: India",
+    "статей_сутки": 22705,
+    "статей_прошлые_сутки": 29241,
+    "рост_раз": 0.78,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://indiankanoon.org/doc/67346245/",
+     "https://indiankanoon.org/doc/22328225/",
+     "https://www.prokerala.com/news/articles/a1839890.html"
+    ]
+   },
+   {
+    "что": "страна: United Kingdom",
+    "статей_сутки": 17600,
+    "статей_прошлые_сутки": 22328,
+    "рост_раз": 0.79,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wharfedaleobserver.co.uk/news/national/26751749.uk-objects-final-cop31-deal-moves-us-backwards-science/",
+     "https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://www.redditchadvertiser.co.uk/news/national/26751284.tories-universities-raise-concerns-burnhams-brussels-deal/"
+    ]
+   },
+   {
+    "что": "страна: Nigeria",
+    "статей_сутки": 12294,
+    "статей_прошлые_сутки": 11388,
+    "рост_раз": 1.08,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://theeagleonline.com.ng/army-repels-bandits-attacks-in-benue-rescues-two-women/",
+     "https://www.theadvocate.com.au/story/9395829/dozens-dead-in-nigeria-boat-capsize-en-route-to-funeral/",
+     "https://punchng.com/nuprc-opens-bidding-for-40-oil-gas-blocks/"
+    ]
+   },
+   {
+    "что": "страна: China",
+    "статей_сутки": 10985,
+    "статей_прошлые_сутки": 16951,
+    "рост_раз": 0.65,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.surreycomet.co.uk/news/national/26751515.minister-condemns-trumps-embrace-butcher-putin/",
+     "https://www.wwno.org/npr-news/2026-11-21/what-did-xi-jinping-get-from-the-bear-hug-with-trump-at-the-shenzhen-summit",
+     "https://www.northweststar.com.au/story/9396089/australia-falls-short-in-asia-as-us-power-declines/"
+    ]
+   },
+   {
+    "что": "страна: Israel",
+    "статей_сутки": 10620,
+    "статей_прошлые_сутки": 9938,
+    "рост_раз": 1.07,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.ksmu.org/2026-11-21/a-grieving-family-in-lebanon-returns-to-their-village",
+     "https://www.wbaa.org/npr-news/2026-11-21/a-grieving-family-in-lebanon-returns-to-their-village",
+     "https://www.wsls.com/news/world/2026/11/22/israeli-opposition-leader-condemns-suspected-settler-attacks-as-terrorism-and-other-mideast-news/"
+    ]
+   },
+   {
+    "что": "страна: Russia",
+    "статей_сутки": 8882,
+    "статей_прошлые_сутки": 13205,
+    "рост_раз": 0.67,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.theadvocate.com.au/story/9396090/australia-pushes-to-shape-ai-in-foreign-policy-shift/",
+     "https://aninews.in/news/national/politics/should-know-friends-and-enemies-cpims-md-salim-on-talks-with-mamata-banerjees-tmc20261122181236/",
+     "https://www.tivysideadvertiser.co.uk/news/national/26751822.three-killed-russian-attack-near-ukraines-capital-strikes-apartment-building/"
+    ]
+   },
+   {
+    "что": "страна: Iran",
+    "статей_сутки": 7819,
+    "статей_прошлые_сутки": 8036,
+    "рост_раз": 0.97,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.theadvocate.com.au/story/9396090/australia-pushes-to-shape-ai-in-foreign-policy-shift/",
+     "http://www.iranherald.com/news/279447730/iran-irgc-says-targeted-us-positions-at-2-bases-in-bahrain-with-missiles-drones",
+     "https://www.kxl.com/iran-strikes-3-tankers-as-it-shows-off-missile-launchers-and-other-mideast-news/"
+    ]
+   },
+   {
+    "что": "страна: Australia",
+    "статей_сутки": 7557,
+    "статей_прошлые_сутки": 8182,
+    "рост_раз": 0.92,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.northweststar.com.au/story/9396092/crunch-time-for-key-laws-as-sun-sets-on-political-year/",
+     "https://www.theadvocate.com.au/story/9396090/australia-pushes-to-shape-ai-in-foreign-policy-shift/",
+     "https://www.northweststar.com.au/story/9396089/australia-falls-short-in-asia-as-us-power-declines/"
+    ]
+   },
+   {
+    "что": "страна: Pakistan",
+    "статей_сутки": 6620,
+    "статей_прошлые_сутки": 7263,
+    "рост_раз": 0.91,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.prokerala.com/news/articles/a1839886.html",
+     "http://www.bignewsnetwork.com/news/279448703/us-congressional-report-on-china-pakistan-ties-highlights-what-india-already-knows-former-diplomat-mahesh-sachdev",
+     "https://www.radio.gov.pk/22-11-2026/pakistan-oman-agree-to-enhance-bilateral-cooperation"
+    ]
+   },
+   {
+    "что": "страна: Canada",
+    "статей_сутки": 5808,
+    "статей_прошлые_сутки": 12500,
+    "рост_раз": 0.47,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://www.chesterstandard.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://focustaiwan.tw/society/202611220005"
+    ]
+   },
+   {
+    "что": "страна: Ukraine",
+    "статей_сутки": 5451,
+    "статей_прошлые_сутки": 8748,
+    "рост_раз": 0.62,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.surreycomet.co.uk/news/national/26751515.minister-condemns-trumps-embrace-butcher-putin/",
+     "https://www.edenmagnet.com.au/story/9395800/russian-cargo-ship-hit-by-drones-in-baltic-still-ablaze/",
+     "https://www.tivysideadvertiser.co.uk/news/national/26751822.three-killed-russian-attack-near-ukraines-capital-strikes-apartment-building/"
+    ]
+   },
+   {
+    "что": "страна: Turkey",
+    "статей_сутки": 3468,
+    "статей_прошлые_сутки": 3125,
+    "рост_раз": 1.11,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.wharfedaleobserver.co.uk/news/national/26751749.uk-objects-final-cop31-deal-moves-us-backwards-science/",
+     "https://www.cnbc.com/2026/11/22/cop31-climate-talks-break-down-as-eu-and-others-reject-deal.html",
+     "https://www.wsiu.org/2026-11-22/climate-change-talks-fall-apart-in-final-hours-over-fossil-fuels"
+    ]
+   },
+   {
+    "что": "THE US",
+    "статей_сутки": 3185,
+    "статей_прошлые_сутки": 3381,
+    "рост_раз": 0.94,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.surreycomet.co.uk/news/national/26751515.minister-condemns-trumps-embrace-butcher-putin/",
+     "https://www.redditchadvertiser.co.uk/news/national/26751185.titanic-survivors-diamond-ring-sells-gbp150-000-auction/",
+     "https://dominicanrepublicpost.com/whats-behind-irans-escalation-of-attacks-in-the-gulf/"
+    ]
+   },
+   {
+    "что": "страна: Ireland",
+    "статей_сутки": 3054,
+    "статей_прошлые_сутки": 3203,
+    "рост_раз": 0.95,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wharfedaleobserver.co.uk/news/national/26751749.uk-objects-final-cop31-deal-moves-us-backwards-science/",
+     "https://www.irishcentral.com/news/politics/irish-echo-forum-constitutional-change",
+     "https://www.irishmirror.ie/news/irish-news/show-your-hands-shocking-scenes-37904161"
+    ]
+   },
+   {
+    "что": "страна: France",
+    "статей_сутки": 3008,
+    "статей_прошлые_сутки": 5244,
+    "рост_раз": 0.58,
+    "типы": [
+     "переговоры",
+     "призывы"
+    ],
+    "примеры": [
+     "https://www.bankingnews.gr/diethni/articles/912563/le-pen-pledges-to-honor-macron-s-commitments-to-ukraine-while-ruling-out-any-future-funding-for-kyiv%20title=",
+     "https://www.moroccoworldnews.com/2026/11/347690/france-protests-enter-sixth-week-over-cost-of-living-public-services/",
+     "https://www.moroccoworldnews.com/2026/11/347697/un-climate-talks-end-in-failure-after-eu-rejects-final-cop31-deal/"
+    ]
+   },
+   {
+    "что": "страна: Ghana",
+    "статей_сутки": 2905,
+    "статей_прошлые_сутки": 1927,
+    "рост_раз": 1.5,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.ghanamma.com/2026/11/21/ecobank-targets-awaso-business-growth-as-ghana-bauxite-company-partnership-gains-momentum/",
+     "https://thebftonline.com/article/kpmg-undp-2027-budget-forum-execution-not-ambition-will-define-the-new-economy-budget",
+     "https://www.ghanamma.com/2026/11/22/dr-zanetor-agyeman-rawlings-protests-disrespect-at-cop31-as-summit-president-apologises/"
+    ]
+   },
+   {
+    "что": "страна: Nepal",
+    "статей_сутки": 2899,
+    "статей_прошлые_сутки": 795,
+    "рост_раз": 3.58,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://aninews.in/news/world/asia/nepal-pm-balen-shah-kicks-off-india-visit-with-eam-jaishankar-meeting-connectivity-trade-energy-in-focus-ahead-of-talks-with-pm-modi20261122220134/",
+     "https://www.freepressjournal.in/india/nepal-pm-balendra-shah-begins-first-india-visit-meets-eam-jaishankar-to-hold-talks-with-pm-narendra-modi-on-nov-23",
+     "https://www.prokerala.com/news/articles/a1839816.html"
+    ]
+   },
+   {
+    "что": "страна: Germany",
+    "статей_сутки": 2841,
+    "статей_прошлые_сутки": 4356,
+    "рост_раз": 0.65,
+    "типы": [
+     "переговоры",
+     "призывы"
+    ],
+    "примеры": [
+     "https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://www.wearemoviegeeks.com/2026/11/fatherland-review/",
+     "http://www.russiaherald.com/news/279447677/clearest-security-guarantee-for-ukraine-is-nato-membership-zelenskyy-seeks-long-lasting-solutions"
+    ]
+   },
+   {
+    "что": "RUSSIAN",
+    "статей_сутки": 2829,
+    "статей_прошлые_сутки": 4299,
+    "рост_раз": 0.66,
+    "типы": [
+     "переговоры",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://english.news.cn/europe/20261122/9714794933f54a2ab79cee197bb39e42/c.html",
+     "https://www.tivysideadvertiser.co.uk/news/national/26751822.three-killed-russian-attack-near-ukraines-capital-strikes-apartment-building/",
+     "http://www.goskagit.com/news/world/poland-says-russia-allegedly-twice-tried-to-kill-a-ukrainian-american-rapper/article_37a98608-4716-5a27-8155-e2a33e9f0d32.html"
+    ]
+   },
+   {
+    "что": "страна: Italy",
+    "статей_сутки": 2811,
+    "статей_прошлые_сутки": 2482,
+    "рост_раз": 1.13,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://www.winnipegfreepress.com/arts-and-life/life/sci-tech/2026/11/21/little-mercury-gets-its-first-visitor-in-years-as-a-pair-of-spacecraft-loop-into-orbit",
+     "https://www.chesterstandard.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/"
+    ]
+   },
+   {
+    "что": "AFRICA",
+    "статей_сутки": 2759,
+    "статей_прошлые_сутки": 3023,
+    "рост_раз": 0.91,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://english.news.cn/africa/20261122/048554c3183642cdaf94dcb0487c20a9/c.html",
+     "https://www.ghanamma.com/2026/11/21/ecobank-targets-awaso-business-growth-as-ghana-bauxite-company-partnership-gains-momentum/",
+     "https://www.aol.co.uk/articles/nearly-600-women-killed-south-141541000.html"
+    ]
+   },
+   {
+    "что": "страна: Bangladesh",
+    "статей_сутки": 2570,
+    "статей_прошлые_сутки": 4009,
     "рост_раз": 0.64,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://ktul.com/news/nation-world/21-alleged-cartel-members-indicted-in-massive-federal-investigation-spanning-texas-mexico-migrants-human-trafficking-minerals-fatal-crash",
-     "https://kfbk.iheart.com/content/2026-11-20-trump-ai-data-centers-must-be-built-in-us/",
-     "http://www.goskagit.com/news/nation/christian-nationalists-see-republicans-midterm-losses-as-an-opportunity-to-supplant-trumps-maga/article_49e4ec2c-5cd4-5d5b-84c2-fd0b4e1e2821.html"
+     "https://www.thedailystar.net/news/news/govt-plans-25-lakh-jobs-2031-pm-tarique-4330571",
+     "https://bdnews24.com/bangladesh/dk7nu0q6pb",
+     "https://banglamirrornews.com/2026/11/22/214953/"
     ]
    },
    {
-    "что": "страна: Turkey",
-    "статей_сутки": 3125,
-    "статей_прошлые_сутки": 4635,
-    "рост_раз": 0.68,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://erkansaka.net/tag/rule-of-law-in-turkiye/",
-     "https://www.klcc.org/npr-science-environment/2026-11-20/are-global-climate-talks-still-relevant-or-disconnected-from-reality",
-     "https://www.garoweonline.com/en/news/somalia/turkish-military-chief-visits-somalia-amid-deepening-defence-ties"
-    ]
-   },
-   {
-    "что": "AFRICA",
-    "статей_сутки": 3023,
-    "статей_прошлые_сутки": 6898,
-    "рост_раз": 0.44,
+    "что": "страна: South Africa",
+    "статей_сутки": 2541,
+    "статей_прошлые_сутки": 2891,
+    "рост_раз": 0.88,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.hindustantimes.com/editorials/aray-of-light-in-a-long-dark-night-101795197481092.html",
-     "http://www.jamaicantimes.com/news/279446289/bangladesh-pacer-hasan-mahmud-ruled-out-of-south-africa-tour",
-     "https://www.wral.com/news/ap/ce721-phumzile-mlambo-ngcuka-former-south-africa-deputy-president-and-un-women-chief-dies-at-71/"
+     "https://www.aol.co.uk/articles/nearly-600-women-killed-south-141541000.html",
+     "https://www.equitybulls.com/news/379353/mitra-fmcg-tanvi-foods-announce-600-crore-strategic",
+     "https://www.timeslive.co.za/opinion/2026-11-21-michael-sheldrick-community-buy-in-is-as-critical-as-critical-minerals-themselves/"
+    ]
+   },
+   {
+    "что": "страна: Japan",
+    "статей_сутки": 2480,
+    "статей_прошлые_сутки": 3392,
+    "рост_раз": 0.73,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://www.winnipegfreepress.com/arts-and-life/life/sci-tech/2026/11/21/little-mercury-gets-its-first-visitor-in-years-as-a-pair-of-spacecraft-loop-into-orbit",
+     "https://www.chesterstandard.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/"
     ]
    }
   ],
   "резко_выросло": [
    {
-    "что": "страна: Finland",
-    "статей_сутки": 1661,
-    "статей_прошлые_сутки": 616,
-    "рост_раз": 2.64,
-    "типы": [
-     "заявления",
-     "уступки"
-    ],
-    "примеры": [
-     "https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/",
-     "https://kfbk.iheart.com/content/2026-11-20-trump-ai-data-centers-must-be-built-in-us/",
-     "https://hallelujah955.iheart.com/content/2026-11-20-trump-ai-data-centers-must-be-built-in-us/"
-    ]
-   },
-   {
-    "что": "ARUNACHAL PRADESH",
-    "статей_сутки": 482,
-    "статей_прошлые_сутки": 47,
-    "рост_раз": 7.49,
+    "что": "страна: Nepal",
+    "статей_сутки": 2899,
+    "статей_прошлые_сутки": 795,
+    "рост_раз": 3.58,
     "типы": [
      "переговоры",
-     "дипломатическое сотрудничество"
+     "намерения сотрудничать"
     ],
     "примеры": [
-     "http://www.cambodiantimes.com/news/279446668/amit-shah-attends-president-police-colour-award-ceremony-in-arunachal-pradesh",
-     "https://www.prokerala.com/news/articles/a1839620.html",
-     "https://www.sentinelassam.com/north-east-india-news/arunachal-news/arunachal-police-seize-18600-kg-of-drugs-arrest-2619-since-2019"
+     "https://aninews.in/news/world/asia/nepal-pm-balen-shah-kicks-off-india-visit-with-eam-jaishankar-meeting-connectivity-trade-energy-in-focus-ahead-of-talks-with-pm-modi20261122220134/",
+     "https://www.freepressjournal.in/india/nepal-pm-balendra-shah-begins-first-india-visit-meets-eam-jaishankar-to-hold-talks-with-pm-narendra-modi-on-nov-23",
+     "https://www.prokerala.com/news/articles/a1839816.html"
     ]
    },
    {
-    "что": "FINNISH",
-    "статей_сутки": 418,
-    "статей_прошлые_сутки": 100,
-    "рост_раз": 3.65,
+    "что": "страна: Bahrain",
+    "статей_сутки": 1852,
+    "статей_прошлые_сутки": 363,
+    "рост_раз": 4.89,
     "типы": [
-     "угрозы",
+     "неодобрение",
      "боевые действия"
     ],
     "примеры": [
-     "https://www.maldonandburnhamstandard.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/",
-     "https://nypost.com/2026/11/21/world-news/2-dead-60-injured-in-russian-strike-on-zelenskys-central-ukraine-hometown/",
-     "https://www.dunmowbroadcast.co.uk/news/national/26750572.young-boy-one-two-killed-ballistic-missile-attack-zelenskys-home-city/"
+     "http://www.iranherald.com/news/279447730/iran-irgc-says-targeted-us-positions-at-2-bases-in-bahrain-with-missiles-drones",
+     "https://news.webindia123.com/news/Articles/World/20261122/4522880.html",
+     "https://www.westernadvocate.com.au/story/9395827/iran-says-it-has-attacked-us-military-posts-in-bahrain/"
     ]
    },
    {
-    "что": "FREEDOM FIGHTER",
-    "статей_сутки": 199,
-    "статей_прошлые_сутки": 5,
-    "рост_раз": 8.76,
+    "что": "DUTCH",
+    "статей_сутки": 999,
+    "статей_прошлые_сутки": 273,
+    "рост_раз": 3.48,
+    "типы": [
+     "переговоры",
+     "отказ"
+    ],
+    "примеры": [
+     "https://www.redditchadvertiser.co.uk/news/national/26751284.tories-universities-raise-concerns-burnhams-brussels-deal/",
+     "https://www.islingtongazette.co.uk/news/national/26751284.tories-universities-raise-concerns-burnhams-brussels-deal/",
+     "https://aninews.in/news/world/asia/india-netherlands-eye-deeper-strategic-ties-across-technology-defence-renewable-energy-eam-during-talks-with-dutch-fm20261122223359/"
+    ]
+   },
+   {
+    "что": "страна: Libya",
+    "статей_сутки": 906,
+    "статей_прошлые_сутки": 239,
+    "рост_раз": 3.58,
+    "типы": [
+     "боевые действия",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://english.news.cn/20261122/726873768a1546ffadaf808cca6a9b96/c.html",
+     "http://www.bgnes.com/conflicts/russian-ship-hit-by-suspected-drone-attack-at-libya-s-benghazi-naval-base-several-injured",
+     "https://localnews8.com/news/national-world/cnn-world/2026/11/22/russian-vessel-docked-in-libya-hit-in-suspected-drone-attack-authorities-say/"
+    ]
+   },
+   {
+    "что": "страна: West Bank",
+    "статей_сутки": 1163,
+    "статей_прошлые_сутки": 490,
+    "рост_раз": 2.32,
+    "типы": [
+     "неодобрение",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://www.wsls.com/news/world/2026/11/22/israeli-opposition-leader-condemns-suspected-settler-attacks-as-terrorism-and-other-mideast-news/",
+     "https://www.middleeasteye.net/live-blog/live-blog-update/jewish-terrorism-every-sense-eisenkot-blames-smotrich-and-ben-gvir",
+     "https://english.wafa.ps/Pages/Details/177198"
+    ]
+   },
+   {
+    "что": "NILE",
+    "статей_сутки": 416,
+    "статей_прошлые_сутки": 59,
+    "рост_раз": 5.52,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.canberratimes.com.au/story/9395968/man-of-deep-faith-longest-serving-mp-fred-nile-dies/",
+     "https://www.caribjournal.com/2026/11/21/cinnamon-bay-st-john-reader-photo/",
+     "https://www.irishmirror.ie/news/irish-news/former-air-corps-commandant-convicted-37901988"
+    ]
+   },
+   {
+    "что": "LIBYAN",
+    "статей_сутки": 260,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 14.0,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://english.news.cn/20261122/726873768a1546ffadaf808cca6a9b96/c.html",
+     "http://www.bgnes.com/conflicts/russian-ship-hit-by-suspected-drone-attack-at-libya-s-benghazi-naval-base-several-injured",
+     "https://www.euronews.com/2026/11/22/suspected-drone-strike-hits-russian-ship-at-libyas-benghazi-port-raising-regional-security"
+    ]
+   },
+   {
+    "что": "PENNY WONG",
+    "статей_сутки": 276,
+    "статей_прошлые_сутки": 10,
+    "рост_раз": 9.87,
+    "типы": [
+     "угрозы",
+     "требования"
+    ],
+    "примеры": [
+     "https://www.theadvocate.com.au/story/9396090/australia-pushes-to-shape-ai-in-foreign-policy-shift/",
+     "https://www.abc.net.au/news/2026-11-22/federal-politics-penny-wong-foreign-policy-ai-threat/107414236",
+     "https://cedarnews.net/newstasks/1178945/foreign-minister-elevate-ai-national-security-challenge/"
+    ]
+   },
+   {
+    "что": "BENGHAZI",
+    "статей_сутки": 226,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 12.3,
+    "типы": [
+     "боевые действия",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.aljazeera.com/news/2026/11/22/suspected-drone-strike-hits-russian-vessel-in-libya",
+     "https://cedarnews.net/newstasks/1180668/commercial-vessel-reportedly-hit-in-new-attack-off-benghazi-libya/",
+     "https://aa.com.tr/en/africa/russian-ship-likely-hit-in-drone-attack-at-benghazi-naval-base-libya-s-eastern-based-government-says/4133645"
+    ]
+   },
+   {
+    "что": "COMBAT AIRCRAFT",
+    "статей_сутки": 346,
+    "статей_прошлые_сутки": 53,
+    "рост_раз": 5.01,
+    "типы": [
+     "призывы",
+     "материальное сотрудничество"
+    ],
+    "примеры": [
+     "https://www.halsteadgazette.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://www.chesterstandard.co.uk/news/national/26751287.rafs-next-jet-perhaps-last-crewed-fighter-says-air-chief-marshal/",
+     "https://idrw.org/usaf-f35a-emergency-code-7700-uae/"
+    ]
+   },
+   {
+    "что": "KALININGRAD",
+    "статей_сутки": 386,
+    "статей_прошлые_сутки": 109,
+    "рост_раз": 3.15,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.yourlocalguardian.co.uk/news/national/26751822.two-killed-russian-attack-destroys-apartment-building-near-kyiv/",
+     "https://www.tivysideadvertiser.co.uk/news/national/26751822.three-killed-russian-attack-near-ukraines-capital-strikes-apartment-building/",
+     "https://www.bankingnews.gr/diethni/articles/912592/baltic-uproar-nato-flights-near-kaliningrad-and-drone-strike-on-russian-ship-spark-blockade-alarm"
+    ]
+   },
+   {
+    "что": "NEPALESE",
+    "статей_сутки": 179,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 9.95,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://aninews.in/news/world/asia/nepal-pm-balen-shah-kicks-off-india-visit-with-eam-jaishankar-meeting-connectivity-trade-energy-in-focus-ahead-of-talks-with-pm-modi20261122220134/",
+     "https://www.tribuneindia.com/news/india/nepal-pm-balendra-shah-begins-2-day-india-visit-energy-and-connectivity-on-agenda/",
+     "https://www.deccanchronicle.com/nation/world/nepal-pm-balendra-shah-in-india-energy-connectivity-on-agenda-2006826"
+    ]
+   },
+   {
+    "что": "SETTLER",
+    "статей_сутки": 478,
+    "статей_прошлые_сутки": 195,
+    "рост_раз": 2.32,
+    "типы": [
+     "неодобрение",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://www.wsls.com/news/world/2026/11/22/israeli-opposition-leader-condemns-suspected-settler-attacks-as-terrorism-and-other-mideast-news/",
+     "https://www.middleeasteye.net/live-blog/live-blog-update/jewish-terrorism-every-sense-eisenkot-blames-smotrich-and-ben-gvir",
+     "https://thefrontierpost.com/israeli-settlers-attack-several-palestinian-villages-in-occupied-west-bank/"
+    ]
+   },
+   {
+    "что": "OKINAWA",
+    "статей_сутки": 174,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 9.7,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "принуждение"
+    ],
+    "примеры": [
+     "https://www.winnipegfreepress.com/world/2026/11/22/okinawa-celebrates-restored-shuri-castle-hall-7-years-after-fire",
+     "https://www.gjsentinel.com/news/us/ap-joy-wonder-discovery-summarybrief-at-7-13-a-m-est/article_56bf5bf9-64bf-5596-95dc-9be4ba584326.html",
+     "https://www.union-bulletin.com/news/national/ap-joy-wonder-discovery-summarybrief-at-1-02-p-m-est/article_ea48c7f5-8ae6-59a6-bad6-a2704a1d3697.html"
+    ]
+   },
+   {
+    "что": "страна: Marshall Islands",
+    "статей_сутки": 226,
+    "статей_прошлые_сутки": 29,
+    "рост_раз": 5.02,
+    "типы": [
+     "отказ",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wsiu.org/2026-11-22/climate-change-talks-fall-apart-in-final-hours-over-fossil-fuels",
+     "https://www.israelnationalnews.com/news/436847",
+     "https://www.mvariety.com/news/regional/ship-stuck-in-majuro-poses-danger/article_d0b82aeb-837a-4532-adef-6036208e920b.html"
+    ]
+   },
+   {
+    "что": "страна: Lithuania",
+    "статей_сутки": 496,
+    "статей_прошлые_сутки": 229,
+    "рост_раз": 2.07,
+    "типы": [
+     "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.yourlocalguardian.co.uk/news/national/26751822.two-killed-russian-attack-destroys-apartment-building-near-kyiv/",
+     "https://www.tivysideadvertiser.co.uk/news/national/26751822.three-killed-russian-attack-near-ukraines-capital-strikes-apartment-building/",
+     "https://www.israelnationalnews.com/news/436853"
+    ]
+   },
+   {
+    "что": "ANTALYA",
+    "статей_сутки": 450,
+    "статей_прошлые_сутки": 192,
+    "рост_раз": 2.22,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.wharfedaleobserver.co.uk/news/national/26751749.uk-objects-final-cop31-deal-moves-us-backwards-science/",
+     "https://www.wknofm.org/news-from-npr/2026-11-22/international-climate-talks-end-in-disappointment",
+     "https://english.news.cn/20261123/71eed7663eaa4bab9853c64e0f23fa53/c.html"
+    ]
+   },
+   {
+    "что": "CORK",
+    "статей_сутки": 290,
+    "статей_прошлые_сутки": 76,
+    "рост_раз": 3.23,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://bdnews24.com/bangladesh/sgwuj5y7hp",
-     "https://www.thedailystar.net/news/governance/news/pm-pledges-build-fascism-free-self-respecting-bangladesh-4329431",
-     "https://www.freepressjournal.in/education/pm-modi-unveils-commemorative-coin-at-iit-kharagpurs-75th-anniversary-highlights-institutes-role-in-indias-self-reliance-journey-watch"
+     "https://www.irishexaminer.com/news/munster/arid-41941041.html",
+     "https://www.thejournal.ie/bantry-7234416-Nov2026/",
+     "https://www.rte.ie/news/munster/2026/1122/1600208-floods-damage-bantry/"
     ]
    },
    {
-    "что": "NITISH KUMAR",
-    "статей_сутки": 195,
-    "статей_прошлые_сутки": 5,
-    "рост_раз": 8.6,
+    "что": "NEPALI",
+    "статей_сутки": 262,
+    "статей_прошлые_сутки": 60,
+    "рост_раз": 3.52,
     "типы": [
      "намерения сотрудничать",
      "переговоры"
     ],
     "примеры": [
-     "https://www.tribuneindia.com/news/india/modi-launches-rs-34470-crore-projects-in-bihar-hails-nitish-for-states-progress/",
-     "https://www.tribuneindia.com/news/india/cheema-slams-bihar-govt-over-nitish-setu-urges-pm-to-respect-sikh-sentiments-name-bridge-after-guru-gobind-singh/",
-     "https://openthemagazine.com/india/congress-chanted-garibi-hatao-for-decades-we-lifted-50-crore-people-out-of-poverty-in-12-years-pm-modi"
+     "https://nepalitimes.com/nepal-is-still-a-yam-between-two-rocks",
+     "https://www.thehindubusinessline.com/economy/nepal-pm-visit-india-weighs-2-billion-development-package-for-kathmandu/article71731299.ece",
+     "https://www.indiablooms.com/news/nepal-pm-balen-shahs-to-begin-first-india-visit-today-2-billion-aid-deal-air-routes-on-agenda/details"
     ]
    },
    {
-    "что": "страна: Burundi",
-    "статей_сутки": 178,
-    "статей_прошлые_сутки": 0,
-    "рост_раз": 9.9,
+    "что": "PALESTINE",
+    "статей_сутки": 238,
+    "статей_прошлые_сутки": 46,
+    "рост_раз": 3.91,
     "типы": [
      "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://garoweonline.com/en/news/world/uganda-and-burundi-military-officials-visit-israel-to-discuss-gaza-troop-deployment",
-     "https://www.riotimesonline.com/burundi-rwasa-files-independent-bid-2027-election/",
-     "https://relevantmagazine.com/justice/in-burundi-the-church-is-doing-what-health-systems-couldnt-for-unvaccinated-kids/"
-    ]
-   },
-   {
-    "что": "BIHAR",
-    "статей_сутки": 526,
-    "статей_прошлые_сутки": 250,
-    "рост_раз": 2.02,
-    "типы": [
-     "заявления",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://aninews.in/news/national/politics/bihar-pm-modi-inaugurates-nitish-setu-over-river-ganga-in-vaishali16020261121142742/",
-     "https://www.prokerala.com/news/articles/a1839383.html",
-     "https://aninews.in/news/national/politics/pm-modi-pitches-skilled-workforce-self-reliance-highlights-brahmos-manufacturing-in-up-aptitude-certificate-proposal20261121215810/"
-    ]
-   },
-   {
-    "что": "UTAH",
-    "статей_сутки": 397,
-    "статей_прошлые_сутки": 153,
-    "рост_раз": 2.41,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.sltrib.com/opinion/commentary/2026/11/21/opinion-im-socialist-wokeness-is/",
-     "https://www.ksl.com:443/article/51646897/richfield-man-awaiting-new-sentence-after-two-decades-of-life-in-prison-without-parole",
-     "https://radaronline.com/p/ted-bundy-new-dna-evidence-cold-case-murder/"
-    ]
-   },
-   {
-    "что": "MAFIA",
-    "статей_сутки": 275,
-    "статей_прошлые_сутки": 94,
-    "рост_раз": 2.59,
-    "типы": [
-     "переговоры",
-     "расследования"
-    ],
-    "примеры": [
-     "https://www.freepressjournal.in/india/goa-cjp-chief-abhijeet-dipke-alleges-130-acres-of-tribal-land-transferred-to-builders-for-township-project",
-     "https://nehandaradio.com/2026/11/21/luke-ing-the-beast-in-the-eye-november-21-the-day-mugabe-bowed-out-republished/",
-     "https://www.hindustantimes.com/world-news/exitalian-police-chief-gianni-de-gennaro-found-dead-by-suicide-days-after-probe-into-alleged-cover-up-of-mafia-judges-murder-in-1992-101795268046266.html"
-    ]
-   },
-   {
-    "что": "PATNA",
-    "статей_сутки": 288,
-    "статей_прошлые_сутки": 116,
-    "рост_раз": 2.26,
-    "типы": [
-     "призывы",
-     "заявления"
-    ],
-    "примеры": [
-     "https://indiankanoon.org/doc/151864088/",
-     "https://www.tribuneindia.com/news/india/cheema-slams-bihar-govt-over-nitish-setu-urges-pm-to-respect-sikh-sentiments-name-bridge-after-guru-gobind-singh/",
-     "https://www.oneindia.com/india/bihar-industrial-investment-proposals-2027-012-8266575.html"
-    ]
-   },
-   {
-    "что": "SETTLER",
-    "статей_сутки": 195,
-    "статей_прошлые_сутки": 49,
-    "рост_раз": 3.12,
-    "типы": [
-     "неодобрение",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://www.cbc.ca/news/world/israeli-settler-violence-at-unprecedented-levels-during-palestinian-olive-harvest-9.7426808",
-     "https://www.irishtimes.com/culture/books/review/2026/11/21/red-triangle-workers-loyalists-and-partition-by-fearghal-mac-bhloscaidh-an-immersive-history-from-below/",
-     "https://www.aljazeera.com/news/2026/11/21/can-israels-opposition-bloc-stay-united-against-netanyahu"
-    ]
-   },
-   {
-    "что": "CONVICTS",
-    "статей_сутки": 245,
-    "статей_прошлые_сутки": 100,
-    "рост_раз": 2.21,
-    "типы": [
-     "уступки",
-     "переговоры"
-    ],
-    "примеры": [
-     "https://www.newindianexpress.com/states/kerala/2026/Nov/21/bilkis-bano-says-those-who-ruined-her-life-now-threaten-to-plunge-india-into-darkness",
-     "https://www.telegraph.co.uk/news/2026/11/19/terrorists-freed-prison-early-release-labour/",
-     "https://www.thehindu.com/newsletter/editors-pick-core-sector-growth-touches-record-109/article71724186.ece"
-    ]
-   },
-   {
-    "что": "VILLAGER",
-    "статей_сутки": 209,
-    "статей_прошлые_сутки": 79,
-    "рост_раз": 2.31,
-    "типы": [
-     "заявления",
      "призывы"
     ],
     "примеры": [
-     "https://www.bbc.co.uk/news/articles/cvze71y6g85yo",
-     "https://timesofindia.indiatimes.com/india/ladakh-records-70-voting-in-panchayat-polls-52-in-municpal-elections/articleshow/136061630.cms",
-     "https://www.aol.co.uk/articles/second-village-votes-leave-uk-175625000.html"
+     "http://www.indiagazette.com/news/279448390/jaishankar-extends-national-day-greetings-to-lebanon-expresses-desire-to-deepen-bilateral-ties",
+     "https://morningstaronline.co.uk/article/britains-ruling-class-preparing-war",
+     "https://www.telegraph.co.uk/news/2026/11/22/campaigner-pro-palestine-activists-two-tier-policing/"
     ]
    },
    {
-    "что": "страна: Gaza Strip",
-    "статей_сутки": 229,
-    "статей_прошлые_сутки": 97,
-    "рост_раз": 2.13,
+    "что": "LEBANESE",
+    "статей_сутки": 383,
+    "статей_прошлые_сутки": 173,
+    "рост_раз": 2.09,
+    "типы": [
+     "уступки",
+     "требования"
+    ],
+    "примеры": [
+     "https://www.israelnationalnews.com/flashes/698242",
+     "https://www.arabnews.com/middle-east/syria-lebanon-seize-weapons-explosives-in-separate-operations-3013539",
+     "https://www.azernews.az/nation/267878.html"
+    ]
+   },
+   {
+    "что": "TURKIYE",
+    "статей_сутки": 246,
+    "статей_прошлые_сутки": 69,
+    "рост_раз": 2.99,
+    "типы": [
+     "намерения сотрудничать",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.malaysiakini.com/news/889624-cabinet-yet-to-discuss-zahids-10000-rohingya-resettlement-claim-mat-sabu",
+     "https://www.aljazeera.com/news/2026/11/22/why-have-un-efforts-to-regulate-killer-robots-stalled",
+     "https://www.malaysiakini.com/news/889586-turkiye-calls-10000-rohingya-resettlement-claim-unfounded-zahids-aide-says-plan-ongoing"
+    ]
+   },
+   {
+    "что": "страна: Macedonia",
+    "статей_сутки": 232,
+    "статей_прошлые_сутки": 66,
+    "рост_раз": 2.93,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "призывы"
+    ],
+    "примеры": [
+     "https://albeu.com/english/doctors-appeal-for-hpv-vaccination-youngest-cervical-cancer-case-in-north-macedonia-is-18/1111473/",
+     "http://www.bgnes.com/politics/corridor-viii-the-strategic-link-between-the-adriatic-and-black-seas-that-could-transform-nato-s-southeastern-flank",
+     "https://www.walesonline.co.uk/news/politics/im-good-ruffling-feathers-how-34785661"
+    ]
+   },
+   {
+    "что": "WORLD BANK",
+    "статей_сутки": 258,
+    "статей_прошлые_сутки": 89,
+    "рост_раз": 2.55,
+    "типы": [
+     "протесты",
+     "переговоры"
+    ],
+    "примеры": [
+     "http://www.newyorkstatesman.com/news/279448873/ptm-america-to-hold-protest-outside-world-bank-headquarters-over-pashtun-mineral-resources",
+     "https://www.manilatimes.net/2026/11/23/regions/world-bank-checks-cagayan-valleys-vegetable-program-for-funding/2475735",
+     "https://news.webindia123.com/news/Articles/World/20261122/4523075.html"
+    ]
+   },
+   {
+    "что": "RULING PARTY",
+    "статей_сутки": 186,
+    "статей_прошлые_сутки": 40,
+    "рост_раз": 3.43,
     "типы": [
      "заявления",
      "переговоры"
     ],
     "примеры": [
-     "https://www.middleeasteye.net/live-blog/live-blog-update/six-palestinians-killed-israeli-strikes-gaza-civil-defence-says",
-     "https://www.wokv.com/news/world/iran-strikes-3/5DOQKPG6KUZP3LICC6KBHJWPF4/",
-     "http://www.jpost.com/israel-news/defense-news/article-915643"
-    ]
-   },
-   {
-    "что": "BALI",
-    "статей_сутки": 219,
-    "статей_прошлые_сутки": 92,
-    "рост_раз": 2.13,
-    "типы": [
-     "переговоры",
-     "нападения"
-    ],
-    "примеры": [
-     "https://goss.ie/uk-showbiz/love-island-star-reveals-why-she-nearly-rejected-her-husbands-proposal-493936",
-     "https://en.antaranews.com/news/444367/bali-immigration-denies-entry-of-russian-interpol-fugitive",
-     "https://www.indianweekender.co.nz/news/kiwi-man-returns-home-after-12-years-in-bali-jail"
-    ]
-   },
-   {
-    "что": "NATIONAL POLICE",
-    "статей_сутки": 155,
-    "статей_прошлые_сутки": 47,
-    "рост_раз": 2.61,
-    "типы": [
-     "угрозы",
-     "материальное сотрудничество"
-    ],
-    "примеры": [
-     "https://cphpost.dk/2026-11-21/news/round-up/absenteeism-among-public-school-students-is-rising/",
-     "https://theleader.info/2026/11/21/orihuela-arrest-after-e8200-bank-impersonation-scam/",
-     "https://www.riotimesonline.com/colombia-inpec-prisons-red-alert-bomb-threat/"
+     "https://www.hindustantimes.com/cities/lucknow-news/even-radhe-radhe-bothers-sp-uttar-pradesh-bjp-chief-101795369864771.html",
+     "https://blueprint.ng/adebutu-s-return-to-ballot-will-increase-tinubu-s-votes-in-ogun-akinlade/",
+     "https://www.newindianexpress.com/india/2026/Nov/22/garland-tug-of-war-between-harish-rawat-yashpal-arya-triggers-bjp-congress-war-of-words-in-uttarakhand"
     ]
    }
   ]
  },
  "wiki": {
   "источник": "просмотры Википедии (Wikimedia), en",
-  "день": "2026-11-20",
+  "день": "2026-11-21",
   "резко_выросло": [
    {
-    "статья": "Riemann hypothesis",
-    "просмотров_вчера": 295157,
+    "статья": "Nikhil Chaudhary (cricketer)",
+    "просмотров_вчера": 100364,
     "позавчера": 0,
-    "рост_раз": 296.16
+    "рост_раз": 101.36
    },
    {
-    "статья": "Levent Alpöge",
-    "просмотров_вчера": 124632,
+    "статья": "Lewis Moody",
+    "просмотров_вчера": 69243,
     "позавчера": 0,
-    "рост_раз": 125.63
+    "рост_раз": 70.24
    },
    {
-    "статья": "privacy policy",
-    "просмотров_вчера": 78955,
-    "позавчера": 0,
-    "рост_раз": 79.95
+    "статья": "UFC Fight Night: Procházka vs. Stirling",
+    "просмотров_вчера": 102387,
+    "позавчера": 9743,
+    "рост_раз": 9.62
    },
    {
-    "статья": "2026 MAMA Awards",
-    "просмотров_вчера": 52630,
-    "позавчера": 0,
-    "рост_раз": 53.63
+    "статья": "Survivor Series: WarGames (2026)",
+    "просмотров_вчера": 82093,
+    "позавчера": 19282,
+    "рост_раз": 4.1
    },
    {
-    "статья": "O.M: Operation Mole",
-    "просмотров_вчера": 119692,
-    "позавчера": 22628,
-    "рост_раз": 5.11
+    "статья": "Navajo Stirling",
+    "просмотров_вчера": 52558,
+    "позавчера": 8182,
+    "рост_раз": 5.83
    },
    {
-    "статья": "The Traitors: New Blood",
-    "просмотров_вчера": 63853,
-    "позавчера": 10438,
-    "рост_раз": 5.67
-   },
-   {
-    "статья": "Lance Broadway",
-    "просмотров_вчера": 79751,
-    "позавчера": 20186,
-    "рост_раз": 3.81
-   },
-   {
-    "статья": "Bruno Mars",
-    "просмотров_вчера": 60612,
-    "позавчера": 14756,
-    "рост_раз": 3.91
-   },
-   {
-    "статья": "Harambe",
-    "просмотров_вчера": 67020,
-    "позавчера": 21696,
-    "рост_раз": 3.0
+    "статья": "Dwayne Johnson",
+    "просмотров_вчера": 50388,
+    "позавчера": 8544,
+    "рост_раз": 5.38
    }
   ]
  },
@@ -691,153 +1261,153 @@
   "события": [
    {
     "событие": "Who Is the Mexican Drug Kingpin Known as El Chapo Isidro?",
-    "статей": 889,
+    "статей": 1433,
     "дата": "2026-11-21",
     "uri": "spa-4426756"
    },
    {
-    "событие": "Bayern Munich's Harry Kane facing around three months out with torn ankle ligaments",
-    "статей": 880,
-    "дата": "2026-11-20",
-    "uri": "eng-12207274"
-   },
-   {
-    "событие": "'Russian Objects' Crashed in Poland, Officials Say. Here's What We Can See.",
-    "статей": 778,
-    "дата": "2026-11-20",
-    "uri": "eng-12207358"
-   },
-   {
-    "событие": "Fiona the Hippo Died After Eating a Hat. Some Want Justice.",
-    "статей": 735,
-    "дата": "2026-11-20",
-    "uri": "eng-12205679"
-   },
-   {
-    "событие": "England to face Norway, Spain to play France in Nations League quarter-finals",
-    "статей": 638,
-    "дата": "2026-11-20",
-    "uri": "spa-4425465"
-   },
-   {
-    "событие": "Russia-bound ship attacked in Gulf of Finland",
-    "статей": 509,
+    "событие": "Las Vegas Grand Prix briefing: Max Verstappen wins a wild slipstream duel with rival Russell",
+    "статей": 1367,
     "дата": "2026-11-21",
-    "uri": "rus-2166008"
+    "uri": "eng-12209514"
    },
    {
-    "событие": "Anthropic Mathematician Claims to Have Solved Math's Most Famous Problem",
-    "статей": 415,
-    "дата": "2026-11-20",
-    "uri": "eng-12207902"
-   },
-   {
-    "событие": "FBI reportedly investigating apparent hack of its criminal database",
-    "статей": 365,
+    "событие": "Bitter Clash Over Fossil Fuels Derails U.N. Climate Talks",
+    "статей": 1355,
     "дата": "2026-11-21",
-    "uri": "eng-12209129"
-   },
-   {
-    "событие": "How would Liverpool feel about a Manchester relegation (or two)?",
-    "статей": 337,
-    "дата": "2026-11-20",
-    "uri": "eng-12207498"
-   },
-   {
-    "событие": "Fight over fossil fuels leaves COP31 climate talks in deadlock",
-    "статей": 331,
-    "дата": "2026-11-20",
     "uri": "eng-12208574"
    },
    {
-    "событие": "Rahul ton, Gill 98 headline productive batting day for India",
-    "статей": 317,
+    "событие": "Carlos Alcaraz restores familiar order in men's tennis with ATP Finals win over Alexander Zverev",
+    "статей": 1046,
+    "дата": "2026-11-21",
+    "uri": "eng-12209866"
+   },
+   {
+    "событие": "Russia-bound ship attacked in Gulf of Finland",
+    "статей": 699,
+    "дата": "2026-11-21",
+    "uri": "eng-12209787"
+   },
+   {
+    "событие": "Rahul credits 'six-seven months of homework' for maiden ton in NZ",
+    "статей": 663,
     "дата": "2026-11-21",
     "uri": "eng-12208698"
    },
    {
-    "событие": "Brazil ex-President Bolsonaro hospitalized with intestinal obstruction",
-    "статей": 307,
-    "дата": "2026-11-20",
-    "uri": "spa-4425128"
-   },
-   {
-    "событие": "European Union Proposes Tax On Big Tech In New Budget Draft",
-    "статей": 299,
+    "событие": "Marc Marquez wins MotoGP title: Record-equalling eighth for Spanish Ducati rider secured in Portugal",
+    "статей": 649,
     "дата": "2026-11-21",
-    "uri": "eng-12209380"
+    "uri": "spa-4426399"
    },
    {
-    "событие": "Texas death-row inmate screams as execution takes more than one hour",
-    "статей": 297,
-    "дата": "2026-11-20",
-    "uri": "eng-12205975"
-   },
-   {
-    "событие": "'No change on Indus Waters Treaty stance': MEA as Pak minister who threatened India visits Delhi",
-    "статей": 278,
-    "дата": "2026-11-20",
-    "uri": "eng-12204050"
-   },
-   {
-    "событие": "Denmark Expels Russian Diplomat After Accusing Moscow of Planning a Hit",
-    "статей": 274,
-    "дата": "2026-11-20",
-    "uri": "eng-12207459"
-   },
-   {
-    "событие": "Macaulay Culkin To Make Comeback In New 'Home Alone' Film",
-    "статей": 266,
-    "дата": "2026-11-20",
-    "uri": "eng-12208304"
-   },
-   {
-    "событие": "Princess Kate announces she's in remission from cancer",
-    "статей": 265,
-    "дата": "2026-11-21",
-    "uri": "eng-12209899"
-   },
-   {
-    "событие": "Sandpapergate: Cricket Australia fling 'unanimous support' behind Pat Cummins to remain as captain",
-    "статей": 263,
-    "дата": "2026-11-20",
-    "uri": "eng-12206009"
-   },
-   {
-    "событие": "Has AI's honeymoon ended on Wall Street?",
-    "статей": 255,
-    "дата": "2026-11-20",
-    "uri": "spa-4426178"
-   },
-   {
-    "событие": "'Sunrise on the Reaping' restores my faith in book adaptations",
-    "статей": 239,
-    "дата": "2026-11-20",
-    "uri": "eng-12206889"
-   },
-   {
-    "событие": "Gérard Depardieu and French author Michel Houellebecq investigated over sexual allegations",
-    "статей": 223,
-    "дата": "2026-11-20",
-    "uri": "fra-1366344"
-   },
-   {
-    "событие": "Jury Finds Man Guilty of Arson in Devastating L.A. Fire",
-    "статей": 213,
-    "дата": "2026-11-20",
-    "uri": "eng-12208845"
-   },
-   {
-    "событие": "His screams \"echoed\" around the stadium: extremely serious injury strikes Paris star",
-    "статей": 211,
+    "событие": "Paris Saint-Germain's Desire Doue sustains ACL injury in right knee",
+    "статей": 579,
     "дата": "2026-11-21",
     "uri": "fra-1366748"
    },
    {
-    "событие": "Madrid chief Pérez: \"outrageous\" that LaLiga president Tebas hasn't resigned",
-    "статей": 210,
+    "событие": "Liverpool demolish Man Utd: Pochettino's difficult task, Ngumoha shines and Yoro red decision",
+    "статей": 530,
+    "дата": "2026-11-22",
+    "uri": "eng-12212126"
+   },
+   {
+    "событие": "Real Madrid 2-1 Celta Vigo: Carlos Espi scores late winner in La Liga",
+    "статей": 440,
+    "дата": "2026-11-21",
+    "uri": "spa-4427283"
+   },
+   {
+    "событие": "Trump says 'maybe we'll learn things' after FBI is hacked again",
+    "статей": 416,
+    "дата": "2026-11-21",
+    "uri": "spa-4426701"
+   },
+   {
+    "событие": "European Union Proposes Tax On Big Tech In New Budget Draft",
+    "статей": 352,
+    "дата": "2026-11-21",
+    "uri": "eng-12209380"
+   },
+   {
+    "событие": "Italian jeweller and businessman Paolo Bulgari dies aged 89",
+    "статей": 338,
+    "дата": "2026-11-21",
+    "uri": "eng-12210272"
+   },
+   {
+    "событие": "Explosion on Russian ship at Libya port likely caused by drone attack, officials say",
+    "статей": 336,
+    "дата": "2026-11-22",
+    "uri": "eng-12211939"
+   },
+   {
+    "событие": "ICE officers arrest 2 passengers boarding flight in Seattle",
+    "статей": 329,
+    "дата": "2026-11-21",
+    "uri": "eng-12210803"
+   },
+   {
+    "событие": "Florentino Perez blasts 'disgraceful' La Liga boss Javier Tebas after Real Madrid, Nazi comparison",
+    "статей": 294,
     "дата": "2026-11-21",
     "uri": "spa-4426509"
+   },
+   {
+    "событие": "Premier League Forum: Can Alonso turn Chelsea around? How crucial could Raya injury be for Arsenal?",
+    "статей": 279,
+    "дата": "2026-11-21",
+    "uri": "eng-12210406"
+   },
+   {
+    "событие": "Israel's Netanyahu and Eisenkot parties fail to reach agreement in second round of coalition talks",
+    "статей": 272,
+    "дата": "2026-11-22",
+    "uri": "eng-12210895"
+   },
+   {
+    "событие": "Inter Miami falls to Columbus Crew in stunning blow to MLS Cup title defense",
+    "статей": 233,
+    "дата": "2026-11-21",
+    "uri": "eng-12210938"
+   },
+   {
+    "событие": "F.A.A. Says All Delta Flights Delayed as Automated System Falters",
+    "статей": 228,
+    "дата": "2026-11-22",
+    "uri": "eng-12211991"
+   },
+   {
+    "событие": "FBI reportedly investigating apparent hack of its criminal database",
+    "статей": 218,
+    "дата": "2026-11-21",
+    "uri": "eng-12209129"
+   },
+   {
+    "событие": "'India Cherishes Special Friendship': S Jaishankar Meets Nepal PM Balen Shah",
+    "статей": 200,
+    "дата": "2026-11-22",
+    "uri": "eng-12210926"
+   },
+   {
+    "событие": "Iran Attacks US Bases In Bahrain With Missiles, Drones; Manama Reports Strike On Civilian Facility",
+    "статей": 195,
+    "дата": "2026-11-21",
+    "uri": "eng-12210644"
+   },
+   {
+    "событие": "Dozens missing after fire at Indonesian factory",
+    "статей": 192,
+    "дата": "2026-11-22",
+    "uri": "eng-12211110"
+   },
+   {
+    "событие": "Netanyahu rival condemns settler arson attacks on Palestinian villages in West Bank",
+    "статей": 189,
+    "дата": "2026-11-22",
+    "uri": "eng-12211471"
    }
   ]
  }
