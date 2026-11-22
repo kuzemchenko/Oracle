@@ -236,6 +236,39 @@ def render(m):
     return "\n".join(L)
 
 
+BRIEF_MAX_AGE_DAYS = 4
+
+
+def market_brief(today=None, out_dir=None):
+    """Две-три строки для сводки агента: что с рынком и какие секторы попутные / корректируются / перегреты — из
+    последнего снимка карты (не старше BRIEF_MAX_AGE_DAYS дней). Нет свежего снимка → None (агент не гадает)."""
+    try:
+        m = json.loads((pathlib.Path(out_dir or OUT) / "latest.json").read_text(encoding="utf-8"))
+        today = today or datetime.datetime.now(datetime.timezone.utc).date()
+        if (today - datetime.date.fromisoformat(str(m["дата"]))).days > BRIEF_MAX_AGE_DAYS:
+            return None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    rows = [r for r in m.get("секторы") or [] if r.get("статус")]
+    mkt = next(((r.get("меры") or {}).get("рынок_за_3_месяца") for r in rows
+                if (r.get("меры") or {}).get("рынок_за_3_месяца") is not None), None)
+
+    def names(st):
+        return ", ".join(f"{r['имя']} ({SR._pct((r.get('меры') or {}).get('за_3_месяца') or 0)} за 3 мес.)"
+                         for r in rows if r["статус"] == st)
+    parts = [f"РЫНОК И СЕКТОРЫ на {m['дата']} (код, по ценам фондов секторов; измерение, не прогноз): "
+             + (f"широкий рынок за 3 месяца {SR._pct(mkt)}." if mkt is not None else "ход широкого рынка не измерен.")]
+    for st, label in ((SR.CORRECTING, "Корректируются"), (SR.HOT, "Перегреты"), (SR.TAILWIND, "Попутные"),
+                      (SR.NEUTRAL, "Нейтральные")):
+        if names(st):
+            parts.append(f"{label}: {names(st)}.")
+    n_down = sum(1 for r in rows if r["статус"] == SR.CORRECTING)
+    if rows and n_down * 2 >= len(rows):
+        parts.append(f"Корректируется {n_down} из {len(rows)} секторов: идеи только на покупку идут против рынка — "
+                     "рассмотри, кто ПРОИГРЫВАЕТ от события (идея на падение), и «не покупать» как честный ответ.")
+    return " ".join(parts)
+
+
 def tick(today=None, out_dir=None, rules=None, fetch=None):
     m = sector_map(today, rules, fetch)
     d = pathlib.Path(out_dir or OUT)

@@ -518,3 +518,33 @@ def test_judge_brief_is_never_cut_from_the_tail():
     assert [o["n"] for o in b["возражения_критика"]] == [1, 2, 3, 4, 5]
     assert all(o["ответ_автора"].startswith("ответ на возражение") for o in b["возражения_критика"])
     assert len(b["факты"]) == 12
+
+
+# ── сторона ставки: рынок в сводке агента, идея на падение в вердикте ──
+def test_market_brief_tells_agent_when_most_sectors_fall(tmp_path):
+    rows = [{"имя": "чипы", "статус": "корректируется", "меры": {"за_3_месяца": -0.27, "рынок_за_3_месяца": -0.10}},
+            {"имя": "уран", "статус": "корректируется", "меры": {"за_3_месяца": -0.41, "рынок_за_3_месяца": -0.10}},
+            {"имя": "здравоохранение", "статус": "попутный", "меры": {"за_3_месяца": 0.01, "рынок_за_3_месяца": -0.10}}]
+    (tmp_path / "latest.json").write_text(json.dumps({"дата": "2026-11-22", "секторы": rows}, ensure_ascii=False), encoding="utf-8")
+    b = SV.market_brief(datetime.date(2026, 11, 23), tmp_path)
+    assert b.startswith("РЫНОК И СЕКТОРЫ на 2026-11-22") and "широкий рынок за 3 месяца −10%" in b
+    assert "Корректируются: чипы (−27% за 3 мес.), уран" in b and "Попутные: здравоохранение (+1% за 3 мес.)" in b
+    assert "Корректируется 2 из 3 секторов" in b and "кто ПРОИГРЫВАЕТ" in b
+    assert SV.market_brief(datetime.date(2026, 12, 5), tmp_path) is None        # старый снимок агенту не показываем
+    assert SV.market_brief(datetime.date(2026, 11, 23), tmp_path / "нет") is None
+
+
+def test_short_idea_scores_against_sector_and_explains_how_to_express_it():
+    sc = {"цена": 100.0, "дата_цены": "2026-11-20", "источник_цены": "EODHD",
+          "базовый": {"цена": 70.0, "основание": "прибыль на акцию 3.5 × мультипликатор 20"},
+          "неблагоприятный": {"цена": 112.0, "основание": "налог отменён — возврат к уровню до новости"}}
+    h = _hyp(направление="short", сценарии=sc)
+    falling = {"против": False, "словами": "сектор «чипы» — корректируется: ниже своей средней на 24%"}
+    v = IV.verdict_for_hypothesis(h, TODAY, RULES, lambda *a, **k: falling)
+    by = {p["код"]: p for p in v["пункты"]}
+    assert v["направление"] == "вниз" and by["СЕКТОР"]["зачтён"] is True
+    assert by["ВЫИГРЫШ"]["зачтён"] is True and "30%" in by["ВЫИГРЫШ"]["почему"]       # падение на 30% против роста на 12%
+    assert "идея на ПАДЕНИЕ" in IV.render(v) and "опцион «пут»" in IV.render(v)
+    rising = {"против": True, "словами": "сектор «чипы» — попутный"}
+    v2 = IV.verdict_for_hypothesis(h, TODAY, RULES, lambda *a, **k: rising)
+    assert {p["код"]: p for p in v2["пункты"]}["СЕКТОР"]["зачтён"] is False

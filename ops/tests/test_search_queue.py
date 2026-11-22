@@ -573,3 +573,35 @@ def test_plain_answer_without_search_is_not_held_back(tmp_path):
     llm = FakeLLM([_msg(calls=[("eodhd", {"endpoint": "eod/DHT.US"})]), _msg("Цена 21.58.")])
     ag = A.Agent(post=llm, tools=tools, api_key="x", log_cost=lambda *a, **k: None, sleep=lambda s: None)
     assert ag._loop([{"role": "user", "content": "сколько стоит DHT?"}], 10) == "Цена 21.58." and len(llm.bodies) == 2
+
+
+# ── сторона ставки (владелец 22.11: «рынок падал — почему не предлагаешь шортить?») ──
+def test_hypothesis_side_is_recorded_and_sector_against_it_is_said_at_once(tmp_path, monkeypatch):
+    import sector_view as SV
+    seen = []
+
+    def for_ticker(ticker, direction="вверх", **k):
+        seen.append((ticker, direction))
+        return {"против": direction == "вверх", "словами": "сектор «чипы» (фонд SMH) — корректируется: ниже своей средней на 24%"}
+
+    import importlib
+    for name in ("sector_view", "ops.sector_view"):                 # у модуля два имени — подменяем оба
+        monkeypatch.setattr(importlib.import_module(name), "for_ticker", for_ticker)
+    s = SQ.start("чипы", "telegram", d=tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    out = json.loads(tools.search_add("Производитель чипов выигрывает от нового заказа", "NVDA", "заказ поднимает выручку"))
+    assert "сторона: на рост" in out["сообщение"] and "для покупки сектор против" in out["сообщение"]
+    assert "кто ПРОИГРЫВАЕТ" in out["сообщение"]
+    out = json.loads(tools.search_add("Сборщик серверов теряет заказы из-за налога на импорт", "SMCI",
+                                      "налог режет маржу сборки серверов", direction="short"))
+    assert "сторона: на падение" in out["сообщение"] and "ВНИМАНИЕ" not in out["сообщение"]
+    hs = SQ.load(s["id"], tmp_path)["гипотезы"]
+    assert [h["данные"]["направление"] for h in hs] == ["long", "short"] and seen == [("NVDA", "вверх"), ("SMCI", "вниз")]
+
+
+def test_queue_steps_ask_for_losers_too(tmp_path):
+    s = SQ.start("налог ЕС", "telegram", d=tmp_path)
+    assert "проигравшие (идеи на падение)" in SQ.next_action(s)["текст"]
+    assert "проигравший" in SQ.STAGE_TODO["генерация"]
+    assert "ПРОИГРЫВАЕТ" in A.SYSTEM_PROMPT and "не покупать" in A.SYSTEM_PROMPT
