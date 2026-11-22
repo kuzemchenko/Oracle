@@ -2154,6 +2154,8 @@ class Bot:
         """Раз в неделю (суббота, после 10:00 UTC) — карточка «утверди темы» (V2, подпись П5).
         Дедуп по ISO-неделе; без неразобранных тем карточка не шлётся."""
         import bot_themes as TH
+        if not R.load_presentation().get("theme_batch_push"):   # отключена владельцем 22.11 (ни одного нажатия за 3 недели)
+            return
         now = now or S.now_utc()
         if now.isoweekday() != 6 or now.hour < 10:
             return

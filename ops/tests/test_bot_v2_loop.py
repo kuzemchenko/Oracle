@@ -186,6 +186,35 @@ def test_theme_decision_recorded_and_excluded(tmp_path):
     assert TH.pending_queue(proposed, dec) == [], "разобранная тема не должна предлагаться снова"
 
 
+def _theme_flag(monkeypatch, on):
+    """Карточка тем — за флагом theme_batch_push (отключена владельцем 22.11): тесты включают её явно."""
+    import importlib
+    for name in ("bot_reports", "ops.bot_reports"):
+        try:
+            mod = importlib.import_module(name)
+        except ImportError:
+            continue
+        real = mod.load_presentation
+        monkeypatch.setattr(mod, "load_presentation", lambda *a, _r=real, **k: {**_r(*a, **k), "theme_batch_push": on})
+
+
+@pytest.fixture(autouse=True)
+def _theme_card_on(monkeypatch):
+    _theme_flag(monkeypatch, True)
+
+
+def test_theme_card_is_not_sent_when_owner_switched_it_off(paths, monkeypatch, tmp_path):
+    """Владелец 22.11: карточка ни разу не нажата и ни на что не влияет — отключить. Код и очередь тем остаются."""
+    _theme_flag(monkeypatch, False)
+    b = _bot()
+    monkeypatch.setattr(TH, "PROPOSED", tmp_path / "p.jsonl")
+    monkeypatch.setattr(TH, "DECISIONS", tmp_path / "d.jsonl")
+    (tmp_path / "p.jsonl").write_text(
+        "\n".join(json.dumps(_theme_row(i), ensure_ascii=False) for i in range(3)), encoding="utf-8")
+    b._tick_theme_batch(datetime.datetime(2026, 11, 28, 11, 0, tzinfo=datetime.timezone.utc))
+    assert not b.tg.sent and not b.state.get("themes_week")
+
+
 def test_tick_theme_batch_weekly(paths, monkeypatch, tmp_path):
     b = _bot()
     monkeypatch.setattr(TH, "PROPOSED", tmp_path / "p.jsonl")
