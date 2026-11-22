@@ -140,6 +140,19 @@ def topics(now=None, dig_dir=None, decisions=None, done=()):
     return out
 
 
+def owner_topic(name, context=""):
+    """Тема, названная владельцем («прогони через комитет …»): тот же порядок работы, что и для тем утреннего меню."""
+    return {"тема": str(name).strip(), "запрос": (
+        f"Найди идею по теме «{str(name).strip()}». Что известно (проверь сам по первоисточникам, цифры возьми свежие): "
+        f"{str(context).strip()} Это самостоятельная работа по просьбе владельца — он сейчас не пишет. Сначала реши "
+        "СТОРОНУ: посмотри «РЫНОК И СЕКТОРЫ» в сводке состояния; идея может быть на рост или на падение (search_add "
+        "direction 'short'); «сейчас не покупать» — честный ответ. Работай по листу комитета, сначала глубина: выбери "
+        "ОДНУ лучшую бумагу и доведи гипотезу до полного вердикта — факты со ссылками, звенья до денег компании, размер "
+        "эффекта как ПРИРОСТ из-за события, чего ждёт рынок и наш расчёт того же показателя за тот же период, сценарии "
+        "с расчётом цели, событие с датой, critic_check и честные ответы на возражения; замечания независимого судьи "
+        "исправляй по существу. Если по существу идея не держится — отклони её с причиной. Итог пиши коротко.")}
+
+
 def next_prompt(topic):
     return (f"Продолжай поиск по теме «{topic}»: закрой незачтённые пункты листа комитета и замечания независимого "
             "судьи у лучшей гипотезы (committee_verdict покажет какие). Новых гипотез не открывай, пока эта не доведена "
@@ -227,8 +240,11 @@ def morning_line(now=None, out_dir=None, threshold=None):
     parts = []
     for i in rec["идеи"][:4]:
         if i.get("балл") is None:
-            why = (i.get("причины_отказа") or ["до оценки не дошла"])[0]
-            parts.append(f"«{i['тема']}» — отклонена ({str(why)[:110]})")
+            why = str((i.get("причины_отказа") or ["до оценки не дошла"])[0]).split(": ")
+            # «TICK: вид отказа: длинная причина» → в строке утром — бумага и вид отказа, без обрыва на полуслове
+            short = ": ".join(why[:2]) if len(why) >= 2 else why[0][:80]
+            n_rej = int(i.get("отклонено") or 0)
+            parts.append(f"«{i['тема']}» — отклонена" + (f" (гипотез {n_rej}; первая — {short})" if n_rej else f" ({short})"))
         else:
             miss = ("; не хватило: " + str(i["не_хватает"][0])[:110]) if i.get("не_хватает") and i["балл"] < threshold else ""
             parts.append(f"«{i['тема']}» → {_label(i)}: {i['балл']} из {i['из']}, {i['решение_словами']}{miss}")
@@ -256,7 +272,7 @@ def _push_on():
 
 # ── запуск дня ──────────────────────────────────────────────────────────────────────────────────────
 def run(now=None, max_ideas=None, budget=None, push=None, out_dir=None, search_root=None, dig_dir=None,
-        decisions=None, answer=None, precheck=True, notices=None, cfg=None, log=print):
+        decisions=None, answer=None, precheck=True, notices=None, cfg=None, log=print, extra_topics=None):
     import bot_agent as BA
     now = now or _now()
     cfg = cfg or settings()
@@ -278,8 +294,13 @@ def run(now=None, max_ideas=None, budget=None, push=None, out_dir=None, search_r
             return rec
     BA.CHAT_LOG, BA.CHAT_REQUESTS = CHAT if out_dir is None else pathlib.Path(out_dir) / "chat.jsonl", \
         (CHAT.parent / "daily_committee_requests.jsonl") if out_dir is None else pathlib.Path(out_dir) / "requests.jsonl"
-    todo = topics(now, dig_dir, decisions, done={i["тема"] for i in rec["идеи"]})
-    n_max = int(max_ideas if max_ideas is not None else cfg["идей_в_день"])
+    done = {i["тема"] for i in rec["идеи"]}
+    if extra_topics is not None:                     # темы владельца — вместо утреннего меню, в том же дневном бюджете
+        todo = [x for x in extra_topics if x["тема"] not in done]
+        n_max = len(rec["идеи"]) + len(todo)
+    else:
+        todo = topics(now, dig_dir, decisions, done=done)
+        n_max = int(max_ideas if max_ideas is not None else cfg["идей_в_день"])
     do_push = _push_on() if push is None else bool(push)
     for t in todo[:max(0, n_max - len(rec["идеи"]))]:
         per = min(float(cfg["бюджет_идеи_usd"]), left)
@@ -314,8 +335,18 @@ def main(argv=None):
     p.add_argument("--max-ideas", type=int, default=None)
     p.add_argument("--budget", type=float, default=None)
     p.add_argument("--no-push", action="store_true")
+    p = sub.add_parser("topic", help="тема владельца: прогнать через комитет в счёт дневного бюджета")
+    p.add_argument("--name", action="append", required=True, help="тема (можно несколько раз)")
+    p.add_argument("--context", action="append", default=None, help="что известно по теме (по одному на тему)")
+    p.add_argument("--no-push", action="store_true")
     sub.add_parser("show")
     a = ap.parse_args(argv)
+    if a.cmd == "topic":
+        ctx = a.context or []
+        extra = [owner_topic(n, ctx[i] if i < len(ctx) else (ctx[0] if ctx else "")) for i, n in enumerate(a.name)]
+        rec = run(extra_topics=extra, push=False if a.no_push else None, log=lambda *x: print(*x, flush=True))
+        print(f"за день потрачено ${rec.get('потрачено_usd', 0):.2f} из ${rec.get('бюджет_usd', 0):.2f}; идей: {len(rec['идеи'])}")
+        return 0
     if a.cmd == "run":
         rec = run(max_ideas=a.max_ideas, budget=a.budget, push=False if a.no_push else None,
                   log=lambda *x: print(*x, flush=True))

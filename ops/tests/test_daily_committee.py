@@ -128,6 +128,20 @@ def test_morning_line_reports_yesterday_work(tmp_path):
     line = DC.morning_line(NOW, tmp_path)
     assert line.startswith("Вчера копал сам (потрачено $4.20)") and "Танкер (TNK): 5 из 10, архив; не хватило: судья" in line
     assert "«Налог ЕС» — отклонена (META: эффект уже в цене)" in line and "не вероятность роста" in line
+    DC.save_day({"дата": "2026-11-23", "потрачено_usd": 4.1, "идеи": [{"тема": "Налог ЕС", "отклонено": 7, "причины_отказа": [
+        "META: механизм опровергнут: Три независимых разрушителя механизма: (1) ФАКТ НЕ СУЩЕСТВУЕТ — первичного документа нет"]}]}, tmp_path)
+    assert "«Налог ЕС» — отклонена (гипотез 7; первая — META: механизм опровергнут)." in DC.morning_line(NOW, tmp_path)
+
+
+def test_owner_topic_runs_inside_the_same_day_budget(tmp_path):
+    d = _dig(tmp_path, ("Тема из утреннего меню",))
+    t = DC.owner_topic("Распродажа ИИ: кто упал зря", "S&P 500 за неделю минус 8.6%")
+    assert "direction 'short'" in t["запрос"] and "минус 8.6%" in t["запрос"] and "не покупать" in t["запрос"]
+    rec = DC.run(now=NOW, budget=3.0, push=False, out_dir=tmp_path / "out", search_root=tmp_path / "s", dig_dir=d,
+                 decisions=tmp_path / "none.jsonl", answer=_answer(score_high=False, cost=1.0), cfg=CFG, log=lambda *a: None,
+                 extra_topics=[t, DC.owner_topic("Распродажа ИИ: кто упадёт дальше")])
+    assert [i["тема"] for i in rec["идеи"]] == ["Распродажа ИИ: кто упал зря", "Распродажа ИИ: кто упадёт дальше"]
+    assert rec["потрачено_usd"] == 3.0 and rec["идеи"][1]["ходов"] == 1          # вторая тема упёрлась в остаток дня
 
 
 def test_morning_message_gets_the_line_only_behind_flag(tmp_path, monkeypatch):
