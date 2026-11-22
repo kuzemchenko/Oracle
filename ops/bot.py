@@ -58,6 +58,21 @@ def log(*a):
     print(ts, LOG_TAG, *a, flush=True)
 
 
+HUNTER_COMMITTEE_FLAG = "hunter_committee_push"
+
+
+def hunter_committee_on(root=None):
+    """Q-комитет-в-идее-охотника: короткий блок «Комитет: X из 10» под идеей охотника. Флаг читается НАПРЯМУЮ из
+    config/presentation.yaml (нет файла, нет ключа или сбой чтения → выключено; сообщение идеи — прежнее)."""
+    try:
+        import yaml
+        cfg = yaml.safe_load((pathlib.Path(root or ROOT) / "config" / "presentation.yaml")
+                             .read_text(encoding="utf-8")) or {}
+        return bool(cfg.get(HUNTER_COMMITTEE_FLAG)) if isinstance(cfg, dict) else False
+    except Exception:                                    # noqa: BLE001 — флаг не роняет доставку идеи
+        return False
+
+
 # ── тонкий Telegram-клиент ──────────────────────────────────────────────────────────
 DELIVERIES_PATH = None      # журнал доставок; None = ROOT/journal/deliveries.jsonl (тесты подменяют)
 
@@ -1150,7 +1165,7 @@ class Bot:
                 return head
             return None
 
-        def _show(p, key, card, body, reason, wait=None):
+        def _show(p, key, card, body, reason, wait=None, committee=None):
             """Владелец 04.11: «если бот придерживает идею — всё равно покажи: может, отменю, а может,
             покопаем вместе; ты советник, а не тот, кто всё посчитал и спрятал». Идея, которую сервер не
             записал в счёт (вход пока невозможен, шлагбаум, вторая проверка против), уходит владельцу
@@ -1170,6 +1185,8 @@ class Bot:
                 out += "\n\n" + PL.RESEARCH_FRAME
             elif not body:
                 out += "\n\n" + PL.RESEARCH_FRAME
+            if committee:                                # блок кода (флаг hunter_committee_push); без него — как было
+                out = self._committee_attach(out, committee, PL.RESEARCH_FRAME)
             lids = self.state.setdefault("hunter_lids", {})
             prev = lids.get(rid) or {}
             kb = None if prev.get("action") else self._idea_kb(rid)
@@ -1382,7 +1399,8 @@ class Bot:
                             _drop_shown(p, card, "вторая проверка (модели других разработчиков) нашла довод против: "
                                         + _plain_why)
                         elif not _show(p, key, card, final, "вторая проверка (модели других разработчиков) нашла "
-                                       "довод против: " + _plain_why + ". Не согласен — нажми «Качаем», разберём вместе"):
+                                       "довод против: " + _plain_why + ". Не согласен — нажми «Качаем», разберём вместе",
+                                       committee=self._hunter_committee(p, card, verdict, now.date())):
                             return "stop"           # владелец 04.11: не прячем; сеть — повтор показа
                     _mark(key + ":bad")
                     if update:
@@ -1405,7 +1423,8 @@ class Bot:
                         _why_seal = "записать проверку в счёт не вышло (" + str(why)[:140] + ")"
                         if _shown_any(p):
                             _drop_shown(p, card, _why_seal)
-                        elif not _show(p, key, card, final, _why_seal):
+                        elif not _show(p, key, card, final, _why_seal,
+                                       committee=self._hunter_committee(p, card, verdict, now.date())):
                             return "stop"
                         _mark(key + ":bad")
                         self._notice_dozor("Идея охотника " + p.name + ": прогноз не запечатан ("
@@ -1430,6 +1449,11 @@ class Bot:
                                 if isinstance(card.get("catalyst"), dict) else "",
                                 "header": blocks[0] if blocks else "",
                                 "todo": next((b for b in blocks if b.strip().startswith("Что делать")), "")}
+                # Q-комитет-в-идее-охотника: балл комитета — пометка под идеей, НЕ ворота (флаг выключен → None,
+                # ключа в состоянии нет, сообщение прежнее); сбой комитета идею не задерживает
+                _cm = self._hunter_committee(p, card, verdict, now.date())
+                if _cm:
+                    footers[key]["committee"] = _cm
                 retry.pop(key, None)
                 self.save()
             foot = footers[key]
@@ -1481,6 +1505,9 @@ class Bot:
                 out = "\n".join([_who(p, {"name": foot.get("name")}) + ": " + _why_ok + " — записал проверку в "
                                   "счёт. План и условия входа — прежние, из той записки: входить только на его "
                                   "условиях.", ""] + list(foot["lines"]))
+            if foot.get("committee"):
+                # блок пишет КОД уже после prepare_push — в проверку слов модели он не попадает (как строки печати)
+                out = self._committee_attach(out, foot["committee"], PL.RESEARCH_FRAME)
             # перепроверка №2: у каждой идеи охотника — свои кнопки (решение одно на идею): исправление
             # не воскрешает уже нажатые и не отнимает кнопки у текущей идеи дня
             kb = None if (prev.get("action") or was_shown) else self._idea_kb(rid)
@@ -1584,6 +1611,72 @@ class Bot:
                     _mark(bad)
                     self._notice_dozor("Идея охотника " + p.name + " не обработана (" + type(e).__name__
                                        + ") — в Telegram не ушла; остальные идеи идут дальше.")
+
+    def _hunter_committee(self, p, card, verdict, today):
+        """Q-комитет-в-идее-охотника: вердикт «инвестиционного комитета» по карточке идеи (ops/idea_verdict.py —
+        балл X из 10 считает КОД; вердикт суда других семейств идёт в пункт 10). → строки короткого блока
+        [{'вид','текст'}] | None. Флаг hunter_committee_push выключен → None. Вердикт записывается ДО исхода,
+        ОДИН раз на идею (по дате охоты и бумаге — новая версия записки дубль не пишет). Любой сбой (нет цен,
+        исключение) → None: идея уходит без блока, балл — пометка, а не ворота."""
+        if not hunter_committee_on():
+            return None
+        try:
+            try:
+                from ops import idea_verdict as IV
+                from ops import hunter_seal as HS
+            except ImportError:
+                import idea_verdict as IV
+                import hunter_seal as HS
+            cv = str((verdict or {}).get("verdict") or "").upper() if isinstance(verdict, dict) else ""
+            hd = HS.hunt_date_from_name(p.name)
+            src = "идея охотника" + (f" от {hd.isoformat()}" if hd else "")
+            # идея печатается ДО доставки: её собственная запись в журнале прогнозов — не «уже открытая ставка»
+            own = HS.sealed_record(p.name) or {}
+            skip = (own["hash"],) if own.get("hash") else ()
+            v = IV.verdict_for_card(
+                card, today, None, {"verdict": cv} if cv else None, source=src,
+                independence_fn=lambda t, side, day: IV.independence_for(t, side, day,
+                                                                         bets=IV.open_bets(day, skip=skip)))
+            lines = IV.short_lines(v)
+            if not IV.fit_short(lines):
+                return None
+        except Exception as e:                           # noqa: BLE001 — комитет не роняет доставку идеи
+            log("комитет: вердикт по идее охотника не посчитан", p.name, repr(e))
+            return None
+        try:
+            if not any(r.get("источник") == src and r.get("тикер") == v.get("тикер") for r in IV.saved()):
+                IV.save(v)
+        except Exception as e:                           # noqa: BLE001 — блок уходит, запись повторит следующая версия
+            log("комитет: вердикт по идее охотника не записан", p.name, repr(e))
+        return lines
+
+    def _committee_attach(self, out, lines, frame):
+        """Короткий блок комитета — перед строкой-рамкой «исследовательский инструмент» (нет рамки — в конец).
+        Сообщение не должно вырасти в лишнюю часть (лимит Telegram): не влезает — блок СОКРАЩАЕТСЯ, совсем не
+        влезает или флаг выключили — текст идеи возвращается как был."""
+        if not lines or not hunter_committee_on():
+            return out
+        try:
+            try:
+                from ops import idea_verdict as IV
+            except ImportError:
+                import idea_verdict as IV
+            import bot_chat as CH
+            limit = CH.MAX_REPLY_CHUNK
+            parts = max(1, -(-len(out) // limit))
+            block = IV.fit_short(lines, parts * limit - len(out) - 2)     # 2 — пустая строка перед блоком
+            if not block:
+                log("комитет: блок не влез в сообщение — идея уходит без него")
+                return out
+            ls = out.split("\n")
+            at = max((i for i, ln in enumerate(ls) if frame in ln), default=None)
+            if at is None:
+                return out + "\n\n" + block
+            head = ls[:at]
+            return "\n".join(head + ([""] if head and head[-1].strip() else []) + block.split("\n") + ls[at:])
+        except Exception as e:                           # noqa: BLE001
+            log("комитет: блок не добавлен", repr(e))
+            return out
 
     def _hunter_court(self, key, card):
         """Суд разных семейств (П10) с кэшем по версии идеи и паузой ретрая 60 мин при
