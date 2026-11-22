@@ -399,13 +399,16 @@ def _sector(ticker, direction, today, sector_fn):
 _IND_CACHE = {"день": None, "ставки": None, "цены": {}, "связь": {}}
 
 
-def open_bets(today=None, ledger=None):
+def open_bets(today=None, ledger=None, skip=()):
     """Открытые ставки из общего счёта: предложения системы с ценой, у которых не сработал стоп и не вышел срок, и
-    реальные позиции владельца. Одна бумага в одну сторону — одна ставка. → [{'тикер','сторона','откуда'}]"""
+    реальные позиции владельца. Одна бумага в одну сторону — одна ставка. → [{'тикер','сторона','откуда'}]
+    skip — хеши записей журнала прогнозов, которые открытой ставкой НЕ считать: запись самой оцениваемой идеи
+    (идея охотника печатается до доставки — без этого она сравнивалась бы сама с собой: «ставка уже открыта»)."""
     today = today or _today()
     if ledger is None:
         import ledger as LG
         ledger = LG.build()
+    own = tuple(str(h)[:12] for h in skip or () if str(h or "").strip())
     out, seen = [], set()
     for r in ledger.get("позиции") or []:
         if (r.get("кол_во") or 0) > 0:
@@ -415,6 +418,9 @@ def open_bets(today=None, ledger=None):
                 out.append({"тикер": key[0], "сторона": "вверх", "откуда": "твоя позиция"})
     for r in ledger.get("предложения") or []:
         if r.get("нет_цены") or r.get("по_стопу"):
+            continue
+        if own and str(r.get("источник") or "").startswith("журнал прогнозов") \
+                and str(r.get("источник")).split()[-1] in own:
             continue
         dl = _date(r.get("срок"))
         if dl is not None and dl < today:
@@ -650,6 +656,68 @@ def render_search(vs, topic=None, limit=3):
         L.append("В архиве: " + "; ".join(f"{_label(v)} ({v['причина'].split(':')[0]})" for v in dead[:8]) + ".")
     L.append(DISCLAIMER)
     return "\n".join(L)
+
+
+# ── короткий блок под идеей охотника (Q-комитет-в-идее-охотника) ────────────────────────────────────
+SHORT_MISSING = 3            # сколько строк «не хватает» показываем
+SHORT_LINE = 170             # одна строка блока не длиннее стольких знаков
+# что выбрасываем первым, когда блок не влезает в сообщение (итог и оговорка «балл — не вероятность» — последними)
+SHORT_DROP = ("ещё", "не_хватает", "независимость", "брак")
+_SENT_END_RE = re.compile(r"(?<=[.!?])\s+(?=[А-ЯЁA-Z])")
+
+
+def short_lines(v, missing=SHORT_MISSING):
+    """Вердикт → строки короткого блока, у каждой свой вид: [{'вид', 'текст'}]. Виды: итог, не_хватает, ещё, брак,
+    независимость, оговорка. Все числа — посчитанные кодом; хранится в состоянии бота как есть (JSON)."""
+    if v.get("отклонена"):
+        return [{"вид": "итог", "текст": "Комитет: архив — " + _short(v.get("причина"), SHORT_LINE).rstrip(".") + "."}]
+    L = [{"вид": "итог", "текст": f"Комитет: {v['балл']} из {v['из']} — {v['решение_словами']}."}]
+    miss = [p for p in v.get("не_хватает") or [] if isinstance(p, dict)]
+    for p in miss[:missing]:
+        L.append({"вид": "не_хватает", "текст": "не хватает: " + _short(p.get("почему") or p.get("словами"), SHORT_LINE)})
+    if len(miss) > missing:
+        L.append({"вид": "ещё", "текст": f"ещё не зачтено пунктов: {len(miss) - missing}."})
+    brak = [str(b) for b in v.get("брак") or [] if str(b).strip()]
+    if brak and v.get("решение") != IS.ARCHIVE:          # в архиве ставки нет и так — строка была бы лишней
+        L.append({"вид": "брак", "текст": "мешает ставке: " + _short(brak[0], SHORT_LINE)
+                  + (f" (и ещё причин: {len(brak) - 1})" if len(brak) > 1 else "")})
+    ind = str((v.get("независимость") or {}).get("словами") or "").strip()
+    if ind:
+        L.append({"вид": "независимость", "текст": ind})
+    L.append({"вид": "оговорка", "текст": DISCLAIMER})
+    return L
+
+
+def fit_short(lines, max_chars=None):
+    """Строки short_lines → текст блока не длиннее max_chars (None — без ограничения). Не влезает — блок
+    СОКРАЩАЕТСЯ по шагам: строка независимости до первой фразы → «ещё не зачтено» → строки «не хватает» с конца →
+    независимость → «мешает ставке». Итог без оговорки «балл — не вероятность» не показываем: не влезли вдвоём →
+    пустая строка (блока нет, идея уходит как раньше)."""
+    L = [dict(x) for x in lines or [] if isinstance(x, dict) and str(x.get("текст") or "").strip()]
+    if not L:
+        return ""
+
+    def text():
+        return "\n".join(x["текст"] for x in L)
+
+    if max_chars is None or len(text()) <= max_chars:
+        return text()
+    for x in L:                                          # шаг 1: у независимости остаётся первая фраза (вывод)
+        if x["вид"] == "независимость":
+            x["текст"] = _SENT_END_RE.split(x["текст"], maxsplit=1)[0]
+    for kind in SHORT_DROP:
+        while len(text()) > max_chars:
+            idx = [i for i, x in enumerate(L) if x["вид"] == kind]
+            if not idx:
+                break
+            L.pop(idx[-1])
+    return text() if len(text()) <= max_chars else ""
+
+
+def render_short(v, max_chars=None):
+    """Короткий блок комитета под идеей: «Комитет: X из 10 — решение», до трёх «не хватает: …», независимость
+    ставок (если измерена), оговорка «балл — не вероятность». max_chars — сколько места осталось в сообщении."""
+    return fit_short(short_lines(v), max_chars)
 
 
 # ── запись и счёт метода ────────────────────────────────────────────────────────────────────────────
