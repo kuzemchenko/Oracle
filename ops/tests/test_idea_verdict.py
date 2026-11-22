@@ -676,3 +676,13 @@ def test_new_bet_and_counterweight_do_not_block():
     assert _ind("NVDA", "вверх", {})["вывод"] == "уже открыта"
     first = _ind("XOM", "вверх", {}, bets=[])
     assert first["вывод"] == "новая" and "первая" in first["словами"]
+
+
+def test_bets_word_declension_and_no_field_names_in_owner_text():
+    assert [IV._bets_word(n) for n in (1, 2, 4, 5, 11, 21, 22)] == ["1 ставка", "2 ставки", "4 ставки", "5 ставок", "11 ставок", "21 ставка", "22 ставки"]
+    h = _hyp(_judge=False, materiality={"вердикт": "СУЩЕСТВЕННО"},
+             market_view={"kind": "magnitude", "metric": "выручка", "market": {"value": "много", "source": "консенсус"},
+                          "ours": {"value": "больше"}, "why_different": "аналитики ещё не внесли подписанный контракт в свои модели"})
+    txt = IV.render(IV.verdict_for_hypothesis(h, TODAY, RULES, _sector()))
+    assert "effect_profit_per_year" not in txt and "market.value" not in txt and "ours.value" not in txt
+    assert "Не зачтено:" in txt

@@ -303,6 +303,13 @@ class Tools:
             return "нет данных: меню событий ещё не собиралось (сервер собирает в 21:00 UTC)"
         data = json.loads(p.read_text(encoding="utf-8"))
         rid = self._store(data, str(p.relative_to(ROOT)))
+        md = p.with_suffix(".md")
+        if md.exists():
+            # рецензия 22.11: с разделом «рынок» первые 14 000 знаков JSON занимал он один, остальные поводы модель
+            # не видела; сжатый текстовый вид вмещает все разделы (полные данные — по id через send_file)
+            text = md.read_text(encoding="utf-8")
+            return json.dumps({"id": rid, "источник": str(md.relative_to(ROOT)), "меню": text[:MAX_TOOL_CHARS - 400],
+                               "обрезано": len(text) > MAX_TOOL_CHARS - 400}, ensure_ascii=False)
         return self._view(rid, data, str(p.relative_to(ROOT)))
 
     # — база —
