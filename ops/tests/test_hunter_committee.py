@@ -151,9 +151,12 @@ def test_flag_is_read_from_presentation_yaml(tmp_path, monkeypatch):
     assert BOT.hunter_committee_on() is False
 
 
-def test_flag_is_off_in_repo_config():
-    """В настройках репозитория флага нет (его впишет интегратор после «ок» владельца) — значит выключен."""
-    assert BOT.hunter_committee_on(ROOT) is False
+def test_flag_in_repo_config_is_read_as_written():
+    """Бот видит флаг ровно таким, как он записан в настройках репозитория. На момент сборки флага в файле нет
+    (выключен); когда интегратор впишет его после «ок» владельца — тест останется зелёным."""
+    import yaml
+    cfg = yaml.safe_load((ROOT / "config" / "presentation.yaml").read_text(encoding="utf-8")) or {}
+    assert BOT.hunter_committee_on(ROOT) is bool(cfg.get(BOT.HUNTER_COMMITTEE_FLAG))
 
 
 # ── выключенный флаг: байт в байт ───────────────────────────────────────────────────────────────────
@@ -400,6 +403,46 @@ def test_render_short_long_reason_is_cut_at_word_boundary():
     v["не_хватает"][0]["почему"] = "слово " * 80
     line = IV.render_short(v).split("\n")[1]
     assert len(line) <= len("не хватает: ") + IV.SHORT_LINE + 1 and line.endswith("слово…")
+
+
+def test_short_block_hides_card_field_names_and_error_names():
+    """Тексты владельцу — без технических идентификаторов: названия полей карточки и имена ошибок кода в короткий
+    блок не попадают (в полном вердикте причины остаются как были — их читает и автор карточки)."""
+    v = _v(score=7, decision="ожидание", missing=3, brak=["нарушено правило stop_price (обязательное поле)"])
+    v["не_хватает"][0] = {"почему": "размер эффекта записан словами, без чисел для пересчёта кодом — нужны "
+                          "effect_profit_per_year (или effect_revenue_per_year), net_income (или revenue), market_cap",
+                          "словами": "эффект заметен для прибыли компании"}
+    v["не_хватает"][1] = {"почему": "нет чисел — ожидание рынка и наше значение одного показателя "
+                          "(market.value, ours.value)", "словами": "числом показано, чего рынок уже ждёт"}
+    v["не_хватает"][2] = {"почему": "неизвестный вид расхождения 'zzz': допустимо: magnitude — размер эффекта",
+                          "словами": "числом показано, чего рынок уже ждёт и чем мы отличаемся"}
+    lines = IV.render_short(v).split("\n")
+    assert lines[1:5] == [
+        "не хватает: размер эффекта записан словами, без чисел для пересчёта кодом",
+        "не хватает: нет чисел — ожидание рынка и наше значение одного показателя",
+        "не хватает: числом показано, чего рынок уже ждёт и чем мы отличаемся",   # причина целиком техническая → имя проверки
+        "мешает ставке: карточка не прошла обязательные проверки"]   # обрывок «нарушено правило» не показываем
+    import re
+    assert not re.search(r"[a-z]{3,}", "\n".join(lines))
+    # обычные причины — с числами, тикерами и пояснениями в скобках — не меняются
+    for same in ("возможный выигрыш 12.5% против возможной потери 5% — 2.5 к 1 (нужно не меньше 3 к 1)",
+                 "повтор уже открытой ставки (NVDA, связь 80%) — сначала реши, что делать с ней",
+                 "событие есть (2026-11-09), но цель цены не подкреплена расчётом",
+                 "сектор «нефть и газ» (фонд XLE) — попутный: выше своей средней за 200 дней на 1%",
+                 "у ожидания рынка нет источника (консенсус EODHD, расчёт по цене, опционы…)"):
+        assert IV._plain_reason(same, "запасной") == same
+    assert IV._plain_reason("состояние сектора не измерено (ConnectionError)") == "состояние сектора не измерено"
+    assert IV._plain_reason("", "запасной") == "запасной" and IV._plain_reason(None) == ""
+
+
+def test_real_card_reasons_survive_plain_filter_unchanged():
+    """На настоящих карточках охотника фильтр ничего не съедает: строки блока = причины комитета дословно."""
+    for f in sorted((ROOT / "reports" / "ideas").glob("idea_*.card.json")):
+        card = _json.loads(f.read_text(encoding="utf-8"))
+        v = IV.verdict_for_card(card, _dt.date.fromisoformat(f.name[5:15]), None, {"verdict": "FIX"},
+                                sector_fn=False, independence_fn=False)
+        got = [ln[len("не хватает: "):] for ln in IV.render_short(v).split("\n") if ln.startswith("не хватает: ")]
+        assert got == [p["почему"] for p in v["не_хватает"][:3]], f.name
 
 
 def test_fit_short_never_returns_score_without_disclaimer():

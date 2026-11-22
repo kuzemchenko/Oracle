@@ -664,6 +664,25 @@ SHORT_LINE = 170             # одна строка блока не длинн�
 # что выбрасываем первым, когда блок не влезает в сообщение (итог и оговорка «балл — не вероятность» — последними)
 SHORT_DROP = ("ещё", "не_хватает", "независимость", "брак")
 _SENT_END_RE = re.compile(r"(?<=[.!?])\s+(?=[А-ЯЁA-Z])")
+# названия полей карточки (market.value, why_different, chain), значения в кавычках и имена ошибок кода — владельцу
+# в коротком блоке не показываем (правило проекта: тексты без технических идентификаторов)
+_TECH_RE = re.compile(r"[a-z][a-z0-9]*(?:[_.][a-z][a-z0-9]*)+|\b[a-z][a-z0-9_]{2,}\b"
+                      r"|\b[A-Z][A-Za-z]*(?:Error|Exception|Warning)\b|'[^']*'")
+_PAREN_RE = re.compile(r"\s*\([^()]*\)")
+
+
+def _plain_reason(text, fallback=""):
+    """Причина словами для владельца: скобки с названиями полей или именем ошибки выбрасываются; если название
+    поля стоит прямо в тексте — фраза обрезается до него по границе (« — », «: », «; »). Ничего не осталось →
+    fallback (название проверки из листа комитета). Числа и тикеры (заглавными) не трогаем."""
+    t = _PAREN_RE.sub(lambda m: "" if _TECH_RE.search(m.group(0)) else m.group(0), " ".join(str(text or "").split()))
+    m = _TECH_RE.search(t)
+    if m:
+        head = t[:m.start()]
+        cut = max(head.rfind(" — "), head.rfind(": "), head.rfind("; "))
+        t = head[:cut] if cut > 0 else ""
+    t = t.strip(" ,;:—–-")
+    return t or " ".join(str(fallback or "").split())
 
 
 def short_lines(v, missing=SHORT_MISSING):
@@ -674,12 +693,14 @@ def short_lines(v, missing=SHORT_MISSING):
     L = [{"вид": "итог", "текст": f"Комитет: {v['балл']} из {v['из']} — {v['решение_словами']}."}]
     miss = [p for p in v.get("не_хватает") or [] if isinstance(p, dict)]
     for p in miss[:missing]:
-        L.append({"вид": "не_хватает", "текст": "не хватает: " + _short(p.get("почему") or p.get("словами"), SHORT_LINE)})
+        why = _plain_reason(p.get("почему"), p.get("словами")) or "проверка не пройдена"
+        L.append({"вид": "не_хватает", "текст": "не хватает: " + _short(why, SHORT_LINE)})
     if len(miss) > missing:
         L.append({"вид": "ещё", "текст": f"ещё не зачтено пунктов: {len(miss) - missing}."})
     brak = [str(b) for b in v.get("брак") or [] if str(b).strip()]
     if brak and v.get("решение") != IS.ARCHIVE:          # в архиве ставки нет и так — строка была бы лишней
-        L.append({"вид": "брак", "текст": "мешает ставке: " + _short(brak[0], SHORT_LINE)
+        L.append({"вид": "брак", "текст": "мешает ставке: "
+                  + _short(_plain_reason(brak[0], "карточка не прошла обязательные проверки"), SHORT_LINE)
                   + (f" (и ещё причин: {len(brak) - 1})" if len(brak) > 1 else "")})
     ind = str((v.get("независимость") or {}).get("словами") or "").strip()
     if ind:
