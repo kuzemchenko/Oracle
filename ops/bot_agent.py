@@ -728,6 +728,9 @@ class Tools:
             return "нет активного поиска — сначала search_start"
         self.search_id = s["id"]
         self.search_worked = True
+        block = SQ.depth_block(s)                      # владелец 22.11: сначала глубина
+        if block:
+            return self._sq_view(s, block)
         h, err = SQ.add_hypothesis(s, thesis, ticker, mechanism, beneficiary, circle, direction_id, new_data)
         SQ.save(s, self.search_dir)
         return self._sq_view(s, err or f"гипотеза {h['id']} добавлена")

@@ -395,3 +395,30 @@ def test_find_idea_on_new_topic_started_by_code_despite_old_search(tmp_path):
     ag.run("Найди идею про обогащение урана")
     ss = {s["тема"]: s for s in SQ.all_searches(tmp_path)}
     assert len(ss) == 2 and SQ.is_set_aside(ss["медь и стройка"])
+
+
+
+def test_depth_first_takes_the_most_advanced_hypothesis(tmp_path):
+    """Владелец 22.11 «сначала глубина»: гипотеза, прошедшая быструю проверку, ведётся до конца раньше остальных."""
+    s = SQ.start("уран", "telegram", d=tmp_path)
+    h1, _ = SQ.add_hypothesis(s, "Обогатители выигрывают от запрета российского урана", "LEU", "запрет импорта обогащённого урана")
+    h2, _ = SQ.add_hypothesis(s, "Конвертеры урана получают премию за мощность", "CCJ", "дефицит конверсии UF6 поднимает цену")
+    assert SQ.next_action(s)["гипотеза"] == "h1" and SQ.depth_block(s) is None      # обе в начале — первая
+    h2["этап"] = "углубление"
+    nxt = SQ.next_action(s)
+    assert nxt["гипотеза"] == "h2" and "Сначала глубина" in nxt["текст"]
+    assert "h2 CCJ" in SQ.depth_block(s)
+    h2["вердикт"] = SQ.NEEDS_DATA                                                   # ждёт данных — не мешает
+    assert SQ.depth_block(s) is None and SQ.next_action(s)["гипотеза"] == "h1"
+
+
+def test_agent_cannot_add_hypotheses_while_one_is_deep(tmp_path):
+    s = SQ.start("уран", "telegram", d=tmp_path)
+    h1, _ = SQ.add_hypothesis(s, "Обогатители выигрывают от запрета российского урана", "LEU", "запрет импорта обогащённого урана")
+    h1["этап"] = "критика"
+    SQ.save(s, tmp_path)
+    tools = A.Tools()
+    tools.search_dir = tmp_path
+    out = json.loads(tools.search_add("Конвертеры урана получают премию за мощность", "CCJ",
+                                      "дефицит конверсии UF6 поднимает цену"))
+    assert "сначала глубина" in out["сообщение"] and len(SQ.load(s["id"], tmp_path)["гипотезы"]) == 1

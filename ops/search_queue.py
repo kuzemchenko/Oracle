@@ -37,6 +37,8 @@ RUNNING, FOUND, PAUSED, CANCELLED = "running", "found", "paused", "cancelled"
 STATUS_RU = {RUNNING: "выполняется", FOUND: "найден достойный кандидат", PAUSED: "приостановлен",
              CANCELLED: "отменён владельцем"}
 STAGES = ["генерация", "быстрая_проверка", "углубление", "критика", "оценка", "результат"]
+DEPTH_FIRST = True          # владелец 22.11 «Сначала глубина»: лучшую гипотезу — до вердикта, потом новые
+DEEP_STAGE = STAGES.index("углубление")     # с этого этапа гипотеза «ведётся вглубь»
 OPEN, NEEDS_DATA, REJECTED, WORTHY = "open", "needs_data", "rejected", "worthy"
 REJECT_KINDS = {
     "priced_in": "прямой эффект уже в цене → искать другие последствия и получателей прибыли (2-й/3-й круг), "
@@ -298,6 +300,19 @@ def add_hypothesis(s, thesis, ticker, mechanism, beneficiary="", circle=1, direc
                 dr["взято"] = True
     _log(s, "гипотеза", id=h["id"], тикер=h["тикер"])
     return h, None
+
+
+def depth_block(s):
+    """Сначала глубина (владелец 22.11): пока открытая гипотеза прошла быструю проверку и ведётся вглубь, новые
+    не добавляются. → текст отказа | None. Гипотеза, ждущая данных, и отклонённые — не мешают."""
+    if not DEPTH_FIRST:
+        return None
+    deep = [h for h in s.get("гипотезы") or [] if h["вердикт"] == OPEN and STAGES.index(h["этап"]) >= DEEP_STAGE]
+    if not deep:
+        return None
+    h = deep[0]
+    return (f"сначала глубина: {h['id']} {h['тикер']} на этапе «{h['этап']}» — доведи её до вердикта комитета "
+            f"(или отклони по существу / поставь needs_data); новая гипотеза не добавлена")
 
 
 def _hyp(s, hid):
@@ -573,9 +588,17 @@ def next_action(s):
         return {"шаг": "пауза", "текст": (s.get("пауза") or {}).get("причина") or "пауза"}
     opened = [h for h in s["гипотезы"] if h["вердикт"] == OPEN]
     if opened:
-        h = min(opened, key=lambda x: STAGES.index(x["этап"]))   # сперва дешёвые этапы — быстро отсекать
+        if DEPTH_FIRST:
+            # СНАЧАЛА ГЛУБИНА (владелец 22.11): берём гипотезу, ушедшую ДАЛЬШЕ всех (при равенстве — раньше добавленную),
+            # и ведём её до вердикта; остальные ждут. Было «сперва дешёвые этапы всех» — из 27 гипотез пяти поисков
+            # дальше быстрой проверки дошла одна, доказательства по листу комитета не собирались.
+            h = max(enumerate(opened), key=lambda ix: (STAGES.index(ix[1]["этап"]), -ix[0]))[1]
+        else:
+            h = min(opened, key=lambda x: STAGES.index(x["этап"]))   # сперва дешёвые этапы — быстро отсекать
+        deep = (" Сначала глубина: новых гипотез не добавляй, пока эта не доведена до вердикта или не отклонена "
+                "по существу." if DEPTH_FIRST and STAGES.index(h["этап"]) >= DEEP_STAGE else "")
         return {"шаг": "этап", "гипотеза": h["id"], "этап": h["этап"],
-                "текст": f"{h['id']} {h['тикер']} — этап «{h['этап']}»: {STAGE_TODO[h['этап']]}"}
+                "текст": f"{h['id']} {h['тикер']} — этап «{h['этап']}»: {STAGE_TODO[h['этап']]}{deep}"}
     dirs = [dr for dr in s["направления"] if not dr["взято"]]
     if dirs:
         dr = dirs[0]
