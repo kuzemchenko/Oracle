@@ -79,4 +79,21 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         except ImportError:
             continue
         monkeypatch.setattr(sq, "SEARCH_DIR", tmp_path / "guard_searches")
+    # ИНЦИДЕНТ 22.11: после включения флага idea_verdict_push тест агента (поиск «медь», SCHN) записал свои
+    # вердикты в настоящий reports/ideas/verdicts/verdicts.jsonl — по этому файлу считается счёт метода комитета.
+    # Запись вердиктов и источники карты секторов (база, EODHD) под тестами — только временные/пустые;
+    # тесты, которым нужны свои источники, подставляют их сами (их подмена идёт после этой).
+    for name in ("ops.idea_verdict", "idea_verdict"):
+        try:
+            iv = importlib.import_module(name)
+        except Exception:                                    # noqa: BLE001
+            continue
+        monkeypatch.setattr(iv, "OUT", tmp_path / "guard_verdicts")
+    for name in ("ops.sector_view", "sector_view"):
+        try:
+            sv = importlib.import_module(name)
+        except Exception:                                    # noqa: BLE001
+            continue
+        monkeypatch.setattr(sv, "FETCH", {"closes": lambda *a, **k: None, "general": lambda *a, **k: None})
+        monkeypatch.setattr(sv, "CACHE", tmp_path / "guard_ticker_sector.json")
     yield

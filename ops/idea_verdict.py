@@ -96,8 +96,9 @@ def _p_materiality(mt):
 def _p_durability(d):
     labels = []
     EV.check_durability({"durability": d}, [], labels)
-    return _pt(False, "не показано фактом со ссылкой, почему эффект продержится") if labels else \
-        _pt(True, "устойчивость эффекта подкреплена фактом со ссылкой")
+    if labels:              # данных нет вовсе → «не измерено» (None), а не «проверено и не прошло» — для счёта строгости
+        return _pt(None if not d else False, "не показано фактом со ссылкой, почему эффект продержится")
+    return _pt(True, "устойчивость эффекта подкреплена фактом со ссылкой")
 
 
 def _p_market(mv):
@@ -393,11 +394,20 @@ def render(v, track_line=None):
     return "\n".join(L)
 
 
+def _short(text, n=70):
+    """Название поиска не длиннее n знаков: режем по границе слова, а не посреди («…(PA» → «…кибербезопасность…»)."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= n:
+        return text
+    cut = text[:n].rsplit(" ", 1)[0].rstrip(" ,;:—–-(")
+    return (cut or text[:n]) + "…"
+
+
 def render_search(vs, topic=None, limit=3):
     """Итог поиска одним блоком: лучшие кандидаты по баллу + отклонённые одной строкой каждая."""
     live = [v for v in vs if not v.get("отклонена")]
     dead = [v for v in vs if v.get("отклонена")]
-    L = ["Итог комитета" + (f" по поиску «{topic[:70]}»" if topic else "") + ":"]
+    L = ["Итог комитета" + (f" по поиску «{_short(topic)}»" if topic else "") + ":"]
     if not live:
         L.append("ни одна гипотеза не дошла до оценки — все отклонены по существу.")
     for v in live[:limit]:
@@ -525,6 +535,60 @@ def render_board(rows, track_text=None):
     return "\n".join(L)
 
 
+# ── не слишком ли строг лист ────────────────────────────────────────────────────────────────────────
+CARDS = ROOT / "reports" / "ideas"
+
+
+def all_evaluated(cards_dir=None, search_dir=None, rules=None, sector_fn=None):
+    """Все идеи, по которым считался балл: карточки охотника (на дату охоты) и гипотезы всех поисков, не
+    отклонённые по существу (отменённые поиски тоже — вопрос о листе, а не о судьбе идеи)."""
+    import search_queue as SQ
+    rules = rules or load_rules()
+    out = []
+    for f in sorted(pathlib.Path(cards_dir or CARDS).glob("idea_*.card.json")):
+        try:
+            card = json.loads(f.read_text(encoding="utf-8"))
+            out.append(verdict_for_card(card, _date(f.name.split("idea_")[1][:10]) or _today(), rules,
+                                        sector_fn=sector_fn))
+        except Exception:                                   # noqa: BLE001 — битая карточка не роняет отчёт
+            continue
+    for s in SQ.all_searches(search_dir):
+        out += [v for v in search_verdicts(s, None, rules, sector_fn) if v.get("балл") is not None]
+    return out
+
+
+def render_strictness(st):
+    """Отчёт «не слишком ли строг лист» словами (пишет код)."""
+    n, thr = st["оценено"], st["пороги"]
+    L = [f"Не слишком ли строг лист комитета: оценено идей — {n}, лучший балл — "
+         f"{st['лучший_балл'] if st['лучший_балл'] is not None else 'нет'} из {len(st['пункты'])}; до листа ожидания "
+         f"({thr['ожидание']}+) дошло {st['дошли_до_ожидания']}, до ставки ({thr['ставка']}+) — {st['дошли_до_ставки']}.",
+         "", "По пунктам (зачтён / проверен и не прошёл / данных никто не собрал):"]
+    for r in st["пункты"]:
+        L.append(f"• {r['id']}. {r['словами']}: {r['зачтён']} / {r['не_прошло']} / {r['не_измерено']}")
+    L.append("")
+    L.append(f"Пунктов, которые хоть раз кто-то прошёл: {st['потолок_на_практике']} из {len(st['пункты'])} — выше этого "
+             f"балла пока не мог набрать никто.")
+    L.append(f"Проверено глубоко (измерено не меньше {st['глубокая_от']} пунктов из {len(st['пункты'])}): "
+             f"{st['глубоких']} идей, из них до листа ожидания дошло {st['глубоких_дошло']}.")
+    if st["не_собирается"]:
+        L.append("Данные почти никогда не собираются: " + "; ".join(r["словами"] for r in st["не_собирается"]) + ".")
+    if st["не_проходит"]:
+        L.append("Проверяется, но не проходит ни у кого: " + "; ".join(r["словами"] for r in st["не_проходит"]) + ".")
+    L.append("")
+    L.append({
+        "рано": f"Вывод: рано судить — оценено меньше {thr['мин_n']} идей и глубоко проверено меньше "
+                f"{st['глубоких_для_вывода']}.",
+        "норма": "Вывод: лист проходим — идеи доходят до листа ожидания.",
+        "мелко": f"Вывод: до листа ожидания не дошла ни одна идея, но судить о строгости листа нельзя: глубоко "
+                 f"проверено {st['глубоких']} из нужных {st['глубоких_для_вывода']} идей — доказательства по "
+                 f"большинству пунктов никто не собирал. Лечится глубиной поиска, а не снижением планки.",
+        "строго": f"Вывод: ЛИСТ СЛИШКОМ СТРОГ — глубоко проверено {st['глубоких']} идей, и ни одна не дошла до листа "
+                  f"ожидания. Нужно слово владельца: какие пункты смягчить или убрать.",
+    }[st["сигнал"]])
+    return "\n".join(L)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Инвестиционный комитет: балл X из 10 и решение по идее")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -541,6 +605,7 @@ def main(argv=None):
     p.add_argument("--json", action="store_true")
     sub.add_parser("board")
     sub.add_parser("track")
+    sub.add_parser("strictness")
     a = ap.parse_args(argv)
     rules = load_rules()
     if a.cmd == "card":
@@ -567,6 +632,8 @@ def main(argv=None):
                 print("\n" + render(v))
     elif a.cmd == "board":
         print(render_board(board(rules=rules), track_line(track(rules=rules), rules)))
+    elif a.cmd == "strictness":
+        print(render_strictness(IS.strictness(all_evaluated(rules=rules), rules)))
     else:
         print(track_line(track(rules=rules), rules))
     return 0

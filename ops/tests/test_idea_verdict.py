@@ -371,3 +371,28 @@ def test_agent_final_pause_gives_full_verdict_and_saves(tmp_path, monkeypatch):
     assert "В архиве: Гамма (CCC) (эффект уже в цене)" in line
     recs = IV.saved(tmp_path / "verdicts")
     assert len(recs) == 1 and recs[0]["тикер"] == "AAA" and recs[0]["балл"] == 10
+
+
+def test_search_title_is_cut_on_word_boundary():
+    """22.11: название поиска обрезалось посреди слова («…кибербезопасность (PA»)."""
+    topic = "Взлом JPMorgan: банки обяжут платить за защиту — кибербезопасность (PANW, ZS, CRWD, OKTA, CYBR), 2-3 круги"
+    head = IV.render_search([], topic).splitlines()[0]
+    assert "(PA»" not in head and head.endswith("…»:")
+    assert "кибербезопасность" in head
+    assert IV._short("короткая тема") == "короткая тема"
+
+
+def test_missing_durability_is_not_measured_not_failed():
+    """Для счёта строгости: данных нет → «не измерено»; данные есть, но без ссылки → «проверено, не прошло»."""
+    assert IV._p_durability(None)["зачтён"] is None
+    assert IV._p_durability({"reason": "контракты на десять лет вперёд"})["зачтён"] is False
+
+
+def test_strictness_report_names_the_cause_in_plain_words():
+    rules = IV.load_rules()
+    P = {i: {"зачтён": True if i == 5 else None, "почему": ""} for i in range(1, 11)}
+    st = IS.strictness([IS.score(P, rules)] * 10, rules)
+    txt = IV.render_strictness(st)
+    assert "судить о строгости листа нельзя: глубоко проверено 0 из нужных 5" in txt
+    assert "Пунктов, которые хоть раз кто-то прошёл: 1 из 10" in txt
+    assert "None" not in txt
