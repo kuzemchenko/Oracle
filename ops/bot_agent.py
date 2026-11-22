@@ -61,6 +61,7 @@ FIND_IDEA_RE = re.compile(r"\b(?:найди|найдём|найдем|поищи
 SEARCH_ROUNDS = 4              # VQ-4: сколько раз код возвращает модель к незавершённому поиску в одном ответе
 SEARCH_STEPS = 10              # кругов инструментов на одно возвращение
 SEARCH_COST_SHARE = 0.85       # доля потолка ответа, после которой поиск ставится на паузу (остаток — на итог)
+COMMITTEE_RESERVE_SHARE = 0.25 # Q-вердикт-комитет: последняя четверть бюджета поиска — на доведение лучшей гипотезы до вердикта
 FUTURE_PROMISE_RE = re.compile(r"вернусь|пришлю|сообщу|напишу,? когда|продолжу (?:сам|в фоне|позже|искать)|"
                                r"дам знать|в фоне|позже (?:пришлю|напишу|вернусь)", re.I)
 MAX_TOOL_CHARS = 14000         # сколько символов результата инструмента видит модель
@@ -155,6 +156,7 @@ class Tools:
         self.files = []            # [(filename, bytes, caption)]
         self._n = 0
         self.search_dir = None     # VQ-4: каталог очереди поиска (None — reports/ideas/searches)
+        self.verdict_dir = None    # Q-вердикт-комитет: каталог записей вердиктов (None — reports/ideas/verdicts)
         self.search_id = None      # поиск, который трогали в этом ответе
         self.search_worked = False # 14.11: поиск ДВИГАЛИ (старт/гипотеза/шаг) — только тогда стоимость ответа в его бюджет
         self.pred_path = None      # Q-чат-в-счёт: журнал прогнозов (None — боевой, только на сервере)
@@ -746,6 +748,32 @@ class Tools:
             msg = f"{msg}. {note}"
         return self._sq_view(s, msg)
 
+    # — Q-вердикт-комитет (владелец 22.11): итоговая оценка «X из 10» и решение — считает код —
+    def _iv(self):
+        try:
+            from ops import idea_verdict as IV
+        except ImportError:
+            import idea_verdict as IV
+        return IV
+
+    def committee_verdict(self, hyp_id=None):
+        if not committee_on():
+            return "комитет ещё не включён владельцем — балл не называй"
+        s = self._sq_active()
+        if not s:
+            return "нет активного поиска — оценивать нечего"
+        IV = self._iv()
+        vs = IV.search_verdicts(s)
+        if hyp_id:
+            vs = [v for v in vs if v.get("гипотеза") == hyp_id]
+            if not vs:
+                return f"нет гипотезы {hyp_id}"
+        keep = ("гипотеза", "тикер", "балл", "из", "решение_словами", "причина", "брак", "до_ставки")
+        out = [{**{k: v.get(k) for k in keep},
+                "не_зачтено": [{"пункт": p["код"], "почему": p["почему"] or p["словами"]} for p in v.get("не_хватает") or []]}
+               for v in vs]
+        return json.dumps({"вердикты": out, "пояснение": IV.DISCLAIMER}, ensure_ascii=False, default=str)[:MAX_TOOL_CHARS]
+
     def _cs(self):
         try:
             from ops import chat_seal as CS
@@ -974,16 +1002,26 @@ TOOL_SPECS = [
          "new_data": {"type": "array", "items": O}}, ("thesis", "ticker", "mechanism")),
     _fn("search_step", "Итог текущего этапа гипотезы: outcome 'pass' | 'reject' | 'needs_data'. reject_kind: priced_in "
         "(прямой эффект в цене → ищем других получателей), mechanism_refuted (ветка закрыта), instrument_unfit (другой "
-        "способ выразить), no_data (добыть данные). data — собранное: быстрая проверка {факты:[{текст,url,опубликовано,"
-        "проверено}], механизм_проверен, цена, дата_цены, потенциал_пп, риски:[], инструмент_доступен:true}; углубление "
+        "способ выразить), no_data (добыть данные). data — собранное, поля на ВЕРХНЕМ уровне (не вкладывай в ключ с именем этапа): быстрая проверка "
+        "{факты:[{текст,url,опубликовано,проверено}], механизм:'ТЕКСТ — что именно и через что меняет прибыль компании' "
+        "(строка, не true/false), цена, дата_цены, потенциал_пп, риски:[], инструмент_доступен:true}; углубление "
         "и далее {market_view:{kind (magnitude — размер эффекта | timing — срок | flow — вынужденный продавец/покупатель | rule — неверно понятое правило),metric,market:{value,source},ours:{value},why_different,основано_на:[номера фактов]}, "
         "materiality:{…}, сценарии:{цена,дата_цены,источник_цены,базовый:{цена,основание},неблагоприятный:{цена,основание}}, "
         "направление:'long'|'short', горизонт:'YYYY-MM-DD', условия_реализации:[], условия_опровержения:[], "
         "критика:{семейство, возражения:[{текст,существенное,ответ}]}, вероятность (только со счётом «k из n» в "
-        "основание_вероятности)}. Данные можно присылать частями — код сливает их с уже записанным. Код не пропустит "
+        "основание_вероятности); дополнительно, когда собрано: chain:[{text,quality:'confirmed'|'hypothesis',url}] "
+        "(звенья от события до денег компании, не больше 3), durability:{reason,url} (почему эффект продержится), "
+        "precedent:{what,amplitude:'+20%',url} (похожий случай с числом хода цены), катализатор:{what,date}}. "
+        "Данные можно присылать частями — код сливает их с уже записанным. Код не пропустит "
         "этап, если чего-то не хватает, и скажет чего; тот же отказ не повторяй — исправь названное или needs_data.",
         {"hyp_id": S, "outcome": S, "data": O, "reject_kind": S, "reason": S, "needs": A}, ("hyp_id", "outcome")),
     _fn("search_status", "Статус поиска, очередь гипотез и направлений, следующий шаг.", {}),
+    _fn("committee_verdict", "Итоговая оценка идеи «инвестиционным комитетом» — считает КОД по листу из 10 проверок "
+        "(knowledge/idea_committee.yaml): балл X из 10, решение (кандидат на маленькую ставку ≥8 / лист ожидания 6–7 / "
+        "архив) и какие пункты не зачтены. Пункт зачитывается только фактом со ссылкой или числом, посчитанным кодом; "
+        "сам балл не называй и не оценивай «на глаз» — только из этого инструмента. hyp_id — гипотеза текущего поиска "
+        "(без него — все гипотезы поиска). Используй, чтобы понять, чего не хватает лучшей гипотезе, и собирать "
+        "доказательства именно по незачтённым пунктам, а не открывать новые ветки.", {"hyp_id": S}),
     _fn("record_bet", "Записать итоговый кандидат разговора в счёт ДО сделки (§9, проверяет код): бумага, direction "
         "'above'|'below', порог (на ещё не истинной стороне цены), срок resolve_by 3–13 недель; probability — только "
         "субъективная оценка с основанием, можно не указывать. Без записи умение метода не измеряется. Вызывай, когда "
@@ -1011,6 +1049,30 @@ TOOL_SPECS = [
         {"idea": S}, ("idea",)),
 ]
 TOOL_NAMES = {t["function"]["name"] for t in TOOL_SPECS}
+# инструменты за флагом config/presentation.yaml (правило 01.11: ручной прогон → «ок» владельца → флаг)
+FLAGGED_TOOLS = {"committee_verdict": "idea_verdict_push"}
+
+
+def _flag(name):
+    try:
+        try:
+            from ops import bot_reports as R
+        except ImportError:
+            import bot_reports as R
+        return bool(R.load_presentation().get(name))
+    except Exception:                                            # noqa: BLE001 — нет конфига = выключено
+        return False
+
+
+def committee_on():
+    """Q-вердикт-комитет: итог комитета в ответах агента и в строке поиска — только после «ок» владельца."""
+    return _flag("idea_verdict_push")
+
+
+def tool_specs():
+    """Список инструментов для модели: инструменты за выключенным флагом не показываются."""
+    off = {n for n, f in FLAGGED_TOOLS.items() if not _flag(f)}
+    return [t for t in TOOL_SPECS if t["function"]["name"] not in off] if off else TOOL_SPECS
 
 
 SYSTEM_PROMPT = """Ты — инвест-аналитик владельца системы «Оракул» в Telegram. Здесь владелец обсуждает с тобой ИДЕИ и подходы (устройство самой программы он обсуждает в другом месте — туда эти вопросы и отсылай, коротко). Ты разговариваешь как сильный аналитик хедж-фонда со своим клиентом: со своей позицией, с цифрами, с историческими примерами, без канцелярита и без отписок.
@@ -1175,7 +1237,7 @@ class Agent:
             while attempt < 3:
                 cached = self.cache_on and str(model).startswith("anthropic/")
                 body = {"model": model, "messages": self._with_cache(messages) if cached else self._plain(messages),
-                        "tools": TOOL_SPECS, "tool_choice": tool_choice,
+                        "tools": tool_specs(), "tool_choice": tool_choice,
                         "temperature": role_cfg.get("temperature", 0.5), "usage": {"include": True},
                         "max_tokens": max_tokens}
                 try:
@@ -1294,10 +1356,62 @@ class Agent:
             msgs.append({"role": "user", "content": (
                 f"[система] поиск «{s['тема'][:80]}» не завершён (статус: выполняется; кандидата, прошедшего "
                 f"проверку кодом, нет). Следующий шаг очереди: {nxt['текст']}. Продолжай инструментами "
-                f"(search_add / search_step). Не пиши итог «нечего» — итог ставит код.")})
+                f"(search_add / search_step). Не пиши итог «нечего» — итог ставит код." + self._committee_hint(s))})
             self.search_rounds += 1
             text = self._finish(msgs, self._loop(msgs, SEARCH_STEPS))
         return text
+
+    def _committee_best(self, s):
+        """Лучшая не отклонённая гипотеза поиска по баллу комитета (или None). Сбой комитета ответ не роняет."""
+        try:
+            IV = self.tools._iv()
+            vs = [v for v in IV.search_verdicts(s) if not v.get("отклонена")]
+            return (IV, vs, vs[0]) if vs else (IV, [], None)
+        except Exception:                                        # noqa: BLE001
+            return None, [], None
+
+    def _committee_hint(self, s):
+        """Q-вердикт-комитет: поиск ведётся ПО ЛИСТУ — модели говорят, каких пунктов не хватает лучшей гипотезе,
+        а когда бюджет поиска на исходе — доводить её до вердикта, а не открывать новые ветки. За флагом."""
+        if not committee_on():
+            return ""
+        _iv, _vs, best = self._committee_best(s)
+        if not best:
+            return ""
+        miss = "; ".join(f"{p['код']}: {p['почему'] or p['словами']}" for p in best["не_хватает"][:6])
+        b = s.get("бюджет") or {}
+        left = float(b.get("лимит_usd") or 0) - float(b.get("потрачено_usd") or 0) - self.cost
+        tail = (" Бюджет поиска на исходе: новых гипотез не добавляй — закрой незачтённые пункты у этой."
+                if left <= COMMITTEE_RESERVE_SHARE * float(b.get("лимит_usd") or 0) else "")
+        return (f" Лист комитета: лучшая гипотеза {best.get('гипотеза')} {best['тикер']} — {best['балл']} из "
+                f"{best['из']}; не зачтено: {miss}. Собирай доказательства по этим пунктам (факт со ссылкой или "
+                f"расчёт кодом) и присылай их в data.{tail}")
+
+    def _committee_tail(self, s):
+        """Конец ответа по поиску: итог комитета пишет КОД — лучший кандидат с баллом и чего не хватает; когда
+        поиск встал окончательно (бюджет, пустая очередь) — полный вердикт и архив. За флагом."""
+        if not committee_on():
+            return None
+        IV, vs, best = self._committee_best(s)
+        if IV is None or not vs and not s.get("гипотезы"):
+            return None
+        try:
+            SQ = self.tools._sq()
+            final = s["статус"] == SQ.FOUND or (s["статус"] == SQ.PAUSED
+                                                and (s.get("пауза") or {}).get("вид") in ("budget", "queue_empty"))
+            allv = IV.search_verdicts(s)
+            if final:
+                for v in allv:
+                    if v.get("балл") is not None:
+                        IV.save(v, self.tools.verdict_dir)
+                return IV.render_search(allv, s.get("тема")) + ("\n\n" + IV.render(best) if best else "")
+            if best:
+                return ("Лучший кандидат сейчас: " + IV.one_line(best) +
+                        (". Не хватает: " + "; ".join(p["почему"] or p["словами"] for p in best["не_хватает"][:3])
+                         if best["не_хватает"] else "") + ". " + IV.DISCLAIMER)
+        except Exception:                                        # noqa: BLE001 — итог комитета не роняет ответ
+            return None
+        return None
 
     def _cap(self):
         """Потолок трат этого ответа: MAX_TURN_COST_USD, а пока идёт поиск — не больше остатка его бюджета
@@ -1335,7 +1449,8 @@ class Agent:
                                 f"ответ, кругов продолжения {self.search_rounds}")
         SQ.save(s, self.tools.search_dir)
         self.search_status = s["статус"]
-        return SQ.status_line(s)
+        tail = self._committee_tail(s)
+        return SQ.status_line(s) + ("\n\n" + tail if tail else "")
 
     def _sealed_probs(self):
         try:

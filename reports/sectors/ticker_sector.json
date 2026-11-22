@@ -1,0 +1,26 @@
+{
+ "CF.US": {
+  "industry": "Fertilizers & Agricultural Chemicals | Agricultural Inputs",
+  "sector": "Materials"
+ },
+ "DHT.US": {
+  "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
+  "sector": "Energy"
+ },
+ "FSLR.US": {
+  "industry": "Semiconductors | Solar",
+  "sector": "Information Technology"
+ },
+ "NBIS.US": {
+  "industry": "Systems Software | Internet Content & Information",
+  "sector": "Information Technology"
+ },
+ "STNG.US": {
+  "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
+  "sector": "Energy"
+ },
+ "TMC.US": {
+  "industry": "Diversified Metals & Mining | Other Industrial Metals & Mining",
+  "sector": "Materials"
+ }
+}

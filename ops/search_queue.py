@@ -315,14 +315,46 @@ def _add_direction(s, kind, from_h, text):
 
 
 # ── требования этапов ───────────────────────────────────────────────────────────────
+MECHANISM_KEYS = ("механизм", "механизм_проверен", "причинный_механизм", "mechanism")
+
+
+def mechanism_text(data):
+    """Причинный механизм ТЕКСТОМ. 22.11: проверка читала только «механизм_проверен» как строку, а модель
+    слала туда true и текст — в «механизм»: тот же отказ повторялся до конца бюджета (поиски TMC 19.11 и
+    «взлом JPMorgan» 21.11 встали на быстрой проверке). Теперь текст берётся из любого из этих полей."""
+    for k in MECHANISM_KEYS:
+        v = data.get(k)
+        if isinstance(v, str) and len(v.strip()) >= 20:
+            return v.strip()
+    return ""
+
+
+def unwrap(data):
+    """Модель иногда вкладывает данные этапа в ключ с его именем ({«быстрая_проверка»: {...}}) — код искал поля
+    на верхнем уровне и не находил. Вложенное поднимается наверх; явно присланное на верхнем уровне главнее."""
+    if not isinstance(data, dict):
+        return data
+    out = dict(data)
+    for k in STAGES:
+        if k == "критика":                  # «критика» — ещё и поле данных ({семейство, возражения}), не обёртка
+            continue
+        inner = out.get(k)
+        if isinstance(inner, dict):
+            out.pop(k)
+            out = {**inner, **out}
+    return out
+
+
 def quick_check_gaps(data):
     """Быстрая проверка до длинного разбора: факты, механизм, цена, потенциал, риски, инструмент."""
     g = []
+    data = unwrap(data)
     facts = data.get("факты") or []
     if not any(isinstance(f, dict) and _http(f.get("url")) for f in facts):
         g.append("ключевой факт с источником (url)")
-    if len(str(data.get("механизм_проверен") or "")) < 20:
-        g.append("причинный механизм: что именно и через что меняет прибыль компании")
+    if not mechanism_text(data):
+        g.append("причинный механизм ТЕКСТОМ в поле «механизм» (не true/false): что именно и через что меняет "
+                 "прибыль компании, не короче 20 знаков")
     if not _num(data.get("цена")) or not _date(data.get("дата_цены")):
         g.append("текущая цена с датой (price_snapshot / EODHD)")
     if not _num(data.get("потенциал_пп")):
@@ -452,8 +484,9 @@ def advance(s, hid, outcome, data=None, reject_kind=None, reason="", needs=None,
         return None, f"нет гипотезы {hid}"
     if h["вердикт"] in (REJECTED, WORTHY):
         return h, f"гипотеза {hid} уже закрыта ({h['вердикт']})"
+    h["данные"] = unwrap(h.get("данные") or {})      # прежние записи с вложенным этапом — поднять наверх
     if data:
-        _merge(h["данные"], data)
+        _merge(h["данные"], unwrap(data))
     stage = h["этап"]
     if outcome == "reject":
         if reject_kind not in REJECT_KINDS:
