@@ -3,6 +3,10 @@
   "industry": "Communications Equipment | Computer Hardware",
   "sector": "Information Technology"
  },
+ "CEG.US": {
+  "industry": "Electric Utilities | Utilities - Independent Power Producers",
+  "sector": "Utilities"
+ },
  "CF.US": {
   "industry": "Fertilizers & Agricultural Chemicals | Agricultural Inputs",
   "sector": "Materials"
@@ -50,6 +54,10 @@
  "SAP.US": {
   "industry": "Application Software | Software - Application",
   "sector": "Information Technology"
+ },
+ "SCHW.US": {
+  "industry": "Investment Banking & Brokerage | Capital Markets",
+  "sector": "Financials"
  },
  "STNG.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
