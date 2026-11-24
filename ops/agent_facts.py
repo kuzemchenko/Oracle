@@ -100,19 +100,29 @@ def track_record(pred_path=None, out_path=None):
             "источник": "journal/predictions.jsonl + journal/outcomes.jsonl (join по hash), кодом"}
 
 
+SEALED_KINDS = {"hunter_idea": "идея охотника", "chat_idea": "кандидат разговора в Telegram"}
+
+
 def sealed_terms(ticker=None, pred_path=None):
-    """Что ЗАПИСАНО в журнал по идеям охотника: вероятность (и её вид), порог, срок, цель/стоп/вход, дата."""
+    """Что ЗАПИСАНО в журнал по идеям охотника и кандидатам разговора: вероятность (и её вид), порог, срок,
+    цель/стоп/вход, дата. Испытатель 24.11: инструмент видел только hunter_idea — 18.11 агент сказал владельцу
+    «по NVDA записи не нашлось», хотя кандидат разговора (chat_idea) NVDA > $175 к 31.12 был записан."""
+    from mathlib import sealing as _SEAL
     rows = []
-    for p in _jsonl(pred_path or PRED):
-        if p.get("kind") != "hunter_idea":
+    pred_path = pred_path or PRED
+    for p in _SEAL.drop_voided(_jsonl(pred_path), pred_path):
+        if p.get("kind") not in SEALED_KINDS:
             continue
         if ticker and str(p.get("asset", "")).split(".")[0].upper() != str(ticker).split(".")[0].upper():
             continue
-        rows.append({"актив": p.get("asset"), "записано": p.get("sealed_at"), "файл": p.get("idea_file"),
+        rows.append({"механизм": SEALED_KINDS[p["kind"]],
+                     "актив": p.get("asset"), "записано": p.get("sealed_at"), "файл": p.get("idea_file"),
                      "вопрос": f"закрытие {'выше' if p.get('direction') == 'above' else 'ниже'} {p.get('threshold')} "
                                f"к {str(p.get('resolve_by'))[:10]}",
                      "вероятность_записанная": p.get("probability"),
-                     "вид_вероятности": p.get("probability_kind") or "субъективная (LLM охотника), не калибрована",
+                     "вид_вероятности": p.get("probability_kind") or "субъективная (LLM), не калибрована",
+                     "основание": p.get("вероятность_основание") and str(p.get("вероятность_основание"))[:300],
+                     "якорь": {"цена": p.get("якорь_цена"), "дата": p.get("якорь_дата")} if p.get("якорь_цена") else None,
                      "база_шума": p.get("вероятность_база"), "цель": p.get("цель"), "стоп": p.get("стоп"),
                      "вход_не_хуже": p.get("вход_не_хуже"), "hash": str(p.get("hash"))[:12]})
     return {"записи": rows, "правило": "записанное не меняется; новая оценка — это новая версия с датой и причиной",

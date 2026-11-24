@@ -323,8 +323,9 @@ def current(stem, card=None, closes=None, today=None, out_dir=None, persist=Fals
         cands.append((st, [why], [q] if q else [], "перепроверка кода", today))
     cands.sort(key=lambda x: SEVERITY.index(x[0]))
     top = cands[0]
-    reasons = [r for c in cands if c[0] == top[0] for r in c[1]]
-    questions = [q for c in cands for q in c[2]]
+    # испытатель 24.11: сохранённое основание и то же самое из перепроверки шли владельцу дважды (FSLR 17.11)
+    reasons = list(dict.fromkeys(r for c in cands if c[0] == top[0] for r in c[1]))
+    questions = list(dict.fromkeys(q for c in cands for q in c[2]))
     out = {"статус": top[0], "дата": top[4], "основания": reasons, "вопросы": questions, "источник": top[3],
            "план_действует": top[0] == ACTIVE, "перепроверка": [f[0] for f in found],
            "последняя_цена": closes[-1] if closes else None}

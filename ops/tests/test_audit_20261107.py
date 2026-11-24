@@ -364,3 +364,39 @@ def test_waiting_status_clears_when_price_returns(tmp_path):
     assert back["статус"] == "действует" and back["план_действует"]
     again = IR.current(stem, card=c, closes=[("2026-11-13", 171.39)], today="2026-11-15", out_dir=tmp_path)
     assert again["статус"] == "действует"
+
+
+def test_sealed_terms_sees_chat_candidates(tmp_path):
+    """Испытатель 24.11: 18.11 агент сказал «по NVDA записи не нашлось», хотя кандидат разговора был записан."""
+    pred = tmp_path / "pred.jsonl"
+    recs = [{"kind": "chat_idea", "track": "chat_idea", "asset": "NVDA.US", "direction": "above", "threshold": 175.0,
+             "resolve_by": "2026-12-31T20:00:00+00:00", "probability": 0.38, "probability_kind": "subjective",
+             "sealed_at": "2026-11-18T04:26:44+00:00", "hash": "a" * 64, "якорь_цена": 155.46, "якорь_дата": "2026-11-17"},
+            {"kind": "cascade_provisional", "asset": "NVDA.US", "direction": "above", "threshold": 166.19,
+             "probability": 0.48, "hash": "b" * 64}]
+    pred.write_text("\n".join(json.dumps(r) for r in recs) + "\n", encoding="utf-8")
+    rows = F.sealed_terms("NVDA", pred_path=pred)["записи"]
+    assert len(rows) == 1 and rows[0]["механизм"] == "кандидат разговора в Telegram"
+    assert rows[0]["вероятность_записанная"] == 0.38 and rows[0]["якорь"]["цена"] == 155.46
+
+
+def test_empty_tool_answer_is_not_absence_fact():
+    """Испытатель 24.11: «Опционов нет» по пустому ответу API, а опционы на ANT уже торговались (Reuters 23.11)."""
+    bad = ("Шорт и опционы. Опционов нет (options_expectations: ноль пригодных контрактов — на свежих IPO их "
+           "листингуют через пару недель).")
+    assert any(f["code"] == "absence" for f in CC.check(bad, [], {}))
+    honest = "Данных по займу акций нет (SharesShort пуст, ставка займа недоступна в моих источниках)."
+    assert not any(f["code"] == "absence" for f in CC.check(honest, [], {}))
+    caveat = "Опционов в моём источнике нет — пусто, но это не значит, что их нет на бирже."
+    assert not any(f["code"] == "absence" for f in CC.check(caveat, [], {}))
+
+
+def test_stop_reason_not_repeated_after_persist(tmp_path):
+    """Испытатель 24.11: сохранённое «ниже стопа» и то же из перепроверки шли владельцу двумя одинаковыми строками."""
+    c = card("FSLR")
+    stem = IDEAS / CARDS["FSLR"]
+    closes = [("2026-11-13", 171.39), ("2026-11-16", 162.45)]
+    IR.current(stem, card=c, closes=closes, today="2026-11-17", out_dir=tmp_path, persist=True)
+    cur = IR.current(stem, card=c, closes=closes, today="2026-11-17", out_dir=tmp_path, persist=True)
+    assert cur["статус"] == "отменена условием"
+    assert len(cur["основания"]) == len(set(cur["основания"])) == 1
