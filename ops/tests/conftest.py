@@ -113,4 +113,11 @@ def _no_battle_journal_writes(tmp_path, monkeypatch):
         monkeypatch.setattr(dc, "SEARCH_ROOT", tmp_path / "guard_daily_searches")
         monkeypatch.setattr(dc, "CHAT", tmp_path / "guard_daily_chat.jsonl")
         monkeypatch.setattr(dc, "NOTICES", tmp_path / "guard_daily_notices.jsonl")
+    # 25.11: ценовой будильник — лист ожидания под тестами временный
+    for name in ("ops.bot_watchlist", "bot_watchlist"):
+        try:
+            wl = importlib.import_module(name)
+        except Exception:                                    # noqa: BLE001
+            continue
+        monkeypatch.setattr(wl, "WATCHLIST_PATH", tmp_path / "guard_watchlist.jsonl")
     yield

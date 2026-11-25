@@ -1890,6 +1890,30 @@ def format_trigger_alert(fired):
               "по этому активу (напиши мне «разбери {}»).".format(name))
 
 
+def format_price_alarm(fired):
+    """Q-ценовой-будильник: сработал будильник, поставленный в разговоре. Пишет КОД по записи и закрытию EODHD."""
+    e = fired["entry"]
+    obs = fired["observed"]
+    t = e.get("trigger") or {}
+    sym = e.get("asset", "")
+    name = _asset_human(sym)[0]
+    side = "ниже" if t.get("dir") == "below" else "выше"
+    anchor = t.get("anchor") or {}
+    lines = [f"⏰ Будильник: {name} ({sym}) закрылась {side} ${float(t.get('level')):g}",
+             "",
+             f"Закрытие {obs.get('date')}: ${float(obs.get('close')):.2f}"
+             + (f" (когда ставили, {anchor.get('date')}: ${float(anchor['close']):.2f})" if anchor.get("close") else "")
+             + "."]
+    if e.get("note"):
+        lines.append(f"Зачем ставили: {e['note']}")
+    if e.get("condition"):
+        lines.append(f"Условие, которое ты назвал: {e['condition']} — проверь его до покупки.")
+    lines += ["", "Цена — по закрытию дня, а не прямо сейчас. Напиши «разбери " + name + "», и я свежими данными "
+              "проверю, не изменилось ли что-то по существу. Решение и риск — твои; это исследовательский "
+              "инструмент, не инвестиционная рекомендация."]
+    return "\n".join(lines)
+
+
 def escape(s):
     """На случай parse_mode=HTML (по умолчанию шлём без разметки — экранирование не требуется)."""
     return html.escape(str(s))

@@ -92,7 +92,7 @@ def make_trigger(symbol, level, direction):
 
 
 def add_entry(*, asset, direction=None, trigger_text=None, trigger=None,
-              source="cli", path=None):
+              source="cli", path=None, extra=None):
     """Поставить идею в лист ожидания. trigger=None → запись manual_check (только напоминания)."""
     eid = _entry_id(source, asset, trigger_text or (json.dumps(trigger, sort_keys=True) if trigger else ""))
     rec = {
@@ -106,6 +106,8 @@ def add_entry(*, asset, direction=None, trigger_text=None, trigger=None,
         "manual_check": trigger is None, # нет машинного условия → ручная проверка (П8)
         "source": source,
     }
+    if extra:
+        rec.update({k: v for k, v in extra.items() if k not in rec})
     return _append(rec, path or WATCHLIST_PATH)
 
 
@@ -215,10 +217,113 @@ def evaluate(path=None, db_path=None, already_fired=None):
         trig = e.get("trigger")
         if not trig:
             continue  # manual_check — авто-алерта нет (П8)
+        if trig.get("source") == ALARM_SOURCE:
+            continue  # будильники разговора — своя проверка (evaluate_alarms: после дня постановки, со сроком)
         lc = latest_close(trig.get("symbol"), db_path)
         if lc and trigger_met(trig, lc["close"]):
             out.append({"entry": e, "observed": lc})
     return out
+
+
+# ── ценовой будильник из разговора (Q-ценовой-будильник, испытатель 24.11) ───────────────────────
+# 18.11 владелец дважды просил агента «поставь триггер на цену — сразу напиши, я куплю» (NVDA, $140); 20.11
+# NVDA закрылась ниже $140, владелец не узнал. Будильник = запись add в этот же журнал с trigger.source
+# «agent»: уровень на ещё не истинной стороне цены, срок, условие «не покупать, если…» текстом. Срабатывает
+# по ЗАКРЫТИЮ после дня постановки (а не «уже было ниже до того»), одно сообщение владельцу; просроченный
+# — событие expire (append-only, ничего не удаляется).
+ALARM_SOURCE = "agent"
+ALARM_MAX_DAYS = 365
+ALARM_DEFAULT_DAYS = 90
+
+
+def _norm_symbol(t):
+    sym = str(t or "").upper().strip()
+    return sym if "." in sym else sym + ".US"
+
+
+def add_price_alarm(ticker, level, direction, *, until=None, condition="", note="", today=None,
+                    current=None, path=None):
+    """→ (запись, None) или (None, причина словами). current — {"date","close"} последней цены (обязательна:
+    без неё не проверить, что уровень ещё не пройден — П8)."""
+    today = datetime.date.fromisoformat(str(today)[:10]) if today else datetime.datetime.now(datetime.timezone.utc).date()
+    sym = _norm_symbol(ticker)
+    if direction not in TRIGGER_DIRS:
+        return None, "direction — above (сообщить, когда закроется выше уровня) или below (ниже)"
+    try:
+        lvl = float(level)
+    except (TypeError, ValueError):
+        return None, "уровень — число в долларах"
+    if lvl <= 0:
+        return None, "уровень должен быть больше нуля"
+    try:
+        till = datetime.date.fromisoformat(str(until)[:10]) if until else today + datetime.timedelta(days=ALARM_DEFAULT_DAYS)
+    except ValueError:
+        return None, "срок — дата ГГГГ-ММ-ДД"
+    if not (today < till <= today + datetime.timedelta(days=ALARM_MAX_DAYS)):
+        return None, f"срок будильника — от завтра до {ALARM_MAX_DAYS} дней"
+    if not current or current.get("close") is None:
+        return None, f"нет свежей цены {sym} — не могу проверить, что уровень ещё не пройден"
+    px = float(current["close"])
+    if (direction == "below" and px <= lvl) or (direction == "above" and px >= lvl):
+        side = "ниже" if direction == "below" else "выше"
+        return None, (f"цена {sym} уже {side} ${lvl:g} (закрытие {current.get('date')}: ${px:.2f}) — будильник "
+                      "сработал бы сразу; назови уровень, которого ещё нет")
+    if not (0.3 * px <= lvl <= 3.0 * px):
+        return None, f"уровень ${lvl:g} слишком далеко от цены ${px:.2f} (допустимо ×0.3–×3)"
+    for e in current_entries(path).values():
+        t = e.get("trigger") or {}
+        if t.get("source") == ALARM_SOURCE and t.get("symbol") == sym and t.get("dir") == direction \
+                and abs(float(t.get("level") or 0) - lvl) < 1e-9:
+            return None, f"такой будильник по {sym} уже стоит (id {e['id']})"
+    trig = {**make_trigger(sym, lvl, direction), "source": ALARM_SOURCE, "after": today.isoformat(),
+            "until": till.isoformat(), "anchor": {"date": current.get("date"), "close": px}}
+    text = (f"Будильник: {sym} закроется {'ниже' if direction == 'below' else 'выше'} ${lvl:g}")
+    rec = add_entry(asset=sym, trigger_text=text, trigger=trig, source=f"{ALARM_SOURCE}:{today.isoformat()}",
+                    path=path, extra={"condition": str(condition or "")[:400], "note": str(note or "")[:400]})
+    return rec, None
+
+
+def alarms(path=None):
+    """Активные будильники разговора."""
+    return [e for e in current_entries(path).values() if (e.get("trigger") or {}).get("source") == ALARM_SOURCE]
+
+
+def expire_entry(eid, path=None):
+    return _append({"ts": _now_iso(), "type": "cancel", "id": eid, "reason": "expired"}, path or WATCHLIST_PATH)
+
+
+def evaluate_alarms(closes_fn, path=None, today=None, already_fired=None):
+    """closes_fn(symbol, since_date) → [(date, close)] по возрастанию. → (сработавшие [{entry, observed}],
+    просроченные [entry]). Срабатывает первое закрытие ПОСЛЕ дня постановки, пересёкшее уровень."""
+    today = str(today or datetime.datetime.now(datetime.timezone.utc).date())[:10]
+    fired_set = set(already_fired or [])
+    fired, expired = [], []
+    for e in alarms(path):
+        if e["id"] in fired_set:
+            continue
+        t = e["trigger"]
+        rows = [(d, c) for d, c in (closes_fn(t["symbol"], t["after"]) or []) if d > t["after"] and d <= t["until"]]
+        hit = next(((d, c) for d, c in rows if trigger_met(t, c)), None)
+        if hit:
+            fired.append({"entry": e, "observed": {"date": hit[0], "close": hit[1]}})
+        elif today > t["until"]:
+            expired.append(e)
+    return fired, expired
+
+
+def db_closes(symbol, since, db_path=None):
+    p = pathlib.Path(db_path or DB_PATH)
+    if not p.exists():
+        return []
+    con = sqlite3.connect(str(p), timeout=30)
+    try:
+        rows = con.execute("SELECT date, close FROM quotes WHERE symbol=? AND date>? AND close IS NOT NULL "
+                           "ORDER BY date", (symbol, since)).fetchall()
+    except sqlite3.Error:
+        return []
+    finally:
+        con.close()
+    return [(str(d)[:10], float(c)) for d, c in rows]
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────────────

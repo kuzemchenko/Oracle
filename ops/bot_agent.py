@@ -1017,6 +1017,73 @@ class Tools:
         self.sealed.append(CS.words(rec))
         return self.sealed[-1]
 
+    # ── Q-ценовой-будильник (испытатель 24.11): «поставь триггер на цену — сразу напиши, я куплю» ──────
+    watchlist_path = None                                         # тесты подменяют
+
+    def _wl(self):
+        try:
+            from ops import bot_watchlist as W
+        except ImportError:
+            import bot_watchlist as W
+        return W
+
+    def _last_close(self, sym):
+        """Последнее закрытие: снимок сервера → база → EODHD. → {"date","close"} | None."""
+        try:
+            try:
+                from ops import price_snapshot as PS
+            except ImportError:
+                import price_snapshot as PS
+            snap = PS.lookup(sym)
+            if not snap.get("ошибка") and snap.get("last_close"):
+                return {"date": snap["last_date"], "close": float(snap["last_close"])}
+        except Exception:                                        # noqa: BLE001
+            pass
+        since = (datetime.date.today() - datetime.timedelta(days=14)).isoformat()
+        rows = self._wl().db_closes(sym, since)
+        if rows:
+            return {"date": rows[-1][0], "close": rows[-1][1]}
+        out = self.eodhd(f"eod/{sym}", {"from": since})
+        try:
+            data = json.loads(out[out.index("["):]) if "[" in str(out) else []
+            last = [x for x in data if isinstance(x, dict) and x.get("close") is not None][-1]
+            return {"date": str(last["date"])[:10], "close": float(last["close"])}
+        except (ValueError, IndexError, KeyError, TypeError):
+            return None
+
+    def price_alarm_set(self, ticker, level, direction, until=None, condition="", note=""):
+        if not _flag("price_alarm_push"):
+            return "будильник ещё не включён владельцем — поставить не могу, скажи это прямо"
+        W = self._wl()
+        sym = W._norm_symbol(ticker)
+        rec, why = W.add_price_alarm(sym, level, direction, until=until, condition=condition, note=note,
+                                     current=self._last_close(sym), path=self.watchlist_path)
+        if rec is None:
+            return "будильник не поставлен: " + why
+        t = rec["trigger"]
+        side = "ниже" if t["dir"] == "below" else "выше"
+        line = (f"Поставил будильник: напишу, когда {sym} закроется {side} ${t['level']:g} (проверяю закрытия дня "
+                f"раз в час, до {t['until']}; сейчас ${t['anchor']['close']:.2f} на {t['anchor']['date']})"
+                + (f"; напомню условие: {rec['condition']}" if rec.get("condition") else "") + ".")
+        self.sealed.append(line)                                  # строку пишет КОД — модель её не переврёт
+        return "поставлен: " + line + f" id {rec['id']}"
+
+    def price_alarm_list(self):
+        W = self._wl()
+        out = [{"id": e["id"], "бумага": e["asset"], "уровень": e["trigger"]["level"], "сторона": e["trigger"]["dir"],
+                "до": e["trigger"]["until"], "условие": e.get("condition") or None}
+               for e in W.alarms(self.watchlist_path)]
+        return json.dumps(out, ensure_ascii=False) if out else "активных будильников нет"
+
+    def price_alarm_cancel(self, alarm_id, owner_words=""):
+        W = self._wl()
+        if len(str(owner_words or "")) < 3:
+            return "снять будильник можно только по словам владельца — передай их в owner_words"
+        if alarm_id not in {e["id"] for e in W.alarms(self.watchlist_path)}:
+            return f"активного будильника {alarm_id} нет"
+        W.cancel_entry(alarm_id, reason=f"владелец: {str(owner_words)[:200]}", path=self.watchlist_path)
+        return f"будильник {alarm_id} снят"
+
     def record_bet(self, ticker, direction, threshold, resolve_by, probability=None, probability_basis="", thesis=""):
         """Q-чат-в-счёт: итоговый кандидат разговора → §9-прогноз в журнал ДО сделки (проверки — кодом)."""
         CS = self._cs()
@@ -1259,6 +1326,16 @@ TOOL_SPECS = [
         "разговор дошёл до конкретной ставки (в т.ч. «беру N акций»); найденный кандидат поиска код записывает сам.",
         {"ticker": S, "direction": S, "threshold": N, "resolve_by": S, "probability": N, "probability_basis": S,
          "thesis": S}, ("ticker", "direction", "threshold", "resolve_by")),
+    _fn("price_alarm_set", "Ценовой будильник: владелец просит «напиши, когда цена дойдёт до X». Код проверяет закрытия "
+        "дня раз в час и пришлёт ОДНО сообщение, когда бумага закроется ниже (direction 'below') или выше ('above') "
+        "уровня. Уровень — на ещё не пройденной стороне цены. until — срок ГГГГ-ММ-ДД (по умолчанию 90 дней). "
+        "condition — условие владельца «не покупать, если…» (напомню при срабатывании), note — зачем ставим. "
+        "Строку «поставил будильник» допишет код. Это не покупка и не запись в счёт.",
+        {"ticker": S, "level": N, "direction": S, "until": S, "condition": S, "note": S},
+        ("ticker", "level", "direction")),
+    _fn("price_alarm_list", "Активные ценовые будильники.", {}),
+    _fn("price_alarm_cancel", "Снять будильник — только по словам владельца (owner_words).",
+        {"alarm_id": S, "owner_words": S}, ("alarm_id", "owner_words")),
     _fn("search_cancel", "Отменить поиск — ТОЛЬКО если владелец сам сказал отменить; owner_words — его слова.",
         {"owner_words": S}, ("owner_words",)),
     _fn("search_budget", "Изменить бюджет поиска — ТОЛЬКО по прямому слову владельца (owner_words — его слова).",
@@ -1281,7 +1358,8 @@ TOOL_SPECS = [
 ]
 TOOL_NAMES = {t["function"]["name"] for t in TOOL_SPECS}
 # инструменты за флагом config/presentation.yaml (правило 01.11: ручной прогон → «ок» владельца → флаг)
-FLAGGED_TOOLS = {"committee_verdict": "idea_verdict_push"}
+FLAGGED_TOOLS = {"committee_verdict": "idea_verdict_push", "price_alarm_set": "price_alarm_push",
+                 "price_alarm_list": "price_alarm_push", "price_alarm_cancel": "price_alarm_push"}
 
 
 def _flag(name):

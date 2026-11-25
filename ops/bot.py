@@ -3128,6 +3128,10 @@ class Bot:
         except Exception as e:                                   # noqa: BLE001
             log("tick reports ошибка", repr(e))
         try:
+            self._tick_price_alarms(now)
+        except Exception as e:                                   # noqa: BLE001
+            log("tick price alarms ошибка", repr(e))
+        try:
             self._tick_watchlist()
         except Exception as e:                                   # noqa: BLE001
             log("tick watchlist ошибка", repr(e))
@@ -3562,6 +3566,48 @@ class Bot:
             for rec in added:
                 self.state["seen_watchlist"].append(rec["id"])
             self.state["pushed_runs"].append(run_id)
+
+    def _alarm_closes(self, symbol, since):
+        """Закрытия после since: база сервера, а если бумаги в ней нет — EODHD напрямую (ключ из окружения)."""
+        rows = W.db_closes(symbol, since)
+        if rows:
+            return rows
+        key = os.environ.get("EODHD_API_KEY")
+        if not key:
+            return []
+        try:
+            import requests
+            r = requests.get(f"https://eodhd.com/api/eod/{symbol}", timeout=30,
+                             params={"from": since, "fmt": "json", "api_token": key})
+            data = r.json() if r.status_code == 200 else []
+        except Exception as e:                                   # noqa: BLE001 — без repr: в нём URL с ключом
+            log("будильник: цены не получены", symbol, type(e).__name__)
+            return []
+        return [(str(x["date"])[:10], float(x["close"])) for x in data if isinstance(x, dict) and x.get("close") is not None]
+
+    def _tick_price_alarms(self, now=None):
+        """Q-ценовой-будильник: будильники из разговора — раз в час, одно сообщение при пересечении по закрытию.
+        Флаг price_alarm_push (правило 01.11: образец → «ок» владельца → флаг)."""
+        now = now or S.now_utc()
+        if not R.load_presentation().get("price_alarm_push"):
+            return
+        hour = now.strftime("%Y-%m-%dT%H")
+        if self.state.get("price_alarm_hour") == hour:
+            return
+        self.state["price_alarm_hour"] = hour
+        fired, expired = W.evaluate_alarms(self._alarm_closes, today=now.date().isoformat(),
+                                           already_fired=self.state["fired_triggers"])
+        for f in fired:
+            text = R.format_price_alarm(f)
+            mid = self.tg.send_message(self.chat_id, text)
+            W.fire_entry(f["entry"], f["observed"])
+            self.state["fired_triggers"].append(f["entry"]["id"])
+            self._log_delivery("будильник цены", ref=f["entry"]["id"], text=text,
+                               mid=mid if isinstance(mid, int) else None)
+            log("будильник сработал", f["entry"]["id"], f["entry"].get("asset"))
+        for e in expired:
+            W.expire_entry(e["id"])
+            log("будильник истёк", e["id"], e.get("asset"))
 
     def _tick_watchlist(self):
         for fired in W.evaluate(already_fired=self.state["fired_triggers"]):
