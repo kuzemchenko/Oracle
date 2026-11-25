@@ -3,6 +3,14 @@
   "industry": "Communications Equipment | Computer Hardware",
   "sector": "Information Technology"
  },
+ "AU.US": {
+  "industry": "Gold | Gold",
+  "sector": "Materials"
+ },
+ "AXS.US": {
+  "industry": "Property & Casualty Insurance | Insurance - Specialty",
+  "sector": "Financials"
+ },
  "CEG.US": {
   "industry": "Electric Utilities | Utilities - Independent Power Producers",
   "sector": "Utilities"
@@ -35,9 +43,21 @@
   "industry": "Interactive Media & Services | Internet Content & Information",
   "sector": "Communication Services"
  },
+ "LCID.US": {
+  "industry": "Automobile Manufacturers | Auto Manufacturers",
+  "sector": "Consumer Discretionary"
+ },
  "LNG.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
+ },
+ "LUV.US": {
+  "industry": "Passenger Airlines | Airlines",
+  "sector": "Industrials"
+ },
+ "LYB.US": {
+  "industry": "Commodity Chemicals | Specialty Chemicals",
+  "sector": "Materials"
  },
  "META.US": {
   "industry": "Interactive Media & Services | Internet Content & Information",
@@ -55,6 +75,14 @@
   "industry": "Systems Software | Software - Application",
   "sector": "Information Technology"
  },
+ "OXY.US": {
+  "industry": "Integrated Oil & Gas | Oil & Gas E&P",
+  "sector": "Energy"
+ },
+ "RTX.US": {
+  "industry": "Aerospace & Defense | Aerospace & Defense",
+  "sector": "Industrials"
+ },
  "SAP.US": {
   "industry": "Application Software | Software - Application",
   "sector": "Information Technology"
@@ -62,6 +90,10 @@
  "SCHW.US": {
   "industry": "Investment Banking & Brokerage | Capital Markets",
   "sector": "Financials"
+ },
+ "SMCI.US": {
+  "industry": "Technology Hardware, Storage & Peripherals | Computer Hardware",
+  "sector": "Information Technology"
  },
  "STNG.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
@@ -82,5 +114,9 @@
  "VWAGY.US": {
   "industry": "Automobile Manufacturers | Auto Manufacturers",
   "sector": "Consumer Discretionary"
+ },
+ "XOM.US": {
+  "industry": "Integrated Oil & Gas | Oil & Gas Integrated",
+  "sector": "Energy"
  }
 }

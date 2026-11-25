@@ -130,3 +130,5 @@
 {"ts": "2026-11-23T20:46:35+00:00", "kind": "ответ агента", "ref": "частей 1", "sha256": "4c918c586cacdd16796de9510aa30a04198bb4b3561f8d708456ad337afc0836", "chars": 3397, "buttons": false, "lint_ok": null, "message_id": 1148, "parts": 1, "parts_sent": 1, "parts_failed": []}
 {"ts": "2026-11-24T00:00:03+00:00", "kind": "бот жив", "ref": "2026-11-24", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
 {"ts": "2026-11-24T05:01:24+00:00", "kind": "что покопать", "ref": "dig_20261124T050008Z.json", "sha256": "b3cd9042d91f5c404de8e119d264af5b5afec50cbe4debdceaf7cc776e93410c", "chars": 3684, "buttons": true, "lint_ok": true, "message_id": 1149, "предложений": 2}
+{"ts": "2026-11-25T00:00:03+00:00", "kind": "бот жив", "ref": "2026-11-25", "sha256": null, "chars": 0, "buttons": false, "lint_ok": null, "message_id": null}
+{"ts": "2026-11-25T05:01:28+00:00", "kind": "что покопать", "ref": "dig_20261125T050012Z.json", "sha256": "88a5dad0745040a586f6be974f34720f5b32b0bf152e1961fac71aee45ddf1a6", "chars": 3899, "buttons": true, "lint_ok": true, "message_id": 1150, "предложений": 2}
