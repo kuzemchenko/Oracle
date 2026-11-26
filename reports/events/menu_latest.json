@@ -1,15 +1,15 @@
 {
- "собрано": "2026-11-25T21:00:00+00:00",
+ "собрано": "2026-11-26T21:00:21+00:00",
  "рынок": {
   "источник": "цены закрытия из нашей базы котировок (EODHD) и заголовки из нашей базы новостей; расчёт — код",
-  "цены_на": "2026-11-24",
+  "цены_на": "2026-11-25",
   "правило": "резкое движение — ход за день или за 5 торговых дней не меньше 3 обычных колебаний этой же бумаги за последний год и не меньше 2%",
   "счёт": {
    "все": {
-    "всего": 784,
-    "резких": 11,
-    "вниз": 7,
-    "вверх": 4
+    "всего": 785,
+    "резких": 2,
+    "вниз": 1,
+    "вверх": 1
    },
    "секторы": {
     "всего": 16,
@@ -19,15 +19,15 @@
    },
    "компании": {
     "всего": 596,
-    "резких": 10,
-    "вниз": 7,
-    "вверх": 3
+    "резких": 2,
+    "вниз": 1,
+    "вверх": 1
    },
    "фонды": {
-    "всего": 170,
-    "резких": 1,
+    "всего": 171,
+    "резких": 0,
     "вниз": 0,
-    "вверх": 1
+    "вверх": 0
    }
   },
   "рынок": [
@@ -36,36 +36,36 @@
     "вид": "рынок",
     "подпись": "фонд широкого рынка США S&P 500 (SPY.US)",
     "день": {
-     "ход": -0.0049,
-     "кратность": -0.51
+     "ход": -0.0029,
+     "кратность": -0.31
     },
     "неделя": {
-     "ход": -0.0186,
-     "кратность": -1.06
+     "ход": -0.0185,
+     "кратность": -1.05
     },
     "резкое": false,
     "окно": "неделя",
-    "сила": 1.06,
+    "сила": 1.05,
     "вниз": true,
-    "словами": "за день −0.5% — это 0.5 обычного дневного колебания; за 5 торговых дней −1.9% — это 1.1 обычного недельного колебания"
+    "словами": "за день −0.3% — это 0.3 обычного дневного колебания; за 5 торговых дней −1.8% — это 1.1 обычного недельного колебания"
    },
    {
     "бумага": "QQQ.US",
     "вид": "рынок",
     "подпись": "фонд крупных технологических компаний Nasdaq 100 (QQQ.US)",
     "день": {
-     "ход": -0.0199,
-     "кратность": -1.35
+     "ход": -0.0065,
+     "кратность": -0.44
     },
     "неделя": {
-     "ход": -0.0287,
-     "кратность": -1.0
+     "ход": -0.0388,
+     "кратность": -1.35
     },
     "резкое": false,
-    "окно": "день",
+    "окно": "неделя",
     "сила": 1.35,
     "вниз": true,
-    "словами": "за день −2.0% — это 1.4 обычного дневного колебания; за 5 торговых дней −2.9% — это 1.0 обычного недельного колебания"
+    "словами": "за день −0.7% — это 0.4 обычного дневного колебания; за 5 торговых дней −3.9% — это 1.4 обычного недельного колебания"
    }
   ],
   "секторы": [],
@@ -91,989 +91,979 @@
   "секторы_не_измерены": [],
   "компании": [
    {
-    "бумага": "ADI.US",
+    "бумага": "HPQ.US",
     "вид": "компания",
-    "подпись": "Analog Devices (ADI.US)",
+    "подпись": "HP (HPQ.US)",
     "день": {
-     "ход": -0.1737,
-     "кратность": -6.67
+     "ход": 0.1149,
+     "кратность": 3.91
     },
     "неделя": {
-     "ход": -0.1843,
-     "кратность": -3.51
+     "ход": 0.0869,
+     "кратность": 1.43
     },
     "резкое": true,
     "окно": "день",
-    "сила": 6.67,
-    "вниз": true,
-    "словами": "за день −17.4% — это 6.7 обычного дневного колебания; за 5 торговых дней −18.4% — это 3.5 обычного недельного колебания",
-    "заголовки": [
-     {
-      "заголовок": "Analog Devices Stock Beats Estimates but Falls: Buying Opportunity or Warning",
-      "url": "https://www.investing.com/analysis/analog-devices-stock-beats-estimates-but-falls-buying-opportunity-or-warning-200692269",
-      "когда": "2026-11-25T06:24"
-     },
-     {
-      "заголовок": "Analog Devices (ADI) Takes a Major Beating as Bulls Retreat",
-      "url": "https://www.insidermonkey.com/news/analog-devices-adi-takes-a-major-beating-as-bulls-retreat-1869916/",
-      "когда": "2026-11-25T05:39"
-     },
-     {
-      "заголовок": "Why is Analog Devices stock sliding today? By Investing.com",
-      "url": "https://uk.investing.com/news/stock-market-news/why-is-analog-devices-stock-sliding-today-93CH-4996487",
-      "когда": "2026-11-20T18:14"
-     }
-    ]
-   },
-   {
-    "бумага": "BG.US",
-    "вид": "компания",
-    "подпись": "Bunge Global (BG.US)",
-    "день": {
-     "ход": -0.086,
-     "кратность": -4.53
-    },
-    "неделя": {
-     "ход": -0.1207,
-     "кратность": -2.53
-    },
-    "резкое": true,
-    "окно": "день",
-    "сила": 4.53,
-    "вниз": true,
-    "словами": "за день −8.6% — это 4.5 обычного дневного колебания; за 5 торговых дней −12.1% — это 2.5 обычного недельного колебания",
-    "заголовки": [],
-    "новости": "причина в базе новостей не найдена"
-   },
-   {
-    "бумага": "STEM.US",
-    "вид": "компания",
-    "подпись": "Stem (STEM.US)",
-    "день": {
-     "ход": -0.0897,
-     "кратность": -1.31
-    },
-    "неделя": {
-     "ход": -0.5333,
-     "кратность": -4.49
-    },
-    "резкое": true,
-    "окно": "неделя",
-    "сила": 4.49,
-    "вниз": true,
-    "словами": "за день −9.0% — это 1.3 обычного дневного колебания; за 5 торговых дней −53.3% — это 4.5 обычного недельного колебания",
-    "заголовки": [],
-    "новости": "причина в базе новостей не найдена"
-   },
-   {
-    "бумага": "DLTR.US",
-    "вид": "компания",
-    "подпись": "Dollar Tree (DLTR.US)",
-    "день": {
-     "ход": 0.1118,
-     "кратность": 4.08
-    },
-    "неделя": {
-     "ход": 0.1069,
-     "кратность": 1.79
-    },
-    "резкое": true,
-    "окно": "день",
-    "сила": 4.08,
+    "сила": 3.91,
     "вниз": false,
-    "словами": "за день +11.2% — это 4.1 обычного дневного колебания; за 5 торговых дней +10.7% — это 1.8 обычного недельного колебания",
+    "словами": "за день +11.5% — это 3.9 обычного дневного колебания; за 5 торговых дней +8.7% — это 1.4 обычного недельного колебания",
     "заголовки": [
      {
-      "заголовок": "Dollar Tree ( DLTR ) is On Fire After Hitting This Big Achievement",
-      "url": "https://www.insidermonkey.com/news/dollar-tree-dltr-is-on-fire-after-hitting-this-big-achievement-1869869/",
-      "когда": "2026-11-25T03:45"
+      "заголовок": "HP Posts Strong Q4 Earnings with AI PCs Nearly 60% of Shipments - HP (NYSE:HPQ)",
+      "url": "https://www.benzinga.com/markets/earnings/26/11/63610829/hp-posts-strong-q4-earnings-with-ai-pcs-nearly-60-of-shipments",
+      "когда": "2026-11-24T21:44"
+     },
+     {
+      "заголовок": "What Does the First ENDURA+ Reservation Mean for HPQ Silicon Inc. (TSXV:HPQ)?",
+      "url": "https://kalkinemedia.com/ca/stocks/energy/what-does-the-first-endura-reservation-mean-for-hpq-silicon-inc-tsxvhpq",
+      "когда": "2026-11-24T06:34"
      }
     ]
    },
    {
-    "бумага": "HPE.US",
+    "бумага": "URBN.US",
     "вид": "компания",
-    "подпись": "Hewlett Packard Enterprise (HPE.US)",
+    "подпись": "Urban Outfitters (URBN.US)",
     "день": {
-     "ход": -0.1631,
-     "кратность": -4.03
+     "ход": -0.1033,
+     "кратность": -3.77
     },
     "неделя": {
-     "ход": -0.128,
-     "кратность": -1.3
+     "ход": -0.1142,
+     "кратность": -1.92
     },
     "резкое": true,
     "окно": "день",
-    "сила": 4.03,
+    "сила": 3.77,
     "вниз": true,
-    "словами": "за день −16.3% — это 4.0 обычного дневного колебания; за 5 торговых дней −12.8% — это 1.3 обычного недельного колебания",
+    "словами": "за день −10.3% — это 3.8 обычного дневного колебания; за 5 торговых дней −11.4% — это 1.9 обычного недельного колебания",
     "заголовки": [
      {
-      "заголовок": "Hewlett Packard Enterprise, Zoom Communications and 3 Stocks to Watch Heading Into Monday - Hewlett Packa",
-      "url": "https://www.benzinga.com/trading-ideas/long-ideas/26/11/63520102/hewlett-packard-enterprise-zoom-communications-and-3-stocks-to-watch-heading-into-monday",
-      "когда": "2026-11-23T10:09"
-     }
-    ]
-   },
-   {
-    "бумага": "TXN.US",
-    "вид": "компания",
-    "подпись": "Texas Instruments Incorporated (TXN.US)",
-    "день": {
-     "ход": -0.1125,
-     "кратность": -3.85
-    },
-    "неделя": {
-     "ход": -0.1265,
-     "кратность": -2.19
-    },
-    "резкое": true,
-    "окно": "день",
-    "сила": 3.85,
-    "вниз": true,
-    "словами": "за день −11.2% — это 3.9 обычного дневного колебания; за 5 торговых дней −12.7% — это 2.2 обычного недельного колебания",
-    "заголовки": [
-     {
-      "заголовок": "Cantor Fitzgerald повысил рейтинг акций Texas Instruments От Investing.com",
-      "url": "https://ru.investing.com/news/analyst-ratings/article-93CH-3481633",
-      "когда": "2026-11-23T11:48"
+      "заголовок": "Urban Outfitters ( URBN ) Q3 2027 Earnings Call Transcript",
+      "url": "https://www.fool.com/earnings/call-transcripts/2026/11/24/urban-outfitters-urbn-q3-2027-earnings-call-transcript/?source=iedfolrf0000001",
+      "когда": "2026-11-25T05:15"
      }
     ]
    }
   ],
-  "фонды": [
-   {
-    "бумага": "XBI.US",
-    "вид": "фонд",
-    "подпись": "фонд SPDR S&P Biotech ETF (XBI.US)",
-    "день": {
-     "ход": 0.0656,
-     "кратность": 3.39
-    },
-    "неделя": {
-     "ход": 0.0794,
-     "кратность": 2.2
-    },
-    "резкое": true,
-    "окно": "день",
-    "сила": 3.39,
-    "вниз": false,
-    "словами": "за день +6.6% — это 3.4 обычного дневного колебания; за 5 торговых дней +7.9% — это 2.2 обычного недельного колебания",
-    "заголовки": [],
-    "новости": "причина в базе новостей не найдена"
-   }
-  ],
+  "фонды": [],
   "ряд_с_разрывом": [
    "фонд ProShares Bitcoin Strategy ETF (BITO.US)"
   ],
-  "цены_отстали": 8
+  "цены_отстали": 7
  },
  "gdelt": {
   "источник": "GDELT 2.0, файлы событий каждые 15 минут (data.gdeltproject.org)",
-  "до": "20261125210000",
+  "до": "20261126210000",
   "часов": 24,
-  "файлов_прочитано": 190,
-  "файлов_нет": 2,
+  "файлов_прочитано": 192,
+  "файлов_нет": 0,
   "больше_всего_пишут": [
    {
     "что": "страна: United States",
-    "статей_сутки": 153455,
-    "статей_прошлые_сутки": 148733,
-    "рост_раз": 1.03,
+    "статей_сутки": 101541,
+    "статей_прошлые_сутки": 157833,
+    "рост_раз": 0.64,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://ktok.iheart.com/content/2026-11-24-amazon-delivery-drone-crashes-onto-michigan-garage-after-snagging-wire/",
-     "https://www.perthnow.com.au/news/politics/labor-seeks-to-defuse-us-tensions-on-online-safety-bill-c-23209298",
-     "https://www.thenorthernecho.co.uk/news/national/26760476.unilever-sale-colmans-resolve-concerns-mccormick-tie-up-says-cma/"
+     "https://news4sanantonio.com/news/nation-world/macys-thanksgiving-day-parade-postponed-due-to-weather-noreaster-storm-wind-rain-nationa-weather-desk-floats-balloons-weather-related-postponement-100th-annual-event",
+     "https://cnycentral.com/news/nation-world/common-sense-media-warns-parents-against-ai-toys-for-young-kids-this-holiday-season",
+     "https://abc3340.com/news/nation-world/duran-duran-guitarist-andy-taylor-who-battled-stage-4-prostate-cancer-dies-at-65-rock-roll-hall-of-fame-band-english-new-wave-duran-duran-musician"
     ]
    },
    {
     "что": "страна: United Kingdom",
-    "статей_сутки": 34675,
-    "статей_прошлые_сутки": 39267,
-    "рост_раз": 0.88,
+    "статей_сутки": 34382,
+    "статей_прошлые_сутки": 35190,
+    "рост_раз": 0.98,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.kilburntimes.co.uk/news/national/26760133.panel-nuclear-weapons-testing-will-establish-truth-andy-burnham-says/",
-     "https://www.ipswichstar.co.uk/news/national/26760527.energy-bills-going-can/",
-     "https://www.surreycomet.co.uk/news/national/26760022.meghans-father-formally-charged-possessing-child-sex-abuse-images/"
+     "https://magic989fm.iheart.com/content/2026-11-25-duran-duran-guitarist-andy-taylor-dies-at-65/",
+     "https://www.warringtonguardian.co.uk/news/national/26766283.marauding-knifeman-guilty-attempted-murders-london-bound-train/",
+     "https://www.echo-news.co.uk/news/national/26764076.hundreds-jobs-created-faslane-submarine-maintenance-deal/"
     ]
    },
    {
     "что": "страна: India",
-    "статей_сутки": 32565,
-    "статей_прошлые_сутки": 34654,
-    "рост_раз": 0.94,
+    "статей_сутки": 33388,
+    "статей_прошлые_сутки": 32785,
+    "рост_раз": 1.02,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://indiankanoon.org/doc/136434741/",
-     "https://www.legallyindia.com/convos/topic/502524-jmrk-legal",
-     "https://www.tribuneindia.com/news/business/trump-administration-considering-raising-tariffs-on-india-china-result-of-section-301-probe-to-be-announced-report/"
+     "http://www.indiagazette.com/news/279455168/anondita-medicare-limited-expands-cobra-premium-presence-in-nepal-listed-on-daraz-and-fasto-with-sales-commenced",
+     "https://indiankanoon.org/doc/18115824/",
+     "http://www.bignewsnetwork.com/news/279461547/beautiful-platform-supriya-pilgaonkar-thanks-iffi-for-world-premiere-of-tu-aahes-na"
     ]
    },
    {
     "что": "страна: China",
-    "статей_сутки": 25519,
-    "статей_прошлые_сутки": 24737,
-    "рост_раз": 1.03,
+    "статей_сутки": 20191,
+    "статей_прошлые_сутки": 25702,
+    "рост_раз": 0.79,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.yourlocalguardian.co.uk/news/national/26760371.china-launches-shenzhou-24-carrying-first-foreign-crew-member-space-station/",
-     "https://wrak.iheart.com/content/2026-11-24-shein-to-pay-100m-to-settle-claims/",
-     "https://turnto10.com/news/nation-world/western-intelligence-warns-russia-could-launch-nuclear-weapon-into-space-soon-nato-russia"
-    ]
-   },
-   {
-    "что": "страна: Australia",
-    "статей_сутки": 18835,
-    "статей_прошлые_сутки": 17283,
-    "рост_раз": 1.09,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.edenmagnet.com.au/story/9397709/lamarre-condon-convicted-of-cold-blooded-executions/",
-     "https://www.perthnow.com.au/news/politics/labor-seeks-to-defuse-us-tensions-on-online-safety-bill-c-23209298",
-     "https://www.goulburnpost.com.au/story/9397757/year-long-police-sting-nets-35-million-drug-ring/"
+     "https://twincitiesnewstalk.iheart.com/content/2026-11-26-sp-huang-drama-could-hurt-nvidias-credit-rating/",
+     "https://www.halsteadgazette.co.uk/news/national/26766007.pm-says-political-culture-since-mandelson-appointment-not-changed-enough/",
+     "https://www.camdencourier.com.au/story/9398445/serious-limits-ex-solomons-pm-attacks-australia-deal/"
     ]
    },
    {
     "что": "страна: Nigeria",
-    "статей_сутки": 18438,
-    "статей_прошлые_сутки": 17320,
-    "рост_раз": 1.06,
+    "статей_сутки": 17499,
+    "статей_прошлые_сутки": 18779,
+    "рост_раз": 0.93,
     "типы": [
      "заявления",
      "переговоры"
     ],
     "примеры": [
-     "https://thebftonline.com/article/stanbic-bank-donates-massey-ferguson-tractor-for-2026-national-farmers-day",
-     "https://www.vanguardngr.com/2026/11/baffi-furniture-celebrates-10th-anniversary-unveils-luxury-plaza/",
-     "https://punchng.com/you-were-an-institution-may-edochie-mourns-pete-edochie/"
+     "https://www.opinionnigeria.com/nigerias-estimated-240-private-jets-a-nation-without-a-national-airline-where-poverty-and-luxury-fly-apart-by-daniel-nduka-okonkwo/",
+     "https://leadership.ng/igp-disu-reverses-police-decision-to-declare-obaigbena-sahara-group-ed-nestoil-chair-others-wanted/",
+     "https://www.thisdaylive.com/2026/11/25/the-dsss-new-push-for-accountability-and-rule-of-law/"
     ]
    },
    {
     "что": "страна: Canada",
-    "статей_сутки": 17587,
-    "статей_прошлые_сутки": 16311,
-    "рост_раз": 1.08,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.intelligencer.ca/press-releases/newsfile/nexgen-releases-6th-annual-sustainability-report/",
-     "https://www.nugget.ca/press-releases/pr-newswire/canada-and-japan-take-to-the-arctic-stratosphere-lzc-and-meisei-execute-pioneering-near-space-test-flight-campaign-in-the-yukon/",
-     "https://www.kxlf.com/life/travel/faa-issues-limited-ground-stop-at-chicago-ohare-international-airport-over-equipment-outage"
-    ]
-   },
-   {
-    "что": "страна: Russia",
-    "статей_сутки": 14510,
-    "статей_прошлые_сутки": 14556,
-    "рост_раз": 1.0,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://turnto10.com/news/nation-world/western-intelligence-warns-russia-could-launch-nuclear-weapon-into-space-soon-nato-russia",
-     "https://www.hampshirechronicle.co.uk/news/national/26761109.libyan-army-vows-retaliation-naval-officers-die-ukrainian-drone-attack/",
-     "https://cphpost.dk/2026-11-25/news/round-up/danish-media-groups-to-offer-free-news-access-to-young-people/"
-    ]
-   },
-   {
-    "что": "страна: Israel",
-    "статей_сутки": 14379,
-    "статей_прошлые_сутки": 15029,
+    "статей_сутки": 17310,
+    "статей_прошлые_сутки": 18048,
     "рост_раз": 0.96,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.greeleytribune.com/2026/11/25/family-killed-gaza-city-mideast-news/",
-     "https://www.aol.co.uk/articles/un-sacked-palestinian-staff-back-181427000.html",
-     "https://www.jpost.com/israel-news/article-916088"
+     "https://www.1041wdlt.com/2026/11/26/cardi-b-named-global-woman-of-the-year-after-record-breaking-2026/",
+     "https://torontosun.com/life/relationships/youve-heard-of-quiet-quitting-what-about-a-quiet-divorce",
+     "https://www.intelligencer.ca/press-releases/business-wire/altalink-receives-three-awards-from-electricity-canada/"
     ]
    },
    {
-    "что": "страна: Ukraine",
-    "статей_сутки": 10650,
-    "статей_прошлые_сутки": 10750,
-    "рост_раз": 0.99,
+    "что": "страна: Australia",
+    "статей_сутки": 15245,
+    "статей_прошлые_сутки": 19463,
+    "рост_раз": 0.78,
     "типы": [
      "переговоры",
-     "боевые действия"
+     "заявления"
     ],
     "примеры": [
-     "https://www.thenorthernecho.co.uk/news/national/26760099.burnham-calls-watershed-moment-government-moves-limit-ndas/",
-     "http://www.cambodiantimes.com/news/279450982/bipartisan-coalition-in-congress-weighs-new-ukraine-support-measure",
-     "https://politicaldog101.com/tag/ukraine-and-hungary/"
+     "https://www.naroomanewsonline.com.au/story/9399072/constant-void-left-after-beloved-grocers-violent-death/",
+     "http://www.afghanistansun.com/news/279452545/australia-strikes-deal-on-online-safety-law-despite-us-objections",
+     "https://www.camdencourier.com.au/story/9398445/serious-limits-ex-solomons-pm-attacks-australia-deal/"
+    ]
+   },
+   {
+    "что": "страна: Russia",
+    "статей_сутки": 14009,
+    "статей_прошлые_сутки": 14656,
+    "рост_раз": 0.96,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.leaderlive.co.uk/news/national/26764353.investment-defence-means-less-chance-war-says-streeting/",
+     "https://www.lancashiretelegraph.co.uk/news/national/26763973.streeting-unveils-gbp8bn-deal-get-nuclear-submarines-back-sea-faster/",
+     "https://cphpost.dk/2026-11-26/news/round-up/minister-hopes-all-gas-stations-cut-prices-from-thursday/"
+    ]
+   },
+   {
+    "что": "страна: Israel",
+    "статей_сутки": 13962,
+    "статей_прошлые_сутки": 14719,
+    "рост_раз": 0.95,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.aljazeera.com/news/liveblog/2026/11/26/iran-war-live-explosion-rocks-sanaa-missiles-intercepted-over-riyadh?update=5189490",
+     "https://wdez.com/2026/11/26/decoy-documentary-american-doctor-puts-spotlight-on-gaza-health-workers/",
+     "https://www.winnipegfreepress.com/world/2026/11/26/associated-press-journalists-in-gaza-win-prestigious-rory-peck-prize"
     ]
    },
    {
     "что": "страна: Pakistan",
-    "статей_сутки": 9884,
-    "статей_прошлые_сутки": 8468,
-    "рост_раз": 1.17,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.yourlocalguardian.co.uk/news/national/26760371.china-launches-shenzhou-24-carrying-first-foreign-crew-member-space-station/",
-     "https://www.brandonsun.com/sci-tech/2026/11/24/china-launches-shenzhou-24-spacecraft-carrying-2-chinese-and-a-pakistani-astronaut",
-     "https://www.na.gov.pk:443/en/pressrelease_detail.php?id=8211"
-    ]
-   },
-   {
-    "что": "страна: Iran",
-    "статей_сутки": 8223,
-    "статей_прошлые_сутки": 8326,
-    "рост_раз": 0.99,
-    "типы": [
-     "заявления",
-     "неодобрение"
-    ],
-    "примеры": [
-     "https://590kqnt.iheart.com/content/2026-11-24-huawei-found-guilty-on-multiple-federal-charges/",
-     "https://wbhpam.iheart.com/content/2026-11-25-huawei-convicted-in-new-york-on-us-trade-secret-theft-charges/",
-     "https://okcfox.com/question/vote-do-you-think-president-trump-should-end-the-war-in-iran-question-of-the-day-funds-january-regime-change-israel-chemical-weapons-warning-tehran-strait-of-hormuz-ships"
-    ]
-   },
-   {
-    "что": "страна: Germany",
-    "статей_сутки": 6506,
-    "статей_прошлые_сутки": 5510,
-    "рост_раз": 1.18,
+    "статей_сутки": 9605,
+    "статей_прошлые_сутки": 9914,
+    "рост_раз": 0.97,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.tivysideadvertiser.co.uk/news/national/26762165.wife-drugged-raped-husband-told-police-i-still-cant-believe-true/",
-     "https://turnto10.com/news/nation-world/western-intelligence-warns-russia-could-launch-nuclear-weapon-into-space-soon-nato-russia",
-     "https://www.jpost.com/international/article-916112"
+     "http://www.cambodiantimes.com/news/279461543/sikh-brotherhood-international-gunjit-singh-bakshi-raises-security-concerns-over-reports-of-3-missing-sikh-pilgrims-in-pakistan",
+     "https://news.crossmap.com/2026/11/25/argentine-diocese-disavows-actions-of-priest-who-blessed-gay-couple-s-wedding/",
+     "https://en.dailypakistan.com.pk/26-Nov-2026/fde-issues-new-winter-timings-for-govt-educational-institutions"
     ]
    },
    {
-    "что": "AFRICA",
-    "статей_сутки": 6377,
-    "статей_прошлые_сутки": 5242,
-    "рост_раз": 1.22,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.mainlinemedianews.com/2026/11/25/abrego-garcia-spain/",
-     "https://thebftonline.com/article/stanbic-bank-donates-massey-ferguson-tractor-for-2026-national-farmers-day",
-     "https://www.dungogchronicle.com.au/story/9397870/what-travelling-before-smartphones-was-like-for-author-john-ahern/"
-    ]
-   },
-   {
-    "что": "страна: France",
-    "статей_сутки": 6333,
-    "статей_прошлые_сутки": 4962,
-    "рост_раз": 1.28,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.goskagit.com/news/world/gis-le-pelicot-condemns-publisher-for-using-nude-images-from-her-rape-case-in-book/article_c588d8f3-7f73-50eb-9331-e87014b83cc6.html",
-     "https://www.chathamdailynews.ca/press-releases/business-wire/statement-from-bureau-veritas-about-market-rumours/",
-     "https://www.freemalaysiatoday.com/category/world/2026/11/25/french-foreign-minister-defends-ukraine-s-attacks-in-libya"
-    ]
-   },
-   {
-    "что": "страна: South Africa",
-    "статей_сутки": 6321,
-    "статей_прошлые_сутки": 5654,
-    "рост_раз": 1.12,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "http://www.zimbabwestar.com/news/279454177/ramaphosa-wins-legal-battle-over-impeachment-threat",
-     "https://www.manilatimes.net/2026/11/25/tmt-newswire/globenewswire/west-wits-mining-to-present-at-the-precious-metals-critical-minerals-virtual-investor-conference-december-3rd/2478042",
-     "https://nationalpost.com/press-releases/globe-newswire/west-wits-mining-to-present-at-the-precious-metals-critical-minerals-virtual-investor-conference-december-3rd/"
-    ]
-   },
-   {
-    "что": "страна: Turkey",
-    "статей_сутки": 6123,
-    "статей_прошлые_сутки": 5362,
-    "рост_раз": 1.14,
-    "типы": [
-     "переговоры",
-     "уступки"
-    ],
-    "примеры": [
-     "https://www.barryanddistrictnews.co.uk/news/national/26759910.trump-grants-thanksgiving-pardons-turkeys-white-house/",
-     "https://www.supertalk.fm/trump-grants-thanksgiving-pardons-for-turkeys-freedom-and-feathers-at-the-white-house/",
-     "https://www.wpbf.com/article/turkey-freedom-feathers-presidential-pardon/74524134"
-    ]
-   },
-   {
-    "что": "страна: Ireland",
-    "статей_сутки": 6108,
-    "статей_прошлые_сутки": 6687,
-    "рост_раз": 0.91,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.wiltshiretimes.co.uk/news/national/26763642.poundland-collapsed-happens-next/",
-     "https://www.irishcentral.com/news/dublin-firefighters-brazil",
-     "https://www.dublincity.ie/news/dublin-city-council-publishes-2026-gender-pay-gap-report-0"
-    ]
-   },
-   {
-    "что": "страна: Spain",
-    "статей_сутки": 6063,
-    "статей_прошлые_сутки": 2678,
-    "рост_раз": 2.25,
-    "типы": [
-     "переговоры",
-     "материальное сотрудничество"
-    ],
-    "примеры": [
-     "https://wham1180.iheart.com/content/2026-11-25-abrego-garcia-arrives-in-spain-after-us-legal-battle/",
-     "https://www.newsday.com/news/nation/spain-housing-homeless-election-photo-essay-rent-d30451",
-     "https://www.mainlinemedianews.com/2026/11/25/abrego-garcia-spain/"
-    ]
-   },
-   {
-    "что": "страна: Philippines",
-    "статей_сутки": 5348,
-    "статей_прошлые_сутки": 4490,
-    "рост_раз": 1.19,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.surreycomet.co.uk/news/national/26760022.meghans-father-formally-charged-possessing-child-sex-abuse-images/",
-     "https://www.standardspeaker.com/2026/11/24/britain-meghan-father/",
-     "https://www.positivelyfilipino.com/magazine/tag/Emilio+Aguinaldo"
-    ]
-   },
-   {
-    "что": "NVIDIA",
-    "статей_сутки": 5242,
-    "статей_прошлые_сутки": 10051,
-    "рост_раз": 0.52,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.bransontrilakesnews.com/news/national/article_362768c7-8e20-5ff8-9bb4-77432cb72507.html",
-     "https://www.courant.com/2026/11/25/nvidia-sexual-misconduct-misogyny/",
-     "https://www.investors.com/etfs-and-funds/etfs/nvidias-stock-is-wild-check-out-these-related-etfs/"
-    ]
-   },
-   {
-    "что": "THE US",
-    "статей_сутки": 5214,
-    "статей_прошлые_сутки": 4143,
-    "рост_раз": 1.26,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.theguardian.com/us-news/2026/nov/25/native-americans-national-day-of-mourning-thanksgiving",
-     "https://www.goulburnpost.com.au/story/9398042/trump-administration-set-to-unveil-new-us-tariffs/",
-     "https://www.illawarramercury.com.au/story/9398042/trump-administration-set-to-unveil-new-us-tariffs/"
-    ]
-   },
-   {
-    "что": "страна: Bangladesh",
-    "статей_сутки": 4915,
-    "статей_прошлые_сутки": 5983,
+    "что": "страна: Ukraine",
+    "статей_сутки": 8836,
+    "статей_прошлые_сутки": 10795,
     "рост_раз": 0.82,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "http://www.myanmarnews.net/news/279454485/bengal-cm-suvendu-adhikari-blames-cpim-for-rajbanshi-land-loss-says-language-recognition-demand-will-be-examined",
-     "https://www.na.gov.pk:443/en/pressrelease_detail.php?id=8211",
-     "https://ianslive.in/cong-appointed-poll-commissioners-through-pm-sambit-patra-defends-pm-modi-govts-selection-panel--20261125215132"
+     "https://wcti12.com/news/nation-world/pentagon-confirms-preliminary-talks-with-gm-ford-on-drone-component-production-weapon",
+     "http://www.europesun.com/news/279456357/cash-for-kiev-and-cuts-for-everyone-else-what-you-need-to-know-about-today-battle-in-brussels",
+     "https://www.bankingnews.gr/diethni/articles/913369/they-are-playing-their-last-card-thousands-of-europeans-must-be-killed-to-make-the-war-against-russia-popular"
     ]
    },
    {
-    "что": "AMERICAN",
-    "статей_сутки": 4731,
-    "статей_прошлые_сутки": 4137,
-    "рост_раз": 1.14,
+    "что": "страна: Iran",
+    "статей_сутки": 7290,
+    "статей_прошлые_сутки": 8456,
+    "рост_раз": 0.86,
     "типы": [
      "переговоры",
      "заявления"
     ],
     "примеры": [
-     "https://www.barryanddistrictnews.co.uk/news/national/26759910.trump-grants-thanksgiving-pardons-turkeys-white-house/",
-     "https://www.perthnow.com.au/news/politics/labor-seeks-to-defuse-us-tensions-on-online-safety-bill-c-23209298",
-     "https://www.supertalk.fm/trump-grants-thanksgiving-pardons-for-turkeys-freedom-and-feathers-at-the-white-house/"
+     "https://www.aljazeera.com/news/liveblog/2026/11/26/iran-war-live-explosion-rocks-sanaa-missiles-intercepted-over-riyadh?update=5189490",
+     "https://www.bordermail.com.au/story/9399160/iran-denies-attack-on-kuwait-as-two-italians-killed/",
+     "https://www.parrysound.com/news/ontario-gas-price-prediction-for-nov-26-27/article_f5adc891-ca83-517f-bc1a-23b68dc83db8.html"
+    ]
+   },
+   {
+    "что": "страна: France",
+    "статей_сутки": 7009,
+    "статей_прошлые_сутки": 6458,
+    "рост_раз": 1.09,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.wiltsglosstandard.co.uk/news/national/26765452.william-expresses-sadness-diana-award-charity-goes-administration/",
+     "http://www.goskagit.com/news/world/french-cinema-star-g-rard-depardieu-ordered-to-stand-trial-for-rape-and-sexual-assault/article_408dfa0f-a794-5ffe-ad8c-26812f56dd94.html",
+     "https://www.thelocal.fr/20261126/french-village-tackles-depopulation-with-near-free-plots-of-land"
+    ]
+   },
+   {
+    "что": "страна: Ireland",
+    "статей_сутки": 5818,
+    "статей_прошлые_сутки": 6194,
+    "рост_раз": 0.94,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.4ni.co.uk/northern-ireland-news/337495/givan-launches-school-collaboration-programme",
+     "https://www.belfastlive.co.uk/news/uk-world-news/irish-gran-declared-dead-woke-34970481",
+     "https://www.irishexaminer.com/sponsored/arid-41942760.html"
+    ]
+   },
+   {
+    "что": "страна: Turkey",
+    "статей_сутки": 5590,
+    "статей_прошлые_сутки": 6329,
+    "рост_раз": 0.88,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.yorkpress.co.uk/news/national/26767065.woman-thought-gbp750-000-payment-andrew-help-get-uk-residency-court-told/",
+     "https://cnycentral.com/news/nation-world/from-central-mexico-to-us-tables-how-the-turkey-became-thanksgivings-centerpiece-partridges-chicken-quails-maize-colonies-indians-ottoman-empire-trade-crossbreeding-feasts-sarah-josepha-hale",
+     "https://wibx950.com/ixp/706/p/south-salem-ny-wolves-thanksgiving/"
+    ]
+   },
+   {
+    "что": "AFRICA",
+    "статей_сутки": 5534,
+    "статей_прошлые_сутки": 6435,
+    "рост_раз": 0.86,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "http://www.goskagit.com/community/health/sierra-leone-sees-steep-decline-in-maternal-mortality-but-barriers-to-care-persist/article_95829f5f-ee3c-57cf-88d7-b79a54cbfac7.html",
+     "https://newafricanmagazine.com/the-mag",
+     "https://www.cnbcafrica.com/media/7795691276700/alexforbes-hy27-heps-increased-by-16"
+    ]
+   },
+   {
+    "что": "страна: South Africa",
+    "статей_сутки": 5318,
+    "статей_прошлые_сутки": 6374,
+    "рост_раз": 0.83,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.prnewswire.com/news-releases/geointelx-announces-collaboration-with-igeo-instituto-geologico-de-angola-and-ivanhoe-mines-to-analyze-more-than-a-century-of-angolas-geological-data-with-ai-302950845.html",
+     "https://www.businessday.co.za/news/law/2026-11-26-former-sars-boss-calls-for-unified-drive-in-tackling-r12-trillion-illicit-economy/",
+     "https://www.thezimbabwean.co/2026/11/no-law-will-stop-our-youth-risking-death-in-ukraine-as-long-as-there-is-no-economic-future-in-zimbabwe/"
     ]
    },
    {
     "что": "страна: Japan",
-    "статей_сутки": 4629,
-    "статей_прошлые_сутки": 4463,
-    "рост_раз": 1.04,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.nugget.ca/press-releases/pr-newswire/canada-and-japan-take-to-the-arctic-stratosphere-lzc-and-meisei-execute-pioneering-near-space-test-flight-campaign-in-the-yukon/",
-     "https://english.news.cn/asiapacific/20261125/9eac101e146540fea641aa81645bf321/c.html",
-     "http://www.bignewsnetwork.com/news/279453901/cm-shivakumar-meets-indian-ambassador-to-japan-in-tokyo-pushes-for-more-japanese-fdi-in-karnataka"
-    ]
-   }
-  ],
-  "резко_выросло": [
-   {
-    "что": "страна: Spain",
-    "статей_сутки": 6063,
-    "статей_прошлые_сутки": 2678,
-    "рост_раз": 2.25,
-    "типы": [
-     "переговоры",
-     "материальное сотрудничество"
-    ],
-    "примеры": [
-     "https://wham1180.iheart.com/content/2026-11-25-abrego-garcia-arrives-in-spain-after-us-legal-battle/",
-     "https://www.newsday.com/news/nation/spain-housing-homeless-election-photo-essay-rent-d30451",
-     "https://www.mainlinemedianews.com/2026/11/25/abrego-garcia-spain/"
-    ]
-   },
-   {
-    "что": "страна: El Salvador",
-    "статей_сутки": 2782,
-    "статей_прошлые_сутки": 524,
-    "рост_раз": 5.15,
-    "типы": [
-     "переговоры",
-     "принуждение"
-    ],
-    "примеры": [
-     "https://www.wfmz.com/news/ap/ap-national/a-timeline-of-key-events-in-kilmar-brego-garc-a-s-fight-with-the-trump-administration/article_ae200a09-8a76-5813-8093-a8ceb018ac32.html",
-     "https://590kqnt.iheart.com/content/2026-11-24-kilmar-abrego-garcia-voluntarily-leaving-us/",
-     "https://krcrtv.com/news/nation-world/kilmar-abrego-garcia-to-leave-us-for-europe-report-deport-deportation-el-salvador-prison-immigration-judge-trump-administration"
-    ]
-   },
-   {
-    "что": "SOLOMON ISLAND",
-    "статей_сутки": 1679,
-    "статей_прошлые_сутки": 765,
-    "рост_раз": 2.16,
-    "типы": [
-     "дипломатическое сотрудничество",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.manningrivertimes.com.au/story/9397718/those-days-are-done-historic-solomons-treaty-signed/",
-     "https://www.macleayargus.com.au/story/9397718/next-level-australia-inks-solomon-islands-treaty/",
-     "https://www.examiner.com.au/story/9397718/visionary-pacific-leader-hailed-for-shift-from-china/"
-    ]
-   },
-   {
-    "что": "страна: Costa Rica",
-    "статей_сутки": 841,
-    "статей_прошлые_сутки": 181,
-    "рост_раз": 4.28,
-    "типы": [
-     "принуждение",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://www.ksbw.com/article/kilmar-abrego-garcia-self-deporting-to-spain/74525073",
-     "https://www.nugget.ca/press-releases/newsfile/spark-token-introduces-usd-denominated-digital-payment-solution-on-polygon/",
-     "https://www.kwit.org/2026-11-25/kilmar-abrego-garcia-leaves-u-s-voluntarily-for-spain"
-    ]
-   },
-   {
-    "что": "страна: Puerto Rico",
-    "статей_сутки": 988,
-    "статей_прошлые_сутки": 282,
-    "рост_раз": 3.34,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.standardspeaker.com/2026/11/25/puerto-rico-energy-contract/",
-     "https://www.advocate-news.com/2026/11/25/puerto-rico-energy-contract/",
-     "https://www.wesh.com/article/jennifer-barreto-miss-universe-first-mother/74532923"
-    ]
-   },
-   {
-    "что": "страна: Solomon Islands",
-    "статей_сутки": 1248,
-    "статей_прошлые_сутки": 536,
-    "рост_раз": 2.28,
-    "типы": [
-     "дипломатическое сотрудничество",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.manningrivertimes.com.au/story/9397718/those-days-are-done-historic-solomons-treaty-signed/",
-     "https://www.macleayargus.com.au/story/9397718/next-level-australia-inks-solomon-islands-treaty/",
-     "https://www.examiner.com.au/story/9397718/visionary-pacific-leader-hailed-for-shift-from-china/"
-    ]
-   },
-   {
-    "что": "страна: Democratic Republic Of The Congo",
-    "статей_сутки": 887,
-    "статей_прошлые_сутки": 304,
-    "рост_раз": 2.8,
-    "типы": [
-     "переговоры",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://www.africa-newsroom.com/press/ituri-mission-de-lorganisation-des-nations-unies-pour-la-stabilisation-en-republique-democratique-du-congo-monusco-steps-up-interventions-to-protect-civilians-amid-resurgence-of-violence-in-djugu",
-     "https://www.catholicculture.org/news/headlines/index.cfm?storyid=71364",
-     "https://news.az/news/what-is-behind-the-rebel-withdrawal-near-bunia-and-can-peace-return-to-eastern-dr-congo"
-    ]
-   },
-   {
-    "что": "GANG",
-    "статей_сутки": 1213,
-    "статей_прошлые_сутки": 564,
-    "рост_раз": 2.11,
-    "типы": [
-     "принуждение",
-     "боевые действия"
-    ],
-    "примеры": [
-     "https://cphpost.dk/2026-11-25/news/round-up/danish-media-groups-to-offer-free-news-access-to-young-people/",
-     "https://www.wfmz.com/news/ap/ap-national/a-timeline-of-key-events-in-kilmar-brego-garc-a-s-fight-with-the-trump-administration/article_ae200a09-8a76-5813-8093-a8ceb018ac32.html",
-     "https://cbs12.com/news/nation-world/kilmar-abrego-garcia-to-leave-us-for-europe-report-deport-deportation-el-salvador-prison-immigration-judge-trump-administration"
-    ]
-   },
-   {
-    "что": "SALVADORAN",
-    "статей_сутки": 654,
-    "статей_прошлые_сутки": 151,
-    "рост_раз": 3.94,
-    "типы": [
-     "переговоры",
-     "принуждение"
-    ],
-    "примеры": [
-     "https://www.nbclosangeles.com/news/national-international/kilmar-abrego-garcia-to-leave-u-s-in-agreement-20-months-after-mistaken-deportation/3974884/",
-     "https://cbs12.com/news/nation-world/kilmar-abrego-garcia-to-leave-us-for-europe-report-deport-deportation-el-salvador-prison-immigration-judge-trump-administration",
-     "https://lancasteronline.com/news/politics/brego-garc-a-a-salvadoran-mistakenly-deported-by-us-goes-to-spain-but-hopes-to/article_e7546fb7-f761-57f4-aa74-968d1a67cf58.html"
-    ]
-   },
-   {
-    "что": "страна: Luxembourg",
-    "статей_сутки": 688,
-    "статей_прошлые_сутки": 231,
-    "рост_раз": 2.82,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "https://www.chronicle.lu/category/business/64881-media-pluralism-conference-celebrates-50-years",
-     "https://www.chronicle.lu/category/environment/64879-votum-klima-calls-for-ecocide-law-in-luxembourg",
-     "https://www.chronicle.lu/category/industry-associations/64878-csl-warns-of-growing-tax-imbalance-in-2027-state-budget"
-    ]
-   },
-   {
-    "что": "страна: Cambodia",
-    "статей_сутки": 943,
-    "статей_прошлые_сутки": 441,
-    "рост_раз": 2.09,
-    "типы": [
-     "переговоры",
-     "материальное сотрудничество"
-    ],
-    "примеры": [
-     "http://eng.chinamil.com.cn/2025xb/C_251453/F_251462/16502013.html",
-     "https://www.omct.org/en/resources/statements/cambodia-omct-concludes-visit-to-cambodia-and-calls-for-the-release-of-detained-human-rights-defenders-and-urgent-action-to-prevent-torture-and-ill-treatment-in-detention",
-     "https://www.manilatimes.net/2026/11/26/world/china-cambodia-stage-joint-military-drills/2478057"
-    ]
-   },
-   {
-    "что": "CUBAN",
-    "статей_сутки": 536,
-    "статей_прошлые_сутки": 159,
-    "рост_раз": 3.11,
-    "типы": [
-     "переговоры",
-     "принуждение"
-    ],
-    "примеры": [
-     "https://www.breitbart.com/latin-america/2026/11/25/chile-approves-nuremberg-style-crimes-against-humanity-probe-for-cuba/",
-     "https://www.cubaheadlines.com/articles/346577",
-     "https://www.jamaicaobserver.com/2026/11/25/not-pressured-says-holness-re-jamaicas-un-vote-cuba/"
-    ]
-   },
-   {
-    "что": "OPEC",
-    "статей_сутки": 296,
-    "статей_прошлые_сутки": 24,
-    "рост_раз": 7.18,
-    "типы": [
-     "переговоры",
-     "намерения сотрудничать"
-    ],
-    "примеры": [
-     "https://english.news.cn/asiapacific/20261125/e1501fcde44a40b49fa4dbc0ce12c13a/c.html",
-     "https://www.rigzone.com/news/opec_will_see_one_of_most_complicated_meetings_in_years-25-nov-2026-185164-article/",
-     "https://pakobserver.net/oil-prices-rise-on-houthi-attack-claim-middle-east-supply-fears/"
-    ]
-   },
-   {
-    "что": "страна: Congo",
-    "статей_сутки": 622,
-    "статей_прошлые_сутки": 240,
-    "рост_раз": 2.47,
-    "типы": [
-     "переговоры",
-     "дипломатическое сотрудничество"
-    ],
-    "примеры": [
-     "http://www.thegazette.com/news/world/south-africas-biovac-aims-to-dramatically-increase-vaccine-production-with-help-from-an-eu-loan/article_b38de62e-cf96-50b5-afb9-a6afebad3d89.html",
-     "http://www.dailyadvance.com/news/world/fighting-in-eastern-congo-forces-ebola-workers-to-evacuate-threatening-outbreak-response/article_e349ea31-53bd-5389-825f-5cc2d679e6b1.html",
-     "https://www.wpxi.com/news/trending/jennifer-barreto-becomes-first-married-woman-first-mom-win-miss-universe-pageant/7LR3L2DUM5GTLFWLGFESRANZMA/"
-    ]
-   },
-   {
-    "что": "DUTCH",
-    "статей_сутки": 575,
-    "статей_прошлые_сутки": 225,
-    "рост_раз": 2.43,
+    "статей_сутки": 4985,
+    "статей_прошлые_сутки": 4707,
+    "рост_раз": 1.06,
     "типы": [
      "переговоры",
      "призывы"
     ],
     "примеры": [
-     "https://www.zfenglish.com/companies/retail-consumer/rituals-cosmetics-steps-up-expansion-and-grows-to-22-stores-in-romania-in-only-two-years-23288766",
-     "https://www.wrestlezone.com/news/1674482-the-righteous-vincent-dutch-tna-contracts-expiration",
-     "https://www.techtimes.com/articles/331386/20261124/eu-commission-cyberattack-leaks-eu-academy-names-emails-anonymous-sources-point-china.htm"
+     "https://www.shipnc.com/online_features/press_releases/article_7c8fd6d0-51fb-5ca0-9294-8d42c9500c57.html",
+     "https://caledoniacourier.com/2026/11/25/japanese-national-arrested-in-ontario-in-connection-with-b-c-aggravated-assault/",
+     "https://www.prnewswire.com/news-releases/deepl-introduces-aure-v2-its-fastest-voice-ai-translation-model-302950629.html"
     ]
    },
    {
-    "что": "страна: Djibouti",
-    "статей_сутки": 572,
-    "статей_прошлые_сутки": 230,
-    "рост_раз": 2.37,
+    "что": "страна: Germany",
+    "статей_сутки": 4856,
+    "статей_прошлые_сутки": 6551,
+    "рост_раз": 0.74,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.elystandard.co.uk/news/national/26763838.every-effort-needed-save-northern-ireland-poundland-jobs---economy-minister/",
+     "http://www.europesun.com/news/279456357/cash-for-kiev-and-cuts-for-everyone-else-what-you-need-to-know-about-today-battle-in-brussels",
+     "https://www.wcvb.com/article/veruschka-supermodel-dies-at-87/74540629"
+    ]
+   },
+   {
+    "что": "THE US",
+    "статей_сутки": 4718,
+    "статей_прошлые_сутки": 5258,
+    "рост_раз": 0.9,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.singletonargus.com.au/story/9398461/china-hits-back-as-us-slaps-new-tariffs-on-14-nations/",
+     "https://www.wirralglobe.co.uk/news/national/26765904.us-maker-marlboro-cigarettes-mulls-bid-imperial-brands/",
+     "https://www.bendigoadvertiser.com.au/story/9398726/n-koreas-kim-warns-us-over-aukus-touts-nuclear-status/"
+    ]
+   },
+   {
+    "что": "страна: Kenya",
+    "статей_сутки": 4580,
+    "статей_прошлые_сутки": 3838,
+    "рост_раз": 1.19,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.clickorlando.com/health/2026/11/26/us-backed-ebola-quarantine-center-violated-constitution-kenyan-court-rules/",
+     "https://www.riotimesonline.com/mondlane-defence-asks-court-hear-graca-machel/",
+     "https://whbl.com/2026/11/26/kenya-breached-constitution-in-building-us-backed-ebola-quarantine-site-court-says/"
+    ]
+   },
+   {
+    "что": "страна: Spain",
+    "статей_сутки": 4240,
+    "статей_прошлые_сутки": 6126,
+    "рост_раз": 0.69,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.aol.co.uk/articles/kilmar-brego-garc-leaves-spain-110033000.html",
+     "https://www.capeandislands.org/2026-11-25/kilmar-abrego-garcia-is-in-spain-after-long-running-deportation-battle",
+     "https://isp.netscape.com:443/news/story/0001/20261126/f6453face7e5c20c8750413956118e04"
+    ]
+   },
+   {
+    "что": "страна: Philippines",
+    "статей_сутки": 4231,
+    "статей_прошлые_сутки": 5370,
+    "рост_раз": 0.79,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://cloverdalereporter.com/2026/11/25/2-christmas-concerts-for-golden-surrey-choir-himig-kabataan-youthful-melody/",
+     "http://bworldonline.com/spotlight/2026/11/24/796274/two-decades-of-financial-excellence-ing-finex-cfo-of-the-year-award-marks-20th-year/",
+     "https://www.philstar.com/nation/2026/11/27/2572862/edsa-rehab-contractor-fined-unauthorized-barrier-move"
+    ]
+   },
+   {
+    "что": "страна: South Korea",
+    "статей_сутки": 3875,
+    "статей_прошлые_сутки": 2985,
+    "рост_раз": 1.3,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.bendigoadvertiser.com.au/story/9398726/n-koreas-kim-warns-us-over-aukus-touts-nuclear-status/",
+     "https://www.theguardian.com/fashion/2026/nov/26/soft-power-what-jensen-huangs-switch-from-leather-to-cotton-says-about-his-new-image",
+     "https://english.news.cn/asiapacific/20261126/a3cec96186d2471da5dae5b61a603ff7/c.html"
+    ]
+   },
+   {
+    "что": "RUSSIAN",
+    "статей_сутки": 3759,
+    "статей_прошлые_сутки": 3967,
+    "рост_раз": 0.95,
     "типы": [
      "переговоры",
      "боевые действия"
     ],
     "примеры": [
-     "https://www.rustourismnews.com/2026/11/25/armani-hotels-resorts-to-open-first-luxury-hotel-in-egypt-in-2030/",
-     "https://allafrica.com/stories/202611250544.html",
-     "https://allafrica.com/stories/202611250393.html"
+     "https://www.lancashiretelegraph.co.uk/news/national/26763973.streeting-unveils-gbp8bn-deal-get-nuclear-submarines-back-sea-faster/",
+     "https://cphpost.dk/2026-11-26/news/round-up/minister-hopes-all-gas-stations-cut-prices-from-thursday/",
+     "http://www.europesun.com/news/279454530/lavrov-questions-value-of-eu-role-in-ukraine-talks"
     ]
-   },
+   }
+  ],
+  "резко_выросло": [
    {
-    "что": "CATALAN",
-    "статей_сутки": 348,
-    "статей_прошлые_сутки": 71,
-    "рост_раз": 4.04,
-    "типы": [
-     "переговоры",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.theadvocate.com.au/story/9398467/exiled-catalan-separatist-puigdemont-to-return-to-spain/",
-     "https://cphpost.dk/2026-11-25/global/puigdemont-plans-december-12-return-to-spain-after-nearly-a-decade-in-exile/",
-     "https://timesofmalta.com/article/exiled-catalan-separatist-leader-plans-return-spain-next-month.1137667"
-    ]
-   },
-   {
-    "что": "SOLOMONS",
-    "статей_сутки": 209,
-    "статей_прошлые_сутки": 5,
-    "рост_раз": 9.16,
-    "типы": [
-     "дипломатическое сотрудничество",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.manningrivertimes.com.au/story/9397718/those-days-are-done-historic-solomons-treaty-signed/",
-     "https://thefrontierpost.com/australia-solomon-islands-sign-sweeping-pact-seen-as-countering-china/",
-     "https://www.smh.com.au/world/oceania/solomons-islands-return-to-the-fold-may-thwart-china-in-the-pacific-20261125-p61h56.html"
-    ]
-   },
-   {
-    "что": "EGYPTIAN",
-    "статей_сутки": 493,
-    "статей_прошлые_сутки": 186,
-    "рост_раз": 2.49,
-    "типы": [
-     "нападения",
-     "заявления"
-    ],
-    "примеры": [
-     "https://www.hampshirechronicle.co.uk/news/national/26763777.fire-major-road-near-cairo-kills-least-30-people/",
-     "https://www.clickorlando.com/news/2026/11/25/a-fire-on-a-major-highway-surrounding-cairo-kills-at-least-30-people-egypts-health-ministry-says/",
-     "https://www.newsday.com/news/nation/cairo-highway-fire-ring-road-w05714"
-    ]
-   },
-   {
-    "что": "CARTAGENA",
-    "статей_сутки": 338,
-    "статей_прошлые_сутки": 75,
-    "рост_раз": 3.77,
-    "типы": [
-     "переговоры",
-     "помощь"
-    ],
-    "примеры": [
-     "https://95wxtk.iheart.com/content/2026-11-25-colombia-supermarket-hostages-rescued-in-cartagena/",
-     "https://thecitypaperbogota.com/news/cartagena-hostages-freed-in-24-hours-of-crisis-for-de-la-espriella/",
-     "https://www.inquisitr.com/cartagena-hostage-standoff-exito/"
-    ]
-   },
-   {
-    "что": "GUNMEN",
-    "статей_сутки": 612,
-    "статей_прошлые_сутки": 284,
-    "рост_раз": 2.08,
+    "что": "страна: Kuwait",
+    "статей_сутки": 1455,
+    "статей_прошлые_сутки": 380,
+    "рост_раз": 3.69,
     "типы": [
      "боевые действия",
      "переговоры"
     ],
     "примеры": [
-     "https://english.aawsat.com/arab-world/5345435-jordan-sentences-man-death-over-attack-killed-officer",
-     "https://www.al-monitor.com/originals/2026/11/jordan-sentences-man-death-over-attack-killed-officer",
-     "https://avenuemail.in/two-killed-gunmen-open-fire-wedding-bihar-bhojpur/"
+     "https://www.bordermail.com.au/story/9399160/iran-denies-attack-on-kuwait-as-two-italians-killed/",
+     "https://naharnet.com/stories/en/324046-italy-says-two-citizens-killed-in-iranian-drone-strike-in-kuwait",
+     "https://www.columbian.com/news/2026/nov/26/iran-attack-on-kuwait-kills-two-italian-rheinmetall-workers/"
     ]
    },
    {
-    "что": "YISRAEL",
-    "статей_сутки": 190,
-    "статей_прошлые_сутки": 0,
-    "рост_раз": 10.5,
+    "что": "BIRMINGHAM",
+    "статей_сутки": 1245,
+    "статей_прошлые_сутки": 375,
+    "рост_раз": 3.2,
     "типы": [
-     "намерения сотрудничать",
+     "переговоры",
+     "угрозы"
+    ],
+    "примеры": [
+     "https://magic989fm.iheart.com/content/2026-11-25-duran-duran-guitarist-andy-taylor-dies-at-65/",
+     "https://abc3340.com/news/nation-world/duran-duran-guitarist-andy-taylor-who-battled-stage-4-prostate-cancer-dies-at-65-rock-roll-hall-of-fame-band-english-new-wave-duran-duran-musician",
+     "https://www.ktvu.com/news/andy-taylor-duran-duran-guitarist-dies-65-band-confirms"
+    ]
+   },
+   {
+    "что": "страна: Romania",
+    "статей_сутки": 1755,
+    "статей_прошлые_сутки": 858,
+    "рост_раз": 2.02,
+    "типы": [
+     "переговоры",
+     "призывы"
+    ],
+    "примеры": [
+     "https://www.romaniapress.com/news=198352",
+     "https://www.romaniapress.com/news=198332",
+     "https://www.romaniapress.com/news=198319"
+    ]
+   },
+   {
+    "что": "ITALIAN",
+    "статей_сутки": 965,
+    "статей_прошлые_сутки": 378,
+    "рост_раз": 2.47,
+    "типы": [
+     "боевые действия",
      "переговоры"
     ],
     "примеры": [
-     "https://www.jpost.com/israel-news/politics-and-diplomacy/article-916148",
-     "https://www.telegraph.co.uk/world-news/2026/11/25/eisenkot-closer-to-ousting-netanyahu-after-coalition-deal/",
-     "http://www.bignewsnetwork.com/news/279453587/eisenkot-likely-to-present-coalition-with-clear-jewish-majority-by-next-week-yisrael-beytenu-leader-liberman"
+     "https://www.arabnews.com/saudi-arabia/houthi-attack-on-saudi-arabias-jazan-refinery-kills-nepali-worker-3014153",
+     "https://www.middleeasteye.net/live-blog/live-blog-update/kuwait-says-two-killed-intercepted-iranian-drone-shrapnel",
+     "https://en.apa.az/asia/iran-denies-role-in-kuwait-drone-attack-that-killed-two-italians-538780"
     ]
    },
    {
-    "что": "CANBERRA",
-    "статей_сутки": 602,
-    "статей_прошлые_сутки": 286,
-    "рост_раз": 2.03,
+    "что": "страна: Mauritius",
+    "статей_сутки": 555,
+    "статей_прошлые_сутки": 132,
+    "рост_раз": 3.78,
+    "типы": [
+     "переговоры",
+     "призывы"
+    ],
+    "примеры": [
+     "http://www.bignewsnetwork.com/news/279454979/jaishankar-meets-mauritius-fm-dhananjay-ramful-on-sidelines-of-iora-meeting-reviews-bilateral-ties",
+     "https://www.lemauricien.com/le-mauricien/twelve-or-fourteen-the-age-of-criminal-responsibility-in-mauritius/724219/",
+     "https://pragativadi.com/nsa-ajit-doval-calls-for-closer-cooperation-among-indian-ocean-littoral-states-at-8th-colombo-security-conclave-in-male/"
+    ]
+   },
+   {
+    "что": "NAVAL BASE",
+    "статей_сутки": 435,
+    "статей_прошлые_сутки": 104,
+    "рост_раз": 3.67,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.echo-news.co.uk/news/national/26764076.hundreds-jobs-created-faslane-submarine-maintenance-deal/",
+     "https://www.lancashiretelegraph.co.uk/news/national/26763973.streeting-unveils-gbp8bn-deal-get-nuclear-submarines-back-sea-faster/",
+     "https://www.warringtonguardian.co.uk/news/national/26764076.hundreds-jobs-created-faslane-submarine-maintenance-deal/"
+    ]
+   },
+   {
+    "что": "BUCHAREST",
+    "статей_сутки": 264,
+    "статей_прошлые_сутки": 20,
+    "рост_раз": 7.1,
+    "типы": [
+     "нападения",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.romaniapress.com/news=198352",
+     "https://www.stiripesurse.ro/politehnica-bucharest-hosts-opening-of-china-higher-education-exhibition-2026-bringing-together-36-chinese-universities_3940257",
+     "https://agerpres.ro/english/2026/11/26/politehnica-bucharest-hosts-opening-of-china-higher-education-exhibition-2026-bringing-together-36-c--1617316"
+    ]
+   },
+   {
+    "что": "страна: Seychelles",
+    "статей_сутки": 412,
+    "статей_прошлые_сутки": 104,
+    "рост_раз": 3.48,
     "типы": [
      "переговоры",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "https://www.examiner.com.au/story/9397718/visionary-pacific-leader-hailed-for-shift-from-china/",
-     "https://www.macleayargus.com.au/story/9397718/next-level-australia-inks-solomon-islands-treaty/",
-     "https://www.examiner.com.au/story/9398445/china-will-push-back-after-solomons-security-deal/"
+     "https://ianslive.in/eam-jaishankar-seychelles-fm-faure-reaffirm-commitment-to-strengthen-people-centric-partnership--20261126143142",
+     "https://www.newindianexpress.com/india/2026/Nov/26/colombo-security-conclave-adopts-2026-27-roadmap-focus-on-maritime-security-regional-threats",
+     "https://statehouse.gov.sc/news/7388/president-herminie-pledges-continued-support-for-diamond-dancers"
     ]
    },
    {
-    "что": "LEBANESE",
-    "статей_сутки": 386,
-    "статей_прошлые_сутки": 122,
-    "рост_раз": 2.86,
+    "что": "POLITICAL PRISONER",
+    "статей_сутки": 308,
+    "статей_прошлые_сутки": 45,
+    "рост_раз": 5.05,
+    "типы": [
+     "уступки",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.nugget.ca/press-releases/business-wire/seiden-law-llp-us-federal-judge-grants-yim-leak-the-right-to-seek-discovery-from-whale-hunting-contributor-jacob-sims/",
+     "https://www.riotimesonline.com/us-cardinal-omalley-tells-cuba-free-prisoners/",
+     "https://www.algemeiner.com/2026/11/26/iran-uses-internal-exile-silence-dissent-executions-rise-child-death-toll-crackdown-reaches-281/"
+    ]
+   },
+   {
+    "что": "страна: Mozambique",
+    "статей_сутки": 450,
+    "статей_прошлые_сутки": 153,
+    "рост_раз": 2.72,
     "типы": [
      "заявления",
      "дипломатическое сотрудничество"
     ],
     "примеры": [
-     "https://www.tribuneindia.com/news/world/lebanon-qatar-condemn-houthi-attack-on-riyadh-tower-that-injured-11-including-2-indians/",
-     "https://www.thejournal.ie/lebanon-inquest-of-sean-rooney-dublin-captain-david-kelly-7237474-Nov2026/",
-     "https://article.wn.com/view/2026/11/25/Embassies_of_five_countries_reaffirm_support_for_Lebanons_so/"
+     "https://www.dw.com/en/africas-opposition-voices-face-growing-pressure/a-80063893",
+     "https://oilreviewafrica.com/exploration/exploration/exxonmobil-reaches-fid-on-kizomba-redevelopment-offshore-angola",
+     "https://www.nyasatimes.com/malawian-kwacha-found-in-six-bags-as-zimbabwean-is-arrested-in-mozambique/"
     ]
    },
    {
-    "что": "RIYADH",
-    "статей_сутки": 515,
-    "статей_прошлые_сутки": 240,
-    "рост_раз": 2.06,
+    "что": "страна: Sierra Leone",
+    "статей_сутки": 477,
+    "статей_прошлые_сутки": 194,
+    "рост_раз": 2.32,
     "типы": [
      "заявления",
+     "переговоры"
+    ],
+    "примеры": [
+     "http://www.goskagit.com/community/health/sierra-leone-sees-steep-decline-in-maternal-mortality-but-barriers-to-care-persist/article_95829f5f-ee3c-57cf-88d7-b79a54cbfac7.html",
+     "https://cocorioko.net/attack-on-two-liberty-media-journalists-my-view/",
+     "https://www.switsalone.com/how-to-give-back-well-checking-a-charity-or-community-project-before-you-donate/"
+    ]
+   },
+   {
+    "что": "IVANHOE MINES",
+    "статей_сутки": 170,
+    "статей_прошлые_сутки": 0,
+    "рост_раз": 9.5,
+    "типы": [
+     "переговоры",
+     "дипломатическое сотрудничество"
+    ],
+    "примеры": [
+     "https://www.prnewswire.com/news-releases/geointelx-announces-collaboration-with-igeo-instituto-geologico-de-angola-and-ivanhoe-mines-to-analyze-more-than-a-century-of-angolas-geological-data-with-ai-302950845.html",
+     "https://www.mining.com/ivanhoe-mines-taps-ai-to-unlock-angolas-geological-archives/"
+    ]
+   },
+   {
+    "что": "PROSECUTOR GENERAL",
+    "статей_сутки": 226,
+    "статей_прошлые_сутки": 26,
+    "рост_раз": 5.35,
+    "типы": [
+     "переговоры",
+     "принуждение"
+    ],
+    "примеры": [
+     "https://en.apa.az/foreign-policy/slovak-prosecutor-general-visits-azerbaijan-cooperation-program-signed-538703",
+     "https://www.stiripesurse.ro/aur-leader-simion-summoned-to-the-prosecutors-general-office-as-a-suspect_3939997",
+     "https://www.riotimesonline.com/gayer-charged-prosecutor-general-supreme-court/"
+    ]
+   },
+   {
+    "что": "CHARLOTTE",
+    "статей_сутки": 492,
+    "статей_прошлые_сутки": 232,
+    "рост_раз": 2.03,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://www.thenorthernecho.co.uk/news/national/26765806.scottish-composer-chosen-score-kates-heal-documentary/",
+     "https://wifc.com/2026/11/26/french-actor-gerard-depardieu-to-face-trial-for-rape-his-lawyer-says/",
+     "https://www.kolotv.com/2026/11/26/yerington-man-arrested-connection-with-series-commercial-vehicle-burglaries/"
+    ]
+   },
+   {
+    "что": "страна: Mongolia",
+    "статей_сутки": 291,
+    "статей_прошлые_сутки": 88,
+    "рост_раз": 2.88,
+    "типы": [
+     "переговоры",
+     "требования"
+    ],
+    "примеры": [
+     "https://www.thecourier.com.au/story/9398209/when-can-you-claim-compensation-for-an-injury-on-a-flight/",
+     "https://english.news.cn/asiapacific/20261126/52bf23e7a65c4d069d1a4b1d31fb84a2/c.html",
+     "https://en.people.cn/n3/2026/1126/c90000-20523585.html"
+    ]
+   },
+   {
+    "что": "COLOMBO",
+    "статей_сутки": 378,
+    "статей_прошлые_сутки": 162,
+    "рост_раз": 2.19,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://ianslive.in/colombo-security-conclave-adopts-202627-roadmap-to-strengthen-regional-cooperation-at-8th-nsa-level-meeting-in-maldives--20261126145902",
+     "https://srilankamirror.com/2026/11/26/news/cordelia-empress-cruise-ship-arrives-at-colombo-port",
+     "https://www.dailymirror.lk/caption-story/Cordelia-Empress-docks-at-Colombo-Port/110-355826"
+    ]
+   },
+   {
+    "что": "TESCO",
+    "статей_сутки": 330,
+    "статей_прошлые_сутки": 129,
+    "рост_раз": 2.35,
+    "типы": [
+     "заявления",
+     "ухудшение отношений (санкции, разрыв)"
+    ],
+    "примеры": [
+     "https://www.elystandard.co.uk/news/national/26763838.every-effort-needed-save-northern-ireland-poundland-jobs---economy-minister/",
+     "https://www.wirralglobe.co.uk/news/national/uk-today/26765809.gen-z-black-friday-shoppers-heading-back-high-street/",
+     "https://www.dailymail.com/news/article-16325003/Fell-runner-23-seen-sobbing-cars-dashcam-parked-remote-countryside-body-five-days-later-medication-overdose-inquest-told.html"
+    ]
+   },
+   {
+    "что": "JAIN",
+    "статей_сутки": 273,
+    "статей_прошлые_сутки": 86,
+    "рост_раз": 2.76,
+    "типы": [
+     "помощь",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://gulfnews.com/world/asia/india/121kg-of-gold-worth-rs206-billion-jain-couple-makes-extraordinary-donation-to-tirupati-temple-1.500761964",
+     "https://www.thehindubusinessline.com/markets/nifty-it-jumps-over-2-as-hcltech-wipro-infosys-lead-it-rally/article71745930.ece",
+     "https://www.freepressjournal.in/business/who-is-vardhaman-jain-chennai-businessman-offers-121-kg-gold-ornaments-to-lord-venkateswara-in-tirumala"
+    ]
+   },
+   {
+    "что": "OSCE",
+    "статей_сутки": 150,
+    "статей_прошлые_сутки": 10,
+    "рост_раз": 5.67,
+    "типы": [
+     "переговоры",
+     "намерения сотрудничать"
+    ],
+    "примеры": [
+     "https://www.miragenews.com/uk-issues-osce-statement-on-national-minorities-1784451/",
+     "https://news.az/news/why-azerbaijan-is-well-suited-to-chair-the-osce-amid-a-political-crisis"
+    ]
+   },
+   {
+    "что": "BANGKOK",
+    "статей_сутки": 330,
+    "статей_прошлые_сутки": 143,
+    "рост_раз": 2.15,
+    "типы": [
+     "переговоры",
      "боевые действия"
     ],
     "примеры": [
-     "http://www.nepalnational.com/news/279452752/lebanon-qatar-condemn-houthi-attack-on-riyadh-tower-that-injured-11-including-2-indians",
-     "https://www.tribuneindia.com/news/world/lebanon-qatar-condemn-houthi-attack-on-riyadh-tower-that-injured-11-including-2-indians/",
-     "https://sana.sy/en/syria/2361834/"
+     "https://english.news.cn/asiapacific/20261126/e88b9775e5184848bf252569674f4559/c.html",
+     "http://www.thailandnews.net/news/279456626/spotnews-thailand-bangkok-explosion-oil-refinery-aftermath",
+     "https://grenadachronicle.com/explosion-occurs-at-oil-facility-in-thailands-bangkok/"
+    ]
+   },
+   {
+    "что": "KUWAITI",
+    "статей_сутки": 175,
+    "статей_прошлые_сутки": 28,
+    "рост_раз": 4.06,
+    "типы": [
+     "переговоры",
+     "боевые действия"
+    ],
+    "примеры": [
+     "https://cedarnews.net/newstasks/1199419/kuwait-blames-iran-for-attack-on-vital-site-that-injured-four/",
+     "https://www.arabtimesonline.com/news/life-imprisonment-for-kuwaiti-who-strangled-wife-over-family-breakfast-dispute/",
+     "http://thepeninsulaqatar.com/article/26/11/2026/two-italians-injured-during-iranian-drone-attack-have-died-kuwait-ministry"
+    ]
+   },
+   {
+    "что": "RUNNER",
+    "статей_сутки": 331,
+    "статей_прошлые_сутки": 152,
+    "рост_раз": 2.04,
+    "типы": [
+     "переговоры",
+     "призывы"
+    ],
+    "примеры": [
+     "https://krystal93.com/denver-weather-a-mild-thanksgiving-in-store-across-colorado/",
+     "https://www.easternecho.com/article/2026/11/opinion-things-to-do-while-home-over-thanksgiving-break",
+     "https://www.chicagotribune.com/2026/11/26/fox-and-the-turkey-race-in-batavia-gets-thanksgiving-off-to-a-fast-start/"
+    ]
+   },
+   {
+    "что": "MARK RUTTE",
+    "статей_сутки": 240,
+    "статей_прошлые_сутки": 80,
+    "рост_раз": 2.6,
+    "типы": [
+     "переговоры",
+     "заявления"
+    ],
+    "примеры": [
+     "https://news.webindia123.com/news/Articles/World/20261126/4525013.html",
+     "http://www.europesun.com/news/279454415/russia-baltic-bastion-why-is-nato-threatening-kaliningrad",
+     "https://www.mirror.co.uk/news/world-news/russia-putin-nuclear-war-warning-37915821"
+    ]
+   },
+   {
+    "что": "BLOG",
+    "статей_сутки": 198,
+    "статей_прошлые_сутки": 49,
+    "рост_раз": 3.16,
+    "типы": [
+     "намерения сотрудничать",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://www.investmentwatchblog.com/china-and-japan-hit-back-at-trumps-new-tariff-plans/",
+     "https://www.moneycontrol.com/entertainment/samay-raina-creates-history-becomes-first-youtube-creator-globally-to-cross-1-million-channel-members-article-14089839.html",
+     "https://mainecrimewriters.com/2026/11/26/who-would-you-invite-to-dinner/"
+    ]
+   },
+   {
+    "что": "SLOVAKIA",
+    "статей_сутки": 234,
+    "статей_прошлые_сутки": 82,
+    "рост_раз": 2.49,
+    "типы": [
+     "дипломатическое сотрудничество",
+     "переговоры"
+    ],
+    "примеры": [
+     "https://enrsi.stvr.sk/articles/news/470212/slovakia-to-provide-ukraine-with-three-electric-locomotives",
+     "https://www.bankingnews.gr/diethni/articles/913432/bulgaria-agreed-to-the-eu-loan-to-ukraine-on-one-condition",
+     "https://enrsi.stvr.sk/articles/topical-issue/470211/slovakia-joins-global-campaign-against-violence-against-women"
     ]
    }
   ]
  },
  "wiki": {
   "источник": "просмотры Википедии (Wikimedia), en",
-  "день": "2026-11-24",
+  "день": "2026-11-25",
   "резко_выросло": [
    {
-    "статья": "Eternal September",
-    "просмотров_вчера": 61273,
+    "статья": "Ezra Frech",
+    "просмотров_вчера": 260732,
     "позавчера": 0,
-    "рост_раз": 62.27
+    "рост_раз": 261.73
    },
    {
-    "статья": "Jayden Daniels",
-    "просмотров_вчера": 50821,
+    "статья": "Jennifer Barreto",
+    "просмотров_вчера": 149785,
     "позавчера": 0,
-    "рост_раз": 51.82
+    "рост_раз": 150.78
    },
    {
-    "статья": "Great white shark",
-    "просмотров_вчера": 50665,
+    "статья": "Miss Universe 2026",
+    "просмотров_вчера": 394056,
+    "позавчера": 59793,
+    "рост_раз": 6.5
+   },
+   {
+    "статья": "Andy Taylor (guitarist)",
+    "просмотров_вчера": 135665,
     "позавчера": 0,
-    "рост_раз": 51.66
+    "рост_раз": 136.66
    },
    {
-    "статья": "Soham murders",
-    "просмотров_вчера": 87021,
-    "позавчера": 15399,
-    "рост_раз": 5.37
+    "статья": "Mike McCarthy",
+    "просмотров_вчера": 128019,
+    "позавчера": 0,
+    "рост_раз": 129.02
    },
    {
-    "статья": "Killing of JonBenét Ramsey",
-    "просмотров_вчера": 64731,
-    "позавчера": 9468,
-    "рост_раз": 6.28
+    "статья": "Aaron Rodgers",
+    "просмотров_вчера": 120910,
+    "позавчера": 0,
+    "рост_раз": 121.91
    },
    {
-    "статья": "Anthony Russell (murderer)",
-    "просмотров_вчера": 79697,
-    "позавчера": 17463,
-    "рост_раз": 4.37
+    "статья": "Martha Firestone Ford",
+    "просмотров_вчера": 111793,
+    "позавчера": 0,
+    "рост_раз": 112.79
    },
    {
-    "статья": "Survivor Series: WarGames (2026)",
-    "просмотров_вчера": 67057,
-    "позавчера": 29702,
-    "рост_раз": 2.22
+    "статья": "Dancing with the Stars (American TV series) season 35",
+    "просмотров_вчера": 205438,
+    "позавчера": 19216,
+    "рост_раз": 10.21
+   },
+   {
+    "статья": "Miss International 2026",
+    "просмотров_вчера": 93312,
+    "позавчера": 0,
+    "рост_раз": 94.31
+   },
+   {
+    "статья": "Daniella Karagach",
+    "просмотров_вчера": 86573,
+    "позавчера": 0,
+    "рост_раз": 87.57
+   },
+   {
+    "статья": "Iowa lead azide detonation",
+    "просмотров_вчера": 78852,
+    "позавчера": 0,
+    "рост_раз": 79.85
+   },
+   {
+    "статья": "Tatyana Ali",
+    "просмотров_вчера": 78391,
+    "позавчера": 0,
+    "рост_раз": 79.39
+   },
+   {
+    "статья": "Zyri",
+    "просмотров_вчера": 72484,
+    "позавчера": 0,
+    "рост_раз": 73.48
+   },
+   {
+    "статья": "Raheem Sterling",
+    "просмотров_вчера": 71889,
+    "позавчера": 0,
+    "рост_раз": 72.89
+   },
+   {
+    "статья": "Connor Wood (comedian)",
+    "просмотров_вчера": 69185,
+    "позавчера": 0,
+    "рост_раз": 70.19
+   },
+   {
+    "статья": "Duran Duran",
+    "просмотров_вчера": 63746,
+    "позавчера": 0,
+    "рост_раз": 64.75
+   },
+   {
+    "статья": "Pete Edochie",
+    "просмотров_вчера": 61123,
+    "позавчера": 0,
+    "рост_раз": 62.12
+   },
+   {
+    "статья": "William Clay Ford Sr.",
+    "просмотров_вчера": 51367,
+    "позавчера": 0,
+    "рост_раз": 52.37
+   },
+   {
+    "статья": "Dancing with the Stars (American TV series)",
+    "просмотров_вчера": 61956,
+    "позавчера": 8582,
+    "рост_раз": 6.57
+   },
+   {
+    "статья": "Ade Adepitan",
+    "просмотров_вчера": 72731,
+    "позавчера": 14704,
+    "рост_раз": 4.7
+   },
+   {
+    "статья": "Bea Millan-Windorski",
+    "просмотров_вчера": 61208,
+    "позавчера": 9237,
+    "рост_раз": 6.08
+   },
+   {
+    "статья": "Blade Runner 2099",
+    "просмотров_вчера": 86001,
+    "позавчера": 24411,
+    "рост_раз": 3.42
+   },
+   {
+    "статья": "Lead(II) azide",
+    "просмотров_вчера": 119831,
+    "позавчера": 51398,
+    "рост_раз": 2.31
+   },
+   {
+    "статья": "Rob Lowe",
+    "просмотров_вчера": 70671,
+    "позавчера": 32671,
+    "рост_раз": 2.13
+   },
+   {
+    "статья": "Hunter Schafer",
+    "просмотров_вчера": 57970,
+    "позавчера": 26191,
+    "рост_раз": 2.17
    }
   ]
  },
@@ -1081,154 +1071,154 @@
   "источник": "NewsAPI.ai (EventRegistry), крупнейшие события суток",
   "события": [
    {
-    "событие": "Trump Administration Unveils New Tariffs for Dozens of Countries, Citing Unfair Practices",
-    "статей": 1371,
-    "дата": "2026-11-24",
-    "uri": "eng-12217418"
-   },
-   {
-    "событие": "Shenzhou 24: China to launch space mission with Pakistani astronaut on historic journey",
-    "статей": 950,
-    "дата": "2026-11-24",
-    "uri": "eng-12213206"
-   },
-   {
-    "событие": "Pope Francis Diary Excerpts Published in New Book",
-    "статей": 917,
-    "дата": "2026-11-24",
-    "uri": "spa-4430073"
-   },
-   {
-    "событие": "Prince William and Kate's country home broken into, 2 arrested",
-    "статей": 777,
-    "дата": "2026-11-24",
-    "uri": "eng-12217041"
-   },
-   {
-    "событие": "Don't expect a Steelers fantasy spark from Mason Rudolph after Aaron Rodgers benching",
-    "статей": 749,
+    "событие": "Aaron Rodgers' former teammates criticize interview on Pat McAfee show: 'It's despicable'",
+    "статей": 1658,
     "дата": "2026-11-25",
     "uri": "eng-12214306"
    },
    {
-    "событие": "Villavicencio car bomb: More than 20 injured in attack in Colombian city",
-    "статей": 665,
-    "дата": "2026-11-24",
-    "uri": "spa-4429948"
-   },
-   {
-    "событие": "China's Huawei convicted of deceiving banks about business in Iran and stealing US trade secrets",
-    "статей": 630,
-    "дата": "2026-11-24",
-    "uri": "eng-12216938"
+    "событие": "Trump's Latest Tariffs Revive Focus on Pressuring China",
+    "статей": 1430,
+    "дата": "2026-11-25",
+    "uri": "eng-12217418"
    },
    {
     "событие": "Keralam to roll out 'Avalkkoppam' initiative against domestic, cyber violence targeting women",
-    "статей": 585,
-    "дата": "2026-11-24",
-    "uri": "eng-12213678"
-   },
-   {
-    "событие": "What Real Madrid are doing to get Vinicius Jr back on track",
-    "статей": 544,
-    "дата": "2026-11-24",
-    "uri": "eng-12216963"
-   },
-   {
-    "событие": "Houthi Attack on Skyscraper in Saudi Capital Wounds 11, Officials Say",
-    "статей": 469,
-    "дата": "2026-11-24",
-    "uri": "eng-12217427"
-   },
-   {
-    "событие": "Man City 2 Napoli 2 - Cherki and Doku provide a spark, but City continue to labour",
-    "статей": 465,
-    "дата": "2026-11-24",
-    "uri": "eng-12214256"
-   },
-   {
-    "событие": "BJP-SAD alliance: From 15 years in power to a bitter split and reunion",
-    "статей": 433,
-    "дата": "2026-11-24",
-    "uri": "eng-12216267"
-   },
-   {
-    "событие": "Colombian police storm supermarket to free 20 held hostage for 17 hours",
-    "статей": 416,
-    "дата": "2026-11-24",
-    "uri": "eng-12218159"
-   },
-   {
-    "событие": "Champions League: Gordon twice on target in Barcelona's cruise at Sabah",
-    "статей": 400,
+    "статей": 1188,
     "дата": "2026-11-25",
-    "uri": "spa-4431674"
+    "uri": "spa-4430235"
    },
    {
-    "событие": "Duchess Meghan's father Thomas Markle indicted on possession of child pornography",
-    "статей": 378,
-    "дата": "2026-11-24",
-    "uri": "eng-12218886"
+    "событие": "Andy Taylor, Duran Duran Guitarist, Dies at 65 After 'Courageous Battle' with Prostate Cancer",
+    "статей": 865,
+    "дата": "2026-11-25",
+    "uri": "eng-12222212"
    },
    {
-    "событие": "South Korea tells island residents to take shelter after Russian military aircraft approach",
-    "статей": 370,
-    "дата": "2026-11-24",
-    "uri": "eng-12215661"
+    "событие": "Trump proposes 10% tariff on Brazilian aircraft amid US-Brazil trade tensions",
+    "статей": 857,
+    "дата": "2026-11-25",
+    "uri": "por-1371672"
    },
    {
-    "событие": "Beaver Moon 2026: Check When The Supermoon Will Be Visible In India",
-    "статей": 359,
-    "дата": "2026-11-24",
-    "uri": "eng-12216542"
+    "событие": "US regulators approve SpaceX plan to send a million data satellites to space",
+    "статей": 690,
+    "дата": "2026-11-25",
+    "uri": "eng-12221638"
    },
    {
-    "событие": "5 Killed In Turkish Military Helicopter Crash",
-    "статей": 351,
-    "дата": "2026-11-24",
-    "uri": "tur-1394853"
+    "событие": "Europe Assembles a New Team to Steer Its Economy",
+    "статей": 601,
+    "дата": "2026-11-26",
+    "uri": "spa-4432612"
    },
    {
-    "событие": "Kilmar Abrego Garcia arrives in Spain after self-deporting from US",
-    "статей": 338,
-    "дата": "2026-11-24",
-    "uri": "eng-12218906"
+    "событие": "EU leaders braced for clashes over Ukraine aid at budget talks",
+    "статей": 474,
+    "дата": "2026-11-26",
+    "uri": "eng-12221179"
    },
    {
-    "событие": "Vaibhav Sooryavanshi smashes fastest ever List A double century, ends with 204 off 53 balls",
-    "статей": 332,
-    "дата": "2026-11-24",
-    "uri": "eng-12217073"
+    "событие": "\"Cute, PR stunt\": X mocks Elon Musk's promises of SpaceX shares for US kids",
+    "статей": 441,
+    "дата": "2026-11-26",
+    "uri": "eng-12222031"
    },
    {
-    "событие": "Cong rejects SP's 26-seat offer; marathon talks on all 403 seats",
-    "статей": 325,
-    "дата": "2026-11-24",
-    "uri": "eng-12216751"
+    "событие": "Med Emre: Diesel tanker carrying 7,000 tonnes sinks near Ibiza, killing one",
+    "статей": 438,
+    "дата": "2026-11-26",
+    "uri": "deu-2203196"
    },
    {
-    "событие": "4 adults and 2 kids missing after plane lost communication off coast of Mississippi",
-    "статей": 306,
-    "дата": "2026-11-24",
-    "uri": "eng-12218967"
+    "событие": "Brad Pitt and Angelina Jolie settle years-long legal battle over joint French winery",
+    "статей": 429,
+    "дата": "2026-11-25",
+    "uri": "eng-12222221"
+   },
+   {
+    "событие": "FIFA subject of cyberattack, has 'personal and business information' stolen",
+    "статей": 427,
+    "дата": "2026-11-26",
+    "uri": "spa-4433626"
+   },
+   {
+    "событие": "Gordon enjoys 'very special' Baku again to lead Barcelona rout",
+    "статей": 405,
+    "дата": "2026-11-25",
+    "uri": "eng-12220033"
+   },
+   {
+    "событие": "Two Italians killed after Iranian strike in Kuwait",
+    "статей": 358,
+    "дата": "2026-11-26",
+    "uri": "eng-12224234"
+   },
+   {
+    "событие": "WHMI 93.5 FM Radio Station -- Livingston County Michigan",
+    "статей": 356,
+    "дата": "2026-11-25",
+    "uri": "spa-4432681"
+   },
+   {
+    "событие": "Europe's Hera Mission Releases Close-Up Images of the Asteroid Hit by a NASA Spacecraft",
+    "статей": 347,
+    "дата": "2026-11-25",
+    "uri": "eng-12220667"
    },
    {
     "событие": "Raheem Sterling given suspended prison sentence for dangerous driving, nitrous oxide possession",
-    "статей": 288,
+    "статей": 331,
     "дата": "2026-11-25",
     "uri": "eng-12220523"
    },
    {
-    "событие": "Iraq's Prime Minister Aims to Wrest More Power from Kurdistan Region",
-    "статей": 284,
-    "дата": "2026-11-24",
-    "uri": "eng-12216575"
+    "событие": "North Korea expels Swiss diplomat in sanctions row",
+    "статей": 330,
+    "дата": "2026-11-25",
+    "uri": "eng-12219555"
    },
    {
-    "событие": "China: Xi Jinping reaffirms support for the Palestinian cause and the two-state solution",
-    "статей": 277,
-    "дата": "2026-11-24",
-    "uri": "fra-1367555"
+    "событие": "'Not Bayern-like': Joshua Kimmich fumes at club's treatment of Jamal Musiala",
+    "статей": 330,
+    "дата": "2026-11-25",
+    "uri": "spa-4431774"
+   },
+   {
+    "событие": "Gérard Depardieu Is Ordered to Stand Trial Over Rape Accusation",
+    "статей": 323,
+    "дата": "2026-11-26",
+    "uri": "fra-1367530"
+   },
+   {
+    "событие": "Why Kobe Bryant's jersey numbers can help Senne Lammens process Man United mistakes",
+    "статей": 307,
+    "дата": "2026-11-25",
+    "uri": "eng-12222173"
+   },
+   {
+    "событие": "Veruschka Was a Supermodel Before the Term Was Invented",
+    "статей": 271,
+    "дата": "2026-11-25",
+    "uri": "deu-2202993"
+   },
+   {
+    "событие": "Pete Edochie: Veteran Nigerian Nollywood actor dies aged 79",
+    "статей": 270,
+    "дата": "2026-11-25",
+    "uri": "eng-12219253"
+   },
+   {
+    "событие": "Six Florida family members killed in plane crash on way home from fishing trip identified",
+    "статей": 269,
+    "дата": "2026-11-25",
+    "uri": "eng-12221449"
+   },
+   {
+    "событие": "The Rams embraced the ugly, and it crushed the Packers' resolve",
+    "статей": 268,
+    "дата": "2026-11-25",
+    "uri": "eng-12221416"
    }
   ]
  }

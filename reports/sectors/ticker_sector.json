@@ -1,4 +1,8 @@
 {
+ "ADI.US": {
+  "industry": "Semiconductors | Semiconductors",
+  "sector": "Information Technology"
+ },
  "ANET.US": {
   "industry": "Communications Equipment | Computer Hardware",
   "sector": "Information Technology"
@@ -6,6 +10,10 @@
  "AU.US": {
   "industry": "Gold | Gold",
   "sector": "Materials"
+ },
+ "AVT.US": {
+  "industry": "Technology Distributors | Electronics & Computer Distribution",
+  "sector": "Information Technology"
  },
  "AXS.US": {
   "industry": "Property & Casualty Insurance | Insurance - Specialty",
@@ -27,9 +35,17 @@
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
  },
+ "EMR.US": {
+  "industry": "Electrical Components & Equipment | Specialty Industrial Machinery",
+  "sector": "Industrials"
+ },
  "EQIX.US": {
   "industry": "Data Center REITs | REIT - Specialty",
   "sector": "Real Estate"
+ },
+ "FIVE.US": {
+  "industry": "Other Specialty Retail | Specialty Retail",
+  "sector": "Consumer Discretionary"
  },
  "FRO.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
@@ -59,6 +75,10 @@
   "industry": "Commodity Chemicals | Specialty Chemicals",
   "sector": "Materials"
  },
+ "MATX.US": {
+  "industry": "Marine Transportation | Marine Shipping",
+  "sector": "Industrials"
+ },
  "META.US": {
   "industry": "Interactive Media & Services | Internet Content & Information",
   "sector": "Communication Services"
@@ -78,6 +98,10 @@
  "OXY.US": {
   "industry": "Integrated Oil & Gas | Oil & Gas E&P",
   "sector": "Energy"
+ },
+ "ROK.US": {
+  "industry": "Electrical Components & Equipment | Specialty Industrial Machinery",
+  "sector": "Industrials"
  },
  "RTX.US": {
   "industry": "Aerospace & Defense | Aerospace & Defense",
@@ -111,6 +135,10 @@
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
  },
+ "TXN.US": {
+  "industry": "Semiconductors | Semiconductors",
+  "sector": "Information Technology"
+ },
  "VWAGY.US": {
   "industry": "Automobile Manufacturers | Auto Manufacturers",
   "sector": "Consumer Discretionary"
@@ -118,5 +146,9 @@
  "XOM.US": {
   "industry": "Integrated Oil & Gas | Oil & Gas Integrated",
   "sector": "Energy"
+ },
+ "ZIM.US": {
+  "industry": "Marine Transportation | Marine Shipping",
+  "sector": "Industrials"
  }
 }
