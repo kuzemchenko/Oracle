@@ -1,4 +1,12 @@
 {
+ "AA.US": {
+  "industry": "Aluminum | Aluminum",
+  "sector": "Materials"
+ },
+ "ACGL.US": {
+  "industry": "Property & Casualty Insurance | Insurance - Diversified",
+  "sector": "Financials"
+ },
  "ADI.US": {
   "industry": "Semiconductors | Semiconductors",
   "sector": "Information Technology"
@@ -6,6 +14,10 @@
  "ANET.US": {
   "industry": "Communications Equipment | Computer Hardware",
   "sector": "Information Technology"
+ },
+ "ASTS.US": {
+  "industry": "Wireless Telecommunication Services | Communication Equipment",
+  "sector": "Communication Services"
  },
  "AU.US": {
   "industry": "Gold | Gold",
@@ -27,8 +39,24 @@
   "industry": "Fertilizers & Agricultural Chemicals | Agricultural Inputs",
   "sector": "Materials"
  },
+ "CMTL.US": {
+  "industry": "Communications Equipment | Communication Equipment",
+  "sector": "Information Technology"
+ },
+ "CNQ.US": {
+  "industry": "Oil & Gas Exploration & Production | Oil & Gas E&P",
+  "sector": "Energy"
+ },
+ "CRSR.US": {
+  "industry": "Technology Hardware, Storage & Peripherals | Computer Hardware",
+  "sector": "Information Technology"
+ },
  "CRWV.US": {
   "industry": "Internet Services & Infrastructure | Software - Infrastructure",
+  "sector": "Information Technology"
+ },
+ "DELL.US": {
+  "industry": "Technology Hardware, Storage & Peripherals | Computer Hardware",
   "sector": "Information Technology"
  },
  "DHT.US": {
@@ -42,6 +70,10 @@
  "EQIX.US": {
   "industry": "Data Center REITs | REIT - Specialty",
   "sector": "Real Estate"
+ },
+ "ESLT.US": {
+  "industry": "Aerospace & Defense | Aerospace & Defense",
+  "sector": "Industrials"
  },
  "FIVE.US": {
   "industry": "Other Specialty Retail | Specialty Retail",
@@ -59,6 +91,14 @@
   "industry": "Interactive Media & Services | Internet Content & Information",
   "sector": "Communication Services"
  },
+ "INTC.US": {
+  "industry": "Semiconductors | Semiconductors",
+  "sector": "Information Technology"
+ },
+ "IRDM.US": {
+  "industry": "Alternative Carriers | Telecom Services",
+  "sector": "Communication Services"
+ },
  "LCID.US": {
   "industry": "Automobile Manufacturers | Auto Manufacturers",
   "sector": "Consumer Discretionary"
@@ -67,6 +107,14 @@
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
  },
+ "LNVGY.US": {
+  "industry": "Technology Hardware, Storage & Peripherals | Computer Hardware",
+  "sector": "Information Technology"
+ },
+ "LUMN.US": {
+  "industry": "Alternative Carriers | Telecom Services",
+  "sector": "Communication Services"
+ },
  "LUV.US": {
   "industry": "Passenger Airlines | Airlines",
   "sector": "Industrials"
@@ -74,6 +122,10 @@
  "LYB.US": {
   "industry": "Commodity Chemicals | Specialty Chemicals",
   "sector": "Materials"
+ },
+ "MAR.US": {
+  "industry": "Hotels, Resorts & Cruise Lines | Lodging",
+  "sector": "Consumer Discretionary"
  },
  "MATX.US": {
   "industry": "Marine Transportation | Marine Shipping",
@@ -99,6 +151,10 @@
   "industry": "Integrated Oil & Gas | Oil & Gas E&P",
   "sector": "Energy"
  },
+ "RKLB.US": {
+  "industry": "Industrial Machinery & Supplies & Components | Aerospace & Defense",
+  "sector": "Industrials"
+ },
  "ROK.US": {
   "industry": "Electrical Components & Equipment | Specialty Industrial Machinery",
   "sector": "Industrials"
@@ -119,6 +175,10 @@
   "industry": "Technology Hardware, Storage & Peripherals | Computer Hardware",
   "sector": "Information Technology"
  },
+ "SPCX.US": {
+  "industry": "Aerospace & Defense | Aerospace & Defense",
+  "sector": "Industrials"
+ },
  "STNG.US": {
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
@@ -135,8 +195,16 @@
   "industry": "Oil & Gas Storage & Transportation | Oil & Gas Midstream",
   "sector": "Energy"
  },
+ "TSAT.US": {
+  "industry": "Electronic Equipment & Instruments | Communication Equipment",
+  "sector": "Information Technology"
+ },
  "TXN.US": {
   "industry": "Semiconductors | Semiconductors",
+  "sector": "Information Technology"
+ },
+ "VSAT.US": {
+  "industry": "Communications Equipment | Communication Equipment",
   "sector": "Information Technology"
  },
  "VWAGY.US": {
